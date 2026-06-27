@@ -1,0 +1,330 @@
+{
+  "music.death": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/music_death",
+        "stream": true
+      }
+    ]
+  },
+  "music.first_deploy": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/music_first_deploy",
+        "stream": true
+      }
+    ]
+  },
+  "music.stage_begin": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/music_stage_begin",
+        "stream": true
+      }
+    ]
+  },
+  "music.victory": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/music_victory",
+        "stream": true
+      }
+    ]
+  },
+  "music.defeat": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/music_defeat",
+        "stream": true
+      }
+    ]
+  },
+  "loop.deploy_screen": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/loop_deploy_screen",
+        "stream": true
+      }
+    ]
+  },
+  "loop.retreat": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/loop_retreat",
+        "stream": true
+      }
+    ]
+  },
+  "loop.attack": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/loop_attack",
+        "stream": true
+      }
+    ]
+  },
+  "loop.lobby": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/loop_lobby",
+        "stream": true
+      }
+    ]
+  },
+  "loop.queue": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/loop_queue",
+        "stream": true
+      }
+    ]
+  },
+  "loop.in_objective": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/loop_in_objective",
+        "stream": true
+      }
+    ]
+  },
+  "loop.last_objective": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/loop_last_objective",
+        "stream": true
+      }
+    ]
+  },
+  "loop.last_objective_victory": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/loop_last_objective_victory",
+        "stream": true
+      }
+    ]
+  },
+  "loop.final_segment_victory": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/loop_final_segment_victory",
+        "stream": true
+      }
+    ]
+  },
+  "loop.final_segment_defeat": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/loop_final_segment_defeat",
+        "stream": true
+      }
+    ]
+  },
+  "sfx.capture_in": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/capture_in"
+      }
+    ]
+  },
+  "sfx.capture_taked": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/capture_taked"
+      }
+    ]
+  },
+  "sfx.beacon_destroyed": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/beacon_destory",
+        "volume": 0.5
+      }
+    ]
+  },
+  "sfx.player_heal": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/player_heal"
+      }
+    ]
+  },
+  "sfx.beacon_deploy": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/beacon_depoy",
+        "volume": 0.5
+      }
+    ]
+  },
+  "sfx.beacon_loop": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/beacon_loop",
+        "volume": 0.375
+      }
+    ]
+  },
+  "sfx.ammo_bag_throw": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/ammo_bag_throw",
+        "volume": 1.2
+      }
+    ]
+  },
+  "sfx.ammo_bag_pickup": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/ammo_bag_pickup",
+        "volume": 1.2
+      }
+    ]
+  },
+  "sfx.revive_first_person": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/revive/revive_first_person"
+      }
+    ]
+  },
+  "sfx.revive_defibrillator_start": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/revive/revive_defibrillator_start"
+      }
+    ]
+  },
+  "sfx.revive_syringe_start": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/revive/revive_syringe_start"
+      }
+    ]
+  },
+  "voice.capture.objective_attacking_hostiles_a": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_attacking_hostiles_a"
+      }
+    ]
+  },
+  "voice.capture.objective_attacking_hostiles_b": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_attacking_hostiles_b"
+      }
+    ]
+  },
+  "voice.capture.objective_attacking_hostiles_c": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_attacking_hostiles_c"
+      }
+    ]
+  },
+  "voice.capture.objective_attacking_hostiles_d": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_attacking_hostiles_d"
+      }
+    ]
+  },
+  "voice.capture.objective_attacking_hostiles_e": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_attacking_hostiles_e"
+      }
+    ]
+  },
+  "voice.capture.objective_attacking_hostiles_f": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_attacking_hostiles_f"
+      }
+    ]
+  },
+  "voice.capture.objective_lost_a": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_lost_a"
+      }
+    ]
+  },
+  "voice.capture.objective_lost_b": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_lost_b"
+      }
+    ]
+  },
+  "voice.capture.objective_lost_c": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_lost_c"
+      }
+    ]
+  },
+  "voice.capture.objective_lost_d": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_lost_d"
+      }
+    ]
+  },
+  "voice.capture.objective_lost_e": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_lost_e"
+      }
+    ]
+  },
+  "voice.capture.objective_lost_f": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_lost_f"
+      }
+    ]
+  },
+  "voice.capture.objective_taken_a": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_taken_a"
+      }
+    ]
+  },
+  "voice.capture.objective_taken_b": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_taken_b"
+      }
+    ]
+  },
+  "voice.capture.objective_taken_c": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_taken_c"
+      }
+    ]
+  },
+  "voice.capture.objective_taken_d": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_taken_d"
+      }
+    ]
+  },
+  "voice.capture.objective_taken_e": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_taken_e"
+      }
+    ]
+  },
+  "voice.capture.objective_taken_f": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/capture/objective_taken_f"
+      }
+    ]
+  }
+}

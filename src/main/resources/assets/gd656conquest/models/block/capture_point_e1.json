@@ -1,0 +1,7 @@
+﻿{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "gd656conquest:block/capture_point_e"
+  }
+}
+

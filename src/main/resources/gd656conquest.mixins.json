@@ -1,0 +1,31 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "org.mods.gd656conquest.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "gd656conquest.refmap.json",
+  "mixins": [
+    "compat.ywzjvehicle.RepairToolItemMixin",
+    "server.EntityMixin",
+    "server.MinecraftServerMixin",
+    "server.PlayerListMixin",
+    "server.ServerGamePacketListenerImplMixin"
+  ],
+  "client": [
+    "client.forge.ModMismatchDisconnectedScreenMixin",
+    "client.forge.ModMismatchInfoPanelAccessor",
+    "client.ItemInHandLayerMixin",
+    "client.ItemInHandRendererMixin",
+    "client.MusicManagerMixin",
+    "client.MouseHandlerMixin",
+    "client.PauseScreenMixin",
+    "client.PlayerTabOverlayMixin",
+    "client.PlayerTeamColorMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}

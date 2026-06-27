@@ -1,0 +1,90 @@
+package org.mods.gd656conquest.server.room.core;
+
+import net.minecraft.server.MinecraftServer;
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayEntryManager;
+import org.mods.gd656conquest.server.room.matching.RoomMatchingCoordinator;
+import org.mods.gd656conquest.server.room.runtime.RoomAudioRuntimeService;
+import org.mods.gd656conquest.server.room.runtime.RoomDeploySelectionService;
+import org.mods.gd656conquest.server.room.runtime.RoomHudSyncService;
+import org.mods.gd656conquest.server.room.runtime.RoomItemReplenishService;
+import org.mods.gd656conquest.server.room.runtime.RoomInventorySnapshotService;
+import org.mods.gd656conquest.server.room.runtime.RoomKilliconService;
+import org.mods.gd656conquest.server.room.runtime.RoomLobbyTransferService;
+import org.mods.gd656conquest.server.room.runtime.RoomMarkerRuntimeService;
+import org.mods.gd656conquest.server.room.runtime.RoomNametagVisibilityService;
+import org.mods.gd656conquest.server.room.runtime.RoomPlayerLaunchService;
+import org.mods.gd656conquest.server.room.runtime.RoomPlayerLoadoutService;
+import org.mods.gd656conquest.server.room.runtime.RoomPlayerRespawnService;
+import org.mods.gd656conquest.server.room.runtime.RoomPlayerStateService;
+import org.mods.gd656conquest.server.room.runtime.RoomPlayerTransferQueueService;
+import org.mods.gd656conquest.server.room.runtime.RoomResultRuntimeService;
+import org.mods.gd656conquest.server.room.runtime.RoomRuleRuntimeService;
+import org.mods.gd656conquest.server.room.runtime.RoomSquadAssignmentService;
+import org.mods.gd656conquest.server.room.runtime.RoomSquadBeaconService;
+import org.mods.gd656conquest.server.room.runtime.RoomSupportBoxService;
+import org.mods.gd656conquest.server.room.runtime.RoomTeamSwitchService;
+import org.mods.gd656conquest.server.room.vehicle.RoomVehicleRuntimeService;
+
+import java.util.Objects;
+
+public record RoomCoreComponents(
+    MinecraftServer server,
+    RoomRuntimeRepository<RoomRuntimeState> runtimeRepository,
+    RoomPlayerSessionService playerSessionService,
+    RoomMatchingCoordinator matchingCoordinator,
+    RoomGameplayEntryManager gameplayEntryManager,
+    RoomPlayerLaunchService playerLaunchService,
+    RoomPlayerStateService playerStateService,
+    RoomPlayerTransferQueueService playerTransferQueueService,
+    RoomDeploySelectionService deploySelectionService,
+    RoomPlayerRespawnService playerRespawnService,
+    RoomPlayerLoadoutService playerLoadoutService,
+    RoomItemReplenishService itemReplenishService,
+    RoomSupportBoxService supportBoxService,
+    RoomMarkerRuntimeService markerRuntimeService,
+    RoomHudSyncService hudSyncService,
+    RoomInventorySnapshotService inventorySnapshotService,
+    RoomPlayerRejoinService playerRejoinService,
+    RoomSquadAssignmentService squadAssignmentService,
+    RoomSquadBeaconService squadBeaconService,
+    RoomNametagVisibilityService nametagVisibilityService,
+    RoomTeamSwitchService teamSwitchService,
+    RoomKilliconService killiconService,
+    RoomAdminDebugOverlayService adminDebugOverlayService,
+    RoomLobbyTransferService lobbyTransferService,
+    RoomAudioRuntimeService audioRuntimeService,
+    RoomVehicleRuntimeService vehicleRuntimeService,
+    RoomRuleRuntimeService ruleRuntimeService,
+    RoomResultRuntimeService resultRuntimeService
+) {
+    public RoomCoreComponents {
+        Objects.requireNonNull(server, "server");
+        Objects.requireNonNull(runtimeRepository, "runtimeRepository");
+        Objects.requireNonNull(playerSessionService, "playerSessionService");
+        Objects.requireNonNull(matchingCoordinator, "matchingCoordinator");
+        Objects.requireNonNull(gameplayEntryManager, "gameplayEntryManager");
+        Objects.requireNonNull(playerLaunchService, "playerLaunchService");
+        Objects.requireNonNull(playerStateService, "playerStateService");
+        Objects.requireNonNull(playerTransferQueueService, "playerTransferQueueService");
+        Objects.requireNonNull(deploySelectionService, "deploySelectionService");
+        Objects.requireNonNull(playerRespawnService, "playerRespawnService");
+        Objects.requireNonNull(playerLoadoutService, "playerLoadoutService");
+        Objects.requireNonNull(itemReplenishService, "itemReplenishService");
+        Objects.requireNonNull(supportBoxService, "supportBoxService");
+        Objects.requireNonNull(markerRuntimeService, "markerRuntimeService");
+        Objects.requireNonNull(hudSyncService, "hudSyncService");
+        Objects.requireNonNull(inventorySnapshotService, "inventorySnapshotService");
+        Objects.requireNonNull(playerRejoinService, "playerRejoinService");
+        Objects.requireNonNull(squadAssignmentService, "squadAssignmentService");
+        Objects.requireNonNull(squadBeaconService, "squadBeaconService");
+        Objects.requireNonNull(nametagVisibilityService, "nametagVisibilityService");
+        Objects.requireNonNull(teamSwitchService, "teamSwitchService");
+        Objects.requireNonNull(killiconService, "killiconService");
+        Objects.requireNonNull(adminDebugOverlayService, "adminDebugOverlayService");
+        Objects.requireNonNull(lobbyTransferService, "lobbyTransferService");
+        Objects.requireNonNull(audioRuntimeService, "audioRuntimeService");
+        Objects.requireNonNull(vehicleRuntimeService, "vehicleRuntimeService");
+        Objects.requireNonNull(ruleRuntimeService, "ruleRuntimeService");
+        Objects.requireNonNull(resultRuntimeService, "resultRuntimeService");
+    }
+}
