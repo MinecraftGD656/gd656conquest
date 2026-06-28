@@ -84,6 +84,7 @@ final class ClientRoomSessionController {
         }
         org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedHudOnly(ClientRoomLockState.shouldForceHudOnly());
         org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedVisible(ClientRoomLockState.shouldForceVisibleHud());
+        loadoutUiController.tick();
         uploadMainHandItemNameIfNeeded(minecraft);
         vehicleMountedHotbarLockService.tick(minecraft);
         while (org.mods.gd656conquest.client.input.ClientKeyMappings.OPEN_LOADOUT_SCREEN.consumeClick()) {
@@ -301,7 +302,6 @@ final class ClientRoomSessionController {
 
     void renderSessionOverlay(GuiGraphics guiGraphics, float partialTick) {
         renderCornerActionButtons(guiGraphics, partialTick);
-        loadoutUiController.render(guiGraphics, Minecraft.getInstance().getFrameTime());
     }
 
     void renderVignetteOverlay(RenderGuiOverlayEvent.Post event) {
@@ -704,9 +704,6 @@ final class ClientRoomSessionController {
             deathMouseReleased = true;
             return;
         }
-        if (overlayController.isDeployMouseScreen(minecraft.screen)) {
-            minecraft.setScreen(null);
-        }
         if (!deathMouseReleased) {
             return;
         }
@@ -787,7 +784,7 @@ final class ClientRoomSessionController {
         boolean deployOpen = ClientRoomLockState.isDeployUiActive() && !ending;
         if (deployOpen) {
             if (deployLoadoutButton == null) {
-                deployLoadoutButton = new GDButton(0, 0, UI_BUTTON_WIDTH, UI_BUTTON_HEIGHT, Component.translatable("gd656conquest.client.gui.deploy.open_loadout"), btn -> loadoutUiController.openConfigScreen());
+                deployLoadoutButton = new GDButton(0, 0, UI_BUTTON_WIDTH, UI_BUTTON_HEIGHT, Component.translatable("gd656conquest.client.gui.deploy.open_loadout"), btn -> loadoutUiController.requestOpenConfigScreen());
             }
             deployLoadoutButton.setX(width - UI_BUTTON_WIDTH - UI_BUTTON_MARGIN);
             deployLoadoutButton.setY(height - UI_BUTTON_HEIGHT - UI_BUTTON_MARGIN);

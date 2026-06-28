@@ -1,7 +1,6 @@
 package org.mods.gd656conquest.client.loadout;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import org.mods.gd656conquest.client.loadout.screen.LoadoutConfigScreen;
 import org.mods.gd656conquest.client.loadout.screen.LoadoutItemEditorScreen;
@@ -16,13 +15,13 @@ public final class ClientLoadoutUiController {
 
     public void onClientLogout() {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft != null && minecraft.screen instanceof LoadoutConfigScreen) {
+        if (minecraft != null && isLoadoutScreen(minecraft.screen)) {
             minecraft.setScreen(null);
         }
         ClientLoadoutUiState.clear();
     }
 
-    public void render(GuiGraphics guiGraphics, float partialTick) {
+    public void tick() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null || minecraft.player == null) {
             return;
@@ -32,31 +31,7 @@ public final class ClientLoadoutUiController {
         }
     }
 
-    public void openConfigScreen() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null) {
-            return;
-        }
-        if (minecraft.player != null && minecraft.level != null) {
-            requestSnapshot(false);
-        }
-        if (!(minecraft.screen instanceof LoadoutConfigScreen)) {
-            minecraft.setScreen(new LoadoutConfigScreen(minecraft.screen));
-        }
-    }
-
-    private void openConfigScreenFromServerRequest() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null) {
-            return;
-        }
-        if (isLoadoutSubScreen(minecraft.screen)) {
-            return;
-        }
-        openConfigScreen();
-    }
-
-    public void toggleConfigScreen() {
+    public void requestOpenConfigScreen() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null) {
             return;
@@ -65,15 +40,31 @@ public final class ClientLoadoutUiController {
             loadoutConfigScreen.onClose();
             return;
         }
-        openConfigScreen();
+        requestSnapshot(true);
+    }
+
+    private void openConfigScreenFromServerRequest() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null) {
+            return;
+        }
+        if (isLoadoutScreen(minecraft.screen)) {
+            return;
+        }
+        minecraft.setScreen(new LoadoutConfigScreen(minecraft.screen));
+    }
+
+    public void toggleConfigScreen() {
+        requestOpenConfigScreen();
     }
 
     private void requestSnapshot(boolean openPanel) {
         NetworkManager.getChannel().sendToServer(new LoadoutUiRequestPacket(openPanel));
     }
 
-    private boolean isLoadoutSubScreen(Screen screen) {
-        return screen instanceof LoadoutVehicleDeployScreen
+    private boolean isLoadoutScreen(Screen screen) {
+        return screen instanceof LoadoutConfigScreen
+            || screen instanceof LoadoutVehicleDeployScreen
             || screen instanceof LoadoutItemEditorScreen
             || screen instanceof LoadoutRoomEditorScreen
             || screen instanceof LoadoutVehicleAdminEditorScreen;

@@ -5,53 +5,39 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
-import org.lwjgl.glfw.GLFW;
-import org.mods.gd656conquest.client.hud.ClientHudDebugState;
 
 final class ClientCaptureOverlayController {
-    private final ClientCaptureOverlayState state = new ClientCaptureOverlayState();
-    private final ClientCaptureOverlayCodec codec = new ClientCaptureOverlayCodec();
-    private final ClientCaptureBoundaryRenderer boundaryRenderer = new ClientCaptureBoundaryRenderer();
-    private final ClientDeployBoundaryOverlayRenderer deployBoundaryOverlayRenderer = new ClientDeployBoundaryOverlayRenderer(boundaryRenderer);
+    private final ClientCaptureOverlayRuntime runtime = new ClientCaptureOverlayRuntime();
+    private final ClientDeployBoundaryOverlayRenderer deployBoundaryOverlayRenderer =
+        new ClientDeployBoundaryOverlayRenderer(runtime.boundaryRenderer());
     private final ClientCaptureIconRenderer iconRenderer = new ClientCaptureIconRenderer();
-    private final ClientCaptureDeployInput deployInput = new ClientCaptureDeployInput();
 
     void onDeployUiOpened() {
-        state.prepareForDeployUiOpen();
+        runtime.onDeployUiOpened();
     }
 
     void onDeployUiClosed() {
-        state.handleDeployUiClosed();
+        runtime.onDeployUiClosed();
     }
 
     void handleClientLogout() {
-        state.reset();
+        runtime.handleClientLogout();
     }
 
     boolean isDeployMouseScreen(Screen screen) {
-        return false;
+        return runtime.isDeployMouseScreen(screen);
     }
 
     boolean shouldRenderCaptureLinesForStage(RenderLevelStageEvent.Stage stage) {
-        return codec.shouldRenderCaptureLinesForStage(stage);
+        return runtime.shouldRenderCaptureLinesForStage(stage);
     }
 
     void captureWorldProjectionState(RenderLevelStageEvent event) {
-        boundaryRenderer.captureWorldProjectionState(state, event);
+        runtime.captureWorldProjectionState(event);
     }
 
     void renderCaptureBoundaryLines(RenderLevelStageEvent event) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null || minecraft.player == null) {
-            return;
-        }
-        codec.syncCaptureOverlayState(state);
-        boolean deployBoundaryActive = org.mods.gd656conquest.client.room.ClientDeathFlowState.shouldRenderDeployBoundaries();
-        if (!state.adminDebugOverlayActive) {
-            return;
-        }
-        ClientCaptureOverlayModel.TeamToken selfTeam = resolveEffectiveSelfTeam();
-        boundaryRenderer.renderCaptureBoundaryLines(state, event, selfTeam, false);
+        runtime.renderCaptureBoundaryLines(event);
     }
 
     void renderCaptureIconHudOverlay(RenderGuiOverlayEvent.Post event) {
@@ -59,82 +45,54 @@ final class ClientCaptureOverlayController {
     }
 
     void renderCaptureIconHudOverlay(net.minecraft.client.gui.GuiGraphics guiGraphics) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null || minecraft.player == null) {
-            state.reset();
+        if (!runtime.ensureWorldReady()) {
             return;
         }
+        Minecraft minecraft = Minecraft.getInstance();
+        ClientCaptureOverlayState state = runtime.state();
         boolean deployPhaseActive = org.mods.gd656conquest.client.room.ClientDeathFlowState.shouldRenderDeployBoundaries();
         if (org.mods.gd656conquest.client.room.ClientDeathFlowState.hasActiveCameraOverride()
             && !deployPhaseActive) {
-            state.clearDeploySelection();
-            codec.syncCaptureOverlayState(state);
-            if (state.cachedCaptureIcons.isEmpty()) {
+            runtime.clearDeploySelection();
+            runtime.syncOverlayState();
+            if (!runtime.hasCaptureIcons()) {
                 return;
             }
-            float deltaSeconds = codec.resolveCaptureRenderDeltaSeconds(state);
-            codec.updateInterpolatedProgress(state, deltaSeconds);
-            iconRenderer.renderHudQueueOnly(state, guiGraphics, resolveEffectiveSelfTeam(), deltaSeconds);
+            float deltaSeconds = runtime.resolveCaptureRenderDeltaSeconds();
+            runtime.updateInterpolatedProgress(deltaSeconds);
+            iconRenderer.renderHudQueueOnly(state, guiGraphics, runtime.resolveEffectiveSelfTeam(), deltaSeconds);
             return;
         }
-        codec.syncCaptureOverlayState(state);
-        if (state.cachedCaptureIcons.isEmpty()) {
+        runtime.syncOverlayState();
+        if (!runtime.hasCaptureIcons()) {
             return;
         }
-        float deltaSeconds = codec.resolveCaptureRenderDeltaSeconds(state);
-        codec.updateInterpolatedProgress(state, deltaSeconds);
-        iconRenderer.renderCaptureIconHudOverlay(state, guiGraphics, resolveEffectiveSelfTeam(), deltaSeconds);
+        float deltaSeconds = runtime.resolveCaptureRenderDeltaSeconds();
+        runtime.updateInterpolatedProgress(deltaSeconds);
+        iconRenderer.renderCaptureIconHudOverlay(state, guiGraphics, runtime.resolveEffectiveSelfTeam(), deltaSeconds);
     }
 
     void renderDeployBoundaryHudOverlay(RenderGuiOverlayEvent.Post event) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null || minecraft.player == null) {
-            state.reset();
+        if (!runtime.ensureWorldReady()) {
             return;
         }
-        codec.syncCaptureOverlayState(state);
-        deployBoundaryOverlayRenderer.renderDeployBoundaryOverlay(state, event, resolveEffectiveSelfTeam());
+        runtime.syncOverlayState();
+        deployBoundaryOverlayRenderer.renderDeployBoundaryOverlay(runtime.state(), event, runtime.resolveEffectiveSelfTeam());
     }
 
     void renderDeployBoundaryHudOverlay(net.minecraft.client.gui.GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null || minecraft.player == null) {
-            state.reset();
+        if (!runtime.ensureWorldReady()) {
             return;
         }
-        codec.syncCaptureOverlayState(state);
-        deployBoundaryOverlayRenderer.renderDeployBoundaryOverlay(state, guiGraphics, screenWidth, screenHeight, resolveEffectiveSelfTeam());
-    }
-
-    void noteMouseButtonActivity(InputEvent.MouseButton event) {
-        if (event != null
-            && event.getAction() == GLFW.GLFW_PRESS
-            && org.mods.gd656conquest.client.room.ClientDeathFlowState.shouldRenderDeployBoundaries()) {
-            state.noteDeployInteraction(System.currentTimeMillis());
-        }
+        runtime.syncOverlayState();
+        deployBoundaryOverlayRenderer.renderDeployBoundaryOverlay(runtime.state(), guiGraphics, screenWidth, screenHeight, runtime.resolveEffectiveSelfTeam());
     }
 
     void handleMouseInput(InputEvent.MouseButton event) {
-        deployInput.handleMouseInput(state, event, codec.resolveSelfTeamToken());
-    }
-
-    void handleMouseScroll(InputEvent.MouseScrollingEvent event) {
-        if (event != null
-            && Math.abs(event.getScrollDelta()) > 1.0E-6D
-            && org.mods.gd656conquest.client.room.ClientDeathFlowState.shouldRenderDeployBoundaries()) {
-            state.noteDeployInteraction(System.currentTimeMillis());
-        }
+        runtime.handleMouseInput(event);
     }
 
     ClientCaptureOverlayModel.TeamToken resolveSelfTeamToken() {
-        return codec.resolveSelfTeamToken();
-    }
-
-    private ClientCaptureOverlayModel.TeamToken resolveEffectiveSelfTeam() {
-        ClientCaptureOverlayModel.TeamToken selfTeam = codec.resolveSelfTeamToken();
-        if (state.adminDebugOverlayActive && selfTeam == ClientCaptureOverlayModel.TeamToken.NEUTRAL) {
-            return ClientCaptureOverlayModel.TeamToken.CAMP_A;
-        }
-        return selfTeam;
+        return runtime.resolveSelfTeamToken();
     }
 }

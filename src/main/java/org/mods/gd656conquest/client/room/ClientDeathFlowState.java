@@ -3,13 +3,9 @@ package org.mods.gd656conquest.client.room;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.Camera;
-import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -25,8 +21,6 @@ public final class ClientDeathFlowState {
     private static final int PHASE_IDLE = 0;
     private static final int PHASE_DEATH_FALL = 1;
     private static final int PHASE_DEATH_WAIT = 2;
-    private static final int PHASE_DEATH_TRACK_BLEND = 3;
-    private static final int PHASE_DEATH_TRACK_HOLD = 4;
     private static final int PHASE_DEATH_HOLD = 5;
     private static final int PHASE_DEPLOY_TRAVEL = 6;
     private static final int PHASE_DEPLOY_OPEN = 7;
@@ -96,10 +90,6 @@ public final class ClientDeathFlowState {
     private static int lastHurtTime = -1;
     private static long lastVisualUpdateNanos = -1L;
     private static boolean shaderLoaded;
-    private static boolean killerInfoSnapshotCaptured;
-    private static boolean killerInfoActionbarShown;
-    private static String killerSnapshotName = "未知玩家";
-    private static String killerSnapshotWeapon = "空手";
     private static Method cameraSetPositionMethod;
     private static Method cameraSetPositionVecMethod;
     private static Method cameraSetRotationMethod;
@@ -125,10 +115,6 @@ public final class ClientDeathFlowState {
         deployTicksSinceOpen = 0;
         travelTotalTicks = 0;
         travelElapsedTicks = 0;
-        killerInfoSnapshotCaptured = false;
-        killerInfoActionbarShown = false;
-        killerSnapshotName = "未知玩家";
-        killerSnapshotWeapon = "空手";
         deathX = deathXValue;
         deathY = deathYValue;
         deathZ = deathZValue;
@@ -151,7 +137,6 @@ public final class ClientDeathFlowState {
         trackedKillerY = deathYValue + player.getEyeHeight();
         trackedKillerZ = deathZValue;
         setCameraPose(startEye.x, startEye.y, startEye.z, deathStartYaw, deathStartPitch, true);
-        captureKillerInfoSnapshot(minecraft);
     }
 
     public static void openDeploySequence(double sourceX, double sourceY, double sourceZ, double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int deployDelayTicks) {
@@ -235,10 +220,6 @@ public final class ClientDeathFlowState {
         phase = PHASE_DEPLOY_OPEN;
         phaseTicks = 0L;
         killerEntityId = -1;
-        killerInfoSnapshotCaptured = false;
-        killerInfoActionbarShown = false;
-        killerSnapshotName = "未知玩家";
-        killerSnapshotWeapon = "空手";
         deployConfirmDelayTicks = Math.max(0, deployDelayTicks);
         deployTicksSinceOpen = 0;
         travelTotalTicks = 0;
@@ -289,9 +270,6 @@ public final class ClientDeathFlowState {
             default -> {
             }
         }
-    }
-
-    public static void tickAmbient() {
     }
 
     public static void renderFrame(float partialTick) {
@@ -444,10 +422,6 @@ public final class ClientDeathFlowState {
         hurtFlashRemainSeconds = 0.0F;
         lastHurtTime = -1;
         lastVisualUpdateNanos = -1L;
-        killerInfoSnapshotCaptured = false;
-        killerInfoActionbarShown = false;
-        killerSnapshotName = "未知玩家";
-        killerSnapshotWeapon = "空手";
     }
 
     public static void setMatchEndViewLocked(boolean locked) {
@@ -492,10 +466,6 @@ public final class ClientDeathFlowState {
         phaseTicks = 0L;
         currentDeployIconAlpha = 0.0F;
         targetDeployIconAlpha = 0.0F;
-        killerInfoSnapshotCaptured = false;
-        killerInfoActionbarShown = false;
-        killerSnapshotName = "未知玩家";
-        killerSnapshotWeapon = "空手";
     }
 
     public static void setBoundaryPenaltyActive(boolean activeFlag) {
@@ -830,42 +800,6 @@ public final class ClientDeathFlowState {
         float yaw = (float) (Mth.atan2(dz, dx) * (180.0D / Math.PI)) - 90.0F;
         float pitch = (float) (-(Mth.atan2(dy, horizontal) * (180.0D / Math.PI)));
         return new float[]{yaw, pitch};
-    }
-
-    private static void maybeShowKillerInfoActionbar(Minecraft minecraft, LocalPlayer viewer) {
-        if (viewer == null || killerEntityId <= 0 || killerInfoActionbarShown) {
-            return;
-        }
-        if (!killerInfoSnapshotCaptured) {
-            captureKillerInfoSnapshot(minecraft);
-        }
-        Component actionbar = Component.literal("击杀者: ").withStyle(ChatFormatting.RED)
-                .append(Component.literal(killerSnapshotName).withStyle(ChatFormatting.GOLD))
-                .append(Component.literal(" | ").withStyle(ChatFormatting.DARK_GRAY))
-                .append(Component.literal("武器: ").withStyle(ChatFormatting.AQUA))
-                .append(Component.literal(killerSnapshotWeapon).withStyle(ChatFormatting.WHITE));
-        viewer.displayClientMessage(actionbar, true);
-        killerInfoActionbarShown = true;
-    }
-
-    private static void captureKillerInfoSnapshot(Minecraft minecraft) {
-        killerInfoSnapshotCaptured = true;
-        killerSnapshotName = "未知玩家";
-        killerSnapshotWeapon = "空手";
-        if (minecraft == null || minecraft.level == null || killerEntityId <= 0) {
-            return;
-        }
-        Entity killerEntity = minecraft.level.getEntity(killerEntityId);
-        if (!(killerEntity instanceof Player killerPlayer)) {
-            return;
-        }
-        if (killerPlayer.getGameProfile() != null && killerPlayer.getGameProfile().getName() != null && !killerPlayer.getGameProfile().getName().isBlank()) {
-            killerSnapshotName = killerPlayer.getGameProfile().getName();
-        }
-        ItemStack heldStack = killerPlayer.getMainHandItem();
-        if (heldStack != null && !heldStack.isEmpty()) {
-            killerSnapshotWeapon = heldStack.getHoverName().getString();
-        }
     }
 
     private static void applyDesaturation(Minecraft minecraft, float desaturationLevel) {

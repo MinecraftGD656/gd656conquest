@@ -17,6 +17,7 @@ import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.Veh
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -68,7 +69,9 @@ final class ClientCaptureOverlayCodec {
         }
         state.adminDebugOverlayActive = hasDebugPayload;
         if (!iconPayload.equals(state.cachedCaptureIconPayload)) {
-            state.cachedCaptureIcons = parseCaptureIcons(state, iconPayload);
+            ParsedCaptureIcons parsedIcons = parseCaptureIcons(iconPayload);
+            applyParsedBoundaryPolygons(state, parsedIcons.boundaryPolygons());
+            state.cachedCaptureIcons = parsedIcons.entries();
             state.cachedCaptureIconPayload = iconPayload;
             state.cachedAdminDebugPayload = hasDebugPayload ? debugPayload : "-";
             syncProgressTargets(state, state.cachedCaptureIcons);
@@ -130,7 +133,7 @@ final class ClientCaptureOverlayCodec {
         state.progressInterpolation.keySet().retainAll(seen);
     }
 
-    private List<CaptureIconEntry> parseCaptureIcons(ClientCaptureOverlayState state, String payload) {
+    private ParsedCaptureIcons parseCaptureIcons(String payload) {
         List<CaptureIconEntry> entries = new ArrayList<>();
         Set<String> dedupe = new HashSet<>();
         Map<BoundaryPolygonKey, List<BoundaryPoint>> polygonsByKey = new LinkedHashMap<>();
@@ -196,9 +199,16 @@ final class ClientCaptureOverlayCodec {
             } catch (Exception ignored) {
             }
         }
-        state.cachedBoundaryPolygons = freezeBoundaryPolygons(polygonsByKey);
+        return new ParsedCaptureIcons(List.copyOf(entries), freezeBoundaryPolygons(polygonsByKey));
+    }
+
+    private void applyParsedBoundaryPolygons(ClientCaptureOverlayState state, List<BoundaryPolygon> nextPolygons) {
+        List<BoundaryPolygon> safePolygons = nextPolygons == null ? List.of() : nextPolygons;
+        if (safePolygons.equals(state.cachedBoundaryPolygons)) {
+            return;
+        }
+        state.cachedBoundaryPolygons = safePolygons;
         state.markBoundaryGeometryDirty();
-        return entries;
     }
 
     private List<BoundaryPolygon> freezeBoundaryPolygons(Map<BoundaryPolygonKey, List<BoundaryPoint>> polygonsById) {
@@ -206,7 +216,12 @@ final class ClientCaptureOverlayCodec {
             return List.of();
         }
         List<BoundaryPolygon> polygons = new ArrayList<>();
-        for (Map.Entry<BoundaryPolygonKey, List<BoundaryPoint>> entry : polygonsById.entrySet()) {
+        List<Map.Entry<BoundaryPolygonKey, List<BoundaryPoint>>> orderedEntries = new ArrayList<>(polygonsById.entrySet());
+        orderedEntries.sort(
+            Comparator.comparing((Map.Entry<BoundaryPolygonKey, List<BoundaryPoint>> entry) -> entry.getKey().team().name())
+                .thenComparing(entry -> entry.getKey().polygonId(), String.CASE_INSENSITIVE_ORDER)
+        );
+        for (Map.Entry<BoundaryPolygonKey, List<BoundaryPoint>> entry : orderedEntries) {
             List<BoundaryPoint> polygon = entry.getValue();
             if (polygon != null && polygon.size() >= 2) {
                 BoundaryPolygonKey key = entry.getKey();
@@ -214,6 +229,12 @@ final class ClientCaptureOverlayCodec {
             }
         }
         return polygons.isEmpty() ? List.of() : List.copyOf(polygons);
+    }
+
+    private record ParsedCaptureIcons(
+        List<CaptureIconEntry> entries,
+        List<BoundaryPolygon> boundaryPolygons
+    ) {
     }
 
     private CaptureFocusData parseCaptureFocus(String payload) {

@@ -27,10 +27,6 @@ import java.util.List;
 import java.util.Set;
 
 final class ClientDeployBoundaryOverlayRenderer {
-    private static final long ACTIVE_GEOMETRY_REFRESH_INTERVAL_MS = 1000L / 90L;
-    private static final long IDLE_GEOMETRY_REFRESH_INTERVAL_MS = 1000L / 24L;
-    private static final long ACTIVE_GEOMETRY_INTERACTION_WINDOW_MS = 180L;
-    private static final double DEPLOY_MOUSE_INTERACTION_THRESHOLD_PIXELS = 1.2D;
     private static final float SCREEN_LINE_WIDTH_PIXELS = 2.5F;
     private static final float MASK_ALPHA = 0.48F;
     private static final float LINE_ALPHA = 0.96F;
@@ -47,7 +43,6 @@ final class ClientDeployBoundaryOverlayRenderer {
     private int cachedGeometryScreenHeight = -1;
     private long cachedProjectionSignature = Long.MIN_VALUE;
     private CachedDeployOverlayGeometry cachedGeometry = CachedDeployOverlayGeometry.empty();
-    private long lastGeometryRebuildMillis = -1L;
 
     ClientDeployBoundaryOverlayRenderer(ClientCaptureBoundaryRenderer boundaryRenderer) {
         this.boundaryRenderer = boundaryRenderer;
@@ -102,20 +97,15 @@ final class ClientDeployBoundaryOverlayRenderer {
         int screenHeight,
         ResolvedBoundarySegments segments
     ) {
-        long nowMillis = System.currentTimeMillis();
-        state.sampleDeployMouseMovement(minecraft, nowMillis, DEPLOY_MOUSE_INTERACTION_THRESHOLD_PIXELS);
         long projectionSignature = ClientHudProjectionCacheKey.capture(minecraft, state.worldProjectionMatrix);
         if (isCachedGeometryValid(state, selfTeam, screenWidth, screenHeight, projectionSignature)) {
-            return cachedGeometry;
-        }
-        if (shouldReuseThrottledGeometry(state, selfTeam, screenWidth, screenHeight, projectionSignature, nowMillis)) {
             return cachedGeometry;
         }
         java.util.Map<WorldPointKey, ScreenPoint> pointProjectionCache = new java.util.HashMap<>();
         List<ProjectedBoundaryPolygon> polygons = projectPolygons(state, minecraft, selfTeam, pointProjectionCache);
         if (polygons.isEmpty()) {
             cachedGeometry = CachedDeployOverlayGeometry.empty();
-            updateCachedGeometrySignature(state, selfTeam, screenWidth, screenHeight, projectionSignature, nowMillis);
+            updateCachedGeometrySignature(state, selfTeam, screenWidth, screenHeight, projectionSignature);
             return cachedGeometry;
         }
         cachedGeometry = new CachedDeployOverlayGeometry(
@@ -125,7 +115,7 @@ final class ClientDeployBoundaryOverlayRenderer {
             projectLineSegments(minecraft, state, segments.neutralSegments(), pointProjectionCache),
             projectLineSegments(minecraft, state, segments.sharedSegments(), pointProjectionCache)
         );
-        updateCachedGeometrySignature(state, selfTeam, screenWidth, screenHeight, projectionSignature, nowMillis);
+        updateCachedGeometrySignature(state, selfTeam, screenWidth, screenHeight, projectionSignature);
         return cachedGeometry;
     }
 
@@ -146,49 +136,18 @@ final class ClientDeployBoundaryOverlayRenderer {
         return cachedProjectionSignature == projectionSignature;
     }
 
-    private boolean shouldReuseThrottledGeometry(
-        ClientCaptureOverlayState state,
-        TeamToken selfTeam,
-        int screenWidth,
-        int screenHeight,
-        long projectionSignature,
-        long nowMillis
-    ) {
-        if (cachedGeometry.isEmpty()) {
-            return false;
-        }
-        if (cachedGeometryBoundaryVersion != state.boundaryGeometryVersion
-            || cachedGeometrySelfTeam != selfTeam
-            || cachedGeometryScreenWidth != screenWidth
-            || cachedGeometryScreenHeight != screenHeight) {
-            return false;
-        }
-        if (cachedProjectionSignature == projectionSignature) {
-            return true;
-        }
-        if (lastGeometryRebuildMillis <= 0L) {
-            return false;
-        }
-        long refreshInterval = state.hasRecentDeployInteraction(nowMillis, ACTIVE_GEOMETRY_INTERACTION_WINDOW_MS)
-            ? ACTIVE_GEOMETRY_REFRESH_INTERVAL_MS
-            : IDLE_GEOMETRY_REFRESH_INTERVAL_MS;
-        return nowMillis - lastGeometryRebuildMillis < refreshInterval;
-    }
-
     private void updateCachedGeometrySignature(
         ClientCaptureOverlayState state,
         TeamToken selfTeam,
         int screenWidth,
         int screenHeight,
-        long projectionSignature,
-        long nowMillis
+        long projectionSignature
     ) {
         cachedGeometryBoundaryVersion = state.boundaryGeometryVersion;
         cachedGeometrySelfTeam = selfTeam;
         cachedGeometryScreenWidth = screenWidth;
         cachedGeometryScreenHeight = screenHeight;
         cachedProjectionSignature = projectionSignature;
-        lastGeometryRebuildMillis = nowMillis;
     }
 
     private List<ProjectedBoundaryPolygon> projectPolygons(
@@ -238,7 +197,29 @@ final class ClientDeployBoundaryOverlayRenderer {
         if (screenPoints.size() < 3) {
             return null;
         }
-        return new ProjectedBoundaryPolygon(polygon.team(), List.copyOf(screenPoints));
+        double minX = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        List<PolygonScanEdge> scanEdges = new ArrayList<>();
+        for (int index = 0; index < screenPoints.size(); index++) {
+            ScreenPoint start = screenPoints.get(index);
+            ScreenPoint end = screenPoints.get((index + 1) % screenPoints.size());
+            minX = Math.min(minX, start.x());
+            maxX = Math.max(maxX, start.x());
+            PolygonScanEdge edge = buildScanEdge(start, end);
+            if (edge != null) {
+                scanEdges.add(edge);
+            }
+        }
+        if (scanEdges.isEmpty()) {
+            return null;
+        }
+        return new ProjectedBoundaryPolygon(
+            polygon.team(),
+            List.copyOf(screenPoints),
+            List.copyOf(scanEdges),
+            minX,
+            maxX
+        );
     }
 
     private List<MaskFill> buildMaskFills(int width, int height, List<ProjectedBoundaryPolygon> polygons) {
@@ -249,7 +230,24 @@ final class ClientDeployBoundaryOverlayRenderer {
         List<MaskFill> fills = new ArrayList<>();
         List<Span> previousOutsideSpans = List.of();
         double maxY = height;
-        for (int x = 0; x < width; x++) {
+        int scanStartX = width;
+        int scanEndX = -1;
+        for (ProjectedBoundaryPolygon polygon : polygons) {
+            scanStartX = Math.min(scanStartX, clampColumnStart(polygon.minX(), width));
+            scanEndX = Math.max(scanEndX, clampColumnEndExclusive(polygon.maxX(), width));
+        }
+        scanStartX = Mth.clamp(scanStartX, 0, width);
+        scanEndX = Mth.clamp(scanEndX, 0, width);
+        if (scanStartX > 0) {
+            fills.add(new MaskFill(0, 0, scanStartX, height));
+        }
+        if (scanEndX < width) {
+            fills.add(new MaskFill(scanEndX, 0, width, height));
+        }
+        if (scanStartX >= scanEndX) {
+            return fills.isEmpty() ? List.of() : List.copyOf(fills);
+        }
+        for (int x = scanStartX; x < scanEndX; x++) {
             List<Span> outsideSpans = resolveOutsideSpans(polygons, x + 0.5D, maxY, height);
             if (!sameSpans(previousOutsideSpans, outsideSpans)) {
                 flushActiveFills(activeFills, fills);
@@ -363,25 +361,15 @@ final class ClientDeployBoundaryOverlayRenderer {
     }
 
     private List<Span> resolveInsideSpansForPolygon(ProjectedBoundaryPolygon polygon, double sampleX) {
+        if (polygon == null || sampleX < polygon.minX() || sampleX >= polygon.maxX()) {
+            return List.of();
+        }
         List<Double> intersections = new ArrayList<>();
-        List<ScreenPoint> points = polygon.points();
-        for (int index = 0; index < points.size(); index++) {
-            ScreenPoint start = points.get(index);
-            ScreenPoint end = points.get((index + 1) % points.size());
-            double dx = end.x() - start.x();
-            if (Math.abs(dx) <= EDGE_EPSILON) {
+        for (PolygonScanEdge edge : polygon.scanEdges()) {
+            if (sampleX < edge.minX() || sampleX >= edge.maxX()) {
                 continue;
             }
-            double minX = Math.min(start.x(), end.x());
-            double maxX = Math.max(start.x(), end.x());
-            if (sampleX < minX || sampleX >= maxX) {
-                continue;
-            }
-            double t = (sampleX - start.x()) / dx;
-            if (t < 0.0D || t > 1.0D) {
-                continue;
-            }
-            intersections.add(lerp(start.y(), end.y(), t));
+            intersections.add(edge.yAt(sampleX));
         }
         if (intersections.size() < 2) {
             return List.of();
@@ -467,6 +455,25 @@ final class ClientDeployBoundaryOverlayRenderer {
             projected.add(new ProjectedLineSegment(start, end));
         }
         return projected.isEmpty() ? List.of() : List.copyOf(projected);
+    }
+
+    private PolygonScanEdge buildScanEdge(ScreenPoint start, ScreenPoint end) {
+        double dx = end.x() - start.x();
+        if (Math.abs(dx) <= EDGE_EPSILON) {
+            return null;
+        }
+        if (start.x() <= end.x()) {
+            return new PolygonScanEdge(start.x(), end.x(), start.y(), (end.y() - start.y()) / dx);
+        }
+        return new PolygonScanEdge(end.x(), start.x(), end.y(), (start.y() - end.y()) / -dx);
+    }
+
+    private int clampColumnStart(double minX, int width) {
+        return Mth.clamp((int) Math.floor(minX), 0, width);
+    }
+
+    private int clampColumnEndExclusive(double maxX, int width) {
+        return Mth.clamp((int) Math.ceil(maxX), 0, width);
     }
 
     private void appendProjectedSegments(
@@ -630,7 +637,19 @@ final class ClientDeployBoundaryOverlayRenderer {
         }
     }
 
-    private record ProjectedBoundaryPolygon(TeamToken team, List<ScreenPoint> points) {
+    private record ProjectedBoundaryPolygon(
+        TeamToken team,
+        List<ScreenPoint> points,
+        List<PolygonScanEdge> scanEdges,
+        double minX,
+        double maxX
+    ) {
+    }
+
+    private record PolygonScanEdge(double minX, double maxX, double startY, double slopeYPerX) {
+        double yAt(double sampleX) {
+            return startY + (sampleX - minX) * slopeYPerX;
+        }
     }
 
     private record ProjectedLineSegment(ScreenPoint start, ScreenPoint end) {

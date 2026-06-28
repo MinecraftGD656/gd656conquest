@@ -118,17 +118,6 @@ public final class ClientLoadoutUiState {
         snapshotUpdatedAtMs = 0L;
     }
 
-    public static synchronized boolean hasFreshSnapshot(long maxAgeMs) {
-        if (snapshot == null) {
-            return false;
-        }
-        if (maxAgeMs <= 0L) {
-            return true;
-        }
-        long age = System.currentTimeMillis() - snapshotUpdatedAtMs;
-        return age >= 0L && age <= maxAgeMs;
-    }
-
     public static synchronized long snapshotAgeMs() {
         if (snapshot == null || snapshotUpdatedAtMs <= 0L) {
             return Long.MAX_VALUE;

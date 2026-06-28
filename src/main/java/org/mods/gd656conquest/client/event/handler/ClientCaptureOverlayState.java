@@ -1,6 +1,5 @@
 package org.mods.gd656conquest.client.event.handler;
 
-import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
 
 import java.util.ArrayList;
@@ -33,9 +32,6 @@ final class ClientCaptureOverlayState {
     long lastHandledMousePressMillis = -1L;
     float mouseCrossGapPixels;
     float mouseCrossFeatherPixels;
-    long lastDeployInteractionMillis = -1L;
-    double lastDeployMouseGuiX = Double.NaN;
-    double lastDeployMouseGuiY = Double.NaN;
 
     void reset() {
         cachedCaptureIconPayload = "-";
@@ -60,7 +56,6 @@ final class ClientCaptureOverlayState {
         lastHandledMousePressMillis = -1L;
         mouseCrossGapPixels = 0.0F;
         mouseCrossFeatherPixels = 0.0F;
-        clearDeployInteractionState();
         clearProjectionState();
     }
 
@@ -77,7 +72,6 @@ final class ClientCaptureOverlayState {
         selectedCrosshairStates.clear();
         mouseCrossGapPixels = 0.0F;
         mouseCrossFeatherPixels = 0.0F;
-        noteDeployInteraction(System.currentTimeMillis());
     }
 
     void handleDeployUiClosed() {
@@ -88,7 +82,6 @@ final class ClientCaptureOverlayState {
             ClientCaptureOverlayModel.CaptureIconEntry icon = renderState == null ? null : renderState.entry;
             return icon == null || icon.kind().usesDeployAlpha();
         });
-        clearDeployInteractionState();
         clearProjectionState();
     }
 
@@ -99,49 +92,5 @@ final class ClientCaptureOverlayState {
 
     void markBoundaryGeometryDirty() {
         boundaryGeometryVersion++;
-    }
-
-    void noteDeployInteraction(long nowMillis) {
-        if (nowMillis <= 0L) {
-            nowMillis = System.currentTimeMillis();
-        }
-        lastDeployInteractionMillis = nowMillis;
-    }
-
-    boolean hasRecentDeployInteraction(long nowMillis, long activeWindowMillis) {
-        if (lastDeployInteractionMillis <= 0L) {
-            return false;
-        }
-        return nowMillis - lastDeployInteractionMillis <= Math.max(0L, activeWindowMillis);
-    }
-
-    void sampleDeployMouseMovement(Minecraft minecraft, long nowMillis, double thresholdPixels) {
-        if (minecraft == null || minecraft.getWindow() == null || minecraft.mouseHandler == null) {
-            return;
-        }
-        double mouseGuiX = minecraft.mouseHandler.xpos()
-            * minecraft.getWindow().getGuiScaledWidth()
-            / Math.max(1, minecraft.getWindow().getScreenWidth());
-        double mouseGuiY = minecraft.mouseHandler.ypos()
-            * minecraft.getWindow().getGuiScaledHeight()
-            / Math.max(1, minecraft.getWindow().getScreenHeight());
-        if (Double.isNaN(lastDeployMouseGuiX) || Double.isNaN(lastDeployMouseGuiY)) {
-            lastDeployMouseGuiX = mouseGuiX;
-            lastDeployMouseGuiY = mouseGuiY;
-            return;
-        }
-        double dx = mouseGuiX - lastDeployMouseGuiX;
-        double dy = mouseGuiY - lastDeployMouseGuiY;
-        if (dx * dx + dy * dy >= thresholdPixels * thresholdPixels) {
-            noteDeployInteraction(nowMillis);
-        }
-        lastDeployMouseGuiX = mouseGuiX;
-        lastDeployMouseGuiY = mouseGuiY;
-    }
-
-    private void clearDeployInteractionState() {
-        lastDeployInteractionMillis = -1L;
-        lastDeployMouseGuiX = Double.NaN;
-        lastDeployMouseGuiY = Double.NaN;
     }
 }

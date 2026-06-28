@@ -27,7 +27,7 @@ public final class LoadoutVehicleDeployScreen extends Screen {
     private static final int ROW_HEIGHT = 46;
     private static final int ROW_GAP = 6;
     private static final int BUTTON_WIDTH = 86;
-    private static final long SNAPSHOT_STALE_MS = 1000L;
+    private static final long REQUEST_INTERVAL_MS = 1000L;
 
     private final Screen parent;
     private final List<GDButton> rowButtons = new ArrayList<>();
@@ -54,7 +54,7 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         rebuildStaticButtons();
         syncVehicleButtons();
         if (!isOutOfGame()) {
-            requestSnapshotIfNeeded(false);
+            requestSnapshotIfNeeded();
         }
     }
 
@@ -74,7 +74,7 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         }
         clampScrollOffset();
         syncVehicleButtons();
-        requestSnapshotIfNeeded(false);
+        requestSnapshotIfNeeded();
     }
 
     @Override
@@ -361,19 +361,16 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         };
     }
 
-    private void requestSnapshotIfNeeded(boolean openPanel) {
+    private void requestSnapshotIfNeeded() {
         if (isOutOfGame()) {
             return;
         }
-        if (!openPanel && ClientLoadoutUiState.hasFreshSnapshot(SNAPSHOT_STALE_MS)) {
-            return;
-        }
         long now = System.currentTimeMillis();
-        if (openPanel && now - lastRequestAt < 120L) {
+        if (now - lastRequestAt < REQUEST_INTERVAL_MS) {
             return;
         }
         lastRequestAt = now;
-        NetworkManager.getChannel().sendToServer(new LoadoutUiRequestPacket(openPanel));
+        NetworkManager.getChannel().sendToServer(new LoadoutUiRequestPacket(false));
     }
 
     private void pruneUnusedButtons(List<ClientLoadoutUiState.VehicleEntryState> visibleEntries) {

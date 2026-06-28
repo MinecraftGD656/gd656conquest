@@ -36,7 +36,6 @@ public class LoadoutConfigScreen extends Screen {
     private static final int HEIGHT = 20;
     private static final int GAP = 4;
     private static final long REQUEST_INTERVAL_MS = 1200L;
-    private static final long SNAPSHOT_STALE_MS = 4000L;
 
     private final Screen parent;
     private ChoiceListDialog choiceDialog;
@@ -61,7 +60,7 @@ public class LoadoutConfigScreen extends Screen {
         updateOutOfGameTimer();
         rebuildButtons();
         if (!isOutOfGame()) {
-            requestSnapshotIfNeeded(false);
+            requestSnapshotIfNeeded();
         }
     }
 
@@ -100,7 +99,7 @@ public class LoadoutConfigScreen extends Screen {
             onClose();
             return;
         }
-        requestSnapshotIfNeeded(false);
+        requestSnapshotIfNeeded();
     }
 
     @Override
@@ -251,7 +250,7 @@ public class LoadoutConfigScreen extends Screen {
     private void openClassDialog() {
         ClientLoadoutUiState.Snapshot snapshot = ClientLoadoutUiState.snapshot();
         if (snapshot == null || snapshot.classes().isEmpty() || choiceDialog == null) {
-            requestSnapshotIfNeeded(false);
+            requestSnapshotIfNeeded();
             return;
         }
         List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
@@ -284,12 +283,12 @@ public class LoadoutConfigScreen extends Screen {
     private void openSlotDialog(CustomLoadoutSlot slot) {
         ClientLoadoutUiState.Snapshot snapshot = ClientLoadoutUiState.snapshot();
         if (snapshot == null || snapshot.classes().isEmpty() || choiceDialog == null) {
-            requestSnapshotIfNeeded(false);
+            requestSnapshotIfNeeded();
             return;
         }
         ClientLoadoutUiState.ClassState currentClass = snapshot.classes().get(snapshot.currentClassKey());
         if (currentClass == null) {
-            requestSnapshotIfNeeded(false);
+            requestSnapshotIfNeeded();
             return;
         }
         ClientLoadoutUiState.SlotState slotState = currentClass.slots().get(slot.getIndex());
@@ -376,22 +375,16 @@ public class LoadoutConfigScreen extends Screen {
         return classState.className();
     }
 
-    private void requestSnapshotIfNeeded(boolean openPanel) {
+    private void requestSnapshotIfNeeded() {
         if (isOutOfGame()) {
             return;
         }
-        if (!openPanel && ClientLoadoutUiState.hasFreshSnapshot(SNAPSHOT_STALE_MS)) {
-            return;
-        }
         long now = System.currentTimeMillis();
-        if (!openPanel && now - lastRequestAt < REQUEST_INTERVAL_MS) {
-            return;
-        }
-        if (openPanel && now - lastRequestAt < 120L) {
+        if (now - lastRequestAt < REQUEST_INTERVAL_MS) {
             return;
         }
         lastRequestAt = now;
-        NetworkManager.getChannel().sendToServer(new LoadoutUiRequestPacket(openPanel));
+        NetworkManager.getChannel().sendToServer(new LoadoutUiRequestPacket(false));
     }
 
     private boolean shouldShowItemEditorButton() {

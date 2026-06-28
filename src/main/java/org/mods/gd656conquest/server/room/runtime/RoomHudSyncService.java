@@ -26,7 +26,6 @@ import java.util.UUID;
 public final class RoomHudSyncService {
     private final MinecraftServer server;
     private final java.util.List<RoomRunningHudRenderer> runningHudRenderers;
-    private final java.util.Map<UUID, String> lastTeamMirrorSignatureByPlayer = new java.util.HashMap<>();
 
     public RoomHudSyncService(MinecraftServer server, RoomSquadBeaconService squadBeaconService) {
         this.server = Objects.requireNonNull(server, "server");
@@ -47,7 +46,7 @@ public final class RoomHudSyncService {
             }
             RoomTeamId selfTeam = state.getMatchingState().getQueueTeams().get(playerId);
             NetworkManager.sendToPlayer(player, buildMatchingPacket(room, state, gameTick, player, selfTeam));
-            sendTeamMirrorIfChanged(player, mirrorSnapshot);
+            sendTeamMirror(player, mirrorSnapshot);
             ServerPlayerLockService.of(server).syncPlayer(player);
         }
     }
@@ -59,9 +58,6 @@ public final class RoomHudSyncService {
         if (renderer == null) {
             return;
         }
-        StandardRoomRunningHudRenderer.RunningRoomBatch renderBatch = renderer instanceof StandardRoomRunningHudRenderer standardRenderer
-            ? standardRenderer.beginRoomBatch(room, state)
-            : null;
         TeamMirrorSnapshot mirrorSnapshot = buildRunningTeamMirrorPacket(room, state);
 
         for (UUID playerId : state.getRoomPlayers()) {
@@ -69,14 +65,12 @@ public final class RoomHudSyncService {
             if (player == null) {
                 continue;
             }
-            RoomHudSyncPacket packet = renderBatch != null
-                ? ((StandardRoomRunningHudRenderer) renderer).buildPacket(renderBatch, player)
-                : renderer.buildPacket(room, state, player);
+            RoomHudSyncPacket packet = renderer.buildPacket(room, state, player);
             if (packet == null) {
                 continue;
             }
             NetworkManager.sendToPlayer(player, packet);
-            sendTeamMirrorIfChanged(player, mirrorSnapshot);
+            sendTeamMirror(player, mirrorSnapshot);
             ServerPlayerLockService.of(server).syncPlayer(player);
         }
     }
@@ -96,7 +90,7 @@ public final class RoomHudSyncService {
             return false;
         }
         NetworkManager.sendToPlayer(player, packet);
-        sendTeamMirrorIfChanged(player, buildRunningTeamMirrorPacket(room, state));
+        sendTeamMirror(player, buildRunningTeamMirrorPacket(room, state));
         ServerPlayerLockService.of(server).syncPlayer(player);
         return true;
     }
@@ -123,9 +117,6 @@ public final class RoomHudSyncService {
             "-",
             "-"
         ));
-        if (player.getUUID() != null) {
-            lastTeamMirrorSignatureByPlayer.remove(player.getUUID());
-        }
         ServerPlayerLockService.of(server).clearPlayer(player);
         NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.reset());
         NetworkManager.sendToPlayer(player, RoomTeamMirrorSyncPacket.clear());
@@ -237,7 +228,7 @@ public final class RoomHudSyncService {
         return null;
     }
 
-    private record TeamMirrorSnapshot(String signature, RoomTeamMirrorSyncPacket packet) {
+    private record TeamMirrorSnapshot(RoomTeamMirrorSyncPacket packet) {
     }
 
 
@@ -245,8 +236,6 @@ public final class RoomHudSyncService {
         List<String> campAPlayers = new ArrayList<>();
         List<String> campBPlayers = new ArrayList<>();
         List<RoomTeamMirrorSyncPacket.PlayerSquadEntry> squadEntries = new ArrayList<>();
-        StringBuilder signature = new StringBuilder("running|");
-        signature.append(room == null ? "-" : room.roomId()).append('|');
         for (UUID playerId : state.getRoomPlayers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player == null) {
@@ -264,18 +253,10 @@ public final class RoomHudSyncService {
                 playerName,
                 squadLabel
             ));
-            signature.append(teamId == null ? "-" : teamId.name())
-                .append(':')
-                .append(playerName)
-                .append(':')
-                .append(squadLabel)
-                .append(';');
         }
         String campADisplayName = RoomTeamPresentationSupport.resolveTeamDisplayName(room, state, RoomTeamId.CAMP_A);
         String campBDisplayName = RoomTeamPresentationSupport.resolveTeamDisplayName(room, state, RoomTeamId.CAMP_B);
-        signature.append('|').append(campADisplayName).append('|').append(campBDisplayName);
         return new TeamMirrorSnapshot(
-            signature.toString(),
             new RoomTeamMirrorSyncPacket(
                 true,
                 room.roomId(),
@@ -292,8 +273,6 @@ public final class RoomHudSyncService {
         List<String> campAPlayers = new ArrayList<>();
         List<String> campBPlayers = new ArrayList<>();
         List<RoomTeamMirrorSyncPacket.PlayerSquadEntry> squadEntries = new ArrayList<>();
-        StringBuilder signature = new StringBuilder("matching|");
-        signature.append(room == null ? "-" : room.roomId()).append('|');
         for (UUID playerId : state.getMatchingState().getQueuePlayers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player == null) {
@@ -311,18 +290,10 @@ public final class RoomHudSyncService {
                 playerName,
                 squadLabel
             ));
-            signature.append(teamId == null ? "-" : teamId.name())
-                .append(':')
-                .append(playerName)
-                .append(':')
-                .append(squadLabel)
-                .append(';');
         }
         String campADisplayName = RoomTeamPresentationSupport.resolveConfiguredDisplayName(room, RoomTeamId.CAMP_A);
         String campBDisplayName = RoomTeamPresentationSupport.resolveConfiguredDisplayName(room, RoomTeamId.CAMP_B);
-        signature.append('|').append(campADisplayName).append('|').append(campBDisplayName);
         return new TeamMirrorSnapshot(
-            signature.toString(),
             new RoomTeamMirrorSyncPacket(
                 true,
                 room.roomId(),
@@ -335,20 +306,10 @@ public final class RoomHudSyncService {
         );
     }
 
-    private void sendTeamMirrorIfChanged(ServerPlayer player, TeamMirrorSnapshot snapshot) {
+    private void sendTeamMirror(ServerPlayer player, TeamMirrorSnapshot snapshot) {
         if (player == null || snapshot == null || snapshot.packet() == null) {
             return;
         }
-        UUID playerId = player.getUUID();
-        if (playerId == null) {
-            NetworkManager.sendToPlayer(player, snapshot.packet());
-            return;
-        }
-        String lastSignature = lastTeamMirrorSignatureByPlayer.get(playerId);
-        if (snapshot.signature().equals(lastSignature)) {
-            return;
-        }
-        lastTeamMirrorSignatureByPlayer.put(playerId, snapshot.signature());
         NetworkManager.sendToPlayer(player, snapshot.packet());
     }
 }

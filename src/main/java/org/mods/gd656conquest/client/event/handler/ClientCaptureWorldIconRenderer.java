@@ -29,9 +29,6 @@ import java.util.UUID;
 
 final class ClientCaptureWorldIconRenderer {
     private final ClientCaptureDebugIconSupport debugSupport = new ClientCaptureDebugIconSupport();
-    private long cachedStaticProjectionSignature = Long.MIN_VALUE;
-    private String cachedStaticProjectionPayload = "-";
-    private final Map<String, ScreenProjection> cachedStaticScreenProjections = new java.util.HashMap<>();
 
     void renderWorldAnchoredCaptureIcons(
         ClientCaptureOverlayState state,
@@ -43,8 +40,6 @@ final class ClientCaptureWorldIconRenderer {
     ) {
         boolean deployPhaseActive = ClientDeathFlowState.shouldRenderDeployBoundaries();
         boolean deployWorldIconsVisible = !deployPhaseActive || ClientDeathFlowState.isDeployOpenPhase();
-        long projectionSignature = ClientHudProjectionCacheKey.capture(minecraft, state.worldProjectionMatrix);
-        refreshStaticProjectionCache(state, projectionSignature);
         double bestHoverDistance = Double.MAX_VALUE;
         double bestLabelDistance = Double.MAX_VALUE;
         HoverLabel hoverLabel = null;
@@ -165,16 +160,6 @@ final class ClientCaptureWorldIconRenderer {
         state.teammateIconScreenStates.keySet().retainAll(dynamicIconSeen);
     }
 
-    private void refreshStaticProjectionCache(ClientCaptureOverlayState state, long projectionSignature) {
-        String payload = state == null ? "-" : state.cachedCaptureIconPayload;
-        if (cachedStaticProjectionSignature == projectionSignature && cachedStaticProjectionPayload.equals(payload)) {
-            return;
-        }
-        cachedStaticProjectionSignature = projectionSignature;
-        cachedStaticProjectionPayload = payload;
-        cachedStaticScreenProjections.clear();
-    }
-
     void renderPersistentSelectedDeployCrosshairs(
         ClientCaptureOverlayState state,
         GuiGraphics gui,
@@ -281,21 +266,6 @@ final class ClientCaptureWorldIconRenderer {
         if (minecraft.player == null || state.worldProjectionMatrix == null) {
             return null;
         }
-        if (shouldUseStaticProjectionCache(entry)) {
-            ScreenProjection cached = cachedStaticScreenProjections.get(entry.renderId());
-            if (cached != null) {
-                return cached;
-            }
-            Vec3 worldAnchor = resolveWorldIconAnchor(minecraft, state, entry);
-            ClientWorldHudProjectionSupport.ProjectedPoint projected =
-                ClientWorldHudProjectionSupport.projectToScreen(minecraft, state.worldProjectionMatrix, worldAnchor);
-            if (projected == null) {
-                return null;
-            }
-            ScreenProjection screenProjection = new ScreenProjection(projected.screenX(), projected.screenY());
-            cachedStaticScreenProjections.put(entry.renderId(), screenProjection);
-            return screenProjection;
-        }
         Vec3 worldAnchor = resolveWorldIconAnchor(minecraft, state, entry);
         ClientWorldHudProjectionSupport.ProjectedPoint projected =
             ClientWorldHudProjectionSupport.projectToScreen(minecraft, state.worldProjectionMatrix, worldAnchor);
@@ -303,12 +273,6 @@ final class ClientCaptureWorldIconRenderer {
             return null;
         }
         return new ScreenProjection(projected.screenX(), projected.screenY());
-    }
-
-    private boolean shouldUseStaticProjectionCache(CaptureIconEntry entry) {
-        return entry != null
-            && !entry.isTeammateMarker()
-            && !entry.isVehicleMarker();
     }
 
     private Vec3 resolveWorldIconAnchor(Minecraft minecraft, ClientCaptureOverlayState state, CaptureIconEntry entry) {

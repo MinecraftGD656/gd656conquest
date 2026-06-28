@@ -71,7 +71,6 @@ public final class ClientEventHandler {
         ClientDeathFlowState.tick();
         ClientDownedState.tick();
         ClientReviveState.tick();
-        ClientDeathFlowState.tickAmbient();
         ClientMatchResultOverlayState.tick();
         String roomId = ClientHudDebugState.getRoomId();
         String roomState = ClientHudDebugState.getRoomState();
@@ -203,8 +202,11 @@ public final class ClientEventHandler {
     }
 
     public void handleMouseInput(InputEvent.MouseButton event) {
-        captureOverlayController.noteMouseButtonActivity(event);
         if (roomSessionController.handleMouseButton(event)) {
+            return;
+        }
+        captureOverlayController.handleMouseInput(event);
+        if (event.isCancelable() && event.isCanceled()) {
             return;
         }
         if (ClientPlayerAnimatorDebugState.handleMouseInput(event)) {
@@ -216,7 +218,6 @@ public final class ClientEventHandler {
     }
 
     public void handleMouseScroll(InputEvent.MouseScrollingEvent event) {
-        captureOverlayController.handleMouseScroll(event);
         roomSessionController.handleMouseScroll(event);
     }
 
