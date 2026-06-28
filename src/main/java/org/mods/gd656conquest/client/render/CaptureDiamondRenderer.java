@@ -290,10 +290,26 @@ public final class CaptureDiamondRenderer {
         int verticalStartX = Math.round(-pixelThickness * 0.5F);
         gui.pose().pushPose();
         gui.pose().translate(offsetX, offsetY, 0.0F);
-        drawHorizontalCrosshairSide(gui, anchorX, 0.0F, anchorX - Math.max(0.0F, horizontalGap), horizontalGap, horizontalFeather, anchorY + horizontalStartY, pixelThickness, rgb, clampedAlpha);
-        drawHorizontalCrosshairSide(gui, anchorX, anchorX + Math.max(0.0F, horizontalGap), screenWidth, horizontalGap, horizontalFeather, anchorY + horizontalStartY, pixelThickness, rgb, clampedAlpha);
-        drawVerticalCrosshairSide(gui, anchorY, 0.0F, anchorY - Math.max(0.0F, verticalGap), verticalGap, verticalFeather, anchorX + verticalStartX, pixelThickness, rgb, clampedAlpha);
-        drawVerticalCrosshairSide(gui, anchorY, anchorY + Math.max(0.0F, verticalGap), screenHeight, verticalGap, verticalFeather, anchorX + verticalStartX, pixelThickness, rgb, clampedAlpha);
+        Matrix4f matrix = gui.pose().last().pose();
+        float gapLeft = anchorX - Math.max(0.0F, horizontalGap);
+        float gapRight = anchorX + Math.max(0.0F, horizontalGap);
+        float gapTop = anchorY - Math.max(0.0F, verticalGap);
+        float gapBottom = anchorY + Math.max(0.0F, verticalGap);
+        float barTop = anchorY + horizontalStartY;
+        float barBottom = barTop + pixelThickness;
+        float barLeft = anchorX + verticalStartX;
+        float barRight = barLeft + pixelThickness;
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        Tesselator tesselator = Tesselator.getInstance();
+        BufferBuilder buffer = tesselator.getBuilder();
+        buffer.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        addHorizontalCrosshairArm(buffer, matrix, 0.0F, gapLeft, barTop, barBottom, false, horizontalFeather, rgb, clampedAlpha);
+        addHorizontalCrosshairArm(buffer, matrix, gapRight, screenWidth, barTop, barBottom, true, horizontalFeather, rgb, clampedAlpha);
+        addVerticalCrosshairArm(buffer, matrix, 0.0F, gapTop, barLeft, barRight, false, verticalFeather, rgb, clampedAlpha);
+        addVerticalCrosshairArm(buffer, matrix, gapBottom, screenHeight, barLeft, barRight, true, verticalFeather, rgb, clampedAlpha);
+        BufferUploader.drawWithShader(buffer.end());
         gui.pose().popPose();
     }
 
@@ -329,84 +345,140 @@ public final class CaptureDiamondRenderer {
         gui.pose().popPose();
     }
 
-    private static void drawHorizontalCrosshairSide(
-        GuiGraphics gui,
-        float centerX,
+    private static void addHorizontalCrosshairArm(
+        BufferBuilder buffer,
+        Matrix4f matrix,
         float startX,
         float endX,
-        float gap,
+        float top,
+        float bottom,
+        boolean extendsRight,
         float feather,
-        int startY,
-        int thickness,
         int rgb,
         float alpha
     ) {
-        if (endX <= startX) {
+        if (endX <= startX || alpha <= 0.0F) {
             return;
         }
-        float segmentWidth = 2.0F;
-        for (float x = startX; x < endX; x += segmentWidth) {
-            float x2 = Math.min(endX, x + segmentWidth);
-            float midX = (x + x2) * 0.5F;
-            float distance = Math.abs(midX - centerX);
-            float segmentAlpha = resolveCrosshairSegmentAlpha(distance, gap, feather, alpha);
-            if (segmentAlpha <= 0.0F) {
-                continue;
-            }
-            fillRect(gui, x, startY, x2, startY + thickness, withAlpha(rgb, segmentAlpha));
+        float clampedFeather = Math.max(0.0F, feather);
+        if (clampedFeather <= 0.001F) {
+            addSolidQuad(buffer, matrix, startX, top, endX, bottom, rgb, alpha);
+            return;
         }
+        if (extendsRight) {
+            float fadeEnd = Math.min(endX, startX + clampedFeather);
+            addHorizontalGradientQuad(buffer, matrix, startX, top, fadeEnd, bottom, rgb, 0.0F, alpha);
+            if (endX > fadeEnd) {
+                addSolidQuad(buffer, matrix, fadeEnd, top, endX, bottom, rgb, alpha);
+            }
+            return;
+        }
+        float fadeStart = Math.max(startX, endX - clampedFeather);
+        if (fadeStart > startX) {
+            addSolidQuad(buffer, matrix, startX, top, fadeStart, bottom, rgb, alpha);
+        }
+        addHorizontalGradientQuad(buffer, matrix, fadeStart, top, endX, bottom, rgb, alpha, 0.0F);
     }
 
-    private static void drawVerticalCrosshairSide(
-        GuiGraphics gui,
-        float centerY,
+    private static void addVerticalCrosshairArm(
+        BufferBuilder buffer,
+        Matrix4f matrix,
         float startY,
         float endY,
-        float gap,
+        float left,
+        float right,
+        boolean extendsDown,
         float feather,
-        int startX,
-        int thickness,
         int rgb,
         float alpha
     ) {
-        if (endY <= startY) {
+        if (endY <= startY || alpha <= 0.0F) {
             return;
         }
-        float segmentHeight = 2.0F;
-        for (float y = startY; y < endY; y += segmentHeight) {
-            float y2 = Math.min(endY, y + segmentHeight);
-            float midY = (y + y2) * 0.5F;
-            float distance = Math.abs(midY - centerY);
-            float segmentAlpha = resolveCrosshairSegmentAlpha(distance, gap, feather, alpha);
-            if (segmentAlpha <= 0.0F) {
-                continue;
+        float clampedFeather = Math.max(0.0F, feather);
+        if (clampedFeather <= 0.001F) {
+            addSolidQuad(buffer, matrix, left, startY, right, endY, rgb, alpha);
+            return;
+        }
+        if (extendsDown) {
+            float fadeEnd = Math.min(endY, startY + clampedFeather);
+            addVerticalGradientQuad(buffer, matrix, left, startY, right, fadeEnd, rgb, 0.0F, alpha);
+            if (endY > fadeEnd) {
+                addSolidQuad(buffer, matrix, left, fadeEnd, right, endY, rgb, alpha);
             }
-            fillRect(gui, startX, y, startX + thickness, y2, withAlpha(rgb, segmentAlpha));
-        }
-    }
-
-    private static float resolveCrosshairSegmentAlpha(float distance, float gap, float feather, float alpha) {
-        if (distance <= gap) {
-            return 0.0F;
-        }
-        float normalized = feather <= 0.001F ? 1.0F : Mth.clamp((distance - gap) / feather, 0.0F, 1.0F);
-        return alpha * normalized;
-    }
-
-    private static void fillRect(GuiGraphics gui, float left, float top, float right, float bottom, int color) {
-        int x1 = Mth.floor(Math.min(left, right));
-        int y1 = Mth.floor(Math.min(top, bottom));
-        int x2 = Mth.ceil(Math.max(left, right));
-        int y2 = Mth.ceil(Math.max(top, bottom));
-        if (x2 <= x1 || y2 <= y1) {
             return;
         }
-        gui.fill(x1, y1, x2, y2, color);
+        float fadeStart = Math.max(startY, endY - clampedFeather);
+        if (fadeStart > startY) {
+            addSolidQuad(buffer, matrix, left, startY, right, fadeStart, rgb, alpha);
+        }
+        addVerticalGradientQuad(buffer, matrix, left, fadeStart, right, endY, rgb, alpha, 0.0F);
     }
 
-    private static int withAlpha(int rgb, float alpha) {
-        int alphaByte = ((int) (Mth.clamp(alpha, 0.0F, 1.0F) * 255.0F)) << 24;
-        return alphaByte | (rgb & 0x00FFFFFF);
+    private static void addSolidQuad(
+        BufferBuilder buffer,
+        Matrix4f matrix,
+        float left,
+        float top,
+        float right,
+        float bottom,
+        int rgb,
+        float alpha
+    ) {
+        addGradientQuad(buffer, matrix, left, top, right, bottom, rgb, alpha, alpha, alpha, alpha);
+    }
+
+    private static void addHorizontalGradientQuad(
+        BufferBuilder buffer,
+        Matrix4f matrix,
+        float left,
+        float top,
+        float right,
+        float bottom,
+        int rgb,
+        float leftAlpha,
+        float rightAlpha
+    ) {
+        addGradientQuad(buffer, matrix, left, top, right, bottom, rgb, leftAlpha, rightAlpha, rightAlpha, leftAlpha);
+    }
+
+    private static void addVerticalGradientQuad(
+        BufferBuilder buffer,
+        Matrix4f matrix,
+        float left,
+        float top,
+        float right,
+        float bottom,
+        int rgb,
+        float topAlpha,
+        float bottomAlpha
+    ) {
+        addGradientQuad(buffer, matrix, left, top, right, bottom, rgb, topAlpha, topAlpha, bottomAlpha, bottomAlpha);
+    }
+
+    private static void addGradientQuad(
+        BufferBuilder buffer,
+        Matrix4f matrix,
+        float left,
+        float top,
+        float right,
+        float bottom,
+        int rgb,
+        float topLeftAlpha,
+        float topRightAlpha,
+        float bottomRightAlpha,
+        float bottomLeftAlpha
+    ) {
+        if (right <= left || bottom <= top) {
+            return;
+        }
+        float red = ((rgb >>> 16) & 0xFF) / 255.0F;
+        float green = ((rgb >>> 8) & 0xFF) / 255.0F;
+        float blue = (rgb & 0xFF) / 255.0F;
+        buffer.vertex(matrix, left, bottom, 0.0F).color(red, green, blue, Mth.clamp(bottomLeftAlpha, 0.0F, 1.0F)).endVertex();
+        buffer.vertex(matrix, right, bottom, 0.0F).color(red, green, blue, Mth.clamp(bottomRightAlpha, 0.0F, 1.0F)).endVertex();
+        buffer.vertex(matrix, right, top, 0.0F).color(red, green, blue, Mth.clamp(topRightAlpha, 0.0F, 1.0F)).endVertex();
+        buffer.vertex(matrix, left, top, 0.0F).color(red, green, blue, Mth.clamp(topLeftAlpha, 0.0F, 1.0F)).endVertex();
     }
 
     private static float[] rgb(int rgb) {

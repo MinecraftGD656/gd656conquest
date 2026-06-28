@@ -18,8 +18,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -72,6 +72,8 @@ final class ClientCaptureOverlayCodec {
             ParsedCaptureIcons parsedIcons = parseCaptureIcons(iconPayload);
             applyParsedBoundaryPolygons(state, parsedIcons.boundaryPolygons());
             state.cachedCaptureIcons = parsedIcons.entries();
+            state.cachedObjectiveEntries = parsedIcons.objectiveEntries();
+            state.objectiveEntryByCode = parsedIcons.objectiveEntryByCode();
             state.cachedCaptureIconPayload = iconPayload;
             state.cachedAdminDebugPayload = hasDebugPayload ? debugPayload : "-";
             syncProgressTargets(state, state.cachedCaptureIcons);
@@ -199,7 +201,13 @@ final class ClientCaptureOverlayCodec {
             } catch (Exception ignored) {
             }
         }
-        return new ParsedCaptureIcons(List.copyOf(entries), freezeBoundaryPolygons(polygonsByKey));
+        List<CaptureIconEntry> objectiveEntries = buildObjectiveEntries(entries);
+        return new ParsedCaptureIcons(
+            List.copyOf(entries),
+            freezeBoundaryPolygons(polygonsByKey),
+            objectiveEntries,
+            indexObjectiveEntriesByCode(objectiveEntries)
+        );
     }
 
     private void applyParsedBoundaryPolygons(ClientCaptureOverlayState state, List<BoundaryPolygon> nextPolygons) {
@@ -231,9 +239,48 @@ final class ClientCaptureOverlayCodec {
         return polygons.isEmpty() ? List.of() : List.copyOf(polygons);
     }
 
+    private List<CaptureIconEntry> buildObjectiveEntries(List<CaptureIconEntry> entries) {
+        if (entries == null || entries.isEmpty()) {
+            return List.of();
+        }
+        List<CaptureIconEntry> objectives = new ArrayList<>();
+        for (CaptureIconEntry entry : entries) {
+            if (entry == null
+                || entry.isSpawnPoint()
+                || entry.isDebugMarker()
+                || entry.isTeammateMarker()
+                || entry.isBeaconMarker()
+                || entry.isVehicleMarker()) {
+                continue;
+            }
+            objectives.add(entry);
+        }
+        if (objectives.isEmpty()) {
+            return List.of();
+        }
+        objectives.sort(Comparator.comparing(CaptureIconEntry::code, String.CASE_INSENSITIVE_ORDER));
+        return List.copyOf(objectives);
+    }
+
+    private Map<String, CaptureIconEntry> indexObjectiveEntriesByCode(List<CaptureIconEntry> objectiveEntries) {
+        if (objectiveEntries == null || objectiveEntries.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, CaptureIconEntry> byCode = new LinkedHashMap<>();
+        for (CaptureIconEntry entry : objectiveEntries) {
+            if (entry == null || entry.code() == null || entry.code().isBlank()) {
+                continue;
+            }
+            byCode.putIfAbsent(entry.code(), entry);
+        }
+        return byCode.isEmpty() ? Map.of() : Map.copyOf(byCode);
+    }
+
     private record ParsedCaptureIcons(
         List<CaptureIconEntry> entries,
-        List<BoundaryPolygon> boundaryPolygons
+        List<BoundaryPolygon> boundaryPolygons,
+        List<CaptureIconEntry> objectiveEntries,
+        Map<String, CaptureIconEntry> objectiveEntryByCode
     ) {
     }
 

@@ -12,13 +12,15 @@ final class ClientCaptureOverlayState {
     String cachedCaptureFocusPayload = "-";
     String cachedAdminDebugPayload = "-";
     List<ClientCaptureOverlayModel.CaptureIconEntry> cachedCaptureIcons = List.of();
+    List<ClientCaptureOverlayModel.CaptureIconEntry> cachedObjectiveEntries = List.of();
+    Map<String, ClientCaptureOverlayModel.CaptureIconEntry> objectiveEntryByCode = Map.of();
     List<ClientCaptureOverlayModel.BoundaryPolygon> cachedBoundaryPolygons = List.of();
     long boundaryGeometryVersion;
     final Map<String, ClientCaptureOverlayModel.ProgressInterpolationState> progressInterpolation = new HashMap<>();
     final Map<String, ClientCaptureOverlayModel.HudIconLayoutState> hudIconLayoutStates = new HashMap<>();
     final Map<String, ClientCaptureOverlayModel.TeammateIconScreenState> teammateIconScreenStates = new HashMap<>();
     final Map<String, ClientCaptureOverlayModel.WorldIconRenderState> worldIconRenderStates = new HashMap<>();
-    final Map<String, ClientCaptureOverlayModel.SelectedCrosshairRenderState> selectedCrosshairStates = new HashMap<>();
+    ClientCaptureOverlayModel.SelectedCrosshairRenderState selectedCrosshairState;
     final List<ClientCaptureOverlayModel.RenderedIconBounds> renderedDeployIcons = new ArrayList<>();
     long lastRenderNanos = -1L;
     long lastOverlaySyncGameTime = Long.MIN_VALUE;
@@ -39,6 +41,8 @@ final class ClientCaptureOverlayState {
         cachedAdminDebugPayload = "-";
         adminDebugOverlayActive = false;
         cachedCaptureIcons = List.of();
+        cachedObjectiveEntries = List.of();
+        objectiveEntryByCode = Map.of();
         cachedBoundaryPolygons = List.of();
         boundaryGeometryVersion = 0L;
         currentCaptureFocus = null;
@@ -46,7 +50,7 @@ final class ClientCaptureOverlayState {
         hudIconLayoutStates.clear();
         teammateIconScreenStates.clear();
         worldIconRenderStates.clear();
-        selectedCrosshairStates.clear();
+        selectedCrosshairState = null;
         renderedDeployIcons.clear();
         lastRenderNanos = -1L;
         lastOverlaySyncGameTime = Long.MIN_VALUE;
@@ -69,7 +73,7 @@ final class ClientCaptureOverlayState {
     void prepareForDeployUiOpen() {
         clearDeploySelection();
         worldIconRenderStates.clear();
-        selectedCrosshairStates.clear();
+        selectedCrosshairState = null;
         mouseCrossGapPixels = 0.0F;
         mouseCrossFeatherPixels = 0.0F;
     }

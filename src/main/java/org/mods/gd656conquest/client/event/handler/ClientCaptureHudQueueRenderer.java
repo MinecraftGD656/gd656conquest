@@ -18,11 +18,9 @@ import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.Hud
 import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.TeamToken;
 import org.mods.gd656conquest.client.render.CaptureDiamondRenderer;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.HashSet;
 
 final class ClientCaptureHudQueueRenderer {
     void renderHudCaptureQueue(
@@ -32,68 +30,52 @@ final class ClientCaptureHudQueueRenderer {
         float deltaSeconds,
         TeamToken selfTeam
     ) {
-        List<CaptureIconEntry> captureEntries = new ArrayList<>();
-        for (CaptureIconEntry entry : state.cachedCaptureIcons) {
-            if (!entry.isSpawnPoint()
-                && !entry.isDebugMarker()
-                && !entry.isTeammateMarker()
-                && !entry.isBeaconMarker()
-                && !entry.isVehicleMarker()) {
-                captureEntries.add(entry);
-            }
-        }
+        List<CaptureIconEntry> captureEntries = state.cachedObjectiveEntries;
         if (captureEntries.isEmpty()) {
             state.hudIconLayoutStates.clear();
             return;
         }
-        captureEntries.sort(Comparator.comparing(CaptureIconEntry::code));
         int centerX = gui.guiWidth() / 2;
         float queueY = 29.0F;
         float focusX = centerX;
         float focusY = 67.0F;
         String focusCode = state.currentCaptureFocus == null ? null : state.currentCaptureFocus.code();
-        List<CaptureIconEntry> queueEntries = new ArrayList<>();
-        for (CaptureIconEntry entry : captureEntries) {
-            if (!entry.code().equals(focusCode)) {
-                queueEntries.add(entry);
-            }
-        }
         int spacing = 24;
-        float queueStartX = centerX - (queueEntries.size() - 1) * spacing / 2.0F;
+        CaptureIconEntry focusEntry = focusCode == null ? null : state.objectiveEntryByCode.get(focusCode);
+        int queueEntryCount = focusEntry == null ? captureEntries.size() : Math.max(0, captureEntries.size() - 1);
+        float queueStartX = centerX - (queueEntryCount - 1) * spacing / 2.0F;
         MultiBufferSource.BufferSource textBufferSource = minecraft.renderBuffers().bufferSource();
         Set<String> seen = new HashSet<>();
-        for (int i = 0; i < queueEntries.size(); i++) {
-            CaptureIconEntry entry = queueEntries.get(i);
+        int queueIndex = 0;
+        for (CaptureIconEntry entry : captureEntries) {
+            if (entry.code().equals(focusCode)) {
+                continue;
+            }
             seen.add(entry.renderId());
             updateHudLayoutState(
                 state,
                 entry,
-                queueStartX + i * spacing,
+                queueStartX + queueIndex * spacing,
                 queueY,
                 ClientCaptureOverlayModel.HUD_QUEUE_ICON_RADIUS,
                 ClientCaptureOverlayModel.HUD_QUEUE_ICON_ALPHA,
                 ClientCaptureOverlayModel.HUD_QUEUE_LABEL_SCALE,
                 deltaSeconds
             );
+            queueIndex++;
         }
-        if (focusCode != null) {
-            for (CaptureIconEntry entry : captureEntries) {
-                if (!entry.code().equals(focusCode)) {
-                    continue;
-                }
-                seen.add(entry.renderId());
-                updateHudLayoutState(
-                    state,
-                    entry,
-                    focusX,
-                    focusY,
-                    ClientCaptureOverlayModel.HUD_FOCUS_ICON_RADIUS,
-                    ClientCaptureOverlayModel.HUD_FOCUS_ICON_ALPHA,
-                    ClientCaptureOverlayModel.HUD_FOCUS_LABEL_SCALE,
-                    deltaSeconds
-                );
-                break;
-            }
+        if (focusEntry != null) {
+            seen.add(focusEntry.renderId());
+            updateHudLayoutState(
+                state,
+                focusEntry,
+                focusX,
+                focusY,
+                ClientCaptureOverlayModel.HUD_FOCUS_ICON_RADIUS,
+                ClientCaptureOverlayModel.HUD_FOCUS_ICON_ALPHA,
+                ClientCaptureOverlayModel.HUD_FOCUS_LABEL_SCALE,
+                deltaSeconds
+            );
         }
         state.hudIconLayoutStates.keySet().retainAll(seen);
         for (CaptureIconEntry entry : captureEntries) {
@@ -120,7 +102,7 @@ final class ClientCaptureHudQueueRenderer {
                 textBufferSource
             );
         }
-        renderFocusDetails(state, gui, minecraft, focusCode, textBufferSource);
+        renderFocusDetails(state, gui, minecraft, focusEntry, textBufferSource);
         textBufferSource.endBatch();
     }
 
@@ -151,21 +133,11 @@ final class ClientCaptureHudQueueRenderer {
         ClientCaptureOverlayState state,
         GuiGraphics gui,
         Minecraft minecraft,
-        String focusCode,
+        CaptureIconEntry focusEntry,
         MultiBufferSource.BufferSource textBufferSource
     ) {
         CaptureFocusData focus = state.currentCaptureFocus;
-        if (focusCode == null || focus == null || !focus.code().equals(focusCode)) {
-            return;
-        }
-        CaptureIconEntry focusEntry = null;
-        for (CaptureIconEntry entry : state.cachedCaptureIcons) {
-            if (!entry.isSpawnPoint() && entry.code().equals(focusCode)) {
-                focusEntry = entry;
-                break;
-            }
-        }
-        if (focusEntry == null) {
+        if (focusEntry == null || focus == null || !focus.code().equals(focusEntry.code())) {
             return;
         }
         HudIconLayoutState layout = state.hudIconLayoutStates.get(focusEntry.renderId());

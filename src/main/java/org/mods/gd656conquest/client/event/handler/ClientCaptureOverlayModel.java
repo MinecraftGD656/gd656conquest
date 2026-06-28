@@ -403,7 +403,7 @@ final class ClientCaptureOverlayModel {
     }
 
     static final class SelectedCrosshairRenderState {
-        final String renderId;
+        String renderId;
         double screenX;
         double screenY;
         float alpha;

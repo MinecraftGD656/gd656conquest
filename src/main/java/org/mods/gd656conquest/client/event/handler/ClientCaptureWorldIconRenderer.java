@@ -20,12 +20,7 @@ import org.mods.gd656conquest.client.render.CaptureDiamondRenderer;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.lwjgl.glfw.GLFW;
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 final class ClientCaptureWorldIconRenderer {
     private final ClientCaptureDebugIconSupport debugSupport = new ClientCaptureDebugIconSupport();
@@ -48,9 +43,12 @@ final class ClientCaptureWorldIconRenderer {
         for (ClientCaptureOverlayModel.WorldIconRenderState renderState : state.worldIconRenderStates.values()) {
             renderState.seenThisFrame = false;
         }
-        for (ClientCaptureOverlayModel.SelectedCrosshairRenderState renderState : state.selectedCrosshairStates.values()) {
-            renderState.seenThisFrame = false;
+        ClientCaptureOverlayModel.SelectedCrosshairRenderState selectedCrosshairState = state.selectedCrosshairState;
+        if (selectedCrosshairState != null) {
+            selectedCrosshairState.seenThisFrame = false;
         }
+        ScreenProjection selectedProjection = null;
+        String selectedRenderId = state.selectedDeployIconId;
         for (CaptureIconEntry entry : state.cachedCaptureIcons) {
             ScreenProjection projection = projectToScreen(state, minecraft, entry);
             if (projection == null) {
@@ -105,7 +103,10 @@ final class ClientCaptureWorldIconRenderer {
                     );
                 }
             }
-            updateSelectedCrosshairState(state, entry.renderId(), stableProjection, selected, deltaSeconds);
+            if (selected) {
+                selectedProjection = stableProjection;
+                selectedRenderId = entry.renderId();
+            }
             renderSingleWorldIcon(state, gui, minecraft, stableProjection, entry, selfTeam, selected, hovered, renderState.alpha, deltaSeconds, textBufferSource);
             if (entry.isDebugMarker()) {
                 debugSupport.renderDebugText(gui, minecraft, stableProjection, entry, renderState.alpha, textBufferSource);
@@ -140,6 +141,7 @@ final class ClientCaptureWorldIconRenderer {
                 debugSupport.renderDebugText(gui, minecraft, fadingProjection, renderState.entry, renderState.alpha, textBufferSource);
             }
         }
+        updateSelectedCrosshairState(state, selectedRenderId, selectedProjection, deltaSeconds);
         renderMouseDeployCrosshair(state, gui, minecraft, deltaSeconds, deployPhaseActive);
         renderSelectedDeployCrosshairs(state, gui, deltaSeconds);
         if (hoverLabel != null) {
@@ -509,20 +511,24 @@ final class ClientCaptureWorldIconRenderer {
         ClientCaptureOverlayState state,
         String renderId,
         ScreenProjection projection,
-        boolean selected,
         float deltaSeconds
     ) {
-        ClientCaptureOverlayModel.SelectedCrosshairRenderState crosshairState = state.selectedCrosshairStates.get(renderId);
-        if (!selected && crosshairState == null) {
-            return;
-        }
+        ClientCaptureOverlayModel.SelectedCrosshairRenderState crosshairState = state.selectedCrosshairState;
+        boolean selected = renderId != null && !renderId.isBlank() && projection != null;
         if (crosshairState == null) {
+            if (!selected) {
+                return;
+            }
             crosshairState = new ClientCaptureOverlayModel.SelectedCrosshairRenderState(renderId, projection.screenX(), projection.screenY());
-            state.selectedCrosshairStates.put(renderId, crosshairState);
+            state.selectedCrosshairState = crosshairState;
+        } else if (selected && !crosshairState.renderId.equals(renderId)) {
+            crosshairState.renderId = renderId;
         }
-        crosshairState.screenX = projection.screenX();
-        crosshairState.screenY = projection.screenY();
-        crosshairState.seenThisFrame = true;
+        if (selected) {
+            crosshairState.screenX = projection.screenX();
+            crosshairState.screenY = projection.screenY();
+            crosshairState.seenThisFrame = true;
+        }
         float targetAlpha = selected ? ClientCaptureOverlayModel.DEPLOY_SELECTED_CROSS_ALPHA : 0.0F;
         crosshairState.alpha = approachSelectedCrosshairAlpha(crosshairState.alpha, targetAlpha, deltaSeconds);
     }
@@ -587,7 +593,8 @@ final class ClientCaptureWorldIconRenderer {
         GuiGraphics gui,
         float deltaSeconds
     ) {
-        if (state.selectedCrosshairStates.isEmpty()) {
+        ClientCaptureOverlayModel.SelectedCrosshairRenderState renderState = state.selectedCrosshairState;
+        if (renderState == null) {
             return;
         }
         float deployAlpha = ClientDeathFlowState.currentDeployIconAlpha();
@@ -597,32 +604,28 @@ final class ClientCaptureWorldIconRenderer {
         float pulse = 0.5F + 0.5F * Mth.sin((float) (pulsePhase * Math.PI * 2.0D));
         int pulseRgb = interpolateRgb(0x005EAFFF, 0x00FFFFFF, pulse);
         boolean deployOpenPhase = ClientDeathFlowState.isDeployOpenPhase();
-        Iterator<Map.Entry<String, ClientCaptureOverlayModel.SelectedCrosshairRenderState>> iterator = state.selectedCrosshairStates.entrySet().iterator();
-        while (iterator.hasNext()) {
-            ClientCaptureOverlayModel.SelectedCrosshairRenderState renderState = iterator.next().getValue();
-            if (!renderState.seenThisFrame && deployOpenPhase) {
-                renderState.alpha = approachSelectedCrosshairAlpha(renderState.alpha, 0.0F, deltaSeconds);
-            }
-            float renderAlpha = renderState.alpha * deployAlpha;
-            if (renderAlpha <= 0.01F) {
-                iterator.remove();
-                continue;
-            }
-            CaptureDiamondRenderer.drawScreenCrosshair(
-                gui,
-                (float) renderState.screenX,
-                (float) renderState.screenY,
-                gui.guiWidth(),
-                gui.guiHeight(),
-                ClientCaptureOverlayModel.DEPLOY_SELECTED_CROSS_GAP_PIXELS,
-                ClientCaptureOverlayModel.DEPLOY_SELECTED_CROSS_GAP_PIXELS,
-                ClientCaptureOverlayModel.DEPLOY_SELECTED_CROSS_FEATHER_PIXELS,
-                ClientCaptureOverlayModel.DEPLOY_SELECTED_CROSS_FEATHER_PIXELS,
-                ClientCaptureOverlayModel.DEPLOY_SELECTED_CROSS_LINE_THICKNESS,
-                pulseRgb,
-                renderAlpha
-            );
+        if (!renderState.seenThisFrame && deployOpenPhase) {
+            renderState.alpha = approachSelectedCrosshairAlpha(renderState.alpha, 0.0F, deltaSeconds);
         }
+        float renderAlpha = renderState.alpha * deployAlpha;
+        if (renderAlpha <= 0.01F) {
+            state.selectedCrosshairState = null;
+            return;
+        }
+        CaptureDiamondRenderer.drawScreenCrosshair(
+            gui,
+            (float) renderState.screenX,
+            (float) renderState.screenY,
+            gui.guiWidth(),
+            gui.guiHeight(),
+            ClientCaptureOverlayModel.DEPLOY_SELECTED_CROSS_GAP_PIXELS,
+            ClientCaptureOverlayModel.DEPLOY_SELECTED_CROSS_GAP_PIXELS,
+            ClientCaptureOverlayModel.DEPLOY_SELECTED_CROSS_FEATHER_PIXELS,
+            ClientCaptureOverlayModel.DEPLOY_SELECTED_CROSS_FEATHER_PIXELS,
+            ClientCaptureOverlayModel.DEPLOY_SELECTED_CROSS_LINE_THICKNESS,
+            pulseRgb,
+            renderAlpha
+        );
     }
 
     private float smoothTeammateYaw(TeammateIconScreenState iconState, float targetYaw, float deltaSeconds) {
