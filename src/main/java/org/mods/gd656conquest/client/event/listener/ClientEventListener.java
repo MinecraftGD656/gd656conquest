@@ -19,7 +19,7 @@ import org.mods.gd656conquest.client.event.handler.ClientEventHandler;
 public final class ClientEventListener {
     private final ClientEventHandler eventHandler = ClientEventHandler.getInstance();
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onClientTick(TickEvent.ClientTickEvent event) {
         eventHandler.handleClientTick(event);
     }

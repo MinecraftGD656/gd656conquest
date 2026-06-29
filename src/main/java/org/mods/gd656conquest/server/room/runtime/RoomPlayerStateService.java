@@ -157,6 +157,15 @@ public final class RoomPlayerStateService {
         player.setDeltaMovement(0.0D, 0.0D, 0.0D);
     }
 
+    public void applyDeployHoldingState(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        setSpectator(player);
+        player.setRemainingFireTicks(0);
+        refillHealth(player);
+    }
+
     public void applyDownedState(RoomDefinition room, ServerPlayer player) {
         if (room == null || player == null) {
             return;

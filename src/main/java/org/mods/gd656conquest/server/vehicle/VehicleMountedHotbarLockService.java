@@ -11,8 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class VehicleMountedHotbarLockService {
     public static final int LOCKED_HOTBAR_SLOT = 6;
-
-    private final Map<UUID, Integer> previousSlots = new ConcurrentHashMap<>();
+    public static final int POST_DISMOUNT_HOTBAR_SLOT = 0;
     private final Set<UUID> mountedPlayers = ConcurrentHashMap.newKeySet();
 
     public void onPlayerTick(ServerPlayer player) {
@@ -22,7 +21,6 @@ public final class VehicleMountedHotbarLockService {
         UUID playerId = player.getUUID();
         boolean mountedVehicle = isMountedVehicle(player);
         if (mountedVehicle && mountedPlayers.add(playerId)) {
-            previousSlots.putIfAbsent(playerId, clampHotbarSlot(player.getInventory().selected));
             forceSelectedSlot(player, LOCKED_HOTBAR_SLOT);
         }
         if (shouldLock(player)) {
@@ -32,8 +30,9 @@ public final class VehicleMountedHotbarLockService {
         if (mountedVehicle) {
             return;
         }
-        mountedPlayers.remove(playerId);
-        restorePreviousSlot(player);
+        if (mountedPlayers.remove(playerId)) {
+            forceSelectedSlot(player, POST_DISMOUNT_HOTBAR_SLOT);
+        }
     }
 
     public void onPlayerLogout(ServerPlayer player) {
@@ -52,8 +51,8 @@ public final class VehicleMountedHotbarLockService {
         if (player == null) {
             return;
         }
-        if (!shouldLock(player)) {
-            restorePreviousSlot(player);
+        if (!shouldLock(player) && mountedPlayers.remove(player.getUUID())) {
+            forceSelectedSlot(player, POST_DISMOUNT_HOTBAR_SLOT);
         }
     }
 
@@ -65,17 +64,8 @@ public final class VehicleMountedHotbarLockService {
         return player != null && VehicleCompatFacade.isVehicleEntity(player.getVehicle());
     }
 
-    private void restorePreviousSlot(ServerPlayer player) {
-        Integer previousSlot = previousSlots.remove(player.getUUID());
-        if (previousSlot == null) {
-            return;
-        }
-        forceSelectedSlot(player, clampHotbarSlot(previousSlot));
-    }
-
     private void clear(ServerPlayer player) {
         if (player != null) {
-            previousSlots.remove(player.getUUID());
             mountedPlayers.remove(player.getUUID());
         }
     }

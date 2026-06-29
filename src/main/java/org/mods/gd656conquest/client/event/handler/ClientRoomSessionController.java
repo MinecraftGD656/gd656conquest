@@ -66,7 +66,6 @@ final class ClientRoomSessionController {
     private double deployFovRestoreStart = -1.0D;
     private float deployFovRestoreElapsedSeconds;
     private final ClientVehicleMountedHotbarLockService vehicleMountedHotbarLockService = new ClientVehicleMountedHotbarLockService();
-    private int lockedHotbarSlot = -1;
     private String lastUploadedMainHandItemId = "";
     private String lastUploadedMainHandDisplayName = "";
     private long lastUploadedMainHandTick = -1L;
@@ -110,7 +109,7 @@ final class ClientRoomSessionController {
         }
         boolean vehiclePerspectiveAllowed = shouldAllowVehiclePerspective(minecraft);
         if (wasVehiclePerspectiveAllowed && !vehiclePerspectiveAllowed) {
-            enforceFirstPersonForNonAdmin(minecraft);
+            enforceFirstPersonAfterVehicleExit(minecraft);
         } else if (!vehiclePerspectiveAllowed) {
             enforceFirstPersonForNonAdmin(minecraft);
         }
@@ -159,6 +158,15 @@ final class ClientRoomSessionController {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
+            return;
+        }
+        boolean attackKey = minecraft.options.keyAttack.matches(event.getKey(), event.getScanCode());
+        boolean useKey = minecraft.options.keyUse.matches(event.getKey(), event.getScanCode());
+        if (TaczClientInputCompat.shouldBlockCombatInputUntilRelease(minecraft, attackKey, useKey)) {
+            if (event.isCancelable()) {
+                event.setCanceled(true);
+            }
+            TaczClientInputCompat.clearTransientCombatState(minecraft);
             return;
         }
         if (isAdmin(minecraft)) {
@@ -226,6 +234,15 @@ final class ClientRoomSessionController {
             return true;
         }
         boolean allowReleasedMouseUiClick = shouldAllowReleasedMouseUiLeftClick(minecraft, event);
+        boolean attackMouse = event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT;
+        boolean useMouse = event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT;
+        if (TaczClientInputCompat.shouldBlockCombatInputUntilRelease(minecraft, attackMouse, useMouse)) {
+            if (event.isCancelable()) {
+                event.setCanceled(true);
+            }
+            TaczClientInputCompat.clearTransientCombatState(minecraft);
+            return true;
+        }
         if (!allowReleasedMouseUiClick && shouldBlockHeldItemUseMouseInput(minecraft, event)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
@@ -342,7 +359,6 @@ final class ClientRoomSessionController {
         deployFovRestoreStart = -1.0D;
         deployFovRestoreElapsedSeconds = 0.0F;
         vehicleMountedHotbarLockService.reset();
-        lockedHotbarSlot = -1;
         lastUploadedMainHandItemId = "";
         lastUploadedMainHandDisplayName = "";
         lastUploadedMainHandTick = -1L;
@@ -487,10 +503,21 @@ final class ClientRoomSessionController {
         }
     }
 
+    private void enforceFirstPersonAfterVehicleExit(Minecraft minecraft) {
+        if (minecraft == null || minecraft.options == null || minecraft.player == null) {
+            return;
+        }
+        if (ClientDeathFlowState.hasActiveCameraOverride()) {
+            return;
+        }
+        if (minecraft.options.getCameraType() != CameraType.FIRST_PERSON) {
+            minecraft.options.setCameraType(CameraType.FIRST_PERSON);
+        }
+    }
+
     private boolean shouldAllowVehiclePerspective(Minecraft minecraft) {
         return minecraft != null
             && minecraft.player != null
-            && !isAdmin(minecraft)
             && minecraft.player.getVehicle() != null;
     }
 
@@ -512,10 +539,6 @@ final class ClientRoomSessionController {
         }
         minecraft.options.keyShift.setDown(false);
         minecraft.options.keySprint.setDown(false);
-        minecraft.options.keyAttack.setDown(false);
-        minecraft.options.keyUse.setDown(false);
-        minecraft.options.keyDrop.setDown(false);
-        minecraft.options.keySwapOffhand.setDown(false);
         TaczClientInputCompat.clearTransientCombatState(minecraft);
         if (minecraft.player != null) {
             minecraft.player.setDeltaMovement(0.0D, 0.0D, 0.0D);
@@ -533,14 +556,7 @@ final class ClientRoomSessionController {
         minecraft.options.keyJump.setDown(false);
         minecraft.options.keyShift.setDown(false);
         minecraft.options.keySprint.setDown(false);
-        minecraft.options.keyAttack.setDown(false);
-        minecraft.options.keyUse.setDown(false);
-        minecraft.options.keyDrop.setDown(false);
-        minecraft.options.keySwapOffhand.setDown(false);
         TaczClientInputCompat.clearTransientCombatState(minecraft);
-        if (minecraft.player != null) {
-            minecraft.player.stopUsingItem();
-        }
         if (minecraft.player != null) {
             minecraft.player.setDeltaMovement(0.0D, 0.0D, 0.0D);
         }
@@ -550,51 +566,40 @@ final class ClientRoomSessionController {
         if (minecraft == null || minecraft.options == null) {
             return;
         }
-        minecraft.options.keyUse.setDown(false);
-        minecraft.options.keyAttack.setDown(false);
         TaczClientInputCompat.clearTransientCombatState(minecraft);
-        if (minecraft.player != null) {
-            minecraft.player.stopUsingItem();
-        }
     }
 
     private void enforceHeldItemUseLock(Minecraft minecraft) {
         if (!shouldRestrictHeldItemUse(minecraft)) {
             return;
         }
-        minecraft.options.keyAttack.setDown(false);
-        minecraft.options.keyUse.setDown(false);
-        minecraft.options.keyDrop.setDown(false);
-        minecraft.options.keySwapOffhand.setDown(false);
         TaczClientInputCompat.clearTransientCombatState(minecraft);
-        if (minecraft.player != null) {
-            minecraft.player.stopUsingItem();
-        }
     }
 
     private void enforceLockedHotbarSelection(Minecraft minecraft) {
         if (minecraft == null || minecraft.player == null) {
-            lockedHotbarSlot = -1;
             return;
         }
-        if (ClientRoomLockState.shouldLockHotbarSelection()) {
-            lockedHotbarSlot = resolveLockedHotbarSlot(minecraft);
-        } else {
-            lockedHotbarSlot = vehicleMountedHotbarLockService.resolveLockedHotbarSlot(minecraft);
-        }
-        if (lockedHotbarSlot < 0) {
-            lockedHotbarSlot = -1;
+        boolean roomHotbarLocked = ClientRoomLockState.shouldLockHotbarSelection();
+        int vehicleLockedSlot = vehicleMountedHotbarLockService.resolveLockedHotbarSlot(minecraft);
+        int targetSlot = roomHotbarLocked ? resolveLockedHotbarSlot(minecraft) : vehicleLockedSlot;
+        if (targetSlot < 0) {
             return;
         }
-        if (minecraft.player.getInventory().selected != lockedHotbarSlot) {
-            minecraft.player.getInventory().selected = lockedHotbarSlot;
+        if (minecraft.player.getInventory().selected != targetSlot) {
+            minecraft.player.getInventory().selected = targetSlot;
         }
     }
 
     private int resolveLockedHotbarSlot(Minecraft minecraft) {
         if (isInitialMovementLockActive(minecraft)) {
             int vehicleSlot = vehicleMountedHotbarLockService.resolveLockedHotbarSlot(minecraft);
-            return vehicleSlot >= 0 ? vehicleSlot : PRIMARY_DEPLOY_HOTBAR_SLOT;
+            if (vehicleSlot >= 0) {
+                return vehicleSlot;
+            }
+            return minecraft != null && minecraft.player != null
+                ? minecraft.player.getInventory().selected
+                : PRIMARY_DEPLOY_HOTBAR_SLOT;
         }
         return DEATH_FLOW_LOCKED_HOTBAR_SLOT;
     }
@@ -687,7 +692,6 @@ final class ClientRoomSessionController {
     private boolean isInitialMovementLockActive(Minecraft minecraft) {
         return minecraft != null
             && minecraft.player != null
-            && !isAdmin(minecraft)
             && ClientRoomLockState.snapshot().reason().equals("initial_movement_lock");
     }
 

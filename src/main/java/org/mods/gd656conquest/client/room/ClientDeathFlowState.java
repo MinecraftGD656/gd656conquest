@@ -105,6 +105,7 @@ public final class ClientDeathFlowState {
         if (player == null) {
             return;
         }
+        TaczClientInputCompat.suppressCombatInputUntilRelease(minecraft);
         TaczClientInputCompat.clearCrawlState(minecraft);
         active = true;
         deathVisualsActive = true;
@@ -145,6 +146,7 @@ public final class ClientDeathFlowState {
         if (player == null) {
             return;
         }
+        TaczClientInputCompat.suppressCombatInputUntilRelease(minecraft);
         boolean hasSource = Double.isFinite(sourceX) && Double.isFinite(sourceY) && Double.isFinite(sourceZ);
         if (!active) {
             active = true;
@@ -193,6 +195,7 @@ public final class ClientDeathFlowState {
         if (player == null) {
             return;
         }
+        TaczClientInputCompat.suppressCombatInputUntilRelease(minecraft);
         phase = PHASE_RESPAWN_TRAVEL;
         phaseTicks = 0L;
         travelTotalTicks = Math.max(1, transitionTicks);
@@ -215,6 +218,7 @@ public final class ClientDeathFlowState {
         if (player == null) {
             return;
         }
+        TaczClientInputCompat.suppressCombatInputUntilRelease(minecraft);
         active = true;
         deathVisualsActive = false;
         phase = PHASE_DEPLOY_OPEN;
@@ -392,6 +396,7 @@ public final class ClientDeathFlowState {
 
     public static void clear() {
         Minecraft minecraft = Minecraft.getInstance();
+        TaczClientInputCompat.suppressCombatInputUntilRelease(minecraft);
         disableDesaturate(minecraft);
         active = false;
         matchEndViewLocked = false;

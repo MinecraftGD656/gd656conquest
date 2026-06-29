@@ -9,26 +9,20 @@ import org.mods.gd656conquest.server.compat.vehicle.VehicleCompatFacade;
 
 final class ClientVehicleMountedHotbarLockService {
     static final int LOCKED_HOTBAR_SLOT = 6;
-
-    private int restoreHotbarSlot = -1;
+    static final int POST_DISMOUNT_HOTBAR_SLOT = 0;
     private boolean wasMountedVehicle;
 
     void tick(Minecraft minecraft) {
         if (minecraft == null || minecraft.player == null || minecraft.level == null) {
-            restoreHotbarSlot = -1;
             wasMountedVehicle = false;
             return;
         }
         boolean mountedVehicle = isMountedVehicle(minecraft);
         if (mountedVehicle && !wasMountedVehicle) {
-            restoreHotbarSlot = clampHotbarSlot(minecraft.player.getInventory().selected);
             minecraft.player.getInventory().selected = LOCKED_HOTBAR_SLOT;
         }
-        if (!mountedVehicle && wasMountedVehicle && restoreHotbarSlot >= 0) {
-            minecraft.player.getInventory().selected = clampHotbarSlot(restoreHotbarSlot);
-        }
-        if (!mountedVehicle) {
-            restoreHotbarSlot = -1;
+        if (!mountedVehicle && wasMountedVehicle) {
+            minecraft.player.getInventory().selected = POST_DISMOUNT_HOTBAR_SLOT;
         }
         wasMountedVehicle = mountedVehicle;
     }
@@ -64,7 +58,6 @@ final class ClientVehicleMountedHotbarLockService {
     }
 
     void reset() {
-        restoreHotbarSlot = -1;
         wasMountedVehicle = false;
     }
 

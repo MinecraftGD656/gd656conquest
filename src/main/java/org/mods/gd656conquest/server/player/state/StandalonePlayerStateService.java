@@ -25,6 +25,11 @@ public final class StandalonePlayerStateService {
         var config = ConquestDataManager.of(player.server).serverConfig();
         boolean protectedStandalone = shouldCancelStandaloneDamage(player);
         if (HubDimensionService.isHubDimension(player.level())) {
+            RangeRuntimeManager rangeManager = RangeRuntimeManager.of(player.server);
+            if (rangeManager.isInRange(player.getUUID()) && player.getY() < -64.0D) {
+                rangeManager.returnPlayerToJoinSpawn(player);
+                return;
+            }
             if (!player.hasPermissions(2) && player.gameMode.getGameModeForPlayer() != GameType.ADVENTURE) {
                 player.setGameMode(GameType.ADVENTURE);
             }

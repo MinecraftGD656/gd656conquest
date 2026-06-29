@@ -14,6 +14,7 @@ import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.client.event.ViewportEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityEvent;
+import org.mods.gd656conquest.client.compat.tacz.TaczClientInputCompat;
 import org.mods.gd656conquest.client.animation.ClientPlayerAnimatorDebugState;
 import org.mods.gd656conquest.client.audio.ClientMusicTriggerService;
 import org.mods.gd656conquest.client.hud.ClientHudDebugPreviewState;
@@ -50,6 +51,13 @@ public final class ClientEventHandler {
     }
 
     public void handleClientTick(TickEvent.ClientTickEvent event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (event.phase == TickEvent.Phase.START) {
+            if (minecraft.player != null && minecraft.level != null) {
+                TaczClientInputCompat.tickCombatInputSuppression(minecraft);
+            }
+            return;
+        }
         if (event.phase != TickEvent.Phase.END) {
             return;
         }
@@ -57,7 +65,6 @@ public final class ClientEventHandler {
         ClientMusicTriggerService.tick();
         ClientPlayerAnimatorDebugState.tick();
         ClientHudSubtitleManager.tick();
-        Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null || minecraft.level == null) {
             ClientHudSubtitleManager.reset();
             captureOverlayController.handleClientLogout();
@@ -185,6 +192,7 @@ public final class ClientEventHandler {
         ClientMarkerDebugPreviewState.reset();
         ClientHudDebugPreviewState.reset();
         ClientPlayerAnimatorDebugState.reset();
+        TaczClientInputCompat.resetSuppression();
         roomSessionController.handleLogout();
         captureOverlayController.handleClientLogout();
         captureOutlineController.clear();

@@ -45,7 +45,13 @@ public final class ClientRoomLockState {
     }
 
     public static boolean shouldLockHotbarSelection() {
-        return snapshot.lockHotbar();
+        if (!snapshot.lockHotbar()) {
+            return false;
+        }
+        String reason = snapshot.reason();
+        return "downed".equals(reason)
+            || "being_revived".equals(reason)
+            || "initial_movement_lock".equals(reason);
     }
 
     public static boolean shouldBlockLookInput() {

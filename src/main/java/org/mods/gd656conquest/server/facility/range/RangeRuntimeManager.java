@@ -21,8 +21,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class RangeRuntimeManager {
     private static final String INVENTORY_SNAPSHOT_TAG = "gd656conquest_range_inventory_snapshot";
@@ -32,6 +34,7 @@ public final class RangeRuntimeManager {
     private final MinecraftServer server;
     private final RoomPlayerLoadoutService playerLoadoutService;
     private final Map<UUID, RangePlayerSession> playerSessions = new LinkedHashMap<>();
+    private final Set<UUID> pendingRespawnPlayers = ConcurrentHashMap.newKeySet();
 
     private RangeRuntimeManager(MinecraftServer server) {
         this.server = server;
@@ -55,6 +58,7 @@ public final class RangeRuntimeManager {
             }
         }
         playerSessions.clear();
+        pendingRespawnPlayers.clear();
     }
 
     public boolean isInRange(UUID uuid) {
@@ -109,10 +113,12 @@ public final class RangeRuntimeManager {
         if (player == null || !playerSessions.containsKey(player.getUUID())) {
             return false;
         }
+        pendingRespawnPlayers.remove(player.getUUID());
         playerLoadoutService.applyStandaloneLoadout(player, false);
         grantRangeAmmoBox(player);
         enforceRangeHotbarLayout(player);
         teleportToJoinSpawn(player);
+        resetPostReturnState(player);
         QuickAccessItemService.refreshHotbar(player);
         return true;
     }
@@ -121,6 +127,7 @@ public final class RangeRuntimeManager {
         if (player == null) {
             return;
         }
+        pendingRespawnPlayers.remove(player.getUUID());
         leaveRangeInternal(player, false);
     }
 
@@ -128,6 +135,7 @@ public final class RangeRuntimeManager {
         if (player == null) {
             return;
         }
+        pendingRespawnPlayers.remove(player.getUUID());
         playerSessions.remove(player.getUUID());
         if (!hasPersistentSnapshot(player)) {
             return;
@@ -141,7 +149,27 @@ public final class RangeRuntimeManager {
         if (player == null || !playerSessions.containsKey(player.getUUID())) {
             return;
         }
+        if (pendingRespawnPlayers.contains(player.getUUID())) {
+            return;
+        }
         leaveRangeInternal(player, false);
+    }
+
+    public void onPlayerDeath(ServerPlayer player) {
+        if (player == null || !playerSessions.containsKey(player.getUUID())) {
+            return;
+        }
+        pendingRespawnPlayers.add(player.getUUID());
+    }
+
+    public boolean returnPlayerToJoinSpawn(ServerPlayer player) {
+        if (player == null || !playerSessions.containsKey(player.getUUID())) {
+            return false;
+        }
+        teleportToJoinSpawn(player);
+        resetPostReturnState(player);
+        QuickAccessItemService.refreshHotbar(player);
+        return true;
     }
 
     public void refreshLoadoutIfInRange(ServerPlayer player) {
@@ -156,6 +184,7 @@ public final class RangeRuntimeManager {
 
     private void leaveRangeInternal(ServerPlayer player, boolean teleportToLeaveSpawn) {
         UUID uuid = player.getUUID();
+        pendingRespawnPlayers.remove(uuid);
         RangePlayerSession session = playerSessions.remove(uuid);
         restoreInventory(player, session == null ? null : session.inventorySnapshot());
         if (teleportToLeaveSpawn) {
@@ -229,6 +258,19 @@ public final class RangeRuntimeManager {
     private void teleportToOverworldSpawn(ServerPlayer player) {
         var position = serverConfig().getOverworldSpawnFallbackShared();
         player.teleportTo(HubDimensionService.resolveHubLevel(server), position.x() + 0.5D, position.y(), position.z() + 0.5D, player.getYRot(), player.getXRot());
+    }
+
+    private void resetPostReturnState(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        float maxHealth = player.getMaxHealth();
+        if (maxHealth > 0.0F) {
+            player.setHealth(maxHealth);
+        }
+        player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+        player.fallDistance = 0.0F;
+        player.clearFire();
     }
 
     private ServerConfigStore serverConfig() {
