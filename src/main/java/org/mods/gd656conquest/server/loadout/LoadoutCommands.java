@@ -25,11 +25,14 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import org.mods.gd656conquest.server.compat.superbwarfare.SuperbWarfareCompatBridge;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
+import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataModel;
+import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataStore;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataStore;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataModel;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataModel;
 import org.mods.gd656conquest.server.loadout.application.CustomLoadoutService;
+import org.mods.gd656conquest.server.loadout.application.WeaponAttachmentService;
 import org.mods.gd656conquest.server.loadout.domain.CustomLoadoutSlot;
 import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
@@ -74,6 +77,7 @@ public final class LoadoutCommands {
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.literal("open").executes(LoadoutCommands::executeOpenRoomEditor)))
             .then(buildEquipmentTree())
+            .then(buildAttachmentTree())
             .then(buildClassBranch())
             .then(buildSelectBranch())
             .then(buildDefaultBranch("default"))
@@ -86,6 +90,7 @@ public final class LoadoutCommands {
             .then(Commands.literal("open").executes(LoadoutCommands::executeOpen))
             .then(Commands.literal("leave").executes(LoadoutCommands::executeLeaveSession))
             .then(buildEquipmentTree())
+            .then(buildAttachmentTree())
             .then(Commands.literal("edit")
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.argument("id", StringArgumentType.string())
@@ -141,6 +146,42 @@ public final class LoadoutCommands {
                     .suggests(LoadoutCommands::suggestAllIds)
                     .executes(LoadoutCommands::executeDel)))
             .then(Commands.literal("fixname").executes(LoadoutCommands::executeFixName));
+    }
+
+    private static ArgumentBuilder<CommandSourceStack, ?> buildAttachmentTree() {
+        return Commands.literal("attachment")
+            .requires(source -> source.hasPermission(2))
+            .then(Commands.literal("info")
+                .then(Commands.argument("id", StringArgumentType.string())
+                    .suggests(LoadoutCommands::suggestAllAttachmentIds)
+                    .executes(LoadoutCommands::executeAttachmentInfo)))
+            .then(Commands.literal("additem")
+                .then(Commands.argument("level", IntegerArgumentType.integer(0, 100))
+                    .executes(LoadoutCommands::executeAttachmentAddItem)
+                    .then(Commands.argument("id", StringArgumentType.string())
+                        .executes(LoadoutCommands::executeAttachmentAddItem))))
+            .then(Commands.literal("addall")
+                .then(Commands.argument("type", StringArgumentType.word())
+                    .suggests(LoadoutCommands::suggestAttachmentTypes)
+                    .then(Commands.argument("level", IntegerArgumentType.integer(0, 100))
+                        .executes(LoadoutCommands::executeAttachmentAddAllByType))))
+            .then(Commands.literal("edit")
+                .then(Commands.argument("id", StringArgumentType.string())
+                    .suggests(LoadoutCommands::suggestAllAttachmentIds)
+                    .then(Commands.argument("field", StringArgumentType.word())
+                        .suggests(LoadoutCommands::suggestAttachmentFields)
+                        .then(Commands.argument("value", StringArgumentType.greedyString())
+                            .suggests(LoadoutCommands::suggestAttachmentEditValues)
+                            .executes(LoadoutCommands::executeAttachmentEdit)))))
+            .then(Commands.literal("list")
+                .executes(LoadoutCommands::executeAttachmentList)
+                .then(Commands.argument("type", StringArgumentType.word())
+                    .suggests(LoadoutCommands::suggestAttachmentTypes)
+                    .executes(LoadoutCommands::executeAttachmentList)))
+            .then(Commands.literal("del")
+                .then(Commands.argument("id", StringArgumentType.string())
+                    .suggests(LoadoutCommands::suggestAllAttachmentIds)
+                    .executes(LoadoutCommands::executeAttachmentDel)));
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildArmorBranch() {
@@ -444,6 +485,183 @@ public final class LoadoutCommands {
         return replyInfo(context.getSource(), "已请求将装备设为默认: " + id);
     }
 
+    private static int executeAttachmentAddItem(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        ItemStack held = player.getMainHandItem();
+        if (held.isEmpty()) {
+            throw EMPTY_HAND.create();
+        }
+        TaczAttachmentCompatService compatService = TaczAttachmentCompatService.getInstance();
+        if (!compatService.isOfficialAttachment(held)) {
+            throw new SimpleCommandExceptionType(Component.literal("请手持一个正式 TACZ 配件再执行 attachment additem")).create();
+        }
+        ResourceLocation attachmentDefinitionId = compatService.resolveAttachmentId(held);
+        ResourceLocation itemKey = BuiltInRegistries.ITEM.getKey(held.getItem());
+        String rawId = "";
+        try {
+            rawId = StringArgumentType.getString(context, "id");
+        } catch (IllegalArgumentException ignored) {
+        }
+        String id = rawId.isBlank()
+            ? buildNextAvailableAttachmentId(
+                getAttachmentDataStore(context).getData(),
+                buildAttachmentIdFromResourceLocation(attachmentDefinitionId != null ? attachmentDefinitionId : itemKey)
+            )
+            : parseAttachmentIdInput(rawId);
+        if (!WeaponAttachmentService.isValidAttachmentId(id)) {
+            throw new SimpleCommandExceptionType(Component.literal("非法配件 ID: " + id)).create();
+        }
+        int level = IntegerArgumentType.getInteger(context, "level");
+        LoadoutUiService.handleAdminAttachmentEdit(player, id, "create", String.valueOf(level));
+        return replyInfo(
+            context.getSource(),
+            String.format(Locale.ROOT, "已请求导入配件: %s | type=%s | level=%d", id, WeaponAttachmentService.getAttachmentTypeLabel(compatService.resolveAttachmentType(held)), level)
+        );
+    }
+
+    private static int executeAttachmentAddAllByType(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        TaczAttachmentCompatService compatService = TaczAttachmentCompatService.getInstance();
+        String normalizedType = WeaponAttachmentService.normalizeAttachmentType(StringArgumentType.getString(context, "type"));
+        int level = IntegerArgumentType.getInteger(context, "level");
+        if (normalizedType.isBlank()) {
+            return replyInfo(context.getSource(), "非法配件类型，仅支持: " + String.join(", ", WeaponAttachmentService.ORDERED_ATTACHMENT_TYPES));
+        }
+
+        WeaponAttachmentDataStore handler = getAttachmentDataStore(context);
+        WeaponAttachmentDataModel data = handler.getData();
+        int added = 0;
+        int skipped = 0;
+        int invalid = 0;
+        for (ItemStack stack : compatService.listOfficialAttachmentsByType(normalizedType)) {
+            ResourceLocation attachmentDefinitionId = compatService.resolveAttachmentId(stack);
+            if (attachmentDefinitionId == null) {
+                invalid++;
+                continue;
+            }
+            String generatedId = buildAttachmentIdFromResourceLocation(attachmentDefinitionId);
+            if (!WeaponAttachmentService.isValidAttachmentId(generatedId)) {
+                invalid++;
+                continue;
+            }
+            if (data.getAttachmentById().containsKey(generatedId)) {
+                skipped++;
+                continue;
+            }
+            WeaponAttachmentDataModel.WeaponAttachmentEntry entry = new WeaponAttachmentDataModel.WeaponAttachmentEntry();
+            entry.setId(generatedId);
+            entry.setDisplayName(resolveRealItemName(player, stack, attachmentDefinitionId));
+            entry.setAttachmentType(normalizedType);
+            entry.setUnlockLevel(level);
+            entry.setItemSnbt(serializeStackToSnbt(stack));
+            entry.setFutureRequirement("");
+            data.getAttachmentById().put(generatedId, entry);
+            added++;
+        }
+        if (added > 0) {
+            handler.saveData(data);
+            LoadoutUiService.sendSnapshot(player, false, true);
+        }
+        return replyInfo(
+            context.getSource(),
+            String.format(
+                Locale.ROOT,
+                "已按类型批量导入 %s: 新增=%d, 跳过已存在=%d, 非法ID=%d, level=%d",
+                WeaponAttachmentService.getAttachmentTypeLabel(normalizedType),
+                added,
+                skipped,
+                invalid,
+                level
+            )
+        );
+    }
+
+    private static int executeAttachmentInfo(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        String id = parseAttachmentIdInput(StringArgumentType.getString(context, "id"));
+        WeaponAttachmentDataModel data = getAttachmentDataStore(context).getData();
+        WeaponAttachmentDataModel.WeaponAttachmentEntry entry = data.getAttachmentById().get(id);
+        if (entry == null) {
+            throw new SimpleCommandExceptionType(Component.literal("未找到配件ID: " + id)).create();
+        }
+        sendListLine(context.getSource(), Component.literal("========== 配件详情 ==========").withStyle(ChatFormatting.GOLD));
+        sendListLine(context.getSource(), Component.literal("id=").append(Component.literal(entry.getId()).withStyle(ChatFormatting.AQUA)));
+        sendListLine(context.getSource(), Component.literal("displayName=").append(Component.literal(normalizeFreeText(entry.getDisplayName())).withStyle(ChatFormatting.WHITE)));
+        sendListLine(context.getSource(), Component.literal("attachmentType=").append(Component.literal(WeaponAttachmentService.getAttachmentTypeLabel(entry.getAttachmentType()) + " (" + normalizeFreeText(entry.getAttachmentType()) + ")").withStyle(ChatFormatting.YELLOW)));
+        sendListLine(context.getSource(), Component.literal("unlockLevel=").append(Component.literal(String.valueOf(entry.getUnlockLevel())).withStyle(ChatFormatting.YELLOW)));
+        sendListLine(context.getSource(), Component.literal("futureRequirement=").append(Component.literal(normalizeSnbtPreview(entry.getFutureRequirement())).withStyle(ChatFormatting.GRAY)));
+        sendListLine(context.getSource(), Component.literal("itemSnbt=").append(Component.literal(normalizeSnbtPreview(entry.getItemSnbt())).withStyle(ChatFormatting.DARK_GRAY)));
+        return 1;
+    }
+
+    private static int executeAttachmentEdit(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        String id = parseAttachmentIdInput(StringArgumentType.getString(context, "id"));
+        String field = StringArgumentType.getString(context, "field");
+        String value = StringArgumentType.getString(context, "value");
+        LoadoutUiService.handleAdminAttachmentEdit(player, id, field, value);
+        return replyInfo(context.getSource(), "已请求更新配件字段: " + id + "." + field);
+    }
+
+    private static int executeAttachmentList(CommandContext<CommandSourceStack> context) {
+        String attachmentType = "";
+        try {
+            attachmentType = StringArgumentType.getString(context, "type");
+        } catch (IllegalArgumentException ignored) {
+        }
+        String normalizedType = WeaponAttachmentService.normalizeAttachmentType(attachmentType);
+        if (!attachmentType.isBlank() && normalizedType.isBlank()) {
+            return replyInfo(context.getSource(), "非法配件类型: " + attachmentType);
+        }
+        WeaponAttachmentDataModel data = getAttachmentDataStore(context).getData();
+        List<WeaponAttachmentDataModel.WeaponAttachmentEntry> entries = new ArrayList<>();
+        if (normalizedType.isBlank()) {
+            entries.addAll(data.getAttachmentById().values());
+            entries.sort(Comparator.comparing(WeaponAttachmentDataModel.WeaponAttachmentEntry::getAttachmentType, String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(WeaponAttachmentDataModel.WeaponAttachmentEntry::getUnlockLevel)
+                .thenComparing(WeaponAttachmentDataModel.WeaponAttachmentEntry::getId, String.CASE_INSENSITIVE_ORDER));
+        } else {
+            entries.addAll(WeaponAttachmentService.listEntriesByType(data, normalizedType));
+        }
+        ServerPlayer player = context.getSource().getPlayer();
+        int level = player == null ? -1 : PlayerLevelService.getEffectiveLevel(player);
+        sendListLine(context.getSource(), Component.literal("========== 配件列表 ==========").withStyle(ChatFormatting.GOLD));
+        sendListLine(
+            context.getSource(),
+            Component.literal("过滤类型 ").withStyle(ChatFormatting.AQUA)
+                .append(Component.literal(normalizedType.isBlank() ? "全部" : WeaponAttachmentService.getAttachmentTypeLabel(normalizedType)).withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(" 共 " + entries.size() + " 项").withStyle(ChatFormatting.GRAY))
+        );
+        if (entries.isEmpty()) {
+            sendListLine(context.getSource(), Component.literal("暂无数据").withStyle(ChatFormatting.DARK_GRAY));
+            return 1;
+        }
+        for (WeaponAttachmentDataModel.WeaponAttachmentEntry entry : entries) {
+            boolean unlocked = level >= 0 && WeaponAttachmentService.isEntryUnlocked(entry, level);
+            String unlockStatus = level < 0
+                ? ("需等级>=" + entry.getUnlockLevel())
+                : (unlocked ? "已解锁" : ("未解锁，需 Lv." + entry.getUnlockLevel()));
+            ChatFormatting statusColor = level < 0 ? ChatFormatting.GRAY : (unlocked ? ChatFormatting.GREEN : ChatFormatting.RED);
+            MutableComponent line = Component.literal(entry.getId()).withStyle(ChatFormatting.AQUA)
+                .append(Component.literal(" | ").withStyle(ChatFormatting.GOLD))
+                .append(Component.literal(normalizeFreeText(entry.getDisplayName())).withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(" | ").withStyle(ChatFormatting.GOLD))
+                .append(Component.literal(WeaponAttachmentService.getAttachmentTypeLabel(entry.getAttachmentType())).withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(" | ").withStyle(ChatFormatting.GOLD))
+                .append(Component.literal(String.valueOf(entry.getUnlockLevel())).withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(" | ").withStyle(ChatFormatting.GOLD))
+                .append(Component.literal(unlockStatus).withStyle(statusColor));
+            sendListLine(context.getSource(), line);
+        }
+        return 1;
+    }
+
+    private static int executeAttachmentDel(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        String id = parseAttachmentIdInput(StringArgumentType.getString(context, "id"));
+        LoadoutUiService.handleAdminAttachmentEdit(player, id, "delete", "1");
+        return replyInfo(context.getSource(), "已请求删除配件: " + id);
+    }
+
     private static int executeList(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         CustomLoadoutSlot slot = requireSlot(IntegerArgumentType.getInteger(context, "slot"));
         EquipmentDataModel data = getEquipmentDataStore(context).getData();
@@ -689,6 +907,24 @@ public final class LoadoutCommands {
         );
     }
 
+    private static CompletableFuture<Suggestions> suggestAttachmentTypes(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return SharedSuggestionProvider.suggest(WeaponAttachmentService.ORDERED_ATTACHMENT_TYPES, builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestAttachmentFields(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return SharedSuggestionProvider.suggest(
+            List.of(
+                "id",
+                "displayName",
+                "unlockLevel",
+                "itemSnbt",
+                "futureRequirement",
+                "delete"
+            ),
+            builder
+        );
+    }
+
     private static CompletableFuture<Suggestions> suggestEquipmentEditValues(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         String field;
         try {
@@ -720,12 +956,41 @@ public final class LoadoutCommands {
         };
     }
 
+    private static CompletableFuture<Suggestions> suggestAttachmentEditValues(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        String field;
+        try {
+            field = StringArgumentType.getString(context, "field");
+        } catch (Exception exception) {
+            return builder.buildFuture();
+        }
+        String normalized = field == null ? "" : field.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "unlocklevel", "unlock_level" -> SharedSuggestionProvider.suggest(List.of("0"), builder);
+            case "itemsnbt", "item_snbt" -> suggestItemSnbtEditValues(context, builder);
+            case "delete" -> SharedSuggestionProvider.suggest(List.of("1"), builder);
+            default -> builder.buildFuture();
+        };
+    }
+
     private static CompletableFuture<Suggestions> suggestAllIds(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         EquipmentDataModel data = getEquipmentDataStore(context).getData();
         List<EquipmentDataModel.EquipmentEntry> entries = new ArrayList<>(data.getEquipmentById().values());
         entries.sort(Comparator.comparing(EquipmentDataModel.EquipmentEntry::getId, String.CASE_INSENSITIVE_ORDER));
         for (EquipmentDataModel.EquipmentEntry entry : entries) {
             if (entry == null || CustomLoadoutService.normalizeEquipmentId(entry.getId()).isBlank()) {
+                continue;
+            }
+            builder.suggest(buildQuotedIdSuggestion(entry.getId(), entry.getDisplayName()));
+        }
+        return builder.buildFuture();
+    }
+
+    private static CompletableFuture<Suggestions> suggestAllAttachmentIds(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        WeaponAttachmentDataModel data = getAttachmentDataStore(context).getData();
+        List<WeaponAttachmentDataModel.WeaponAttachmentEntry> entries = new ArrayList<>(data.getAttachmentById().values());
+        entries.sort(Comparator.comparing(WeaponAttachmentDataModel.WeaponAttachmentEntry::getId, String.CASE_INSENSITIVE_ORDER));
+        for (WeaponAttachmentDataModel.WeaponAttachmentEntry entry : entries) {
+            if (entry == null || WeaponAttachmentService.normalizeAttachmentId(entry.getId()).isBlank()) {
                 continue;
             }
             builder.suggest(buildQuotedIdSuggestion(entry.getId(), entry.getDisplayName()));
@@ -977,6 +1242,67 @@ public final class LoadoutCommands {
         return CustomLoadoutService.isValidEquipmentId(idPart) ? idPart : normalized;
     }
 
+    private static String parseAttachmentIdInput(String raw) {
+        String normalized = WeaponAttachmentService.normalizeAttachmentId(raw);
+        if (WeaponAttachmentService.isValidAttachmentId(normalized)) {
+            return normalized;
+        }
+        int splitIndex = normalized.indexOf('-');
+        if (splitIndex <= 0) {
+            return normalized;
+        }
+        String idPart = WeaponAttachmentService.normalizeAttachmentId(normalized.substring(0, splitIndex));
+        return WeaponAttachmentService.isValidAttachmentId(idPart) ? idPart : normalized;
+    }
+
+    private static String buildAttachmentIdFromResourceLocation(ResourceLocation resourceLocation) {
+        if (resourceLocation == null) {
+            return "";
+        }
+        String raw = (resourceLocation.getNamespace() + "_" + resourceLocation.getPath()).toLowerCase(Locale.ROOT);
+        StringBuilder builder = new StringBuilder(raw.length());
+        boolean lastUnderscore = false;
+        for (int i = 0; i < raw.length(); i++) {
+            char current = raw.charAt(i);
+            boolean valid = (current >= 'a' && current <= 'z') || (current >= '0' && current <= '9');
+            if (valid) {
+                builder.append(current);
+                lastUnderscore = false;
+                continue;
+            }
+            if (!lastUnderscore) {
+                builder.append('_');
+                lastUnderscore = true;
+            }
+        }
+        while (builder.length() > 0 && builder.charAt(0) == '_') {
+            builder.deleteCharAt(0);
+        }
+        while (builder.length() > 0 && builder.charAt(builder.length() - 1) == '_') {
+            builder.deleteCharAt(builder.length() - 1);
+        }
+        return builder.toString();
+    }
+
+    private static String buildNextAvailableAttachmentId(WeaponAttachmentDataModel data, String baseId) {
+        String normalizedBase = WeaponAttachmentService.normalizeAttachmentId(baseId);
+        if (!WeaponAttachmentService.isValidAttachmentId(normalizedBase)) {
+            return normalizedBase;
+        }
+        if (data == null || !data.getAttachmentById().containsKey(normalizedBase)) {
+            return normalizedBase;
+        }
+        int suffix = 2;
+        while (suffix < 10000) {
+            String candidate = normalizedBase + "_" + suffix;
+            if (WeaponAttachmentService.isValidAttachmentId(candidate) && !data.getAttachmentById().containsKey(candidate)) {
+                return candidate;
+            }
+            suffix++;
+        }
+        return normalizedBase;
+    }
+
     private static String buildQuotedIdSuggestion(String id, String displayName) {
         String normalizedId = CustomLoadoutService.normalizeEquipmentId(id);
         String safeDisplayName = normalizeFreeText(displayName).replace("\\", "\\\\").replace("\"", "\\\"");
@@ -1018,6 +1344,10 @@ public final class LoadoutCommands {
 
     private static EquipmentDataStore getEquipmentDataStore(CommandContext<CommandSourceStack> context) {
         return ConquestDataManager.of(context.getSource().getServer()).equipmentData();
+    }
+
+    private static WeaponAttachmentDataStore getAttachmentDataStore(CommandContext<CommandSourceStack> context) {
+        return ConquestDataManager.of(context.getSource().getServer()).weaponAttachments();
     }
 
     private static int replyInfo(CommandSourceStack source, String message) {

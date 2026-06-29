@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.loadout;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
@@ -12,6 +13,8 @@ import org.mods.gd656conquest.network.packet.RoomEditorSnapshotPacket;
 import org.mods.gd656conquest.network.packet.VehicleAdminEditorSnapshotPacket;
 import org.mods.gd656conquest.common.block.ConquestBlocks;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
+import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataModel;
+import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataStore;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataStore;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
 import org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidationResult;
@@ -23,9 +26,12 @@ import org.mods.gd656conquest.server.data.playerdata.PlayerDataModel;
 import org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService;
 import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
 import org.mods.gd656conquest.server.loadout.application.CustomLoadoutService;
+import org.mods.gd656conquest.server.loadout.application.WeaponAttachmentService;
 import org.mods.gd656conquest.server.loadout.domain.CustomLoadoutSlot;
 import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
+import org.mods.gd656conquest.server.room.core.RoomCoreService;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
+import org.mods.gd656conquest.server.title.PlayerTitleService;
 import org.mods.gd656conquest.server.room.config.RoomConfigDescriptor;
 import org.mods.gd656conquest.server.room.config.RoomConfigDescriptorRegistry;
 import org.mods.gd656conquest.server.room.config.RoomConfigScope;
@@ -64,6 +70,18 @@ public final class LoadoutUiService {
     }
 
     public static void handleAction(ServerPlayer player, String action, String classKey, int slotIndex, String itemId) {
+        handleAction(player, action, classKey, slotIndex, itemId, "", "");
+    }
+
+    public static void handleAction(
+        ServerPlayer player,
+        String action,
+        String classKey,
+        int slotIndex,
+        String itemId,
+        String contextId,
+        String attachmentType
+    ) {
         if (player == null || player.server == null) {
             return;
         }
@@ -76,6 +94,11 @@ public final class LoadoutUiService {
             }
             case "select_slot" -> {
                 if (applySlotSelection(player, classKey, slotIndex, itemId)) {
+                    sendSnapshot(player, false, true);
+                }
+            }
+            case "select_attachment" -> {
+                if (applyAttachmentSelection(player, slotIndex, contextId, attachmentType, itemId)) {
                     sendSnapshot(player, false, true);
                 }
             }
@@ -287,11 +310,159 @@ public final class LoadoutUiService {
         }
 
         equipmentDataHandler.saveData(data);
+        if ("id".equals(field)) {
+            migrateAttachmentLoadoutEntryIdForAllPlayers(player.server, id, changedValueSummary);
+        } else if ("delete".equals(field)) {
+            migrateAttachmentLoadoutEntryIdForAllPlayers(player.server, id, "");
+        }
         for (ServerPlayer onlinePlayer : player.server.getPlayerList().getPlayers()) {
             CustomLoadoutService.sanitizePlayerSelection(onlinePlayer, data, "delete".equals(field) ? id : null, false);
         }
         sendSnapshot(player, false, true);
         sendSystem(player, Component.literal(String.format(Locale.ROOT, "已更新 %s.%s -> %s", id, changedFieldName, changedValueSummary)).withStyle(ChatFormatting.AQUA));
+    }
+
+    public static void handleAdminAttachmentEdit(ServerPlayer player, String attachmentId, String fieldKey, String rawValue) {
+        if (player == null || player.server == null) {
+            return;
+        }
+        if (!player.hasPermissions(2)) {
+            sendError(player, "你没有权限编辑配件数据");
+            return;
+        }
+        String id = WeaponAttachmentService.normalizeAttachmentId(attachmentId);
+        String field = fieldKey == null ? "" : fieldKey.trim().toLowerCase(Locale.ROOT);
+        String value = rawValue == null ? "" : rawValue.trim();
+        if (id.isBlank() || field.isBlank()) {
+            sendError(player, "配件编辑参数无效");
+            return;
+        }
+        WeaponAttachmentDataStore attachmentStore = ConquestDataManager.of(player.server).weaponAttachments();
+        WeaponAttachmentDataModel data = attachmentStore.getData();
+        if (data == null) {
+            sendError(player, "配件数据不存在");
+            return;
+        }
+        if ("create".equals(field)) {
+            int unlockLevel = 0;
+            if (!value.isBlank()) {
+                try {
+                    unlockLevel = Integer.parseInt(value);
+                } catch (NumberFormatException exception) {
+                    sendError(player, "配件解锁等级必须是数字");
+                    return;
+                }
+                if (unlockLevel < 0) {
+                    sendError(player, "配件解锁等级不能小于 0");
+                    return;
+                }
+            }
+            if (!createAttachmentEntry(player, data, id, unlockLevel)) {
+                return;
+            }
+            attachmentStore.saveData(data);
+            sendSnapshot(player, false, true);
+            sendInfo(player, "已创建配件: " + id);
+            return;
+        }
+        WeaponAttachmentDataModel.WeaponAttachmentEntry entry = data.getAttachmentById().get(id);
+        if (entry == null) {
+            sendError(player, "配件不存在: " + id);
+            return;
+        }
+
+        boolean changed = false;
+        String changedFieldName = field;
+        String changedValueSummary = value;
+        String previousId = id;
+        String replacementId = null;
+        switch (field) {
+            case "id" -> {
+                String newId = WeaponAttachmentService.normalizeAttachmentId(value);
+                if (!WeaponAttachmentService.isValidAttachmentId(newId)) {
+                    sendError(player, "配件 ID 格式非法");
+                    return;
+                }
+                if (newId.equals(id)) {
+                    return;
+                }
+                if (data.getAttachmentById().containsKey(newId)) {
+                    sendError(player, "新配件 ID 已存在: " + newId);
+                    return;
+                }
+                data.getAttachmentById().remove(id);
+                entry.setId(newId);
+                data.getAttachmentById().put(newId, entry);
+                changed = true;
+                changedValueSummary = newId;
+                replacementId = newId;
+            }
+            case "displayname", "display_name" -> {
+                entry.setDisplayName(value);
+                changed = true;
+                changedFieldName = "displayName";
+            }
+            case "unlocklevel", "unlock_level" -> {
+                try {
+                    int unlockLevel = Integer.parseInt(value);
+                    if (unlockLevel < 0) {
+                        sendError(player, "unlockLevel 不能小于 0");
+                        return;
+                    }
+                    entry.setUnlockLevel(unlockLevel);
+                    changed = true;
+                    changedFieldName = "unlockLevel";
+                    changedValueSummary = String.valueOf(unlockLevel);
+                } catch (NumberFormatException exception) {
+                    sendError(player, "unlockLevel 必须是数字");
+                    return;
+                }
+            }
+            case "itemsnbt", "item_snbt" -> {
+                ItemStack stack = parseAttachmentStack(player, value);
+                if (stack.isEmpty()) {
+                    return;
+                }
+                TaczAttachmentCompatService compatService = TaczAttachmentCompatService.getInstance();
+                String attachmentType = compatService.resolveAttachmentType(stack);
+                if (attachmentType.isBlank()) {
+                    sendError(player, "当前物品无法识别 TACZ 配件类型");
+                    return;
+                }
+                entry.setItemSnbt(serializeStack(stack));
+                entry.setAttachmentType(attachmentType);
+                entry.setDisplayName(resolveRealItemName(player, stack, BuiltInRegistries.ITEM.getKey(stack.getItem())));
+                changed = true;
+                changedFieldName = "itemSnbt";
+                changedValueSummary = entry.getDisplayName();
+            }
+            case "futurerequirement", "future_requirement" -> {
+                entry.setFutureRequirement(value);
+                changed = true;
+                changedFieldName = "futureRequirement";
+                changedValueSummary = value.isBlank() ? "<empty>" : value;
+            }
+            case "delete" -> {
+                data.getAttachmentById().remove(id);
+                changed = true;
+                changedFieldName = "delete";
+                changedValueSummary = "deleted";
+                replacementId = "";
+            }
+            default -> {
+                sendError(player, "不支持的配件字段: " + field);
+                return;
+            }
+        }
+
+        if (!changed) {
+            return;
+        }
+
+        attachmentStore.saveData(data);
+        migrateAttachmentSelectionValueForAllPlayers(player.server, previousId, replacementId);
+        sendSnapshot(player, false, true);
+        sendSystem(player, Component.literal(String.format(Locale.ROOT, "已更新配件 %s.%s -> %s", id, changedFieldName, changedValueSummary)).withStyle(ChatFormatting.AQUA));
     }
 
     public static void sendAdminRoomSnapshot(ServerPlayer player, boolean openPanel) {
@@ -731,6 +902,96 @@ public final class LoadoutUiService {
         return true;
     }
 
+    private static boolean applyAttachmentSelection(
+        ServerPlayer player,
+        int slotIndex,
+        String loadoutEntryId,
+        String attachmentType,
+        String attachmentEntryId
+    ) {
+        CustomLoadoutSlot slot = CustomLoadoutSlot.fromIndex(slotIndex);
+        if (!WeaponAttachmentService.supportsSlot(slot)) {
+            sendError(player, "当前槽位不支持配件配置");
+            return false;
+        }
+        String normalizedLoadoutEntryId = CustomLoadoutService.normalizeEquipmentId(loadoutEntryId);
+        String normalizedAttachmentType = WeaponAttachmentService.normalizeAttachmentType(attachmentType);
+        if (normalizedLoadoutEntryId.isBlank() || normalizedAttachmentType.isBlank()) {
+            sendError(player, "配件参数无效");
+            return false;
+        }
+        ConquestDataManager dataManager = ConquestDataManager.of(player.server);
+        EquipmentDataModel equipmentData = dataManager.equipmentData().getData();
+        WeaponAttachmentDataModel attachmentData = dataManager.weaponAttachments().getData();
+        PlayerDataStore playerDataStore = dataManager.playerData();
+        PlayerDataModel playerData = playerDataStore.getPlayerData(player.getUUID());
+        PlayerClassType currentClass = CustomLoadoutService.resolveCurrentClass(playerData);
+        String selectedLoadoutId = CustomLoadoutService.getSelectedIdForClassSlot(playerData, currentClass, slot);
+        if (!normalizedLoadoutEntryId.equals(selectedLoadoutId)) {
+            sendError(player, "当前武器已变化，请重新打开配件选择器");
+            return false;
+        }
+        EquipmentDataModel.EquipmentEntry equipmentEntry = equipmentData == null ? null : equipmentData.getEquipmentById().get(selectedLoadoutId);
+        if (equipmentEntry == null) {
+            sendError(player, "当前武器条目不存在");
+            return false;
+        }
+        ItemStack weaponStack = deserializeItem(equipmentEntry.getItemSnbt());
+        TaczAttachmentCompatService compatService = TaczAttachmentCompatService.getInstance();
+        if (!compatService.isTaczGun(weaponStack)) {
+            sendError(player, "当前武器不是 TACZ 枪械");
+            return false;
+        }
+        if (!compatService.allowAttachmentType(weaponStack, normalizedAttachmentType)) {
+            sendError(player, "当前枪械不支持该配件类型");
+            return false;
+        }
+        int playerLevel = PlayerLevelService.getEffectiveLevel(player);
+        boolean explicitNone = attachmentEntryId == null || attachmentEntryId.isBlank();
+        String normalizedAttachmentEntryId = WeaponAttachmentService.normalizeAttachmentId(attachmentEntryId);
+        if (!explicitNone) {
+            WeaponAttachmentDataModel.WeaponAttachmentEntry attachmentEntry =
+                attachmentData == null ? null : attachmentData.getAttachmentById().get(normalizedAttachmentEntryId);
+            if (attachmentEntry == null) {
+                sendError(player, "该配件不存在");
+                return false;
+            }
+            if (!normalizedAttachmentType.equals(WeaponAttachmentService.normalizeAttachmentType(attachmentEntry.getAttachmentType()))) {
+                sendError(player, "配件类型不匹配");
+                return false;
+            }
+            if (!WeaponAttachmentService.isEntryUnlocked(attachmentEntry, playerLevel)) {
+                sendError(player, "等级不足，配件解锁等级：" + attachmentEntry.getUnlockLevel());
+                return false;
+            }
+            ItemStack attachmentStack = compatService.deserializeStack(attachmentEntry.getItemSnbt());
+            if (!compatService.isOfficialAttachment(attachmentStack)) {
+                sendError(player, "该配件条目不是有效的正式 TACZ 配件");
+                return false;
+            }
+            if (!compatService.allowAttachment(weaponStack, attachmentStack)) {
+                sendError(player, "当前枪械无法安装该配件");
+                return false;
+            }
+        }
+        WeaponAttachmentService.setSelectedAttachmentId(
+            playerData,
+            normalizedLoadoutEntryId,
+            normalizedAttachmentType,
+            normalizedAttachmentEntryId,
+            explicitNone
+        );
+        playerDataStore.savePlayerData(player.getUUID(), playerData);
+        boolean refreshedInRange = refreshRangeLoadoutIfNeeded(player);
+        sendInfo(
+            player,
+            refreshedInRange
+                ? "已更新 " + WeaponAttachmentService.getAttachmentTypeLabel(normalizedAttachmentType) + "，并已在靶场中刷新当前武器"
+                : "已更新 " + WeaponAttachmentService.getAttachmentTypeLabel(normalizedAttachmentType) + "，将在下次部署或重发配装时生效"
+        );
+        return true;
+    }
+
     private static void leaveSession(ServerPlayer player) {
         RoomCoreRuntimeManager coreManager = RoomCoreRuntimeManager.of(player.server);
         RangeRuntimeManager rangeManager = RangeRuntimeManager.of(player.server);
@@ -770,11 +1031,18 @@ public final class LoadoutUiService {
     private static LoadoutUiOpenPacket buildSnapshot(ServerPlayer player, boolean openPanel) {
         ConquestDataManager dataManager = ConquestDataManager.of(player.server);
         EquipmentDataModel equipmentData = dataManager.equipmentData().getData();
+        WeaponAttachmentDataModel attachmentData = dataManager.weaponAttachments().getData();
         PlayerDataModel playerData = dataManager.playerData().getPlayerData(player.getUUID());
         PlayerClassType currentClass = CustomLoadoutService.resolveCurrentClass(playerData);
         int level = PlayerLevelService.getEffectiveLevel(player);
+        String playerTitleText = PlayerTitleService.of(player.server)
+            .findTitle(playerData.getEquippedTitleId())
+            .map(definition -> definition.text() == null ? "" : definition.text())
+            .orElse("");
         boolean isAdmin = player.hasPermissions(2);
         LoadoutVehiclePageSnapshotBuilder.Snapshot vehiclePageSnapshot = LoadoutVehiclePageSnapshotBuilder.build(player);
+        TaczAttachmentCompatService compatService = TaczAttachmentCompatService.getInstance();
+        boolean playerDataChanged = false;
 
         List<LoadoutUiOpenPacket.ClassPayload> classes = new ArrayList<>();
         if (equipmentData != null) {
@@ -825,16 +1093,280 @@ public final class LoadoutUiService {
             }
         }
 
+        List<LoadoutUiOpenPacket.AdminAttachmentPayload> adminAttachments = new ArrayList<>();
+        if (isAdmin && attachmentData != null) {
+            for (WeaponAttachmentDataModel.WeaponAttachmentEntry entry : attachmentData.getAttachmentById().values()) {
+                if (entry == null) {
+                    continue;
+                }
+                adminAttachments.add(new LoadoutUiOpenPacket.AdminAttachmentPayload(
+                    WeaponAttachmentService.normalizeAttachmentId(entry.getId()),
+                    entry.getDisplayName(),
+                    WeaponAttachmentService.normalizeAttachmentType(entry.getAttachmentType()),
+                    entry.getUnlockLevel(),
+                    entry.getItemSnbt(),
+                    entry.getFutureRequirement()
+                ));
+            }
+        }
+
+        List<LoadoutUiOpenPacket.WeaponAttachmentPanelPayload> attachmentPanels = new ArrayList<>();
+        if (equipmentData != null && attachmentData != null) {
+            for (CustomLoadoutSlot slot : List.of(CustomLoadoutSlot.PRIMARY_WEAPON, CustomLoadoutSlot.SECONDARY_WEAPON)) {
+                String selectedId = CustomLoadoutService.getSelectedIdForClassSlot(playerData, currentClass, slot);
+                EquipmentDataModel.EquipmentEntry equipmentEntry = equipmentData.getEquipmentById().get(selectedId);
+                ItemStack weaponStack = equipmentEntry == null ? ItemStack.EMPTY : deserializeItem(equipmentEntry.getItemSnbt());
+                boolean available = equipmentEntry != null && !weaponStack.isEmpty();
+                boolean taczGun = available && compatService.isTaczGun(weaponStack);
+                if (available && taczGun) {
+                    playerDataChanged |= WeaponAttachmentService.sanitizeSelectionForWeapon(
+                        playerData,
+                        selectedId,
+                        weaponStack,
+                        attachmentData,
+                        level,
+                        compatService
+                    );
+                }
+                attachmentPanels.add(buildAttachmentPanelPayload(
+                    slot,
+                    selectedId,
+                    equipmentEntry,
+                    weaponStack,
+                    available,
+                    taczGun,
+                    attachmentData,
+                    playerData,
+                    level,
+                    compatService
+                ));
+            }
+        }
+
+        if (playerDataChanged) {
+            dataManager.playerData().savePlayerData(player.getUUID(), playerData);
+        }
+
         return new LoadoutUiOpenPacket(
             level,
+            playerTitleText,
             currentClass.getKey(),
             openPanel,
             isAdmin,
             vehiclePageSnapshot.available(),
             classes,
             adminEquipment,
+            adminAttachments,
+            attachmentPanels,
             vehiclePageSnapshot.entries()
         );
+    }
+
+    private static LoadoutUiOpenPacket.WeaponAttachmentPanelPayload buildAttachmentPanelPayload(
+        CustomLoadoutSlot slot,
+        String loadoutEntryId,
+        EquipmentDataModel.EquipmentEntry equipmentEntry,
+        ItemStack weaponStack,
+        boolean available,
+        boolean taczGun,
+        WeaponAttachmentDataModel attachmentData,
+        PlayerDataModel playerData,
+        int playerLevel,
+        TaczAttachmentCompatService compatService
+    ) {
+        List<LoadoutUiOpenPacket.AttachmentTypePayload> typePayloads = new ArrayList<>();
+        String normalizedLoadoutEntryId = CustomLoadoutService.normalizeEquipmentId(loadoutEntryId);
+        if (available && taczGun && attachmentData != null) {
+            for (String attachmentType : WeaponAttachmentService.ORDERED_ATTACHMENT_TYPES) {
+                boolean typeAvailable = compatService.allowAttachmentType(weaponStack, attachmentType);
+                String selectedAttachmentId = WeaponAttachmentService.getSelectedAttachmentId(playerData, normalizedLoadoutEntryId, attachmentType);
+                boolean hasStoredSelection = WeaponAttachmentService.hasStoredSelection(playerData, normalizedLoadoutEntryId, attachmentType);
+                String selectedDisplayName = "";
+                List<LoadoutUiOpenPacket.AttachmentChoicePayload> choices = new ArrayList<>();
+                if (typeAvailable) {
+                    for (WeaponAttachmentDataModel.WeaponAttachmentEntry entry : WeaponAttachmentService.listEntriesByType(attachmentData, attachmentType)) {
+                        ItemStack attachmentStack = compatService.deserializeStack(entry.getItemSnbt());
+                        if (!compatService.allowAttachment(weaponStack, attachmentStack)) {
+                            continue;
+                        }
+                        boolean unlocked = WeaponAttachmentService.isEntryUnlocked(entry, playerLevel);
+                        choices.add(new LoadoutUiOpenPacket.AttachmentChoicePayload(
+                            WeaponAttachmentService.normalizeAttachmentId(entry.getId()),
+                            entry.getDisplayName(),
+                            entry.getUnlockLevel(),
+                            unlocked,
+                            entry.getItemSnbt()
+                        ));
+                        if (!selectedAttachmentId.isBlank() && selectedAttachmentId.equalsIgnoreCase(entry.getId())) {
+                            selectedDisplayName = entry.getDisplayName();
+                        }
+                    }
+                } else {
+                    hasStoredSelection = false;
+                    selectedAttachmentId = "";
+                }
+                typePayloads.add(new LoadoutUiOpenPacket.AttachmentTypePayload(
+                    attachmentType,
+                    WeaponAttachmentService.getAttachmentTypeLabel(attachmentType),
+                    typeAvailable,
+                    hasStoredSelection,
+                    selectedAttachmentId,
+                    selectedDisplayName,
+                    choices
+                ));
+            }
+        }
+        return new LoadoutUiOpenPacket.WeaponAttachmentPanelPayload(
+            slot.getIndex(),
+            slot.getKey(),
+            slotLabel(slot),
+            normalizedLoadoutEntryId,
+            equipmentEntry == null ? "" : equipmentEntry.getDisplayName(),
+            equipmentEntry == null ? "" : equipmentEntry.getItemSnbt(),
+            available,
+            taczGun,
+            typePayloads
+        );
+    }
+
+    private static boolean createAttachmentEntry(ServerPlayer player, WeaponAttachmentDataModel data, String id, int unlockLevel) {
+        if (data == null) {
+            sendError(player, "配件数据不存在");
+            return false;
+        }
+        if (!WeaponAttachmentService.isValidAttachmentId(id)) {
+            sendError(player, "配件 ID 格式非法");
+            return false;
+        }
+        if (data.getAttachmentById().containsKey(id)) {
+            sendError(player, "配件 ID 已存在: " + id);
+            return false;
+        }
+        ItemStack stack = player == null ? ItemStack.EMPTY : player.getMainHandItem();
+        if (stack.isEmpty()) {
+            sendError(player, "请手持一个正式 TACZ 配件再创建");
+            return false;
+        }
+        TaczAttachmentCompatService compatService = TaczAttachmentCompatService.getInstance();
+        String attachmentType = compatService.resolveAttachmentType(stack);
+        if (attachmentType.isBlank()) {
+            sendError(player, "当前手持物品不是正式 TACZ 配件");
+            return false;
+        }
+        WeaponAttachmentDataModel.WeaponAttachmentEntry entry = new WeaponAttachmentDataModel.WeaponAttachmentEntry();
+        entry.setId(id);
+        entry.setDisplayName(resolveRealItemName(player, stack, BuiltInRegistries.ITEM.getKey(stack.getItem())));
+        entry.setAttachmentType(attachmentType);
+        entry.setUnlockLevel(Math.max(0, unlockLevel));
+        entry.setItemSnbt(serializeStack(stack));
+        entry.setFutureRequirement("");
+        data.getAttachmentById().put(id, entry);
+        return true;
+    }
+
+    private static ItemStack parseAttachmentStack(ServerPlayer player, String rawValue) {
+        String normalized = rawValue == null ? "" : rawValue.trim();
+        if ("hand".equalsIgnoreCase(normalized) || "mainhand".equalsIgnoreCase(normalized)) {
+            if (player == null) {
+                sendError(null, "itemSnbt=hand 只能由玩家执行");
+                return ItemStack.EMPTY;
+            }
+            ItemStack held = player.getMainHandItem();
+            if (held.isEmpty()) {
+                sendError(player, "当前主手没有物品");
+                return ItemStack.EMPTY;
+            }
+            return held.copy();
+        }
+        try {
+            CompoundTag tag = TagParser.parseTag(normalized);
+            ItemStack stack = ItemStack.of(tag);
+            if (stack.isEmpty()) {
+                sendError(player, "itemSnbt 无法解析成有效物品");
+            }
+            return stack;
+        } catch (Exception exception) {
+            sendError(player, "itemSnbt 语法错误");
+            return ItemStack.EMPTY;
+        }
+    }
+
+    private static ItemStack deserializeItem(String itemSnbt) {
+        if (itemSnbt == null || itemSnbt.isBlank()) {
+            return ItemStack.EMPTY;
+        }
+        try {
+            return ItemStack.of(TagParser.parseTag(itemSnbt));
+        } catch (Exception ignored) {
+            return ItemStack.EMPTY;
+        }
+    }
+
+    private static String resolveRealItemName(ServerPlayer player, ItemStack stack, net.minecraft.resources.ResourceLocation itemKey) {
+        String uploaded = PlayerItemNameUploadService.resolveUploadedMainHandName(player, itemKey);
+        if (!uploaded.isBlank()) {
+            return uploaded;
+        }
+        if (TaczDisplayNameResolver.isTaczGun(stack) && player != null && player.server != null) {
+            String localized = TaczDisplayNameResolver.resolve(player.server, stack);
+            if (!localized.isBlank()) {
+                return localized;
+            }
+        }
+        return resolveRealItemName(stack, itemKey);
+    }
+
+    private static String resolveRealItemName(ItemStack stack, net.minecraft.resources.ResourceLocation itemKey) {
+        if (stack != null && !stack.isEmpty()) {
+            String hoverName = normalizeFreeText(stack.getHoverName().getString());
+            if (!hoverName.isBlank()) {
+                return hoverName;
+            }
+        }
+        return itemKey == null ? "unknown" : itemKey.toString();
+    }
+
+    private static String normalizeFreeText(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static String serializeStack(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return "";
+        }
+        CompoundTag tag = new CompoundTag();
+        stack.save(tag);
+        return tag.toString();
+    }
+
+    private static void migrateAttachmentLoadoutEntryIdForAllPlayers(net.minecraft.server.MinecraftServer server, String oldId, String newId) {
+        if (server == null) {
+            return;
+        }
+        PlayerDataStore playerDataStore = ConquestDataManager.of(server).playerData();
+        for (UUID uuid : playerDataStore.listKnownPlayerIds()) {
+            PlayerDataModel playerData = playerDataStore.getPlayerData(uuid);
+            int beforeSize = playerData.getAttachmentSelectionByLoadoutEntryId().size();
+            WeaponAttachmentService.renameLoadoutEntryId(playerData, oldId, newId);
+            WeaponAttachmentService.cleanupEmptySelectionGroups(playerData);
+            if (beforeSize != playerData.getAttachmentSelectionByLoadoutEntryId().size()
+                || playerData.getAttachmentSelectionByLoadoutEntryId().containsKey(CustomLoadoutService.normalizeEquipmentId(newId))) {
+                playerDataStore.savePlayerData(uuid, playerData);
+            }
+        }
+    }
+
+    private static void migrateAttachmentSelectionValueForAllPlayers(net.minecraft.server.MinecraftServer server, String oldId, String newId) {
+        if (server == null) {
+            return;
+        }
+        PlayerDataStore playerDataStore = ConquestDataManager.of(server).playerData();
+        for (UUID uuid : playerDataStore.listKnownPlayerIds()) {
+            PlayerDataModel playerData = playerDataStore.getPlayerData(uuid);
+            if (WeaponAttachmentService.replaceAttachmentEntryId(playerData, oldId, newId)) {
+                playerDataStore.savePlayerData(uuid, playerData);
+            }
+        }
     }
 
     private static void replaceSelectionId(EquipmentDataModel data, String oldId, String newId) {

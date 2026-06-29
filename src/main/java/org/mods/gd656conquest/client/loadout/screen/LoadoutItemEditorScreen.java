@@ -10,6 +10,7 @@ import org.mods.gd656conquest.client.gui.GuiConstants;
 import org.mods.gd656conquest.client.gui.elements.ConfirmDialog;
 import org.mods.gd656conquest.client.gui.elements.GDButton;
 import org.mods.gd656conquest.client.gui.elements.GDRowRenderer;
+import org.mods.gd656conquest.client.gui.elements.GDScrollState;
 import org.mods.gd656conquest.client.gui.elements.TextInputDialog;
 import org.mods.gd656conquest.client.loadout.ClientLoadoutUiState;
 import org.mods.gd656conquest.network.NetworkManager;
@@ -33,11 +34,7 @@ public class LoadoutItemEditorScreen extends Screen {
     private GDButton backButton;
     private GDButton refreshButton;
 
-    private double scrollY;
-    private double targetScrollY;
-    private boolean dragging;
-    private double lastMouseY;
-    private long lastFrameNanos;
+    private final GDScrollState scrollState = new GDScrollState();
 
     public LoadoutItemEditorScreen(Screen parent) {
         super(Component.literal("编辑物品数据"));
@@ -51,9 +48,7 @@ public class LoadoutItemEditorScreen extends Screen {
         this.confirmDialog = new ConfirmDialog(minecraft, null, null);
         this.backButton = new GDButton(this.width - 86, this.height - 26, 72, 20, Component.literal("返回"), btn -> closeToParent());
         this.refreshButton = new GDButton(this.width - 166, this.height - 26, 72, 20, Component.literal("刷新"), btn -> refreshFromSnapshot());
-        this.scrollY = 0;
-        this.targetScrollY = 0;
-        this.lastFrameNanos = System.nanoTime();
+        this.scrollState.reset();
         refreshFromSnapshot();
     }
 
@@ -75,21 +70,13 @@ public class LoadoutItemEditorScreen extends Screen {
             return;
         }
 
-        long now = System.nanoTime();
-        float dt = Math.min(0.1f, (now - lastFrameNanos) / 1_000_000_000.0f);
-        lastFrameNanos = now;
-        if (dragging) {
-            double diff = mouseY - lastMouseY;
-            targetScrollY -= diff;
-            lastMouseY = mouseY;
-        }
-        updateScroll(dt);
-
         int x1 = LEFT;
         int y1 = TOP + ROW_H + 1;
         int x2 = this.width - LEFT;
         int y2 = this.height - 36;
         int viewH = Math.max(1, y2 - y1);
+        int contentHeight = entries.size() * (ROW_H + ROW_GAP);
+        scrollState.update(mouseY, viewH, contentHeight);
 
         guiGraphics.drawString(this.font, "装备数据编辑器", LEFT, 6, 0xFFFFD78A, false);
 
@@ -113,19 +100,20 @@ public class LoadoutItemEditorScreen extends Screen {
 
         guiGraphics.enableScissor(x1, y1, x2, y2);
         guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, -scrollY, 0);
+        guiGraphics.pose().translate(0, -scrollState.scrollY(), 0);
         for (int i = 0; i < entries.size(); i++) {
             int rowTop = y1 + i * (ROW_H + ROW_GAP);
             int rowBottom = rowTop + ROW_H;
-            float screenTop = (float) (rowTop - scrollY);
-            float screenBottom = (float) (rowBottom - scrollY);
+            float screenTop = (float) (rowTop - scrollState.scrollY());
+            float screenBottom = (float) (rowBottom - scrollState.scrollY());
             if (screenBottom <= y1 || screenTop >= y2) {
                 continue;
             }
-            renderEntryRow(guiGraphics, mouseX, (int) (mouseY + scrollY), partialTick, i, entries.get(i), x1, rowTop, x2, rowBottom);
+            renderEntryRow(guiGraphics, mouseX, (int) (mouseY + scrollState.scrollY()), partialTick, i, entries.get(i), x1, rowTop, x2, rowBottom);
         }
         guiGraphics.pose().popPose();
         guiGraphics.disableScissor();
+        scrollState.renderScrollbar(guiGraphics, x1, y1, x2, y2, contentHeight);
 
         if (backButton != null) {
             backButton.setX(this.width - 86);
@@ -244,21 +232,6 @@ public class LoadoutItemEditorScreen extends Screen {
         return value == null ? "" : value;
     }
 
-    private void updateScroll(float dt) {
-        int viewY1 = TOP + ROW_H + 1;
-        int viewY2 = this.height - 36;
-        int viewHeight = Math.max(1, viewY2 - viewY1);
-        int contentHeight = entries.size() * (ROW_H + ROW_GAP);
-        double maxScroll = Math.max(0, contentHeight - viewHeight);
-        targetScrollY = Math.max(0, Math.min(maxScroll, targetScrollY));
-        double diff = targetScrollY - scrollY;
-        if (Math.abs(diff) < 0.01) {
-            scrollY = targetScrollY;
-        } else {
-            scrollY += diff * GuiConstants.SCROLL_SMOOTHING * dt;
-        }
-    }
-
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (confirmDialog != null && confirmDialog.isVisible() && confirmDialog.mouseClicked(mouseX, mouseY, button)) {
@@ -280,7 +253,7 @@ public class LoadoutItemEditorScreen extends Screen {
         int x2 = this.width - LEFT;
         int y2 = this.height - 36;
         if (mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2) {
-            double adjustedY = mouseY + scrollY;
+            double adjustedY = mouseY + scrollState.scrollY();
             for (int i = 0; i < entries.size(); i++) {
                 int rowTop = y1 + i * (ROW_H + ROW_GAP);
                 int rowBottom = rowTop + ROW_H;
@@ -290,8 +263,7 @@ public class LoadoutItemEditorScreen extends Screen {
                     }
                 }
             }
-            dragging = true;
-            lastMouseY = mouseY;
+            scrollState.startDragging(mouseY);
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -299,7 +271,7 @@ public class LoadoutItemEditorScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        dragging = false;
+        scrollState.stopDragging();
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -316,8 +288,7 @@ public class LoadoutItemEditorScreen extends Screen {
         int x2 = this.width - LEFT;
         int y2 = this.height - 36;
         if (mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2) {
-            targetScrollY -= delta * GuiConstants.SCROLL_AMOUNT;
-            return true;
+            return scrollState.mouseScrolled(delta, y2 - y1, entries.size() * (ROW_H + ROW_GAP));
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
     }

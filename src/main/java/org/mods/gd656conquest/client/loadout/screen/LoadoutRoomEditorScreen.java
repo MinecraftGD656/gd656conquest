@@ -13,6 +13,7 @@ import org.mods.gd656conquest.client.gui.elements.ChoiceListDialog;
 import org.mods.gd656conquest.client.gui.elements.ConfirmDialog;
 import org.mods.gd656conquest.client.gui.elements.GDButton;
 import org.mods.gd656conquest.client.gui.elements.GDRowRenderer;
+import org.mods.gd656conquest.client.gui.elements.GDScrollState;
 import org.mods.gd656conquest.client.gui.elements.TextInputDialog;
 import org.mods.gd656conquest.client.gui.elements.entries.FixedChoiceConfigEntry;
 import org.mods.gd656conquest.client.loadout.ClientRoomEditorState;
@@ -53,15 +54,8 @@ public class LoadoutRoomEditorScreen extends Screen {
 
     private String selectedRoomId = "";
     private long lastRequestAtMs = 0L;
-    private long lastFrameNanos = 0L;
-    private double leftScrollY;
-    private double leftTargetScrollY;
-    private double rightScrollY;
-    private double rightTargetScrollY;
-    private boolean leftDragging;
-    private boolean rightDragging;
-    private double leftLastMouseY;
-    private double rightLastMouseY;
+    private final GDScrollState leftScrollState = new GDScrollState();
+    private final GDScrollState rightScrollState = new GDScrollState();
 
     public LoadoutRoomEditorScreen(Screen parent) {
         super(Component.literal("编辑房间数据"));
@@ -76,7 +70,8 @@ public class LoadoutRoomEditorScreen extends Screen {
         this.textInputDialog = new TextInputDialog(minecraft, null, null);
         this.choiceListDialog = new ChoiceListDialog(minecraft);
         this.confirmDialog = new ConfirmDialog(minecraft, null, null);
-        this.lastFrameNanos = System.nanoTime();
+        this.leftScrollState.reset();
+        this.rightScrollState.reset();
         requestSnapshot(false);
         refreshFromState();
     }
@@ -99,7 +94,6 @@ public class LoadoutRoomEditorScreen extends Screen {
             guiGraphics.drawCenteredString(this.font, "仅管理员可编辑房间数据", this.width / 2, this.height / 2, 0xFFFF8080);
             return;
         }
-        updateSmoothScroll(mouseY);
         renderPanels(guiGraphics, mouseX, mouseY, partialTick);
         if (backButton != null) {
             backButton.setX(this.width - 86);
@@ -120,32 +114,6 @@ public class LoadoutRoomEditorScreen extends Screen {
         if (confirmDialog != null && confirmDialog.isVisible()) {
             confirmDialog.render(guiGraphics, mouseX, mouseY, partialTick);
         }
-    }
-
-    private void updateSmoothScroll(int mouseY) {
-        long now = System.nanoTime();
-        float dt = Math.min(0.1f, (now - lastFrameNanos) / 1_000_000_000.0f);
-        lastFrameNanos = now;
-        if (leftDragging) {
-            double diff = mouseY - leftLastMouseY;
-            leftTargetScrollY -= diff;
-            leftLastMouseY = mouseY;
-        }
-        if (rightDragging) {
-            double diff = mouseY - rightLastMouseY;
-            rightTargetScrollY -= diff;
-            rightLastMouseY = mouseY;
-        }
-        leftScrollY = smoothTo(leftScrollY, leftTargetScrollY, dt);
-        rightScrollY = smoothTo(rightScrollY, rightTargetScrollY, dt);
-    }
-
-    private double smoothTo(double current, double target, float dt) {
-        double diff = target - current;
-        if (Math.abs(diff) < 0.01) {
-            return target;
-        }
-        return current + diff * GuiConstants.SCROLL_SMOOTHING * dt;
     }
 
     private void renderPanels(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
@@ -193,11 +161,10 @@ public class LoadoutRoomEditorScreen extends Screen {
     private void renderLeftRows(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int x1, int x2, int y1, int y2) {
         int viewH = Math.max(1, y2 - y1);
         int contentH = roomEntries.size() * (ROW_H + ROW_GAP);
-        leftTargetScrollY = clampScroll(leftTargetScrollY, viewH, contentH);
-        leftScrollY = clampScroll(leftScrollY, viewH, contentH);
+        leftScrollState.update(mouseY, viewH, contentH);
         guiGraphics.enableScissor(x1, y1, x2, y2);
         guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, -leftScrollY, 0);
+        guiGraphics.pose().translate(0, -leftScrollState.scrollY(), 0);
         for (int i = 0; i < roomEntries.size(); i++) {
             ClientRoomEditorState.RoomState room = roomEntries.get(i);
             while (leftRows.size() <= i) {
@@ -205,7 +172,7 @@ public class LoadoutRoomEditorScreen extends Screen {
             }
             int rowTop = y1 + i * (ROW_H + ROW_GAP);
             int rowBottom = rowTop + ROW_H;
-            if (rowBottom - leftScrollY <= y1 || rowTop - leftScrollY >= y2) {
+            if (rowBottom - leftScrollState.scrollY() <= y1 || rowTop - leftScrollState.scrollY() >= y2) {
                 continue;
             }
             GDRowRenderer row = leftRows.get(i);
@@ -217,10 +184,11 @@ public class LoadoutRoomEditorScreen extends Screen {
             row.addColumn(safe(room.displayName()), -1, 0xFFEDEDED, true, false, btn -> openRoomDisplayNameEditor(room));
             row.addColumn(room.stateDisplayName(), LEFT_STATE_W, 0xFFFFD68A, true, true, btn -> openRoomStateChoice(room));
             row.addColumn(room.currentPlayers() + "/" + room.maxPlayers(), LEFT_PLAYERS_W, 0xFFB6FFB6, false, true, null);
-            row.render(guiGraphics, mouseX, (int) (mouseY + leftScrollY), partialTick);
+            row.render(guiGraphics, mouseX, (int) (mouseY + leftScrollState.scrollY()), partialTick);
         }
         guiGraphics.pose().popPose();
         guiGraphics.disableScissor();
+        leftScrollState.renderScrollbar(guiGraphics, x1, y1, x2, y2, contentH);
     }
 
     private void renderRightRows(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int x1, int x2, int y1, int y2) {
@@ -231,18 +199,17 @@ public class LoadoutRoomEditorScreen extends Screen {
         }
         int viewH = Math.max(1, y2 - y1);
         int contentH = rightRows.size() * (ROW_H + ROW_GAP);
-        rightTargetScrollY = clampScroll(rightTargetScrollY, viewH, contentH);
-        rightScrollY = clampScroll(rightScrollY, viewH, contentH);
+        rightScrollState.update(mouseY, viewH, contentH);
         guiGraphics.enableScissor(x1, y1, x2, y2);
         guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, -rightScrollY, 0);
+        guiGraphics.pose().translate(0, -rightScrollState.scrollY(), 0);
         for (int i = 0; i < rightRows.size(); i++) {
             while (rightRowRenderers.size() <= i) {
                 rightRowRenderers.add(new GDRowRenderer(x1, y1, x2, y1 + ROW_H, GuiConstants.COLOR_BLACK & 0xFFFFFF, 0.26f, false));
             }
             int rowTop = y1 + i * (ROW_H + ROW_GAP);
             int rowBottom = rowTop + ROW_H;
-            if (rowBottom - rightScrollY <= y1 || rowTop - rightScrollY >= y2) {
+            if (rowBottom - rightScrollState.scrollY() <= y1 || rowTop - rightScrollState.scrollY() >= y2) {
                 continue;
             }
             RightRow rowData = rightRows.get(i);
@@ -264,15 +231,11 @@ public class LoadoutRoomEditorScreen extends Screen {
                 row.addColumn(rowData.middleText, RIGHT_VALUE_W, rowData.applicable ? 0xFFEDEDED : 0xFF7E8794, true, false, btn -> editConfigField(rowData, true));
                 row.addColumn(rowData.configured ? "已配置" : "缺失", 50, cfgColor, false, true, null);
             }
-            row.render(guiGraphics, mouseX, (int) (mouseY + rightScrollY), partialTick);
+            row.render(guiGraphics, mouseX, (int) (mouseY + rightScrollState.scrollY()), partialTick);
         }
         guiGraphics.pose().popPose();
         guiGraphics.disableScissor();
-    }
-
-    private double clampScroll(double value, int viewHeight, int contentHeight) {
-        double max = Math.max(0, contentHeight - viewHeight);
-        return Math.max(0, Math.min(max, value));
+        rightScrollState.renderScrollbar(guiGraphics, x1, y1, x2, y2, contentH);
     }
 
     private void selectRoom(String roomId) {
@@ -280,8 +243,7 @@ public class LoadoutRoomEditorScreen extends Screen {
             return;
         }
         selectedRoomId = roomId;
-        rightScrollY = 0;
-        rightTargetScrollY = 0;
+        rightScrollState.setScrollInstant(0.0D, Math.max(1, this.height - (TOP + ROW_H + 1) - 36), rightRows.size() * (ROW_H + ROW_GAP));
         rebuildRightRows();
     }
 
@@ -889,30 +851,28 @@ public class LoadoutRoomEditorScreen extends Screen {
                 for (int i = 0; i < leftRows.size() && i < roomEntries.size(); i++) {
                     int rowTop = contentY1 + i * (ROW_H + ROW_GAP);
                     int rowBottom = rowTop + ROW_H;
-                    double adjustedY = mouseY + leftScrollY;
+                    double adjustedY = mouseY + leftScrollState.scrollY();
                     if (adjustedY >= rowTop && adjustedY <= rowBottom) {
                         if (leftRows.get(i).mouseClicked(mouseX, adjustedY, button)) {
                             return true;
                         }
                     }
                 }
-                leftDragging = true;
-                leftLastMouseY = mouseY;
+                leftScrollState.startDragging(mouseY);
                 return true;
             }
             if (mouseX >= rightX1 && mouseX <= rightX2 && mouseY >= contentY1 && mouseY <= contentY2) {
                 for (int i = 0; i < rightRowRenderers.size() && i < rightRows.size(); i++) {
                     int rowTop = contentY1 + i * (ROW_H + ROW_GAP);
                     int rowBottom = rowTop + ROW_H;
-                    double adjustedY = mouseY + rightScrollY;
+                    double adjustedY = mouseY + rightScrollState.scrollY();
                     if (adjustedY >= rowTop && adjustedY <= rowBottom) {
                         if (rightRowRenderers.get(i).mouseClicked(mouseX, adjustedY, button)) {
                             return true;
                         }
                     }
                 }
-                rightDragging = true;
-                rightLastMouseY = mouseY;
+                rightScrollState.startDragging(mouseY);
                 return true;
             }
         }
@@ -921,8 +881,8 @@ public class LoadoutRoomEditorScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        leftDragging = false;
-        rightDragging = false;
+        leftScrollState.stopDragging();
+        rightScrollState.stopDragging();
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -945,12 +905,10 @@ public class LoadoutRoomEditorScreen extends Screen {
         int contentY1 = TOP + ROW_H + 1;
         int contentY2 = this.height - 36;
         if (mouseX >= leftX1 && mouseX <= leftX2 && mouseY >= contentY1 && mouseY <= contentY2) {
-            leftTargetScrollY -= delta * GuiConstants.SCROLL_AMOUNT;
-            return true;
+            return leftScrollState.mouseScrolled(delta, contentY2 - contentY1, roomEntries.size() * (ROW_H + ROW_GAP));
         }
         if (mouseX >= rightX1 && mouseX <= rightX2 && mouseY >= contentY1 && mouseY <= contentY2) {
-            rightTargetScrollY -= delta * GuiConstants.SCROLL_AMOUNT;
-            return true;
+            return rightScrollState.mouseScrolled(delta, contentY2 - contentY1, rightRows.size() * (ROW_H + ROW_GAP));
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
     }

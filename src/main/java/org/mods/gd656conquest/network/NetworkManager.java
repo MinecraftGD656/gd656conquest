@@ -6,6 +6,7 @@ import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
 import org.mods.gd656conquest.Gd656conquest;
+import org.mods.gd656conquest.network.packet.AttachmentEditorUpdatePacket;
 import org.mods.gd656conquest.network.packet.MainHandItemNameUploadPacket;
 import org.mods.gd656conquest.network.packet.EquipmentEditorUpdatePacket;
 import org.mods.gd656conquest.network.packet.LoadoutUiActionPacket;
@@ -42,7 +43,7 @@ import org.mods.gd656conquest.network.packet.ServerboundAmmoBoxInteractPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "060";
+    private static final String PROTOCOL_VERSION = "063";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -215,6 +216,13 @@ public final class NetworkManager {
                 EquipmentEditorUpdatePacket::encode,
                 EquipmentEditorUpdatePacket::decode,
                 EquipmentEditorUpdatePacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                AttachmentEditorUpdatePacket.class,
+                AttachmentEditorUpdatePacket::encode,
+                AttachmentEditorUpdatePacket::decode,
+                AttachmentEditorUpdatePacket::handle
         );
         CHANNEL.registerMessage(
                 packetId++,

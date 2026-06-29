@@ -6,6 +6,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.mods.gd656conquest.client.gui.GuiConstants;
 import org.mods.gd656conquest.client.gui.elements.GDButton;
+import org.mods.gd656conquest.client.gui.elements.GDScrollState;
 import org.mods.gd656conquest.client.loadout.ClientLoadoutUiState;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.client.room.ClientRoomLockState;
@@ -30,17 +31,15 @@ public final class LoadoutVehicleDeployScreen extends Screen {
     private static final long REQUEST_INTERVAL_MS = 1000L;
 
     private final Screen parent;
-    private final List<GDButton> rowButtons = new ArrayList<>();
     private final Map<String, GDButton> buttonByEntryId = new LinkedHashMap<>();
     private GDButton backButton;
     private GDButton closeButton;
     private long lastRequestAt;
     private long outOfGameCloseAtMs;
-    private int scrollOffset;
+    private final GDScrollState listScrollState = new GDScrollState();
     private boolean awaitingSuccessfulDeployClose;
     private long cachedSortedEntriesUpdatedAtMs = Long.MIN_VALUE;
     private List<ClientLoadoutUiState.VehicleEntryState> cachedSortedEntries = List.of();
-    private String lastButtonLayoutSignature = "";
 
     public LoadoutVehicleDeployScreen(Screen parent) {
         super(Component.translatable("gd656conquest.client.gui.loadout.vehicle.title"));
@@ -51,6 +50,7 @@ public final class LoadoutVehicleDeployScreen extends Screen {
     protected void init() {
         super.init();
         updateOutOfGameTimer();
+        listScrollState.reset();
         rebuildStaticButtons();
         syncVehicleButtons();
         if (!isOutOfGame()) {
@@ -72,7 +72,6 @@ public final class LoadoutVehicleDeployScreen extends Screen {
             closeToGameplay();
             return;
         }
-        clampScrollOffset();
         syncVehicleButtons();
         requestSnapshotIfNeeded();
     }
@@ -103,15 +102,27 @@ public final class LoadoutVehicleDeployScreen extends Screen {
             false
         );
 
-        List<ClientLoadoutUiState.VehicleEntryState> entries = currentEntries();
+        int listY1 = TOP;
+        int listY2 = this.height - 36;
+        int viewHeight = Math.max(1, listY2 - listY1);
+        int contentHeight = sortedEntries().size() * (ROW_HEIGHT + ROW_GAP);
+        listScrollState.update(mouseY, viewHeight, contentHeight);
+
+        List<ClientLoadoutUiState.VehicleEntryState> entries = sortedEntries();
         if (entries.isEmpty()) {
             String key = currentEmptyMessageKey();
             guiGraphics.drawString(this.font, Component.translatable(key), LEFT, TOP + 8, 0xFFB8C6D6, false);
         } else {
+            guiGraphics.enableScissor(LEFT, listY1, this.width - 18, listY2);
             for (int index = 0; index < entries.size(); index++) {
-                int rowY = TOP + index * (ROW_HEIGHT + ROW_GAP);
-                renderVehicleRow(guiGraphics, entries.get(index), rowButtons.get(index), mouseX, mouseY, partialTick, rowY);
+                int rowY = TOP + index * (ROW_HEIGHT + ROW_GAP) - (int) Math.round(listScrollState.scrollY());
+                if (rowY + ROW_HEIGHT <= listY1 || rowY >= listY2) {
+                    continue;
+                }
+                renderVehicleRow(guiGraphics, entries.get(index), buttonByEntryId.get(entries.get(index).entryId()), mouseX, mouseY, partialTick, rowY);
             }
+            guiGraphics.disableScissor();
+            listScrollState.renderScrollbar(guiGraphics, LEFT, listY1, this.width - 18, listY2, contentHeight);
         }
 
         if (backButton != null) {
@@ -122,8 +133,11 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         }
 
         int totalCount = sortedEntries().size();
-        if (totalCount > visibleRowCount()) {
-            String pageText = String.format("%d-%d / %d", scrollOffset + 1, scrollOffset + entries.size(), totalCount);
+        if (totalCount > 0 && contentHeight > viewHeight) {
+            int stride = ROW_HEIGHT + ROW_GAP;
+            int firstVisible = Math.min(totalCount, Math.max(1, (int) Math.floor(listScrollState.scrollY() / stride) + 1));
+            int lastVisible = Math.min(totalCount, Math.max(firstVisible, (int) Math.ceil((listScrollState.scrollY() + viewHeight) / stride)));
+            String pageText = String.format("%d-%d / %d", firstVisible, lastVisible, totalCount);
             guiGraphics.drawString(this.font, pageText, this.width - 84, 12, 0xFFB8C6D6, false);
         }
     }
@@ -137,10 +151,14 @@ public final class LoadoutVehicleDeployScreen extends Screen {
             if (backButton != null && backButton.mouseClicked(mouseX, mouseY, button)) {
                 return true;
             }
-            for (GDButton rowButton : rowButtons) {
+            for (GDButton rowButton : buttonByEntryId.values()) {
                 if (rowButton.mouseClicked(mouseX, mouseY, button)) {
                     return true;
                 }
+            }
+            if (mouseX >= LEFT && mouseX <= this.width - 18 && mouseY >= TOP && mouseY <= this.height - 36) {
+                listScrollState.startDragging(mouseY);
+                return true;
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -148,19 +166,8 @@ public final class LoadoutVehicleDeployScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        int maxOffset = maxScrollOffset();
-        if (maxOffset <= 0) {
-            return super.mouseScrolled(mouseX, mouseY, delta);
-        }
-        if (delta > 0.0D && scrollOffset > 0) {
-            scrollOffset--;
-            syncVehicleButtons();
-            return true;
-        }
-        if (delta < 0.0D && scrollOffset < maxOffset) {
-            scrollOffset++;
-            syncVehicleButtons();
-            return true;
+        if (mouseX >= LEFT && mouseX <= this.width - 18 && mouseY >= TOP && mouseY <= this.height - 36) {
+            return listScrollState.mouseScrolled(delta, this.height - 36 - TOP, sortedEntries().size() * (ROW_HEIGHT + ROW_GAP));
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
     }
@@ -251,18 +258,12 @@ public final class LoadoutVehicleDeployScreen extends Screen {
     }
 
     private void syncVehicleButtons() {
-        List<ClientLoadoutUiState.VehicleEntryState> entries = currentEntries();
+        List<ClientLoadoutUiState.VehicleEntryState> entries = sortedEntries();
         int buttonX = this.width - 18 - BUTTON_WIDTH - 8;
-        String layoutSignature = buildButtonLayoutSignature(entries, buttonX);
-        if (layoutSignature.equals(lastButtonLayoutSignature)) {
-            return;
-        }
-        lastButtonLayoutSignature = layoutSignature;
-        rowButtons.clear();
         pruneUnusedButtons(entries);
         for (int index = 0; index < entries.size(); index++) {
             ClientLoadoutUiState.VehicleEntryState entry = entries.get(index);
-            int rowY = TOP + index * (ROW_HEIGHT + ROW_GAP);
+            int rowY = TOP + index * (ROW_HEIGHT + ROW_GAP) - (int) Math.round(listScrollState.scrollY());
             GDButton button = buttonByEntryId.computeIfAbsent(
                 entry.entryId(),
                 entryId -> new GDButton(buttonX, rowY + 13, BUTTON_WIDTH, 20, Component.literal(entry.actionText()), btn -> requestVehicleDeployById(entryId))
@@ -274,7 +275,6 @@ public final class LoadoutVehicleDeployScreen extends Screen {
             button.setMessage(Component.literal(resolveButtonLabel(entry)));
             button.active = isButtonActive(entry);
             button.setTextColor(button.active ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY);
-            rowButtons.add(button);
         }
     }
 
@@ -304,29 +304,6 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         if (entry.immediateDeploy()) {
             closeToGameplay();
         }
-    }
-
-    private List<ClientLoadoutUiState.VehicleEntryState> currentEntries() {
-        List<ClientLoadoutUiState.VehicleEntryState> allEntries = sortedEntries();
-        if (allEntries.isEmpty()) {
-            return List.of();
-        }
-        int fromIndex = Math.min(scrollOffset, Math.max(0, allEntries.size() - 1));
-        int toIndex = Math.min(allEntries.size(), fromIndex + visibleRowCount());
-        return allEntries.subList(fromIndex, toIndex);
-    }
-
-    private int visibleRowCount() {
-        int availableHeight = Math.max(ROW_HEIGHT, this.height - TOP - 56);
-        return Math.max(1, availableHeight / (ROW_HEIGHT + ROW_GAP));
-    }
-
-    private int maxScrollOffset() {
-        return Math.max(0, sortedEntries().size() - visibleRowCount());
-    }
-
-    private void clampScrollOffset() {
-        scrollOffset = Math.max(0, Math.min(scrollOffset, maxScrollOffset()));
     }
 
     private String currentEmptyMessageKey() {
@@ -472,25 +449,8 @@ public final class LoadoutVehicleDeployScreen extends Screen {
                 .sorted((left, right) -> left.displayName().compareToIgnoreCase(right.displayName()))
                 .toList();
             cachedSortedEntriesUpdatedAtMs = updatedAtMs;
-            lastButtonLayoutSignature = "";
         }
         return cachedSortedEntries;
-    }
-
-    private String buildButtonLayoutSignature(List<ClientLoadoutUiState.VehicleEntryState> entries, int buttonX) {
-        StringBuilder signature = new StringBuilder()
-            .append(this.width).append(':')
-            .append(this.height).append(':')
-            .append(buttonX).append(':')
-            .append(scrollOffset).append(':')
-            .append(ClientRoomLockState.shouldReleaseMouseForUi());
-        for (ClientLoadoutUiState.VehicleEntryState entry : entries) {
-            signature.append('|')
-                .append(entry.entryId()).append(':')
-                .append(resolveButtonLabel(entry)).append(':')
-                .append(isButtonActive(entry));
-        }
-        return signature.toString();
     }
 
     private boolean isOutOfGame() {
@@ -506,5 +466,11 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         if (outOfGameCloseAtMs <= 0L) {
             outOfGameCloseAtMs = System.currentTimeMillis() + 3000L;
         }
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        listScrollState.stopDragging();
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 }

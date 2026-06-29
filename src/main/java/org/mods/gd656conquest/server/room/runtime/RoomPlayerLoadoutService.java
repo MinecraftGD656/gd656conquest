@@ -19,10 +19,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.mods.gd656conquest.server.compat.superbwarfare.SuperbWarfareCompatBridge;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
+import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataModel;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataStore;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataModel;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataModel;
+import org.mods.gd656conquest.server.loadout.TaczAttachmentCompatService;
+import org.mods.gd656conquest.server.loadout.application.WeaponAttachmentService;
 import org.mods.gd656conquest.server.loadout.application.CustomLoadoutService;
 import org.mods.gd656conquest.server.loadout.domain.CustomLoadoutSlot;
 import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
@@ -114,6 +117,8 @@ public final class RoomPlayerLoadoutService {
             equipmentData = equipmentDataHandler.getData();
         }
         PlayerDataModel playerData = playerDataHandler.getPlayerData(player.getUUID());
+        WeaponAttachmentDataModel attachmentData = dataManager.weaponAttachments().getData();
+        TaczAttachmentCompatService attachmentCompatService = TaczAttachmentCompatService.getInstance();
         PlayerClassType classType = CustomLoadoutService.resolveCurrentClass(playerData);
         boolean selectionChanged = false;
 
@@ -146,7 +151,17 @@ public final class RoomPlayerLoadoutService {
             if (equipmentStack.isEmpty()) {
                 continue;
             }
-            ItemStack placedStack = placeLoadoutItem(player, slot, equipmentStack);
+            PreparedLoadoutStack preparedStack = prepareConfiguredLoadoutStack(
+                slot,
+                selectedEntry,
+                equipmentStack,
+                playerData,
+                attachmentData,
+                playerLevel,
+                attachmentCompatService
+            );
+            selectionChanged |= preparedStack.playerDataChanged();
+            ItemStack placedStack = placeLoadoutItem(player, slot, preparedStack.stack());
             if (grantTaczAmmo && slot == CustomLoadoutSlot.PRIMARY_WEAPON) {
                 grantConfiguredWeaponAmmoByExtraData(player, placedStack, selectedEntry.getExtraData(), buildSlotRange(PRIMARY_AMMO_ROW_START, PRIMARY_AMMO_ROW_END));
             } else if (grantTaczAmmo && slot == CustomLoadoutSlot.SECONDARY_WEAPON) {
@@ -236,6 +251,84 @@ public final class RoomPlayerLoadoutService {
             return ItemStack.of(tag);
         } catch (Exception ignored) {
             return ItemStack.EMPTY;
+        }
+    }
+
+    private PreparedLoadoutStack prepareConfiguredLoadoutStack(
+        CustomLoadoutSlot slot,
+        EquipmentDataModel.EquipmentEntry entry,
+        ItemStack equipmentStack,
+        PlayerDataModel playerData,
+        WeaponAttachmentDataModel attachmentData,
+        int playerLevel,
+        TaczAttachmentCompatService attachmentCompatService
+    ) {
+        if (equipmentStack == null || equipmentStack.isEmpty()) {
+            return new PreparedLoadoutStack(ItemStack.EMPTY, false);
+        }
+        ItemStack preparedStack = equipmentStack.copy();
+        if (!WeaponAttachmentService.supportsSlot(slot)
+            || entry == null
+            || playerData == null
+            || attachmentData == null
+            || attachmentCompatService == null
+            || !attachmentCompatService.isAvailable()) {
+            return new PreparedLoadoutStack(preparedStack, false);
+        }
+        String loadoutEntryId = CustomLoadoutService.normalizeEquipmentId(entry.getId());
+        if (loadoutEntryId.isBlank()) {
+            return new PreparedLoadoutStack(preparedStack, false);
+        }
+        boolean playerDataChanged = WeaponAttachmentService.sanitizeSelectionForWeapon(
+            playerData,
+            loadoutEntryId,
+            preparedStack,
+            attachmentData,
+            playerLevel,
+            attachmentCompatService
+        );
+        if (!attachmentCompatService.isTaczGun(preparedStack)) {
+            return new PreparedLoadoutStack(preparedStack, playerDataChanged);
+        }
+        applyStoredWeaponAttachments(preparedStack, playerData, loadoutEntryId, attachmentData, attachmentCompatService);
+        return new PreparedLoadoutStack(preparedStack, playerDataChanged);
+    }
+
+    private void applyStoredWeaponAttachments(
+        ItemStack gunStack,
+        PlayerDataModel playerData,
+        String loadoutEntryId,
+        WeaponAttachmentDataModel attachmentData,
+        TaczAttachmentCompatService attachmentCompatService
+    ) {
+        if (gunStack == null
+            || gunStack.isEmpty()
+            || playerData == null
+            || attachmentData == null
+            || attachmentCompatService == null
+            || loadoutEntryId == null
+            || loadoutEntryId.isBlank()) {
+            return;
+        }
+        for (String attachmentType : WeaponAttachmentService.ORDERED_ATTACHMENT_TYPES) {
+            if (!WeaponAttachmentService.hasStoredSelection(playerData, loadoutEntryId, attachmentType)
+                || !attachmentCompatService.allowAttachmentType(gunStack, attachmentType)) {
+                continue;
+            }
+            attachmentCompatService.unloadAttachment(gunStack, attachmentType);
+            String attachmentId = WeaponAttachmentService.getSelectedAttachmentId(playerData, loadoutEntryId, attachmentType);
+            if (attachmentId.isBlank()) {
+                continue;
+            }
+            WeaponAttachmentDataModel.WeaponAttachmentEntry attachmentEntry = attachmentData.getAttachmentById().get(attachmentId);
+            if (attachmentEntry == null) {
+                continue;
+            }
+            ItemStack attachmentStack = attachmentCompatService.deserializeStack(attachmentEntry.getItemSnbt());
+            if (attachmentStack.isEmpty()) {
+                continue;
+            }
+            attachmentCompatService.installAttachment(gunStack, attachmentStack);
         }
     }
 
@@ -769,6 +862,9 @@ public final class RoomPlayerLoadoutService {
     }
 
     private record TaczAmmoMeta(ResourceLocation ammoId, int stackSize) {
+    }
+
+    private record PreparedLoadoutStack(ItemStack stack, boolean playerDataChanged) {
     }
 
     public record ResolvedLoadoutItem(

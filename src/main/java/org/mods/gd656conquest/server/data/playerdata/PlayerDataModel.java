@@ -11,6 +11,7 @@ public final class PlayerDataModel {
     private int level;
     private int levelExperience;
     private Map<String, String> customLoadoutSelectionBySlot = new HashMap<>();
+    private Map<String, Map<String, String>> attachmentSelectionByLoadoutEntryId = new HashMap<>();
     private String currentClassType = "assault";
     private boolean teamChannelTipAcknowledged;
     private int unacknowledgedTeamChannelMessageCount;
@@ -44,6 +45,17 @@ public final class PlayerDataModel {
 
     public void setCustomLoadoutSelectionBySlot(Map<String, String> customLoadoutSelectionBySlot) {
         this.customLoadoutSelectionBySlot = customLoadoutSelectionBySlot;
+    }
+
+    public Map<String, Map<String, String>> getAttachmentSelectionByLoadoutEntryId() {
+        if (attachmentSelectionByLoadoutEntryId == null) {
+            attachmentSelectionByLoadoutEntryId = new HashMap<>();
+        }
+        return attachmentSelectionByLoadoutEntryId;
+    }
+
+    public void setAttachmentSelectionByLoadoutEntryId(Map<String, Map<String, String>> attachmentSelectionByLoadoutEntryId) {
+        this.attachmentSelectionByLoadoutEntryId = attachmentSelectionByLoadoutEntryId;
     }
 
     public String getCurrentClassType() {

@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.data;
 
 import net.minecraft.server.MinecraftServer;
+import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataStore;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataStore;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
 import org.mods.gd656conquest.server.data.roomdefinition.RoomDefinitionRepository;
@@ -22,6 +23,7 @@ public final class ConquestDataManager {
     private final RoomDefinitionRepository roomDefinitionRepository;
     private final RoomTemplateRepository roomTemplateRepository;
     private final EquipmentDataStore equipmentDataStore;
+    private final WeaponAttachmentDataStore weaponAttachmentDataStore;
     private final VehicleConfigRepository vehicleConfigRepository;
     private final DelayedJsonWriteService delayedJsonWriteService;
     private boolean initialized;
@@ -34,6 +36,7 @@ public final class ConquestDataManager {
         this.roomDefinitionRepository = new RoomDefinitionRepository(server, delayedJsonWriteService);
         this.roomTemplateRepository = new RoomTemplateRepository(server);
         this.equipmentDataStore = new EquipmentDataStore(server, delayedJsonWriteService);
+        this.weaponAttachmentDataStore = new WeaponAttachmentDataStore(server, delayedJsonWriteService);
         this.vehicleConfigRepository = new VehicleConfigRepository(server, delayedJsonWriteService);
     }
 
@@ -61,6 +64,7 @@ public final class ConquestDataManager {
         playerTitleRegistryStore.initialize();
         roomDefinitionRepository.initialize();
         equipmentDataStore.initialize();
+        weaponAttachmentDataStore.initialize();
         vehicleConfigRepository.initialize();
         initialized = true;
     }
@@ -96,6 +100,11 @@ public final class ConquestDataManager {
     public EquipmentDataStore equipmentData() {
         initialize();
         return equipmentDataStore;
+    }
+
+    public WeaponAttachmentDataStore weaponAttachments() {
+        initialize();
+        return weaponAttachmentDataStore;
     }
 
     public RoomTemplateRepository roomTemplates() {

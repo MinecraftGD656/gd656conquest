@@ -2,6 +2,7 @@ package org.mods.gd656conquest.client.loadout;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
+import org.mods.gd656conquest.client.loadout.screen.LoadoutAttachmentEditorScreen;
 import org.mods.gd656conquest.client.loadout.screen.LoadoutConfigScreen;
 import org.mods.gd656conquest.client.loadout.screen.LoadoutItemEditorScreen;
 import org.mods.gd656conquest.client.loadout.screen.LoadoutRoomEditorScreen;
@@ -65,6 +66,7 @@ public final class ClientLoadoutUiController {
     private boolean isLoadoutScreen(Screen screen) {
         return screen instanceof LoadoutConfigScreen
             || screen instanceof LoadoutVehicleDeployScreen
+            || screen instanceof LoadoutAttachmentEditorScreen
             || screen instanceof LoadoutItemEditorScreen
             || screen instanceof LoadoutRoomEditorScreen
             || screen instanceof LoadoutVehicleAdminEditorScreen;

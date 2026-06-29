@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
@@ -113,6 +114,26 @@ public final class PlayerDataStore extends JsonDataStoreSupport {
         PlayerDataModel resolved = data == null ? new PlayerDataModel() : data;
         cache.put(uuid, resolved);
         delayedJsonWriteService.schedule(ServerDataPaths.getPlayerDataFile(server, uuid.toString()), resolved, server.getTickCount());
+    }
+
+    public synchronized List<UUID> listKnownPlayerIds() {
+        LinkedHashSet<UUID> result = new LinkedHashSet<>(cache.keySet());
+        Path directory = ServerDataPaths.getPlayerDataDirectory(server);
+        ensureDirectory(directory);
+        try (var stream = Files.list(directory)) {
+            stream.filter(path -> path != null && path.getFileName() != null)
+                .map(path -> path.getFileName().toString())
+                .filter(name -> name.endsWith(".json"))
+                .map(name -> name.substring(0, name.length() - 5))
+                .forEach(rawUuid -> {
+                    try {
+                        result.add(UUID.fromString(rawUuid));
+                    } catch (Exception ignored) {
+                    }
+                });
+        } catch (Exception ignored) {
+        }
+        return new ArrayList<>(result);
     }
 
     private boolean hasSamePendingNotices(List<PlayerDataModel.PendingTitleNotice> current, List<PlayerDataModel.PendingTitleNotice> normalized) {

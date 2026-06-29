@@ -66,6 +66,59 @@ public final class ClientLoadoutUiState {
                     payload.ammoBoxRefillEnabled()
             ));
         }
+        Map<String, AdminAttachmentState> adminAttachments = new LinkedHashMap<>();
+        for (LoadoutUiOpenPacket.AdminAttachmentPayload payload : packet.getAdminAttachments()) {
+            String id = payload.id() == null ? "" : payload.id();
+            if (id.isBlank()) {
+                continue;
+            }
+            adminAttachments.put(id, new AdminAttachmentState(
+                id,
+                payload.displayName() == null ? "" : payload.displayName(),
+                payload.attachmentType() == null ? "" : payload.attachmentType(),
+                Math.max(0, payload.unlockLevel()),
+                payload.itemSnbt() == null ? "" : payload.itemSnbt(),
+                payload.futureRequirement() == null ? "" : payload.futureRequirement()
+            ));
+        }
+        Map<Integer, WeaponAttachmentPanelState> attachmentPanels = new LinkedHashMap<>();
+        for (LoadoutUiOpenPacket.WeaponAttachmentPanelPayload payload : packet.getAttachmentPanels()) {
+            Map<String, AttachmentTypeState> typeStates = new LinkedHashMap<>();
+            for (LoadoutUiOpenPacket.AttachmentTypePayload typePayload : payload.attachmentTypes()) {
+                Map<String, AttachmentChoiceState> choices = new LinkedHashMap<>();
+                for (LoadoutUiOpenPacket.AttachmentChoicePayload choicePayload : typePayload.choices()) {
+                    String id = choicePayload.id() == null ? "" : choicePayload.id();
+                    choices.put(id, new AttachmentChoiceState(
+                        id,
+                        choicePayload.displayName() == null ? "" : choicePayload.displayName(),
+                        Math.max(0, choicePayload.unlockLevel()),
+                        choicePayload.unlocked(),
+                        choicePayload.itemSnbt() == null ? "" : choicePayload.itemSnbt()
+                    ));
+                }
+                String typeKey = typePayload.attachmentType() == null ? "" : typePayload.attachmentType();
+                typeStates.put(typeKey, new AttachmentTypeState(
+                    typeKey,
+                    typePayload.attachmentLabel() == null ? "" : typePayload.attachmentLabel(),
+                    typePayload.available(),
+                    typePayload.hasStoredSelection(),
+                    typePayload.selectedAttachmentId() == null ? "" : typePayload.selectedAttachmentId(),
+                    typePayload.selectedDisplayName() == null ? "" : typePayload.selectedDisplayName(),
+                    choices
+                ));
+            }
+            attachmentPanels.put(payload.slotIndex(), new WeaponAttachmentPanelState(
+                payload.slotIndex(),
+                payload.slotKey() == null ? "" : payload.slotKey(),
+                payload.slotLabel() == null ? "" : payload.slotLabel(),
+                payload.loadoutEntryId() == null ? "" : payload.loadoutEntryId(),
+                payload.weaponDisplayName() == null ? "" : payload.weaponDisplayName(),
+                payload.weaponItemSnbt() == null ? "" : payload.weaponItemSnbt(),
+                payload.available(),
+                payload.taczGun(),
+                typeStates
+            ));
+        }
         List<VehicleEntryState> vehicleEntries = packet.getVehicleEntries().stream()
                 .map(payload -> new VehicleEntryState(
                         payload.entryId() == null ? "" : payload.entryId(),
@@ -89,11 +142,14 @@ public final class ClientLoadoutUiState {
                 .toList();
         snapshot = new Snapshot(
                 Math.max(0, packet.getPlayerLevel()),
+                packet.getPlayerTitleText(),
                 packet.getCurrentClassKey(),
                 packet.isAdmin(),
                 packet.isVehiclePageAvailable(),
                 classes,
                 adminEquipment,
+                adminAttachments,
+                attachmentPanels,
                 vehicleEntries
         );
         snapshotUpdatedAtMs = System.currentTimeMillis();
@@ -132,17 +188,26 @@ public final class ClientLoadoutUiState {
 
     public record Snapshot(
             int playerLevel,
+            String playerTitleText,
             String currentClassKey,
             boolean admin,
             boolean vehiclePageAvailable,
             Map<String, ClassState> classes,
             Map<String, AdminEquipmentState> adminEquipment,
+            Map<String, AdminAttachmentState> adminAttachments,
+            Map<Integer, WeaponAttachmentPanelState> attachmentPanels,
             List<VehicleEntryState> vehicleEntries
     ) {
         public List<AdminEquipmentState> sortedAdminEquipment() {
             return adminEquipment.values().stream()
                     .sorted((left, right) -> left.id().compareToIgnoreCase(right.id()))
                     .toList();
+        }
+
+        public List<AdminAttachmentState> sortedAdminAttachments() {
+            return adminAttachments.values().stream()
+                .sorted((left, right) -> left.id().compareToIgnoreCase(right.id()))
+                .toList();
         }
 
         public List<VehicleEntryState> sortedVehicleEntries() {
@@ -183,6 +248,60 @@ public final class ClientLoadoutUiState {
             String itemSnbt,
             int replenishSeconds,
             boolean ammoBoxRefillEnabled
+    ) {
+    }
+
+    public record AdminAttachmentState(
+        String id,
+        String displayName,
+        String attachmentType,
+        int unlockLevel,
+        String itemSnbt,
+        String futureRequirement
+    ) {
+    }
+
+    public record WeaponAttachmentPanelState(
+        int slotIndex,
+        String slotKey,
+        String slotLabel,
+        String loadoutEntryId,
+        String weaponDisplayName,
+        String weaponItemSnbt,
+        boolean available,
+        boolean taczGun,
+        Map<String, AttachmentTypeState> attachmentTypes
+    ) {
+    }
+
+    public record AttachmentTypeState(
+        String attachmentType,
+        String attachmentLabel,
+        boolean available,
+        boolean hasStoredSelection,
+        String selectedAttachmentId,
+        String selectedDisplayName,
+        Map<String, AttachmentChoiceState> choices
+    ) {
+        public List<AttachmentChoiceState> sortedChoices() {
+            return choices.values().stream()
+                .sorted((left, right) -> {
+                    int unlockCompare = Integer.compare(left.unlockLevel(), right.unlockLevel());
+                    if (unlockCompare != 0) {
+                        return unlockCompare;
+                    }
+                    return left.id().compareToIgnoreCase(right.id());
+                })
+                .toList();
+        }
+    }
+
+    public record AttachmentChoiceState(
+        String id,
+        String displayName,
+        int unlockLevel,
+        boolean unlocked,
+        String itemSnbt
     ) {
     }
 

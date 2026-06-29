@@ -18,6 +18,7 @@ public final class ClientDeathFlowState {
     private static final float VISUAL_SMOOTH_SHARPNESS = 4.5F;
     private static final float DEATH_DESATURATION_LEVEL = 0.92F;
     private static final float STANDARD_DEATH_VIEW_DARKNESS = 0.70F;
+    private static final float DOWNED_ENTRY_FADE_SECONDS = 0.5F;
     private static final int PHASE_IDLE = 0;
     private static final int PHASE_DEATH_FALL = 1;
     private static final int PHASE_DEATH_WAIT = 2;
@@ -81,8 +82,8 @@ public final class ClientDeathFlowState {
     private static float deathDesaturationTarget;
     private static float currentDarkness;
     private static float targetDarkness;
-    private static float deathDarknessTarget;
     private static float downedBlackoutTarget;
+    private static float downedEntryFadeElapsedSeconds;
     private static float currentDeployIconAlpha;
     private static float targetDeployIconAlpha;
     private static boolean boundaryPenaltyActive;
@@ -159,7 +160,6 @@ public final class ClientDeathFlowState {
             Vec3 currentPos = hasSource ? new Vec3(sourceX, sourceY, sourceZ) : player.getEyePosition();
             setCameraPose(currentPos.x, currentPos.y, currentPos.z, player.getYRot(), player.getXRot(), true);
             deathDesaturationTarget = 0.0F;
-            deathDarknessTarget = 0.0F;
             lastVisualUpdateNanos = System.nanoTime();
         }
         deathVisualsActive = false;
@@ -286,10 +286,10 @@ public final class ClientDeathFlowState {
             deathDesaturationTarget = 0.0F;
             currentDarkness = 0.0F;
             targetDarkness = 0.0F;
-            deathDarknessTarget = 0.0F;
             hurtFlashRemainSeconds = 0.0F;
             lastHurtTime = -1;
             lastVisualUpdateNanos = -1L;
+            downedEntryFadeElapsedSeconds = 0.0F;
             return;
         }
         updateVisualEffects(minecraft, player);
@@ -352,6 +352,7 @@ public final class ClientDeathFlowState {
         deathVisualsActive = false;
         phase = PHASE_DOWNED_HOLD;
         phaseTicks = 0L;
+        downedEntryFadeElapsedSeconds = 0.0F;
         player.setYRot(currentCameraYaw);
         player.setYHeadRot(currentCameraYaw);
         player.setXRot(currentCameraPitch);
@@ -419,8 +420,8 @@ public final class ClientDeathFlowState {
         currentCameraYaw = 0.0F;
         currentCameraPitch = 0.0F;
         deathDesaturationTarget = 0.0F;
-        deathDarknessTarget = 0.0F;
         downedBlackoutTarget = 0.0F;
+        downedEntryFadeElapsedSeconds = 0.0F;
         currentDeployIconAlpha = 0.0F;
         targetDeployIconAlpha = 0.0F;
         boundaryPenaltyActive = false;
@@ -442,6 +443,7 @@ public final class ClientDeathFlowState {
         currentDeployIconAlpha = 0.0F;
         targetDeployIconAlpha = 0.0F;
         downedBlackoutTarget = 0.0F;
+        downedEntryFadeElapsedSeconds = 0.0F;
     }
 
     public static void startMatchEndTransition(double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int transitionTicks) {
@@ -482,8 +484,11 @@ public final class ClientDeathFlowState {
         float deltaSeconds = lastVisualUpdateNanos <= 0L ? (1.0F / 120.0F) : (float) ((now - lastVisualUpdateNanos) / 1_000_000_000.0D);
         deltaSeconds = Mth.clamp(deltaSeconds, 0.0F, 0.05F);
         lastVisualUpdateNanos = now;
-        float lowHealthDarkness = computeLowHealthDarkness(player.getHealth());
-        float sharedDeathDarkness = Math.max(STANDARD_DEATH_VIEW_DARKNESS, deathDarknessTarget);
+        if (phase == PHASE_DOWNED_HOLD) {
+            downedEntryFadeElapsedSeconds = Math.min(DOWNED_ENTRY_FADE_SECONDS, downedEntryFadeElapsedSeconds + deltaSeconds);
+        } else {
+            downedEntryFadeElapsedSeconds = 0.0F;
+        }
         targetDesaturation = (deathVisualsActive || phase == PHASE_DOWNED_HOLD) ? deathDesaturationTarget : 0.0F;
         if (boundaryPenaltyActive) {
             targetDesaturation = Math.max(targetDesaturation, DEATH_DESATURATION_LEVEL);
@@ -493,11 +498,9 @@ public final class ClientDeathFlowState {
         if (deployPhase || respawnPhase) {
             targetDarkness = 0.0F;
         } else if (phase == PHASE_DOWNED_HOLD) {
-            targetDarkness = Math.max(sharedDeathDarkness, downedBlackoutTarget);
-        } else if (deathVisualsActive) {
-            targetDarkness = sharedDeathDarkness;
+            targetDarkness = resolveDownedEntryDarkness();
         } else {
-            targetDarkness = Math.max(lowHealthDarkness, downedBlackoutTarget);
+            targetDarkness = 0.0F;
         }
         targetDeployIconAlpha = resolveDeployIconAlphaTarget();
         if (!active && lastHurtTime >= 0 && player.hurtTime > lastHurtTime) {
@@ -505,7 +508,11 @@ public final class ClientDeathFlowState {
         }
         lastHurtTime = player.hurtTime;
         currentDesaturation = exponentialApproach(currentDesaturation, targetDesaturation, deltaSeconds, VISUAL_SMOOTH_SHARPNESS);
-        currentDarkness = exponentialApproach(currentDarkness, targetDarkness, deltaSeconds, VISUAL_SMOOTH_SHARPNESS);
+        if (phase == PHASE_DOWNED_HOLD) {
+            currentDarkness = targetDarkness;
+        } else {
+            currentDarkness = exponentialApproach(currentDarkness, targetDarkness, deltaSeconds, VISUAL_SMOOTH_SHARPNESS);
+        }
         currentDeployIconAlpha = exponentialApproach(currentDeployIconAlpha, targetDeployIconAlpha, deltaSeconds, 8.0F);
         hurtFlashRemainSeconds = Math.max(0.0F, hurtFlashRemainSeconds - deltaSeconds);
         applyDesaturation(minecraft, currentDesaturation);
@@ -521,13 +528,11 @@ public final class ClientDeathFlowState {
         return 0.0F;
     }
 
-    private static float computeLowHealthDarkness(float health) {
-        float clamped = Mth.clamp(health, 0.0F, 20.0F);
-        if (clamped >= 5.0F) {
-            return 0.0F;
-        }
-        float ratio = (5.0F - clamped) / 5.0F;
-        return Mth.clamp((float) Math.pow(ratio, 1.15D) * 0.90F, 0.0F, 0.70F);
+    private static float resolveDownedEntryDarkness() {
+        float fadeProgress = Mth.clamp(downedEntryFadeElapsedSeconds / DOWNED_ENTRY_FADE_SECONDS, 0.0F, 1.0F);
+        float baseDarkness = Math.min(downedBlackoutTarget, STANDARD_DEATH_VIEW_DARKNESS);
+        float extraDarkness = Math.max(0.0F, downedBlackoutTarget - STANDARD_DEATH_VIEW_DARKNESS);
+        return Mth.clamp((baseDarkness * fadeProgress) + extraDarkness, 0.0F, 0.992F);
     }
 
     private static float exponentialApproach(float current, float target, float deltaSeconds, float sharpness) {
