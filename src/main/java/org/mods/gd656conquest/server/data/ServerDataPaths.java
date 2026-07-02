@@ -42,6 +42,10 @@ public final class ServerDataPaths {
         return getModRoot(server).resolve("weaponAttachmentData.json");
     }
 
+    public static Path getParkourDataFile(MinecraftServer server) {
+        return getModRoot(server).resolve("parkourData.json");
+    }
+
     public static Path getRoomDefinitionDirectory(MinecraftServer server) {
         return getModRoot(server).resolve("roomdefinitions");
     }

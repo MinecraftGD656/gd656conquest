@@ -59,6 +59,7 @@ public class LoadoutConfigScreen extends Screen {
     private final Map<String, GDButton> attachmentButtons = new LinkedHashMap<>();
     private GDButton closeButton;
     private GDButton vehicleDeployButton;
+    private GDButton parkourLeaderboardButton;
     private GDButton editRoomsButton;
     private GDButton editVehiclesButton;
     private GDButton editItemsButton;
@@ -109,6 +110,7 @@ public class LoadoutConfigScreen extends Screen {
         int bottomY = getBottomButtonY();
         closeButton = new GDButton(getCloseButtonX(), bottomY, bottomButtonWidth, BOTTOM_BUTTON_H, Component.translatable("gd656conquest.client.gui.loadout.close"), btn -> onClose());
         vehicleDeployButton = new GDButton(LEFT, bottomY, bottomButtonWidth, BOTTOM_BUTTON_H, Component.translatable("gd656conquest.client.gui.loadout.vehicle.button"), btn -> openVehicleDeployScreen());
+        parkourLeaderboardButton = new GDButton(getParkourButtonX(), bottomY, bottomButtonWidth, BOTTOM_BUTTON_H, Component.literal("跑酷排行榜"), btn -> openParkourLeaderboardScreen());
         int adminLeft = getAdminButtonStartX();
         editVehiclesButton = new GDButton(adminLeft, bottomY, bottomButtonWidth, BOTTOM_BUTTON_H, Component.literal("房间载具"), btn -> openVehicleAdminEditorScreen());
         editRoomsButton = new GDButton(adminLeft + bottomButtonWidth + BOTTOM_BAR_GAP, bottomY, bottomButtonWidth, BOTTOM_BUTTON_H, Component.literal("房间数据"), btn -> openRoomEditorScreen());
@@ -147,6 +149,9 @@ public class LoadoutConfigScreen extends Screen {
         }
         if (closeButton != null) {
             closeButton.render(guiGraphics, mouseX, mouseY, partialTick);
+        }
+        if (parkourLeaderboardButton != null) {
+            parkourLeaderboardButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
         if (vehicleDeployButton != null) {
             ClientLoadoutUiState.Snapshot snapshot = ClientLoadoutUiState.snapshot();
@@ -220,6 +225,9 @@ public class LoadoutConfigScreen extends Screen {
                 return true;
             }
             if (closeButton != null && closeButton.mouseClicked(mouseX, mouseY, button)) {
+                return true;
+            }
+            if (parkourLeaderboardButton != null && parkourLeaderboardButton.mouseClicked(mouseX, mouseY, button)) {
                 return true;
             }
             if (vehicleDeployButton != null && vehicleDeployButton.mouseClicked(mouseX, mouseY, button)) {
@@ -529,16 +537,20 @@ public class LoadoutConfigScreen extends Screen {
         return this.width - RIGHT - getBottomButtonWidth();
     }
 
+    private int getParkourButtonX() {
+        return getCloseButtonX() - BOTTOM_BAR_GAP - getBottomButtonWidth();
+    }
+
     private int getAdminButtonStartX() {
         int adminCount = 4;
         int bottomButtonWidth = getBottomButtonWidth();
         int totalWidth = adminCount * bottomButtonWidth + (adminCount - 1) * BOTTOM_BAR_GAP;
-        return Math.max(LEFT + bottomButtonWidth + 8, getCloseButtonX() - BOTTOM_BAR_GAP - totalWidth);
+        return Math.max(LEFT + bottomButtonWidth + 8, getParkourButtonX() - BOTTOM_BAR_GAP - totalWidth);
     }
 
     private int getBottomButtonWidth() {
-        int availableWidth = this.width - LEFT - RIGHT - BOTTOM_BAR_GAP * 5;
-        return Math.max(42, Math.min(BOTTOM_BUTTON_W, availableWidth / 6));
+        int availableWidth = this.width - LEFT - RIGHT - BOTTOM_BAR_GAP * 6;
+        return Math.max(42, Math.min(BOTTOM_BUTTON_W, availableWidth / 7));
     }
 
     private int getRightContentViewportTop() {
@@ -760,6 +772,13 @@ public class LoadoutConfigScreen extends Screen {
             return;
         }
         minecraft.setScreen(new LoadoutRoomEditorScreen(this));
+    }
+
+    private void openParkourLeaderboardScreen() {
+        if (minecraft == null) {
+            return;
+        }
+        minecraft.setScreen(new LoadoutParkourLeaderboardScreen(this));
     }
 
     private void openVehicleAdminEditorScreen() {

@@ -25,6 +25,8 @@ import org.mods.gd656conquest.client.hud.ClientMatchResultOverlayState;
 import org.mods.gd656conquest.client.loadout.ClientLoadoutUiController;
 import org.mods.gd656conquest.client.marker.ClientMarkerDebugPreviewState;
 import org.mods.gd656conquest.client.marker.ClientRoomMarkerState;
+import org.mods.gd656conquest.client.parkour.ClientParkourLeaderboardState;
+import org.mods.gd656conquest.client.parkour.ClientParkourRuntimeState;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.client.room.ClientDownedState;
 import org.mods.gd656conquest.client.room.ClientReviveState;
@@ -67,6 +69,8 @@ public final class ClientEventHandler {
         ClientHudSubtitleManager.tick();
         if (minecraft.player == null || minecraft.level == null) {
             ClientHudSubtitleManager.reset();
+            ClientParkourRuntimeState.clear();
+            ClientParkourLeaderboardState.clear();
             captureOverlayController.handleClientLogout();
             captureOutlineController.clear();
             return;
@@ -75,6 +79,7 @@ public final class ClientEventHandler {
             ClientRoomMarkerState.handleKeyPress(minecraft);
         }
         ClientRoomMarkerState.tick();
+        ClientParkourRuntimeState.tick(minecraft);
         ClientDeathFlowState.tick();
         ClientDownedState.tick();
         ClientReviveState.tick();
@@ -183,6 +188,8 @@ public final class ClientEventHandler {
         ClientRoomTeamMirror.reset();
         ClientHudDebugState.reset();
         ClientHudSubtitleManager.reset();
+        ClientParkourRuntimeState.clear();
+        ClientParkourLeaderboardState.clear();
         ClientMatchResultOverlayState.clear();
         ClientDeathFlowState.clear();
         ClientDownedState.clear();

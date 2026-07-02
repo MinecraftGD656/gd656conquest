@@ -3,6 +3,7 @@ package org.mods.gd656conquest.server.facility.quickaccess;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import org.mods.gd656conquest.server.facility.parkour.ParkourRuntimeManager;
 import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
 import org.mods.gd656conquest.server.loadout.LoadoutUiService;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
@@ -74,6 +75,7 @@ public final class QuickAccessItemService {
     private static boolean quickJoin(ServerPlayer player) {
         RoomCoreRuntimeManager coreManager = RoomCoreRuntimeManager.of(player.server);
         RangeRuntimeManager rangeManager = RangeRuntimeManager.of(player.server);
+        ParkourRuntimeManager parkourManager = ParkourRuntimeManager.of(player.server);
         if (coreManager.findPlayerRoomId(player.getUUID()).isPresent()) {
             sendError(player, "你已在对局中，无法使用快速加入");
             return false;
@@ -81,6 +83,9 @@ public final class QuickAccessItemService {
         if (rangeManager.isInRange(player.getUUID())) {
             sendError(player, "你已在靶场中，请先离开靶场");
             return false;
+        }
+        if (parkourManager.isInParkour(player.getUUID())) {
+            parkourManager.leaveParkourForTransfer(player);
         }
         List<RoomDefinition> joinables = coreManager.listRooms().stream()
             .filter(room -> RoomListPresentationService.isJoinableForPlayer(room, player, coreManager))
@@ -168,6 +173,9 @@ public final class QuickAccessItemService {
             sendError(player, "你已在对局中，无法进入靶场");
             return false;
         }
+        if (ParkourRuntimeManager.of(player.server).isInParkour(player.getUUID())) {
+            ParkourRuntimeManager.of(player.server).leaveParkourForTransfer(player);
+        }
         String result = RangeRuntimeManager.of(player.server).joinRange(player);
         sendInfo(player, result);
         return true;
@@ -185,7 +193,7 @@ public final class QuickAccessItemService {
             return result.success();
         }
         if (!result.success()) {
-            sendError(player, "当前不在对局或靶场中，无法离开");
+            sendError(player, "当前不在对局、靶场或跑酷中，无法离开");
             return false;
         }
         sendInfo(player, result.operatorMessage());

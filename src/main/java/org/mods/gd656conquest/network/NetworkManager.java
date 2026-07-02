@@ -12,6 +12,10 @@ import org.mods.gd656conquest.network.packet.EquipmentEditorUpdatePacket;
 import org.mods.gd656conquest.network.packet.LoadoutUiActionPacket;
 import org.mods.gd656conquest.network.packet.LoadoutUiOpenPacket;
 import org.mods.gd656conquest.network.packet.LoadoutUiRequestPacket;
+import org.mods.gd656conquest.network.packet.ParkourActionPacket;
+import org.mods.gd656conquest.network.packet.ParkourLeaderboardRequestPacket;
+import org.mods.gd656conquest.network.packet.ParkourLeaderboardSnapshotPacket;
+import org.mods.gd656conquest.network.packet.ParkourSessionSyncPacket;
 import org.mods.gd656conquest.network.packet.PlayerAnimatorDebugPacket;
 import org.mods.gd656conquest.network.packet.PlayerAnimatorHelpRequestPacket;
 import org.mods.gd656conquest.network.packet.PlayerAnimatorHelpSyncPacket;
@@ -40,10 +44,11 @@ import org.mods.gd656conquest.network.packet.ClientboundScreenshotRequestPacket;
 import org.mods.gd656conquest.network.packet.ServerboundScreenshotChunkPacket;
 import org.mods.gd656conquest.network.packet.ServerboundScreenshotStatusPacket;
 import org.mods.gd656conquest.network.packet.ServerboundAmmoBoxInteractPacket;
+import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "065";
+    private static final String PROTOCOL_VERSION = "067";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -209,6 +214,41 @@ public final class NetworkManager {
                 LoadoutUiActionPacket::encode,
                 LoadoutUiActionPacket::decode,
                 LoadoutUiActionPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                ParkourLeaderboardRequestPacket.class,
+                ParkourLeaderboardRequestPacket::encode,
+                ParkourLeaderboardRequestPacket::decode,
+                ParkourLeaderboardRequestPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                ParkourLeaderboardSnapshotPacket.class,
+                ParkourLeaderboardSnapshotPacket::encode,
+                ParkourLeaderboardSnapshotPacket::decode,
+                ParkourLeaderboardSnapshotPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                ParkourActionPacket.class,
+                ParkourActionPacket::encode,
+                ParkourActionPacket::decode,
+                ParkourActionPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                ParkourSessionSyncPacket.class,
+                ParkourSessionSyncPacket::encode,
+                ParkourSessionSyncPacket::decode,
+                ParkourSessionSyncPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                ServerboundParkourFinishPacket.class,
+                ServerboundParkourFinishPacket::encode,
+                ServerboundParkourFinishPacket::decode,
+                ServerboundParkourFinishPacket::handle
         );
         CHANNEL.registerMessage(
                 packetId++,

@@ -10,6 +10,7 @@ import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
 import net.minecraftforge.event.entity.player.PlayerXpEvent;
 import org.mods.gd656conquest.server.core.bootstrap.ServerModule;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
+import org.mods.gd656conquest.server.facility.parkour.ParkourRuntimeManager;
 import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.player.lock.ServerPlayerLockService;
@@ -174,8 +175,12 @@ public final class PlayerServerModule implements ServerModule {
         }
         RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(player.server);
         RangeRuntimeManager rangeManager = RangeRuntimeManager.of(player.server);
+        ParkourRuntimeManager parkourManager = ParkourRuntimeManager.of(player.server);
         if (rangeManager.isInRange(player.getUUID())) {
             rangeManager.leaveRangeForTransfer(player);
+        }
+        if (parkourManager.isInParkour(player.getUUID())) {
+            parkourManager.leaveParkourForTransfer(player);
         }
         roomManager.leaveMatching(player.getUUID());
         if (roomManager.findPlayerRoomId(player.getUUID()).isPresent()) {

@@ -3,6 +3,7 @@ package org.mods.gd656conquest.server.core.bootstrap;
 import org.mods.gd656conquest.server.core.command.ConquestCommandModule;
 import org.mods.gd656conquest.server.core.lifecycle.ServerLifecycleCoordinator;
 import org.mods.gd656conquest.server.data.DataServerModule;
+import org.mods.gd656conquest.server.facility.parkour.ParkourServerModule;
 import org.mods.gd656conquest.server.facility.quickaccess.QuickAccessServerModule;
 import org.mods.gd656conquest.server.facility.range.RangeServerModule;
 import org.mods.gd656conquest.server.facility.sign.SignServerModule;
@@ -29,6 +30,7 @@ public final class ServerFrameworkBootstrap {
                 new PlayerServerModule(),
                 new SleepRuleServerModule(),
                 new QuickAccessServerModule(),
+                new ParkourServerModule(),
                 new SignServerModule(),
                 new LoadoutServerModule(),
                 new PartyServerModule(),

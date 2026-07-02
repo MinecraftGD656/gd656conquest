@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
+import org.mods.gd656conquest.client.parkour.ClientParkourRuntimeState;
 import org.mods.gd656conquest.client.room.ClientDownedState;
 import java.util.List;
 import java.util.Locale;
@@ -28,6 +29,7 @@ public final class ClientHudRenderer {
         }
         String roomState = ClientHudDebugState.getRoomState();
         if ("未加入房间".equals(roomState) || "-".equals(ClientHudDebugState.getRoomId())) {
+            ClientParkourRuntimeState.render(gui, minecraft.font);
             ClientDownedState.render(gui, minecraft.font);
             return;
         }
@@ -37,6 +39,7 @@ public final class ClientHudRenderer {
         int y1 = 8;
         drawTopScoreLine(gui, font, centerX, y1);
         ClientHudSubtitleManager.render(gui, font, centerX, 43);
+        ClientParkourRuntimeState.render(gui, font);
         ClientDownedState.render(gui, font);
     }
 

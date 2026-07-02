@@ -7,6 +7,7 @@ import org.mods.gd656conquest.server.data.util.DelayedJsonWriteService;
 import org.mods.gd656conquest.server.data.util.JsonDataStoreSupport;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomVehicleBackend;
+import org.mods.gd656conquest.server.title.PlayerTitleService;
 
 import java.util.Objects;
 
@@ -121,6 +122,30 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         return getOverworldSpawnFallbackShared();
     }
 
+    public synchronized RoomPosition getParkourStartPosFallbackShared() {
+        RoomPosition configured = get().getParkourStartPos();
+        if (configured != null) {
+            return configured;
+        }
+        return getOverworldSpawnFallbackShared();
+    }
+
+    public synchronized RoomPosition getParkourEndPosFallbackShared() {
+        RoomPosition configured = get().getParkourEndPos();
+        if (configured != null) {
+            return configured;
+        }
+        return getOverworldSpawnFallbackShared();
+    }
+
+    public synchronized String getParkourCompletionTitleId() {
+        return normalizeTitleId(get().getParkourCompletionTitleId());
+    }
+
+    public synchronized String getParkourBestTitleId() {
+        return normalizeTitleId(get().getParkourBestTitleId());
+    }
+
     private void normalize(ServerConfigDataModel model) {
         if (model.getBoolOverworldInvulnerable() == null) {
             model.setBoolOverworldInvulnerable(true);
@@ -160,6 +185,14 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         if (model.getRangeLeaveSpawn() == null) {
             model.setRangeLeaveSpawn(model.getOverworldSpawn());
         }
+        if (model.getParkourStartPos() == null) {
+            model.setParkourStartPos(model.getOverworldSpawn());
+        }
+        if (model.getParkourEndPos() == null) {
+            model.setParkourEndPos(model.getParkourStartPos());
+        }
+        model.setParkourCompletionTitleId(normalizeTitleId(model.getParkourCompletionTitleId()));
+        model.setParkourBestTitleId(normalizeTitleId(model.getParkourBestTitleId()));
     }
 
     private static double sanitizeScopeLimit(Double value, double fallback) {
@@ -167,5 +200,9 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
             return fallback;
         }
         return Math.max(0.0D, value);
+    }
+
+    private static String normalizeTitleId(String raw) {
+        return raw == null || raw.isBlank() ? "" : PlayerTitleService.normalizeTitleId(raw);
     }
 }

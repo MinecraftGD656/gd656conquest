@@ -2,8 +2,9 @@ package org.mods.gd656conquest.server.room.entry;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
+import org.mods.gd656conquest.server.facility.parkour.ParkourRuntimeManager;
 import org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService;
+import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
 import org.mods.gd656conquest.server.room.core.RoomJoinResult;
 import org.mods.gd656conquest.server.room.core.RoomGroupPlacementPlan;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
@@ -130,6 +131,7 @@ public final class RoomSessionTransitionService {
         }
         RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(server);
         RangeRuntimeManager rangeManager = RangeRuntimeManager.of(server);
+        ParkourRuntimeManager parkourManager = ParkourRuntimeManager.of(server);
         if (partyManager.isLeader(operator.getUUID())) {
             int changed = 0;
             for (UUID memberId : partyManager.getPartyMembers(operator.getUUID())) {
@@ -137,14 +139,14 @@ public final class RoomSessionTransitionService {
                 if (member == null) {
                     continue;
                 }
-                if (returnOneMemberToHub(roomManager, rangeManager, member).changed()) {
+                if (returnOneMemberToHub(roomManager, rangeManager, parkourManager, member).changed()) {
                     changed++;
                 }
                 QuickAccessItemService.refreshHotbar(member);
             }
             return new ReturnToHubExecutionResult(changed > 0, "", changed, true, false, "");
         }
-        ReturnToHubAttempt attempt = returnOneMemberToHub(roomManager, rangeManager, operator);
+        ReturnToHubAttempt attempt = returnOneMemberToHub(roomManager, rangeManager, parkourManager, operator);
         QuickAccessItemService.refreshHotbar(operator);
         return new ReturnToHubExecutionResult(attempt.changed(), "", attempt.changed() ? 1 : 0, false, attempt.hadSession(), attempt.message());
     }
@@ -169,6 +171,7 @@ public final class RoomSessionTransitionService {
         if (currentRoom.filter(roomId::equalsIgnoreCase).isPresent()) {
             return new JoinAttempt(true, null, "");
         }
+        ParkourRuntimeManager.of(server).leaveParkourForTransfer(member);
         if (currentRoom.isPresent()) {
             roomManager.sendPlayerToHub(member);
         }
@@ -290,6 +293,7 @@ public final class RoomSessionTransitionService {
     private ReturnToHubAttempt returnOneMemberToHub(
         RoomCoreRuntimeManager roomManager,
         RangeRuntimeManager rangeManager,
+        ParkourRuntimeManager parkourManager,
         ServerPlayer member
     ) {
         UUID memberId = member.getUUID();
@@ -299,7 +303,10 @@ public final class RoomSessionTransitionService {
         if (rangeManager.isInRange(memberId)) {
             return new ReturnToHubAttempt(true, true, rangeManager.leaveRange(member));
         }
-        return new ReturnToHubAttempt(false, false, "当前不在对局或靶场中");
+        if (parkourManager.isInParkour(memberId)) {
+            return new ReturnToHubAttempt(true, true, parkourManager.leaveParkour(member));
+        }
+        return new ReturnToHubAttempt(false, false, "当前不在对局、靶场或跑酷中");
     }
 
     public enum LeaveMode {

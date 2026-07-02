@@ -6,6 +6,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.mods.gd656conquest.common.item.ConquestItems;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
+import org.mods.gd656conquest.server.facility.parkour.ParkourRuntimeManager;
 import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
 import org.mods.gd656conquest.server.player.state.HubDimensionService;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
@@ -40,6 +41,7 @@ public final class QuickAccessInventoryPolicyService {
         }
         RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(player.server);
         RangeRuntimeManager rangeManager = RangeRuntimeManager.of(player.server);
+        ParkourRuntimeManager parkourManager = ParkourRuntimeManager.of(player.server);
         Optional<String> roomId = roomManager.findPlayerRoomId(player.getUUID());
         if (roomId.isPresent()) {
             RoomDefinition room = roomManager.findRoom(roomId.get()).orElse(null);
@@ -48,6 +50,10 @@ public final class QuickAccessInventoryPolicyService {
         }
         if (rangeManager.isInRange(player.getUUID())) {
             applyRangeInventory(player);
+            return;
+        }
+        if (parkourManager.isInParkour(player.getUUID())) {
+            applyParkourInventory(player);
             return;
         }
         if (HubDimensionService.isHubDimension(player.level())
@@ -86,7 +92,10 @@ public final class QuickAccessInventoryPolicyService {
         if (roomManager.findPlayerRoomId(player.getUUID()).isPresent()) {
             return false;
         }
-        return !RangeRuntimeManager.of(player.server).isInRange(player.getUUID());
+        if (RangeRuntimeManager.of(player.server).isInRange(player.getUUID())) {
+            return false;
+        }
+        return !ParkourRuntimeManager.of(player.server).isInParkour(player.getUUID());
     }
 
     private static void applyLobbyInventory(ServerPlayer player) {
@@ -132,6 +141,21 @@ public final class QuickAccessInventoryPolicyService {
         changed |= clearHotbarSlot(player, 6);
         changed |= setHotbarSlotIfNeeded(player, HOTBAR_LOADOUT, ConquestItems.LOADOUT_GUIDE_ITEM.get());
         changed |= setHotbarSlotIfNeeded(player, HOTBAR_LEAVE_OR_RANGE, ConquestItems.LEAVE_ITEM.get());
+        if (changed) {
+            PlayerInventorySanitizer.flush(player);
+        }
+    }
+
+    private static void applyParkourInventory(ServerPlayer player) {
+        boolean changed = stripQuickAccessItemsOutsideHotbar(player);
+        for (int slot = 0; slot < 8; slot++) {
+            changed |= clearHotbarSlot(player, slot);
+        }
+        changed |= setHotbarSlotIfNeeded(player, HOTBAR_LEAVE_OR_RANGE, ConquestItems.LEAVE_ITEM.get());
+        if (player != null && player.getInventory().selected != HOTBAR_LEAVE_OR_RANGE) {
+            player.getInventory().selected = HOTBAR_LEAVE_OR_RANGE;
+            changed = true;
+        }
         if (changed) {
             PlayerInventorySanitizer.flush(player);
         }

@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.data;
 
 import net.minecraft.server.MinecraftServer;
+import org.mods.gd656conquest.server.data.parkour.ParkourDataStore;
 import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataStore;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataStore;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
@@ -25,6 +26,7 @@ public final class ConquestDataManager {
     private final EquipmentDataStore equipmentDataStore;
     private final WeaponAttachmentDataStore weaponAttachmentDataStore;
     private final VehicleConfigRepository vehicleConfigRepository;
+    private final ParkourDataStore parkourDataStore;
     private final DelayedJsonWriteService delayedJsonWriteService;
     private boolean initialized;
 
@@ -38,6 +40,7 @@ public final class ConquestDataManager {
         this.equipmentDataStore = new EquipmentDataStore(server, delayedJsonWriteService);
         this.weaponAttachmentDataStore = new WeaponAttachmentDataStore(server, delayedJsonWriteService);
         this.vehicleConfigRepository = new VehicleConfigRepository(server, delayedJsonWriteService);
+        this.parkourDataStore = new ParkourDataStore(server, delayedJsonWriteService);
     }
 
     public static ConquestDataManager of(MinecraftServer server) {
@@ -66,6 +69,7 @@ public final class ConquestDataManager {
         equipmentDataStore.initialize();
         weaponAttachmentDataStore.initialize();
         vehicleConfigRepository.initialize();
+        parkourDataStore.initialize();
         initialized = true;
     }
 
@@ -115,5 +119,10 @@ public final class ConquestDataManager {
     public VehicleConfigRepository vehicleConfigs() {
         initialize();
         return vehicleConfigRepository;
+    }
+
+    public ParkourDataStore parkourData() {
+        initialize();
+        return parkourDataStore;
     }
 }

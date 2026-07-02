@@ -31,6 +31,7 @@ import org.mods.gd656conquest.server.data.roomdefinition.LegacyRoomDefinitionsUp
 import org.mods.gd656conquest.server.data.serverconfig.ServerConfigDataModel;
 import org.mods.gd656conquest.server.data.serverconfig.ServerConfigStore;
 import org.mods.gd656conquest.server.core.command.debug.VehicleDebugCommands;
+import org.mods.gd656conquest.server.facility.parkour.ParkourRuntimeManager;
 import org.mods.gd656conquest.server.facility.range.RangeCommands;
 import org.mods.gd656conquest.server.loadout.LoadoutCommands;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
@@ -78,7 +79,11 @@ public final class ConquestServerCommands {
         "vehicleBackend",
         "overworldSpawn",
         "rangeJoinSpawn",
-        "rangeLeaveSpawn"
+        "rangeLeaveSpawn",
+        "parkourStartPos",
+        "parkourEndPos",
+        "parkourCompletionTitleId",
+        "parkourBestTitleId"
     );
 
     private ConquestServerCommands() {
@@ -395,6 +400,10 @@ public final class ConquestServerCommands {
         CommandFeedbacks.line(context.getSource(), ServerText.colored("overworldSpawn=" + formatPosition(config.getOverworldSpawn()), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("rangeJoinSpawn=" + formatPosition(config.getRangeJoinSpawn()), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("rangeLeaveSpawn=" + formatPosition(config.getRangeLeaveSpawn()), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourStartPos=" + formatPosition(config.getParkourStartPos()), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourEndPos=" + formatPosition(config.getParkourEndPos()), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourCompletionTitleId=" + store.getParkourCompletionTitleId(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourBestTitleId=" + store.getParkourBestTitleId(), net.minecraft.ChatFormatting.AQUA));
         return 1;
     }
 
@@ -427,10 +436,18 @@ public final class ConquestServerCommands {
             case "overworldSpawn" -> config.setOverworldSpawn(parseConfigPosition(context, rawValue));
             case "rangeJoinSpawn" -> config.setRangeJoinSpawn(parseConfigPosition(context, rawValue));
             case "rangeLeaveSpawn" -> config.setRangeLeaveSpawn(parseConfigPosition(context, rawValue));
+            case "parkourStartPos" -> config.setParkourStartPos(parseConfigPosition(context, rawValue));
+            case "parkourEndPos" -> config.setParkourEndPos(parseConfigPosition(context, rawValue));
+            case "parkourCompletionTitleId" -> config.setParkourCompletionTitleId(rawValue);
+            case "parkourBestTitleId" -> config.setParkourBestTitleId(rawValue);
             default -> throw new SimpleCommandExceptionType(Component.literal("未知配置项: " + configId)).create();
         }
         store.save(config);
         applyNaturalRegenerationGameRule(context.getSource().getServer(), store);
+        if (configId.startsWith("parkour")) {
+            ParkourRuntimeManager.of(context.getSource().getServer()).reconcileConfiguredTitles();
+            ParkourRuntimeManager.of(context.getSource().getServer()).resyncOnlineState();
+        }
         return CommandFeedbacks.info(context.getSource(), "已更新服务端配置: " + configId + "=" + readConfigValue(store, configId));
     }
 
@@ -466,8 +483,10 @@ public final class ConquestServerCommands {
                 SharedSuggestionProvider.suggest(List.of("2.0", "4.0", "6.0"), builder);
             case "vehicleBackend" ->
                 SharedSuggestionProvider.suggest(RoomVehicleBackend.suggestions(), builder);
-            case "overworldSpawn", "rangeJoinSpawn", "rangeLeaveSpawn" ->
+            case "overworldSpawn", "rangeJoinSpawn", "rangeLeaveSpawn", "parkourStartPos", "parkourEndPos" ->
                 SharedSuggestionProvider.suggest(List.of("here"), builder);
+            case "parkourCompletionTitleId", "parkourBestTitleId" ->
+                SharedSuggestionProvider.suggest(List.of("\"\"", "RUNNER", "PARKOUR_MASTER"), builder);
             default -> builder.buildFuture();
         };
     }
@@ -502,6 +521,10 @@ public final class ConquestServerCommands {
             case "overworldspawn", "lobbyspawn", "spawn" -> "overworldSpawn";
             case "rangejoinspawn", "rangespawn", "rangejoin" -> "rangeJoinSpawn";
             case "rangeleavespawn", "rangeleave" -> "rangeLeaveSpawn";
+            case "parkourstartpos", "parkourstart", "parkourjoin", "parkourspawn" -> "parkourStartPos";
+            case "parkourendpos", "parkourend", "parkourfinish" -> "parkourEndPos";
+            case "parkourcompletiontitleid", "parkourtitle", "parkourcompletiontitle" -> "parkourCompletionTitleId";
+            case "parkourbesttitleid", "parkourfirsttitle", "parkourrecordtitle" -> "parkourBestTitleId";
             default -> null;
         };
     }
@@ -526,6 +549,10 @@ public final class ConquestServerCommands {
             case "overworldSpawn" -> formatPosition(config.getOverworldSpawn());
             case "rangeJoinSpawn" -> formatPosition(config.getRangeJoinSpawn());
             case "rangeLeaveSpawn" -> formatPosition(config.getRangeLeaveSpawn());
+            case "parkourStartPos" -> formatPosition(config.getParkourStartPos());
+            case "parkourEndPos" -> formatPosition(config.getParkourEndPos());
+            case "parkourCompletionTitleId" -> store.getParkourCompletionTitleId();
+            case "parkourBestTitleId" -> store.getParkourBestTitleId();
             default -> "-";
         };
     }

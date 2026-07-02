@@ -20,6 +20,10 @@ public final class ServerConfigDataModel {
     private RoomPosition overworldSpawn = new RoomPosition(0, 100, 0);
     private RoomPosition rangeJoinSpawn = new RoomPosition(0, 100, 0);
     private RoomPosition rangeLeaveSpawn = new RoomPosition(0, 100, 0);
+    private RoomPosition parkourStartPos = new RoomPosition(0, 100, 0);
+    private RoomPosition parkourEndPos = new RoomPosition(0, 100, 0);
+    private String parkourCompletionTitleId = "";
+    private String parkourBestTitleId = "";
     private RoomVehicleBackend vehicleBackend = RoomVehicleBackend.defaultValue();
 
     public Boolean getBoolOverworldInvulnerable() {
@@ -148,6 +152,38 @@ public final class ServerConfigDataModel {
 
     public void setRangeLeaveSpawn(RoomPosition rangeLeaveSpawn) {
         this.rangeLeaveSpawn = rangeLeaveSpawn;
+    }
+
+    public RoomPosition getParkourStartPos() {
+        return parkourStartPos;
+    }
+
+    public void setParkourStartPos(RoomPosition parkourStartPos) {
+        this.parkourStartPos = parkourStartPos;
+    }
+
+    public RoomPosition getParkourEndPos() {
+        return parkourEndPos;
+    }
+
+    public void setParkourEndPos(RoomPosition parkourEndPos) {
+        this.parkourEndPos = parkourEndPos;
+    }
+
+    public String getParkourCompletionTitleId() {
+        return parkourCompletionTitleId;
+    }
+
+    public void setParkourCompletionTitleId(String parkourCompletionTitleId) {
+        this.parkourCompletionTitleId = parkourCompletionTitleId;
+    }
+
+    public String getParkourBestTitleId() {
+        return parkourBestTitleId;
+    }
+
+    public void setParkourBestTitleId(String parkourBestTitleId) {
+        this.parkourBestTitleId = parkourBestTitleId;
     }
 
     public RoomVehicleBackend getVehicleBackend() {
