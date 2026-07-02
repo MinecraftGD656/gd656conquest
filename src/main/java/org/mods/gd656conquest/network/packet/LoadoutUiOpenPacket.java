@@ -161,6 +161,7 @@ public final class LoadoutUiOpenPacket {
                 buffer.writeBoolean(typePayload.hasStoredSelection());
                 buffer.writeUtf(typePayload.selectedAttachmentId());
                 buffer.writeUtf(typePayload.selectedDisplayName());
+                buffer.writeDouble(typePayload.maxScopeMagnification());
                 buffer.writeInt(typePayload.choices().size());
                 for (AttachmentChoicePayload choice : typePayload.choices()) {
                     buffer.writeUtf(choice.id());
@@ -275,6 +276,7 @@ public final class LoadoutUiOpenPacket {
                 boolean hasStoredSelection = buffer.readBoolean();
                 String selectedAttachmentId = buffer.readUtf();
                 String selectedDisplayName = buffer.readUtf();
+                double maxScopeMagnification = buffer.readDouble();
                 int choiceCount = Math.max(0, buffer.readInt());
                 List<AttachmentChoicePayload> choices = new ArrayList<>();
                 for (int choiceIndex = 0; choiceIndex < choiceCount; choiceIndex++) {
@@ -293,6 +295,7 @@ public final class LoadoutUiOpenPacket {
                     hasStoredSelection,
                     selectedAttachmentId,
                     selectedDisplayName,
+                    maxScopeMagnification,
                     choices
                 ));
             }
@@ -411,6 +414,7 @@ public final class LoadoutUiOpenPacket {
         boolean hasStoredSelection,
         String selectedAttachmentId,
         String selectedDisplayName,
+        double maxScopeMagnification,
         List<AttachmentChoicePayload> choices
     ) {
     }

@@ -104,6 +104,7 @@ public final class ClientLoadoutUiState {
                     typePayload.hasStoredSelection(),
                     typePayload.selectedAttachmentId() == null ? "" : typePayload.selectedAttachmentId(),
                     typePayload.selectedDisplayName() == null ? "" : typePayload.selectedDisplayName(),
+                    typePayload.maxScopeMagnification(),
                     choices
                 ));
             }
@@ -281,6 +282,7 @@ public final class ClientLoadoutUiState {
         boolean hasStoredSelection,
         String selectedAttachmentId,
         String selectedDisplayName,
+        double maxScopeMagnification,
         Map<String, AttachmentChoiceState> choices
     ) {
         public List<AttachmentChoiceState> sortedChoices() {

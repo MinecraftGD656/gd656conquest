@@ -19,13 +19,17 @@ import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.model.RoomMatchingConfig;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Map;
 import java.util.UUID;
 
 public final class RoomHudSyncService {
     private final MinecraftServer server;
     private final java.util.List<RoomRunningHudRenderer> runningHudRenderers;
+    private final Map<UUID, String> lastHudPacketKeys = new LinkedHashMap<>();
+    private final Map<UUID, String> lastTeamMirrorPacketKeys = new LinkedHashMap<>();
 
     public RoomHudSyncService(MinecraftServer server, RoomSquadBeaconService squadBeaconService) {
         this.server = Objects.requireNonNull(server, "server");
@@ -45,9 +49,8 @@ public final class RoomHudSyncService {
                 continue;
             }
             RoomTeamId selfTeam = state.getMatchingState().getQueueTeams().get(playerId);
-            NetworkManager.sendToPlayer(player, buildMatchingPacket(room, state, gameTick, player, selfTeam));
-            sendTeamMirror(player, mirrorSnapshot);
-            ServerPlayerLockService.of(server).syncPlayer(player);
+            sendHudPacketIfChanged(player, buildMatchingPacket(room, state, gameTick, player, selfTeam));
+            sendTeamMirrorIfChanged(player, mirrorSnapshot);
         }
     }
 
@@ -69,9 +72,8 @@ public final class RoomHudSyncService {
             if (packet == null) {
                 continue;
             }
-            NetworkManager.sendToPlayer(player, packet);
-            sendTeamMirror(player, mirrorSnapshot);
-            ServerPlayerLockService.of(server).syncPlayer(player);
+            sendHudPacketIfChanged(player, packet);
+            sendTeamMirrorIfChanged(player, mirrorSnapshot);
         }
     }
 
@@ -89,9 +91,8 @@ public final class RoomHudSyncService {
         if (packet == null) {
             return false;
         }
-        NetworkManager.sendToPlayer(player, packet);
-        sendTeamMirror(player, buildRunningTeamMirrorPacket(room, state));
-        ServerPlayerLockService.of(server).syncPlayer(player);
+        sendHudPacketIfChanged(player, packet);
+        sendTeamMirrorIfChanged(player, buildRunningTeamMirrorPacket(room, state));
         return true;
     }
 
@@ -99,6 +100,9 @@ public final class RoomHudSyncService {
         if (player == null) {
             return;
         }
+        UUID playerId = player.getUUID();
+        lastHudPacketKeys.remove(playerId);
+        lastTeamMirrorPacketKeys.remove(playerId);
         NetworkManager.sendToPlayer(player, new RoomHudSyncPacket(
             "-",
             "未加入房间",
@@ -126,7 +130,13 @@ public final class RoomHudSyncService {
         if (playerId == null) {
             return;
         }
-        clearPlayer(server.getPlayerList().getPlayer(playerId));
+        lastHudPacketKeys.remove(playerId);
+        lastTeamMirrorPacketKeys.remove(playerId);
+        ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+        if (player == null) {
+            return;
+        }
+        clearPlayer(player);
     }
 
     private RoomHudSyncPacket buildMatchingPacket(RoomDefinition room, RoomRuntimeState state, long gameTick, ServerPlayer player, RoomTeamId selfTeam) {
@@ -306,10 +316,29 @@ public final class RoomHudSyncService {
         );
     }
 
-    private void sendTeamMirror(ServerPlayer player, TeamMirrorSnapshot snapshot) {
+    private void sendHudPacketIfChanged(ServerPlayer player, RoomHudSyncPacket packet) {
+        if (player == null || packet == null) {
+            return;
+        }
+        String nextKey = packet.cacheKey();
+        UUID playerId = player.getUUID();
+        if (nextKey.equals(lastHudPacketKeys.get(playerId))) {
+            return;
+        }
+        lastHudPacketKeys.put(playerId, nextKey);
+        NetworkManager.sendToPlayer(player, packet);
+    }
+
+    private void sendTeamMirrorIfChanged(ServerPlayer player, TeamMirrorSnapshot snapshot) {
         if (player == null || snapshot == null || snapshot.packet() == null) {
             return;
         }
+        String nextKey = snapshot.packet().cacheKey();
+        UUID playerId = player.getUUID();
+        if (nextKey.equals(lastTeamMirrorPacketKeys.get(playerId))) {
+            return;
+        }
+        lastTeamMirrorPacketKeys.put(playerId, nextKey);
         NetworkManager.sendToPlayer(player, snapshot.packet());
     }
 }

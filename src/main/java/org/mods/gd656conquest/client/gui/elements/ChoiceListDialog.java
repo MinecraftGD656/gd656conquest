@@ -19,6 +19,11 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class ChoiceListDialog {
+    private static final int ROW_HEIGHT = GuiConstants.ROW_HEADER_HEIGHT + 2;
+    private static final int ROW_GAP = 1;
+    private static final int LIST_WIDTH = 140 + 15;
+    private static final int PREVIEW_WIDTH = 64;
+    private static final int PREVIEW_GAP = 8;
     private final Minecraft minecraft;
     private Consumer<String> onConfirm;
     private Runnable onCancel;
@@ -57,13 +62,13 @@ public class ChoiceListDialog {
     private GDButton cancelButton;
     private GDTextRenderer titleRenderer;
 
-    private static final int PANEL_WIDTH = 140;
+    private static final int PANEL_WIDTH = PREVIEW_WIDTH + PREVIEW_GAP + LIST_WIDTH;
     private static final int BUTTON_HEIGHT = GuiConstants.ROW_HEADER_HEIGHT;
     private static final int INPUT_HEIGHT = GuiConstants.ROW_HEADER_HEIGHT;
     private static final int HUE_BAR_WIDTH = GuiConstants.ROW_HEADER_HEIGHT;
     private static final int ICON_COLUMN_WIDTH = GuiConstants.ROW_HEADER_HEIGHT;
     private static final int PAD = GuiConstants.DEFAULT_PADDING;
-    private static final int LIST_HEIGHT = PANEL_WIDTH - HUE_BAR_WIDTH - PAD;
+    private static final int LIST_HEIGHT = LIST_WIDTH - HUE_BAR_WIDTH - PAD + 12;
     private static final int PANEL_HEIGHT = LIST_HEIGHT + PAD + INPUT_HEIGHT + PAD + BUTTON_HEIGHT;
 
     private static class EditState {
@@ -293,9 +298,13 @@ public class ChoiceListDialog {
             titleRenderer.render(guiGraphics, partialTick);
         }
 
-        int listX = centerX;
+        int previewX = centerX;
+        int previewY = buttonsY - PAD - INPUT_HEIGHT - PAD - LIST_HEIGHT;
+        int previewW = PREVIEW_WIDTH;
+        int previewH = LIST_HEIGHT;
+        int listX = centerX + PREVIEW_WIDTH + PREVIEW_GAP;
         int listY = buttonsY - PAD - INPUT_HEIGHT - PAD - LIST_HEIGHT;
-        int listW = PANEL_WIDTH;
+        int listW = LIST_WIDTH;
         int listH = LIST_HEIGHT;
 
         int inputX = centerX;
@@ -319,7 +328,9 @@ public class ChoiceListDialog {
         updateScroll(dt, listH);
 
         int listBgColor = (GuiConstants.COLOR_BLACK & 0x00FFFFFF) | (int)(255 * 0.35f) << 24;
+        guiGraphics.fill(previewX, previewY, previewX + previewW, previewY + previewH, listBgColor);
         guiGraphics.fill(listX, listY, listX + listW, listY + listH, listBgColor);
+        renderHoverPreview(guiGraphics, mouseX, mouseY, previewX, previewY, previewW, previewH, listX, listY, listW, listH);
 
         renderList(guiGraphics, mouseX, mouseY, partialTick, listX, listY, listX + listW, listY + listH);
 
@@ -362,7 +373,7 @@ public class ChoiceListDialog {
         int inputY = buttonsY - PAD - INPUT_HEIGHT;
         int inputX = centerX;
         int listY = inputY - PAD - LIST_HEIGHT;
-        int listX = centerX;
+        int listX = centerX + PREVIEW_WIDTH + PREVIEW_GAP;
 
         if (mouseX >= inputX && mouseX <= inputX + PANEL_WIDTH && mouseY >= inputY && mouseY <= inputY + INPUT_HEIGHT) {
             setCursorByMouse((int)mouseX, inputX);
@@ -370,19 +381,18 @@ public class ChoiceListDialog {
             return true;
         }
 
-        if (mouseX >= listX && mouseX <= listX + PANEL_WIDTH && mouseY >= listY && mouseY <= listY + LIST_HEIGHT) {
+        if (mouseX >= listX && mouseX <= listX + LIST_WIDTH && mouseY >= listY && mouseY <= listY + LIST_HEIGHT) {
             double adjustedMouseY = mouseY + scrollY;
-            int rowHeight = GuiConstants.ROW_HEADER_HEIGHT;
             int selectWidth = 30;
 
             for (int i = 0; i < filteredChoices.size(); i++) {
                 FixedChoiceConfigEntry.Choice choice = filteredChoices.get(i);
                 boolean hasExtraAction = hasExtraAction(choice);
                 int extraWidth = hasExtraAction ? extraActionWidth : 0;
-                int selectX1 = listX + PANEL_WIDTH - selectWidth - extraWidth;
-                int extraX1 = listX + PANEL_WIDTH - extraWidth;
-                int rowTop = listY + i * (rowHeight + 1);
-                int rowBottom = rowTop + rowHeight;
+                int selectX1 = listX + LIST_WIDTH - selectWidth - extraWidth;
+                int extraX1 = listX + LIST_WIDTH - extraWidth;
+                int rowTop = listY + i * (ROW_HEIGHT + ROW_GAP);
+                int rowBottom = rowTop + ROW_HEIGHT;
                 if (adjustedMouseY >= rowTop && adjustedMouseY <= rowBottom) {
                     if (button == 0 && isDirectAction(choice)) {
                         if (onDirectAction != null) {
@@ -421,9 +431,9 @@ public class ChoiceListDialog {
         int centerY = (screenHeight - PANEL_HEIGHT) / 2 + 20;
         int buttonsY = centerY + PANEL_HEIGHT - BUTTON_HEIGHT;
         int listY = buttonsY - PAD - INPUT_HEIGHT - PAD - LIST_HEIGHT;
-        int listX = centerX;
+        int listX = centerX + PREVIEW_WIDTH + PREVIEW_GAP;
 
-        if (mouseX >= listX && mouseX <= listX + PANEL_WIDTH && mouseY >= listY && mouseY <= listY + LIST_HEIGHT) {
+        if (mouseX >= listX && mouseX <= listX + LIST_WIDTH && mouseY >= listY && mouseY <= listY + LIST_HEIGHT) {
             targetScrollY -= delta * GuiConstants.SCROLL_AMOUNT;
             return true;
         }
@@ -557,11 +567,10 @@ public class ChoiceListDialog {
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(0, -scrollY, 0);
 
-        int rowHeight = GuiConstants.ROW_HEADER_HEIGHT;
         for (int i = 0; i < filteredChoices.size(); i++) {
             FixedChoiceConfigEntry.Choice choice = filteredChoices.get(i);
-            int rowTop = y1 + i * (rowHeight + 1);
-            int rowBottom = rowTop + rowHeight;
+            int rowTop = y1 + i * (ROW_HEIGHT + ROW_GAP);
+            int rowBottom = rowTop + ROW_HEIGHT;
 
             float actualTop = rowTop - (float)scrollY;
             float actualBottom = rowBottom - (float)scrollY;
@@ -608,7 +617,14 @@ public class ChoiceListDialog {
 
         addRowIconColumn(renderer, choice);
         renderer.addColumn(" " + choice.label(), -1, firstColor, true, false, null);
-        renderer.addColumn(selectable ? I18n.get("gd656conquest.client.gui.choice.select") : I18n.get("gd656conquest.client.gui.choice.locked"), 30, secondColor, false, selectable, selectable ? (btn) -> selectChoice(choice) : null);
+        renderer.addColumn(
+            selectable ? I18n.get("gd656conquest.client.gui.choice.select") : I18n.get("gd656conquest.client.gui.choice.locked"),
+            30,
+            secondColor,
+            false,
+            true,
+            selectable ? (btn) -> selectChoice(choice) : null
+        );
         if (hasExtraAction(choice)) {
             renderer.addColumn(this.extraActionText, this.extraActionWidth, this.extraActionColor, true, true, (btn) -> {
                 if (onExtraAction != null) {
@@ -618,6 +634,50 @@ public class ChoiceListDialog {
         }
 
         renderer.render(guiGraphics, mouseX, mouseY, partialTick);
+    }
+
+    private void renderHoverPreview(GuiGraphics guiGraphics, int mouseX, int mouseY, int previewX, int previewY, int previewW, int previewH, int listX, int listY, int listW, int listH) {
+        FixedChoiceConfigEntry.Choice hoveredChoice = getHoveredChoice(mouseX, mouseY, listX, listY, listW, listH);
+        if (hoveredChoice == null || iconProvider == null) {
+            return;
+        }
+        RowIcon icon = iconProvider.apply(hoveredChoice);
+        if (icon == null || icon.isEmpty()) {
+            return;
+        }
+        if (icon.itemStack() != null && !icon.itemStack().isEmpty()) {
+            float scale = 2.5f;
+            int iconSize = Math.round(16 * scale);
+            int itemX = previewX + (previewW - iconSize) / 2;
+            int itemY = previewY + (previewH - iconSize) / 2 - 6;
+            guiGraphics.pose().pushPose();
+            guiGraphics.pose().translate(itemX, itemY, 0.0f);
+            guiGraphics.pose().scale(scale, scale, 1.0f);
+            guiGraphics.renderItem(icon.itemStack(), 0, 0);
+            guiGraphics.pose().popPose();
+            return;
+        }
+        if (icon.texture() != null) {
+            int size = Math.min(40, Math.max(24, previewW - 16));
+            int textureX = previewX + (previewW - size) / 2;
+            int textureY = previewY + (previewH - size) / 2 - 4;
+            guiGraphics.blit(icon.texture(), textureX, textureY, 0, 0, size, size, size, size);
+        }
+    }
+
+    private FixedChoiceConfigEntry.Choice getHoveredChoice(int mouseX, int mouseY, int listX, int listY, int listW, int listH) {
+        if (mouseX < listX || mouseX > listX + listW || mouseY < listY || mouseY > listY + listH) {
+            return null;
+        }
+        double adjustedMouseY = mouseY + scrollY;
+        for (int i = 0; i < filteredChoices.size(); i++) {
+            int rowTop = listY + i * (ROW_HEIGHT + ROW_GAP);
+            int rowBottom = rowTop + ROW_HEIGHT;
+            if (adjustedMouseY >= rowTop && adjustedMouseY <= rowBottom) {
+                return filteredChoices.get(i);
+            }
+        }
+        return null;
     }
 
     private void addRowIconColumn(GDRowRenderer renderer, FixedChoiceConfigEntry.Choice choice) {
@@ -810,7 +870,7 @@ public class ChoiceListDialog {
     }
 
     private void updateScroll(float dt, int viewHeight) {
-        int contentHeight = filteredChoices.size() * (GuiConstants.ROW_HEADER_HEIGHT + 1);
+        int contentHeight = filteredChoices.size() * (ROW_HEIGHT + ROW_GAP);
         double maxScroll = Math.max(0, contentHeight - viewHeight);
         targetScrollY = Math.max(0, Math.min(maxScroll, targetScrollY));
 

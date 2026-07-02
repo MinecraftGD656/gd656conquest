@@ -23,6 +23,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
 import org.mods.gd656conquest.server.compat.frontlinevoice.FrontlineVoiceBridge;
+import org.mods.gd656conquest.server.compat.tacz.TaczServerPoseCompat;
 import org.mods.gd656conquest.network.packet.PlayerAnimatorDebugPacket;
 import org.mods.gd656conquest.network.packet.RoomDownedStatePacket;
 import org.mods.gd656conquest.network.NetworkManager;
@@ -355,6 +356,12 @@ public final class RoomPlayerRespawnService {
             return;
         }
         UUID playerId = player.getUUID();
+        playerStateService.clearPlayerState(playerId);
+        TaczServerPoseCompat.clearCrawlState(player);
+        PlayerAnimatorDebugDimensionsState.clearPlayer(player);
+        NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());
+        NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
+        NetworkManager.sendToPlayer(player, PlayerAnimatorDebugPacket.stop(playerId));
         int deployDelayTicks = resolveDeployDelayTicks(room, 1);
         state.clearRespawnFlow(playerId);
         state.getDeployReadyTicks().put(playerId, gameTick + deployDelayTicks);
@@ -364,7 +371,6 @@ public final class RoomPlayerRespawnService {
         if (teamId == RoomTeamId.CAMP_A || teamId == RoomTeamId.CAMP_B) {
             deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
         }
-        NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
         if (tryBeginAlignedOpeningJoinDeploy(room, state, player, gameTick, RoomGameplayDeployViewKind.RECONNECT)) {
             return;
         }
@@ -389,14 +395,11 @@ public final class RoomPlayerRespawnService {
         state.getDeployReadyTicks().put(playerId, gameTick + deployDelayTicks);
         state.getDeployAutoStartOnReadyPlayers().remove(playerId);
         state.getDeployAllowFallbackOnMissingSelectionPlayers().add(playerId);
-        RoomTeamId teamId = state.getRoomTeams().get(playerId);
-        if (teamId == RoomTeamId.CAMP_A || teamId == RoomTeamId.CAMP_B) {
-            deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
-        }
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
         if (tryBeginAlignedOpeningJoinDeploy(room, state, player, gameTick, RoomGameplayDeployViewKind.MIDJOIN)) {
             return;
         }
+        deploySelectionService.clearSelection(state, playerId);
         enterDeployHoldingState(room, state, player, false);
         openDeployView(room, state, player, new RoomGameplayDeployViewRequest(
             RoomGameplayDeployViewKind.MIDJOIN,
@@ -893,7 +896,7 @@ public final class RoomPlayerRespawnService {
         playerLaunchService.teleportToRoomPosition(player, room, spawn);
         loadoutService.applySpawnLoadout(state, player);
         markInitialMovementLocked(state, playerId);
-        enterDeployHoldingState(room, state, player, true);
+        playerStateService.applyRespawnState(room, playerId, gameTick);
         applyPostDeploySelectedHotbarSlot(player, false);
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
         return true;
@@ -1054,7 +1057,7 @@ public final class RoomPlayerRespawnService {
         if (killerName == null || killerName.isBlank()) {
             killerName = "未知玩家";
         }
-        String weaponName = "空手";
+        String weaponName = "同时死亡";
         ItemStack heldStack = killerPlayer.getMainHandItem();
         if (heldStack != null && !heldStack.isEmpty()) {
             weaponName = resolveDownedKillerWeaponName(killerPlayer, heldStack);

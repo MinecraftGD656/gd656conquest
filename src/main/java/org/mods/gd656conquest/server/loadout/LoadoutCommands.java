@@ -181,7 +181,11 @@ public final class LoadoutCommands {
             .then(Commands.literal("del")
                 .then(Commands.argument("id", StringArgumentType.string())
                     .suggests(LoadoutCommands::suggestAllAttachmentIds)
-                    .executes(LoadoutCommands::executeAttachmentDel)));
+                    .executes(LoadoutCommands::executeAttachmentDel)))
+            .then(Commands.literal("delall")
+                .then(Commands.argument("type", StringArgumentType.word())
+                    .suggests(LoadoutCommands::suggestAttachmentTypes)
+                    .executes(LoadoutCommands::executeAttachmentDelAll)));
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildArmorBranch() {
@@ -660,6 +664,25 @@ public final class LoadoutCommands {
         String id = parseAttachmentIdInput(StringArgumentType.getString(context, "id"));
         LoadoutUiService.handleAdminAttachmentEdit(player, id, "delete", "1");
         return replyInfo(context.getSource(), "已请求删除配件: " + id);
+    }
+
+    private static int executeAttachmentDelAll(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        String rawType = StringArgumentType.getString(context, "type");
+        String normalizedType = WeaponAttachmentService.normalizeAttachmentType(rawType);
+        if (normalizedType.isBlank()) {
+            return replyInfo(context.getSource(), "非法配件类型，仅支持: " + String.join(", ", WeaponAttachmentService.ORDERED_ATTACHMENT_TYPES));
+        }
+        int removed = LoadoutUiService.deleteAllAttachmentsByType(player, normalizedType);
+        return replyInfo(
+            context.getSource(),
+            String.format(
+                Locale.ROOT,
+                "已删除 %s 类型的配件注册项: %d",
+                WeaponAttachmentService.getAttachmentTypeLabel(normalizedType),
+                removed
+            )
+        );
     }
 
     private static int executeList(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

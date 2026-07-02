@@ -1,9 +1,11 @@
 package org.mods.gd656conquest.server.room.runtime;
 
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
 import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
+import org.mods.gd656conquest.server.compat.tacz.TaczServerPoseCompat;
 import org.mods.gd656conquest.server.room.matching.MatchingRuntimeState;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
@@ -128,11 +130,19 @@ public final class RoomPlayerStateService {
         }
         ServerPlayer player = server.getPlayerList().getPlayer(playerId);
         if (player != null) {
+            clearTransientItemUseState(player);
+            TaczServerPoseCompat.clearCrawlState(player);
+            PlayerAnimatorDebugDimensionsState.clearPlayer(player);
             if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR) {
                 player.setGameMode(GameType.ADVENTURE);
             }
             player.setInvulnerable(false);
             player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+            player.setForcedPose(null);
+            player.setShiftKeyDown(false);
+            player.setRemainingFireTicks(0);
+            refillHealth(player);
+            player.refreshDimensions();
         }
         invulnerableUntilTickByPlayer.remove(playerId);
     }
@@ -161,6 +171,7 @@ public final class RoomPlayerStateService {
         if (player == null) {
             return;
         }
+        clearTransientItemUseState(player);
         setSpectator(player);
         player.setRemainingFireTicks(0);
         refillHealth(player);
@@ -170,6 +181,7 @@ public final class RoomPlayerStateService {
         if (room == null || player == null) {
             return;
         }
+        clearTransientItemUseState(player);
         applyConfiguredGameMode(room, player, GameType.ADVENTURE);
         player.setInvulnerable(true);
         invulnerableUntilTickByPlayer.remove(player.getUUID());
@@ -180,15 +192,14 @@ public final class RoomPlayerStateService {
         player.setRemainingFireTicks(0);
         float maxHealth = Math.max(1.0F, player.getMaxHealth());
         player.setHealth(Math.min(maxHealth, DOWNED_HEALTH));
-        if (player.getInventory().selected != DOWNED_LOCKED_HOTBAR_SLOT) {
-            player.getInventory().selected = DOWNED_LOCKED_HOTBAR_SLOT;
-        }
+        syncSelectedHotbarSlot(player, DOWNED_LOCKED_HOTBAR_SLOT);
     }
 
     public void applyRevivedState(RoomDefinition room, ServerPlayer player, long gameTick, boolean revivedByAssault) {
         if (room == null || player == null) {
             return;
         }
+        clearTransientItemUseState(player);
         applyConfiguredGameMode(room, player, resolveGameMode(room.commonConfig().playerStateConfig().gameMode()));
         player.setDeltaMovement(0.0D, 0.0D, 0.0D);
         player.fallDistance = 0.0F;
@@ -201,9 +212,33 @@ public final class RoomPlayerStateService {
     }
 
     private void applyPlayerState(RoomDefinition room, ServerPlayer player, long gameTick) {
+        clearTransientItemUseState(player);
         applyConfiguredGameMode(room, player, resolveGameMode(room.commonConfig().playerStateConfig().gameMode()));
         refillHealth(player);
         applyInvulnerability(player, room.commonConfig().playerStateConfig().invulnerableSeconds(), gameTick);
+    }
+
+    private void clearTransientItemUseState(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        if (player.isUsingItem()) {
+            player.stopUsingItem();
+        }
+        player.setShiftKeyDown(false);
+    }
+
+    private void syncSelectedHotbarSlot(ServerPlayer player, int slot) {
+        if (player == null) {
+            return;
+        }
+        int normalizedSlot = Math.max(0, Math.min(8, slot));
+        if (player.getInventory().selected != normalizedSlot) {
+            player.getInventory().selected = normalizedSlot;
+        }
+        if (player.connection != null) {
+            player.connection.send(new ClientboundSetCarriedItemPacket(normalizedSlot));
+        }
     }
 
     private void applyConfiguredGameMode(RoomDefinition room, ServerPlayer player, GameType configuredGameMode) {

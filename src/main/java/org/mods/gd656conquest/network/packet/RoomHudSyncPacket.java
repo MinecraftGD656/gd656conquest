@@ -6,6 +6,7 @@ import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 import org.mods.gd656conquest.client.hud.ClientHudDebugState;
 
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public final class RoomHudSyncPacket {
@@ -112,5 +113,78 @@ public final class RoomHudSyncPacket {
             );
         }));
         context.setPacketHandled(true);
+    }
+
+    public String cacheKey() {
+        return String.join("\u001F",
+            safe(roomId),
+            safe(roomState),
+            safe(audioState),
+            safe(selfTeam),
+            safe(selfClass),
+            Integer.toString(campAScore),
+            Integer.toString(campBScore),
+            Integer.toString(runningSeconds),
+            safe(scoreMethod),
+            Integer.toString(campAGoal),
+            Integer.toString(campBGoal),
+            Integer.toString(remainSeconds),
+            safe(captureStatus),
+            safe(captureIcons),
+            safe(captureEvent),
+            safe(captureFocus)
+        );
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof RoomHudSyncPacket other)) {
+            return false;
+        }
+        return campAScore == other.campAScore
+            && campBScore == other.campBScore
+            && runningSeconds == other.runningSeconds
+            && campAGoal == other.campAGoal
+            && campBGoal == other.campBGoal
+            && remainSeconds == other.remainSeconds
+            && Objects.equals(roomId, other.roomId)
+            && Objects.equals(roomState, other.roomState)
+            && Objects.equals(audioState, other.audioState)
+            && Objects.equals(selfTeam, other.selfTeam)
+            && Objects.equals(selfClass, other.selfClass)
+            && Objects.equals(scoreMethod, other.scoreMethod)
+            && Objects.equals(captureStatus, other.captureStatus)
+            && Objects.equals(captureIcons, other.captureIcons)
+            && Objects.equals(captureEvent, other.captureEvent)
+            && Objects.equals(captureFocus, other.captureFocus);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+            roomId,
+            roomState,
+            audioState,
+            selfTeam,
+            selfClass,
+            campAScore,
+            campBScore,
+            runningSeconds,
+            scoreMethod,
+            campAGoal,
+            campBGoal,
+            remainSeconds,
+            captureStatus,
+            captureIcons,
+            captureEvent,
+            captureFocus
+        );
+    }
+
+    private static String safe(String value) {
+        return value == null ? "" : value;
     }
 }

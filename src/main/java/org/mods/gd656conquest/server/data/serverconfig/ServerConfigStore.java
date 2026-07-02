@@ -63,6 +63,34 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         return Math.max(1, get().getPartyMaxMembers() == null ? 4 : get().getPartyMaxMembers());
     }
 
+    public synchronized double getMaxScopePistol() {
+        return sanitizeScopeLimit(get().getMaxScopePistol(), 2.0D);
+    }
+
+    public synchronized double getMaxScopeSniper() {
+        return sanitizeScopeLimit(get().getMaxScopeSniper(), 12.0D);
+    }
+
+    public synchronized double getMaxScopeRifle() {
+        return sanitizeScopeLimit(get().getMaxScopeRifle(), 6.0D);
+    }
+
+    public synchronized double getMaxScopeShotgun() {
+        return sanitizeScopeLimit(get().getMaxScopeShotgun(), 2.0D);
+    }
+
+    public synchronized double getMaxScopeSmg() {
+        return sanitizeScopeLimit(get().getMaxScopeSmg(), 3.0D);
+    }
+
+    public synchronized double getMaxScopeRpg() {
+        return sanitizeScopeLimit(get().getMaxScopeRpg(), 1.5D);
+    }
+
+    public synchronized double getMaxScopeMg() {
+        return sanitizeScopeLimit(get().getMaxScopeMg(), 4.0D);
+    }
+
     public synchronized RoomVehicleBackend getVehicleBackend() {
         RoomVehicleBackend configured = get().getVehicleBackend();
         return configured == null ? RoomVehicleBackend.defaultValue() : configured;
@@ -112,6 +140,13 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         if (model.getPartyMaxMembers() == null || model.getPartyMaxMembers() <= 0) {
             model.setPartyMaxMembers(4);
         }
+        model.setMaxScopePistol(sanitizeScopeLimit(model.getMaxScopePistol(), 2.0D));
+        model.setMaxScopeSniper(sanitizeScopeLimit(model.getMaxScopeSniper(), 12.0D));
+        model.setMaxScopeRifle(sanitizeScopeLimit(model.getMaxScopeRifle(), 6.0D));
+        model.setMaxScopeShotgun(sanitizeScopeLimit(model.getMaxScopeShotgun(), 2.0D));
+        model.setMaxScopeSmg(sanitizeScopeLimit(model.getMaxScopeSmg(), 3.0D));
+        model.setMaxScopeRpg(sanitizeScopeLimit(model.getMaxScopeRpg(), 1.5D));
+        model.setMaxScopeMg(sanitizeScopeLimit(model.getMaxScopeMg(), 4.0D));
         if (model.getVehicleBackend() == null) {
             model.setVehicleBackend(RoomVehicleBackend.defaultValue());
         }
@@ -125,5 +160,12 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         if (model.getRangeLeaveSpawn() == null) {
             model.setRangeLeaveSpawn(model.getOverworldSpawn());
         }
+    }
+
+    private static double sanitizeScopeLimit(Double value, double fallback) {
+        if (value == null || Double.isNaN(value) || Double.isInfinite(value)) {
+            return fallback;
+        }
+        return Math.max(0.0D, value);
     }
 }

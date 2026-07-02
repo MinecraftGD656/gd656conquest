@@ -530,12 +530,7 @@ public final class RoomCoreRuntimeManager {
         }
         ServerActionBarService.onServerTick();
         coreService.tickPlayerStates(gameTick);
-        coreService.listRooms().stream()
-            .filter(room -> room.lifecycleState() == RoomLifecycleState.MATCHING)
-            .forEach(room -> coreService.tickMatching(room.roomId(), gameTick));
-        coreService.listRooms().stream()
-            .filter(room -> room.lifecycleState() == RoomLifecycleState.RUNNING || room.lifecycleState() == RoomLifecycleState.ENDING)
-            .forEach(room -> coreService.tickGameplay(room.roomId(), gameTick));
+        coreService.tickRooms(gameTick);
         syncAdminDebugOverlay(gameTick);
     }
 

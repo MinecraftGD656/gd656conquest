@@ -63,6 +63,7 @@ public final class ClientDownedState {
         boolean enteringFreshDowned = startCameraSequence || !active;
         if (enteringFreshDowned) {
             TaczClientInputCompat.clearCrawlState(minecraft);
+            TaczClientInputCompat.suppressCombatInputUntilRelease(minecraft);
             if (!ClientDeathFlowState.isDeathObservationPhase() && !ClientDeathFlowState.hasActiveCameraOverride()) {
                 ClientDeathFlowState.clear();
             }

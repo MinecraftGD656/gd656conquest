@@ -4,7 +4,12 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
 import org.mods.gd656conquest.common.log.ClientMessageType;
+import org.mods.gd656conquest.network.NetworkManager;
+import org.mods.gd656conquest.network.packet.PlayerAnimatorDebugPacket;
+import org.mods.gd656conquest.network.packet.RoomDeathFlowPacket;
+import org.mods.gd656conquest.network.packet.RoomDownedStatePacket;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.player.state.HubDimensionService;
 import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
@@ -1200,6 +1205,19 @@ public final class RoomCoreService {
         playerStateService.tick(gameTick);
     }
 
+    public void tickRooms(long gameTick) {
+        for (RoomRuntimeSlot<RoomRuntimeState> slot : runtimeRepository.list()) {
+            RoomLifecycleState lifecycleState = slot.room().lifecycleState();
+            if (lifecycleState == RoomLifecycleState.MATCHING) {
+                tickMatching(slot.room().roomId(), gameTick);
+                continue;
+            }
+            if (lifecycleState == RoomLifecycleState.RUNNING || lifecycleState == RoomLifecycleState.ENDING) {
+                tickGameplay(slot.room().roomId(), gameTick);
+            }
+        }
+    }
+
     public boolean prepareRespawnAnchor(net.minecraft.server.level.ServerPlayer player) {
         if (player == null) {
             return false;
@@ -1380,8 +1398,17 @@ public final class RoomCoreService {
             return false;
         }
         RoomTeamId teamId = runningState.getRoomTeams().get(playerId);
+        RoomPlayerInvalidationReason effectiveReason = reason;
+        int killerEntityId = -1;
+        if (reason == RoomPlayerInvalidationReason.LOGOUT
+            && (runningState.isPlayerPendingDowned(playerId) || runningState.isPlayerDowned(playerId))) {
+            effectiveReason = RoomPlayerInvalidationReason.DEATH;
+            killerEntityId = runningState.getDeathKillerEntityIdOrDefault(playerId);
+        }
+        final RoomPlayerInvalidationReason finalEffectiveReason = effectiveReason;
+        final int finalKillerEntityId = killerEntityId;
         runningState.getGameplayRuntime().ifPresent(runtime ->
-            runtime.onPlayerInvalidated(slot.get().room(), playerId, teamId, reason, -1, gameTick)
+            runtime.onPlayerInvalidated(slot.get().room(), playerId, teamId, finalEffectiveReason, finalKillerEntityId, gameTick)
         );
         removeRunningPlayerFromSlot(playerId, slot.get(), gameTick, false);
         playerSessionService.removePlayer(playerId);
@@ -1397,6 +1424,7 @@ public final class RoomCoreService {
             squadAssignmentService.removePlayer(slot.runtime(), playerId);
             if (player != null) {
                 inventorySnapshotService.restore(player, slot.runtime());
+                clearTransientRoomClientState(player);
             }
             nametagVisibilityService.clearPlayer(player);
             ruleRuntimeService.clearPlayer(playerId);
@@ -1429,6 +1457,7 @@ public final class RoomCoreService {
         ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
         if (player != null) {
             inventorySnapshotService.restore(player, slot.runtime());
+            clearTransientRoomClientState(player);
         }
         nametagVisibilityService.clearPlayer(player);
         ruleRuntimeService.clearPlayer(playerId);
@@ -1470,6 +1499,7 @@ public final class RoomCoreService {
         ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
         if (player != null) {
             inventorySnapshotService.restore(player, slot.runtime());
+            clearTransientRoomClientState(player);
         }
         nametagVisibilityService.clearPlayer(player);
         ruleRuntimeService.clearPlayer(playerId);
@@ -1524,6 +1554,7 @@ public final class RoomCoreService {
             ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
             if (player != null) {
                 inventorySnapshotService.restore(player, slot.runtime());
+                clearTransientRoomClientState(player);
             }
             nametagVisibilityService.clearPlayer(player);
             ruleRuntimeService.clearPlayer(playerId);
@@ -1566,6 +1597,17 @@ public final class RoomCoreService {
         runningState.clearResultState();
         nametagVisibilityService.clearRoom(slot.room());
         vehicleRuntimeService.clearRoom(slot.room().roomId());
+    }
+
+    private void clearTransientRoomClientState(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        TaczServerPoseCompat.clearCrawlState(player);
+        PlayerAnimatorDebugDimensionsState.clearPlayer(player);
+        NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());
+        NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
+        NetworkManager.sendToPlayer(player, PlayerAnimatorDebugPacket.stop(player.getUUID()));
     }
 
     private void detectZeroCampDraw(RoomRuntimeSlot<RoomRuntimeState> slot, long gameTick) {

@@ -2,10 +2,12 @@ package org.mods.gd656conquest.server.player.lock;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import org.mods.gd656conquest.common.player.lock.PlayerLockSnapshot;
 import org.mods.gd656conquest.common.player.lock.PlayerLockStrength;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.PlayerLockStatePacket;
+import org.mods.gd656conquest.server.compat.vehicle.VehicleCompatFacade;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.matching.MatchingRuntimeState;
@@ -50,7 +52,9 @@ public final class ServerPlayerLockService {
         if (player == null || player.server == null) {
             return;
         }
-        clearExpiredDebugOverrides(player.server.getTickCount());
+        long gameTick = player.server.getTickCount();
+        clearExpiredDebugOverrides(gameTick);
+        suppressMountedVehicleMotionIfLocked(player, gameTick);
         syncPlayer(player);
     }
 
@@ -121,7 +125,7 @@ public final class ServerPlayerLockService {
             return buildSnapshot(PlayerLockStrength.UI_CURSOR, "match_end", true, false, false, false, false, false, true);
         }
         if (runningState != null && runningState.isInitialMovementLockActive(playerId, gameTick)) {
-            return buildSnapshot(PlayerLockStrength.HARD_LOCK, "initial_movement_lock", false, false, false, false, false, false, false);
+            return buildSnapshot(PlayerLockStrength.MOVEMENT, "initial_movement_lock", false, false, false, false, false, false, false);
         }
         if (runningState != null && (runningState.isPlayerPendingDowned(playerId) || runningState.isPlayerDowned(playerId))) {
             return buildSnapshot(PlayerLockStrength.MOVEMENT, "downed", false, true, false, false, false, false, false);
@@ -271,6 +275,24 @@ public final class ServerPlayerLockService {
             deployUiActive,
             endingState
         );
+    }
+
+    private void suppressMountedVehicleMotionIfLocked(ServerPlayer player, long gameTick) {
+        if (player == null || player.server == null) {
+            return;
+        }
+        RoomLockContext context = resolveRoomContext(player);
+        RunningRuntimeState runningState = context == null ? null : context.runningState();
+        if (runningState == null || !runningState.isInitialMovementLockActive(player.getUUID(), gameTick)) {
+            return;
+        }
+        Entity vehicle = player.getVehicle();
+        if (!VehicleCompatFacade.isVehicleEntity(vehicle)) {
+            return;
+        }
+        player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+        vehicle.setDeltaMovement(0.0D, 0.0D, 0.0D);
+        vehicle.hurtMarked = true;
     }
 
     private record DebugOverride(PlayerLockStrength strength, long expireTick) {

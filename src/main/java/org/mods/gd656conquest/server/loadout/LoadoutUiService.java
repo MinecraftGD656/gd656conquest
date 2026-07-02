@@ -5,6 +5,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import org.mods.gd656conquest.network.NetworkManager;
@@ -463,6 +464,57 @@ public final class LoadoutUiService {
         migrateAttachmentSelectionValueForAllPlayers(player.server, previousId, replacementId);
         sendSnapshot(player, false, true);
         sendSystem(player, Component.literal(String.format(Locale.ROOT, "已更新配件 %s.%s -> %s", id, changedFieldName, changedValueSummary)).withStyle(ChatFormatting.AQUA));
+    }
+
+    public static int deleteAllAttachmentsByType(ServerPlayer player, String attachmentType) {
+        if (player == null || player.server == null) {
+            return 0;
+        }
+        if (!player.hasPermissions(2)) {
+            sendError(player, "你没有权限编辑配件数据");
+            return 0;
+        }
+        String normalizedType = WeaponAttachmentService.normalizeAttachmentType(attachmentType);
+        if (normalizedType.isBlank()) {
+            sendError(player, "配件类型无效");
+            return 0;
+        }
+        WeaponAttachmentDataStore attachmentStore = ConquestDataManager.of(player.server).weaponAttachments();
+        WeaponAttachmentDataModel data = attachmentStore.getData();
+        if (data == null) {
+            sendError(player, "配件数据不存在");
+            return 0;
+        }
+        List<String> removedIds = new ArrayList<>();
+        Iterator<Map.Entry<String, WeaponAttachmentDataModel.WeaponAttachmentEntry>> iterator = data.getAttachmentById().entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, WeaponAttachmentDataModel.WeaponAttachmentEntry> entry = iterator.next();
+            String entryType = WeaponAttachmentService.normalizeAttachmentType(entry.getValue().getAttachmentType());
+            if (!normalizedType.equals(entryType)) {
+                continue;
+            }
+            removedIds.add(entry.getKey());
+            iterator.remove();
+        }
+        if (removedIds.isEmpty()) {
+            sendInfo(player, "当前类型没有可删除的配件注册项: " + WeaponAttachmentService.getAttachmentTypeLabel(normalizedType));
+            return 0;
+        }
+        attachmentStore.saveData(data);
+        for (String removedId : removedIds) {
+            migrateAttachmentSelectionValueForAllPlayers(player.server, removedId, "");
+        }
+        sendSnapshot(player, false, true);
+        sendInfo(
+            player,
+            String.format(
+                Locale.ROOT,
+                "已删除 %s 类型的全部配件注册项，共 %d 项",
+                WeaponAttachmentService.getAttachmentTypeLabel(normalizedType),
+                removedIds.size()
+            )
+        );
+        return removedIds.size();
     }
 
     public static void sendAdminRoomSnapshot(ServerPlayer player, boolean openPanel) {
@@ -1129,6 +1181,7 @@ public final class LoadoutUiService {
                     );
                 }
                 attachmentPanels.add(buildAttachmentPanelPayload(
+                    player.server,
                     slot,
                     selectedId,
                     equipmentEntry,
@@ -1163,6 +1216,7 @@ public final class LoadoutUiService {
     }
 
     private static LoadoutUiOpenPacket.WeaponAttachmentPanelPayload buildAttachmentPanelPayload(
+        MinecraftServer server,
         CustomLoadoutSlot slot,
         String loadoutEntryId,
         EquipmentDataModel.EquipmentEntry equipmentEntry,
@@ -1176,6 +1230,8 @@ public final class LoadoutUiService {
     ) {
         List<LoadoutUiOpenPacket.AttachmentTypePayload> typePayloads = new ArrayList<>();
         String normalizedLoadoutEntryId = CustomLoadoutService.normalizeEquipmentId(loadoutEntryId);
+        String weaponGunType = available && taczGun ? compatService.resolveGunType(weaponStack) : "";
+        double maxScopeMagnification = resolveMaxScopeMagnification(server, weaponGunType);
         if (available && taczGun && attachmentData != null) {
             for (String attachmentType : WeaponAttachmentService.ORDERED_ATTACHMENT_TYPES) {
                 boolean typeAvailable = compatService.allowAttachmentType(weaponStack, attachmentType);
@@ -1212,6 +1268,7 @@ public final class LoadoutUiService {
                     hasStoredSelection,
                     selectedAttachmentId,
                     selectedDisplayName,
+                    WeaponAttachmentService.TYPE_SCOPE.equals(attachmentType) ? maxScopeMagnification : 0.0D,
                     choices
                 ));
             }
@@ -1227,6 +1284,23 @@ public final class LoadoutUiService {
             taczGun,
             typePayloads
         );
+    }
+
+    private static double resolveMaxScopeMagnification(MinecraftServer server, String weaponGunType) {
+        if (server == null) {
+            return 0.0D;
+        }
+        ConquestDataManager dataManager = ConquestDataManager.of(server);
+        return switch (weaponGunType == null ? "" : weaponGunType.trim().toLowerCase(Locale.ROOT)) {
+            case "pistol" -> dataManager.serverConfig().getMaxScopePistol();
+            case "sniper" -> dataManager.serverConfig().getMaxScopeSniper();
+            case "rifle" -> dataManager.serverConfig().getMaxScopeRifle();
+            case "shotgun" -> dataManager.serverConfig().getMaxScopeShotgun();
+            case "smg" -> dataManager.serverConfig().getMaxScopeSmg();
+            case "rpg" -> dataManager.serverConfig().getMaxScopeRpg();
+            case "mg" -> dataManager.serverConfig().getMaxScopeMg();
+            default -> 0.0D;
+        };
     }
 
     private static boolean createAttachmentEntry(ServerPlayer player, WeaponAttachmentDataModel data, String id, int unlockLevel) {

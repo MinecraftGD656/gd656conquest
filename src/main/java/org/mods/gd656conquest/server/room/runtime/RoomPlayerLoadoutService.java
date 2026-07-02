@@ -122,6 +122,9 @@ public final class RoomPlayerLoadoutService {
         PlayerClassType classType = CustomLoadoutService.resolveCurrentClass(playerData);
         boolean selectionChanged = false;
 
+        if (player.isUsingItem()) {
+            player.stopUsingItem();
+        }
         player.getInventory().clearContent();
         for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
             String selectedId = CustomLoadoutService.getSelectedIdForClassSlot(playerData, classType, slot);

@@ -1,9 +1,11 @@
 package org.mods.gd656conquest.client.event.handler;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
@@ -34,6 +36,7 @@ import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.LoadoutUiActionPacket;
 import org.mods.gd656conquest.network.packet.MainHandItemNameUploadPacket;
 import org.mods.gd656conquest.network.packet.ServerboundAmmoBoxInteractPacket;
+import org.mods.gd656conquest.server.compat.superbwarfare.SuperbWarfareVehicleCompatBridge;
 
 import java.lang.reflect.Field;
 import java.util.Locale;
@@ -70,6 +73,7 @@ final class ClientRoomSessionController {
     private String lastUploadedMainHandDisplayName = "";
     private long lastUploadedMainHandTick = -1L;
     private boolean wasVehiclePerspectiveAllowed;
+    private boolean mountedVehicleControlSuppressed;
 
     ClientRoomSessionController(ClientLoadoutUiController loadoutUiController) {
         this.loadoutUiController = loadoutUiController;
@@ -114,6 +118,7 @@ final class ClientRoomSessionController {
             enforceFirstPersonForNonAdmin(minecraft);
         }
         wasVehiclePerspectiveAllowed = vehiclePerspectiveAllowed;
+        enforceMountedVehicleControlLock(minecraft);
         enforceInitialMovementLock(minecraft);
         enforceDeathInputLock(minecraft);
         enforceHeldItemUseLock(minecraft);
@@ -162,7 +167,7 @@ final class ClientRoomSessionController {
         }
         boolean attackKey = minecraft.options.keyAttack.matches(event.getKey(), event.getScanCode());
         boolean useKey = minecraft.options.keyUse.matches(event.getKey(), event.getScanCode());
-        if (TaczClientInputCompat.shouldBlockCombatInputUntilRelease(minecraft, attackKey, useKey)) {
+        if (minecraft.screen == null && TaczClientInputCompat.shouldBlockCombatInputUntilRelease(minecraft, attackKey, useKey)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
@@ -223,6 +228,9 @@ final class ClientRoomSessionController {
         if (minecraft == null) {
             return false;
         }
+        if (minecraft.screen != null) {
+            return false;
+        }
         double mouseX = minecraft.mouseHandler.xpos() * minecraft.getWindow().getGuiScaledWidth() / Math.max(1, minecraft.getWindow().getScreenWidth());
         double mouseY = minecraft.mouseHandler.ypos() * minecraft.getWindow().getGuiScaledHeight() / Math.max(1, minecraft.getWindow().getScreenHeight());
         if (event.getAction() == GLFW.GLFW_PRESS
@@ -267,6 +275,9 @@ final class ClientRoomSessionController {
     boolean handleMouseScroll(InputEvent.MouseScrollingEvent event) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null || minecraft.options == null) {
+            return false;
+        }
+        if (minecraft.screen != null) {
             return false;
         }
         boolean allowDeployReleasedMouseScrollZoom = shouldAllowDeployReleasedMouseScrollZoom(minecraft);
@@ -359,6 +370,7 @@ final class ClientRoomSessionController {
         deployFovRestoreStart = -1.0D;
         deployFovRestoreElapsedSeconds = 0.0F;
         vehicleMountedHotbarLockService.reset();
+        mountedVehicleControlSuppressed = false;
         lastUploadedMainHandItemId = "";
         lastUploadedMainHandDisplayName = "";
         lastUploadedMainHandTick = -1L;
@@ -530,15 +542,6 @@ final class ClientRoomSessionController {
         if (!ClientRoomLockState.shouldLockMovement() && !downedActive) {
             return;
         }
-        minecraft.options.keyUp.setDown(false);
-        minecraft.options.keyDown.setDown(false);
-        minecraft.options.keyLeft.setDown(false);
-        minecraft.options.keyRight.setDown(false);
-        if (!downedActive) {
-            minecraft.options.keyJump.setDown(false);
-        }
-        minecraft.options.keyShift.setDown(false);
-        minecraft.options.keySprint.setDown(false);
         TaczClientInputCompat.clearTransientCombatState(minecraft);
         if (minecraft.player != null) {
             minecraft.player.setDeltaMovement(0.0D, 0.0D, 0.0D);
@@ -549,13 +552,6 @@ final class ClientRoomSessionController {
         if (!isInitialMovementLockActive(minecraft) || minecraft == null || minecraft.options == null) {
             return;
         }
-        minecraft.options.keyUp.setDown(false);
-        minecraft.options.keyDown.setDown(false);
-        minecraft.options.keyLeft.setDown(false);
-        minecraft.options.keyRight.setDown(false);
-        minecraft.options.keyJump.setDown(false);
-        minecraft.options.keyShift.setDown(false);
-        minecraft.options.keySprint.setDown(false);
         TaczClientInputCompat.clearTransientCombatState(minecraft);
         if (minecraft.player != null) {
             minecraft.player.setDeltaMovement(0.0D, 0.0D, 0.0D);
@@ -574,6 +570,24 @@ final class ClientRoomSessionController {
             return;
         }
         TaczClientInputCompat.clearTransientCombatState(minecraft);
+    }
+
+    private void enforceMountedVehicleControlLock(Minecraft minecraft) {
+        boolean shouldSuppress = shouldSuppressMountedVehicleControls(minecraft);
+        if (!shouldSuppress) {
+            if (mountedVehicleControlSuppressed) {
+                restoreMountedVehicleControlState(minecraft);
+                mountedVehicleControlSuppressed = false;
+            }
+            return;
+        }
+        mountedVehicleControlSuppressed = true;
+        for (KeyMapping keyMapping : resolveMountedVehicleSuppressedKeys(minecraft)) {
+            releaseKeyMapping(keyMapping);
+        }
+        if (minecraft != null && minecraft.player != null && minecraft.player.getVehicle() != null) {
+            minecraft.player.getVehicle().setDeltaMovement(0.0D, 0.0D, 0.0D);
+        }
     }
 
     private void enforceLockedHotbarSelection(Minecraft minecraft) {
@@ -693,6 +707,74 @@ final class ClientRoomSessionController {
         return minecraft != null
             && minecraft.player != null
             && ClientRoomLockState.snapshot().reason().equals("initial_movement_lock");
+    }
+
+    private boolean shouldSuppressMountedVehicleControls(Minecraft minecraft) {
+        return isInitialMovementLockActive(minecraft)
+            && minecraft != null
+            && minecraft.player != null
+            && SuperbWarfareVehicleCompatBridge.isVehicleEntity(minecraft.player.getVehicle());
+    }
+
+    private KeyMapping[] resolveMountedVehicleSuppressedKeys(Minecraft minecraft) {
+        if (minecraft == null || minecraft.options == null) {
+            return new KeyMapping[0];
+        }
+        KeyMapping[] hotbarSlots = minecraft.options.keyHotbarSlots;
+        KeyMapping[] keys = new KeyMapping[9 + 10];
+        int index = 0;
+        keys[index++] = minecraft.options.keyUp;
+        keys[index++] = minecraft.options.keyDown;
+        keys[index++] = minecraft.options.keyLeft;
+        keys[index++] = minecraft.options.keyRight;
+        keys[index++] = minecraft.options.keyJump;
+        keys[index++] = minecraft.options.keyShift;
+        keys[index++] = minecraft.options.keySprint;
+        keys[index++] = minecraft.options.keyAttack;
+        keys[index++] = minecraft.options.keyUse;
+        keys[index++] = minecraft.options.keyDrop;
+        keys[index++] = minecraft.options.keySwapOffhand;
+        for (int slot = 0; slot < hotbarSlots.length && index < keys.length; slot++) {
+            keys[index++] = hotbarSlots[slot];
+        }
+        return keys;
+    }
+
+    private void restoreMountedVehicleControlState(Minecraft minecraft) {
+        for (KeyMapping keyMapping : resolveMountedVehicleSuppressedKeys(minecraft)) {
+            syncKeyMappingToPhysicalState(minecraft, keyMapping);
+        }
+    }
+
+    private void releaseKeyMapping(KeyMapping keyMapping) {
+        if (keyMapping == null) {
+            return;
+        }
+        keyMapping.setDown(false);
+        while (keyMapping.consumeClick()) {
+        }
+    }
+
+    private void syncKeyMappingToPhysicalState(Minecraft minecraft, KeyMapping keyMapping) {
+        if (keyMapping == null) {
+            return;
+        }
+        keyMapping.setDown(isPhysicalInputPressed(minecraft, keyMapping));
+    }
+
+    private boolean isPhysicalInputPressed(Minecraft minecraft, KeyMapping keyMapping) {
+        if (minecraft == null || minecraft.getWindow() == null || keyMapping == null) {
+            return false;
+        }
+        long window = minecraft.getWindow().getWindow();
+        InputConstants.Key key = keyMapping.getKey();
+        if (key == null) {
+            return false;
+        }
+        if (key.getType() == InputConstants.Type.MOUSE) {
+            return GLFW.glfwGetMouseButton(window, key.getValue()) == GLFW.GLFW_PRESS;
+        }
+        return GLFW.glfwGetKey(window, key.getValue()) == GLFW.GLFW_PRESS;
     }
 
     private void syncMouseGrabState(Minecraft minecraft, ClientCaptureOverlayController overlayController) {

@@ -68,6 +68,13 @@ public final class ConquestServerCommands {
         "passiveRegenIntervalTicks",
         "passiveRegenStartDelaySeconds",
         "partyMaxMembers",
+        "MaxScopePistol",
+        "MaxScopeSniper",
+        "MaxScopeRifle",
+        "MaxScopeShotgun",
+        "MaxScopeSmg",
+        "MaxScopeRpg",
+        "MaxScopeMg",
         "vehicleBackend",
         "overworldSpawn",
         "rangeJoinSpawn",
@@ -377,6 +384,13 @@ public final class ConquestServerCommands {
         CommandFeedbacks.line(context.getSource(), ServerText.colored("passiveRegenIntervalTicks=" + store.getPassiveRegenIntervalTicks(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("passiveRegenStartDelaySeconds=" + store.getPassiveRegenStartDelaySeconds(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("partyMaxMembers=" + store.getPartyMaxMembers(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("MaxScopePistol=" + formatDecimal(store.getMaxScopePistol()), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("MaxScopeSniper=" + formatDecimal(store.getMaxScopeSniper()), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("MaxScopeRifle=" + formatDecimal(store.getMaxScopeRifle()), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("MaxScopeShotgun=" + formatDecimal(store.getMaxScopeShotgun()), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("MaxScopeSmg=" + formatDecimal(store.getMaxScopeSmg()), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("MaxScopeRpg=" + formatDecimal(store.getMaxScopeRpg()), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("MaxScopeMg=" + formatDecimal(store.getMaxScopeMg()), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("vehicleBackend=" + store.getVehicleBackend().value(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("overworldSpawn=" + formatPosition(config.getOverworldSpawn()), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("rangeJoinSpawn=" + formatPosition(config.getRangeJoinSpawn()), net.minecraft.ChatFormatting.AQUA));
@@ -402,6 +416,13 @@ public final class ConquestServerCommands {
             case "passiveRegenIntervalTicks" -> config.setPassiveRegenIntervalTicks(parsePositiveInt(rawValue));
             case "passiveRegenStartDelaySeconds" -> config.setPassiveRegenStartDelaySeconds(parseNonNegativeInt(rawValue));
             case "partyMaxMembers" -> config.setPartyMaxMembers(parsePositiveInt(rawValue));
+            case "MaxScopePistol" -> config.setMaxScopePistol(parseNonNegativeDouble(rawValue));
+            case "MaxScopeSniper" -> config.setMaxScopeSniper(parseNonNegativeDouble(rawValue));
+            case "MaxScopeRifle" -> config.setMaxScopeRifle(parseNonNegativeDouble(rawValue));
+            case "MaxScopeShotgun" -> config.setMaxScopeShotgun(parseNonNegativeDouble(rawValue));
+            case "MaxScopeSmg" -> config.setMaxScopeSmg(parseNonNegativeDouble(rawValue));
+            case "MaxScopeRpg" -> config.setMaxScopeRpg(parseNonNegativeDouble(rawValue));
+            case "MaxScopeMg" -> config.setMaxScopeMg(parseNonNegativeDouble(rawValue));
             case "vehicleBackend" -> config.setVehicleBackend(RoomVehicleBackend.of(rawValue));
             case "overworldSpawn" -> config.setOverworldSpawn(parseConfigPosition(context, rawValue));
             case "rangeJoinSpawn" -> config.setRangeJoinSpawn(parseConfigPosition(context, rawValue));
@@ -429,6 +450,20 @@ public final class ConquestServerCommands {
                 SharedSuggestionProvider.suggest(List.of("6", "8", "10"), builder);
             case "partyMaxMembers" ->
                 SharedSuggestionProvider.suggest(List.of("4", "5", "6", "8"), builder);
+            case "MaxScopePistol" ->
+                SharedSuggestionProvider.suggest(List.of("1.5", "2.0", "3.0"), builder);
+            case "MaxScopeSniper" ->
+                SharedSuggestionProvider.suggest(List.of("8.0", "10.0", "12.0"), builder);
+            case "MaxScopeRifle" ->
+                SharedSuggestionProvider.suggest(List.of("4.0", "6.0", "8.0"), builder);
+            case "MaxScopeShotgun" ->
+                SharedSuggestionProvider.suggest(List.of("1.0", "1.5", "2.0"), builder);
+            case "MaxScopeSmg" ->
+                SharedSuggestionProvider.suggest(List.of("1.5", "2.0", "3.0"), builder);
+            case "MaxScopeRpg" ->
+                SharedSuggestionProvider.suggest(List.of("1.0", "1.5", "2.0"), builder);
+            case "MaxScopeMg" ->
+                SharedSuggestionProvider.suggest(List.of("2.0", "4.0", "6.0"), builder);
             case "vehicleBackend" ->
                 SharedSuggestionProvider.suggest(RoomVehicleBackend.suggestions(), builder);
             case "overworldSpawn", "rangeJoinSpawn", "rangeLeaveSpawn" ->
@@ -456,6 +491,13 @@ public final class ConquestServerCommands {
             case "passiveregenintervalticks", "breathregenintervalticks", "breathregeninterval" -> "passiveRegenIntervalTicks";
             case "passiveregenstartdelayseconds", "breathregenstartdelayseconds", "breathregenstartseconds" -> "passiveRegenStartDelaySeconds";
             case "partymaxmembers", "partymax", "squadmaxmembers", "squadmax" -> "partyMaxMembers";
+            case "maxscopepistol", "scopepistol", "pistolscope" -> "MaxScopePistol";
+            case "maxscopesniper", "scopesniper", "sniperscope" -> "MaxScopeSniper";
+            case "maxscoperifle", "scoperifle", "riflescope" -> "MaxScopeRifle";
+            case "maxscopeshotgun", "scopeshotgun", "shotgunscope" -> "MaxScopeShotgun";
+            case "maxscopesmg", "scopesmg", "smgscope" -> "MaxScopeSmg";
+            case "maxscoperpg", "scoperpg", "rpgscope" -> "MaxScopeRpg";
+            case "maxscopemg", "scopemg", "mgscope" -> "MaxScopeMg";
             case "vehiclebackend", "vehiclemode", "vehiclemod", "backend" -> "vehicleBackend";
             case "overworldspawn", "lobbyspawn", "spawn" -> "overworldSpawn";
             case "rangejoinspawn", "rangespawn", "rangejoin" -> "rangeJoinSpawn";
@@ -473,6 +515,13 @@ public final class ConquestServerCommands {
             case "passiveRegenIntervalTicks" -> String.valueOf(store.getPassiveRegenIntervalTicks());
             case "passiveRegenStartDelaySeconds" -> String.valueOf(store.getPassiveRegenStartDelaySeconds());
             case "partyMaxMembers" -> String.valueOf(store.getPartyMaxMembers());
+            case "MaxScopePistol" -> formatDecimal(store.getMaxScopePistol());
+            case "MaxScopeSniper" -> formatDecimal(store.getMaxScopeSniper());
+            case "MaxScopeRifle" -> formatDecimal(store.getMaxScopeRifle());
+            case "MaxScopeShotgun" -> formatDecimal(store.getMaxScopeShotgun());
+            case "MaxScopeSmg" -> formatDecimal(store.getMaxScopeSmg());
+            case "MaxScopeRpg" -> formatDecimal(store.getMaxScopeRpg());
+            case "MaxScopeMg" -> formatDecimal(store.getMaxScopeMg());
             case "vehicleBackend" -> store.getVehicleBackend().value();
             case "overworldSpawn" -> formatPosition(config.getOverworldSpawn());
             case "rangeJoinSpawn" -> formatPosition(config.getRangeJoinSpawn());
@@ -521,6 +570,22 @@ public final class ConquestServerCommands {
         } catch (NumberFormatException exception) {
             throw new SimpleCommandExceptionType(Component.literal("配置值必须是整数")).create();
         }
+    }
+
+    private static double parseNonNegativeDouble(String value) throws CommandSyntaxException {
+        try {
+            double parsed = Double.parseDouble(value);
+            if (Double.isNaN(parsed) || Double.isInfinite(parsed) || parsed < 0.0D) {
+                throw new SimpleCommandExceptionType(Component.literal("配置值不能小于 0")).create();
+            }
+            return parsed;
+        } catch (NumberFormatException exception) {
+            throw new SimpleCommandExceptionType(Component.literal("配置值必须是数字")).create();
+        }
+    }
+
+    private static String formatDecimal(double value) {
+        return String.format(Locale.ROOT, "%.2f", value);
     }
 
     private static RoomPosition parseConfigPosition(CommandContext<CommandSourceStack> context, String value) throws CommandSyntaxException {

@@ -8,6 +8,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import org.mods.gd656conquest.client.gui.GuiConstants;
+import org.mods.gd656conquest.client.compat.tacz.TaczClientAttachmentCompat;
 import org.mods.gd656conquest.client.gui.elements.ChoiceListDialog;
 import org.mods.gd656conquest.client.gui.elements.GDButton;
 import org.mods.gd656conquest.client.gui.elements.GDScrollState;
@@ -626,9 +627,17 @@ public class LoadoutConfigScreen extends Screen {
         List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
         Set<String> lockedIds = new HashSet<>();
         Map<String, ChoiceListDialog.RowIcon> iconById = new HashMap<>();
+        boolean filterByScopeMagnification = "scope".equalsIgnoreCase(attachmentType) && typeState.maxScopeMagnification() > 0.0D;
+        double maxScopeMagnification = typeState.maxScopeMagnification();
         choices.add(new FixedChoiceConfigEntry.Choice("", "§f无配件 §8[卸下外置件]"));
         for (ClientLoadoutUiState.AttachmentChoiceState choice : typeState.sortedChoices()) {
-            String display = choice.displayName().isBlank() ? choice.id() : choice.displayName();
+            if (filterByScopeMagnification) {
+                double choiceMagnification = TaczClientAttachmentCompat.getInstance().resolveScopeMaxMagnification(choice.itemSnbt());
+                if (choiceMagnification > 0.0D && choiceMagnification - maxScopeMagnification > 0.0001D) {
+                    continue;
+                }
+            }
+            String display = resolveAttachmentChoiceDisplayName(choice);
             String lockSuffix = choice.unlocked() ? "" : ("  Lv." + choice.unlockLevel() + "未解锁");
             String prefix = choice.unlocked() ? "§f" : "§7";
             choices.add(new FixedChoiceConfigEntry.Choice(choice.id(), prefix + display + " §8[" + choice.id() + "]" + (lockSuffix.isBlank() ? "" : " §7" + lockSuffix)));
@@ -792,13 +801,58 @@ public class LoadoutConfigScreen extends Screen {
             if (state == null || !state.hasStoredSelection()) {
                 continue;
             }
-            String value = state.selectedAttachmentId().isBlank() ? "无配件" : (state.selectedDisplayName().isBlank() ? state.selectedAttachmentId() : state.selectedDisplayName());
+            String value = resolveSelectedAttachmentDisplayName(state);
             selectedLabels.add(state.attachmentLabel() + ":" + value);
             if (selectedLabels.size() >= 2) {
                 break;
             }
         }
         return selectedLabels.isEmpty() ? "已保留枪械默认外置状态" : String.join("  |  ", selectedLabels);
+    }
+
+    private String resolveSelectedAttachmentDisplayName(ClientLoadoutUiState.AttachmentTypeState state) {
+        if (state == null || !state.hasStoredSelection()) {
+            return "";
+        }
+        if (state.selectedAttachmentId().isBlank()) {
+            return "无配件";
+        }
+        ClientLoadoutUiState.AttachmentChoiceState selectedChoice = state.choices().get(state.selectedAttachmentId());
+        if (selectedChoice != null) {
+            return resolveAttachmentChoiceDisplayName(selectedChoice);
+        }
+        return pickReadableAttachmentName(state.selectedDisplayName(), state.selectedAttachmentId());
+    }
+
+    private String resolveAttachmentChoiceDisplayName(ClientLoadoutUiState.AttachmentChoiceState choice) {
+        if (choice == null) {
+            return "";
+        }
+        String localizedDisplay = TaczClientAttachmentCompat.getInstance().resolveLocalizedAttachmentDisplayName(choice.itemSnbt());
+        if (!localizedDisplay.isBlank()) {
+            return localizedDisplay;
+        }
+        return pickReadableAttachmentName(choice.displayName(), choice.id());
+    }
+
+    private String pickReadableAttachmentName(String preferred, String fallbackId) {
+        String normalizedPreferred = safe(preferred).trim();
+        if (!normalizedPreferred.isBlank() && !looksLikeTranslationKey(normalizedPreferred)) {
+            return normalizedPreferred;
+        }
+        return safe(fallbackId);
+    }
+
+    private boolean looksLikeTranslationKey(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        boolean hasDelimiter = value.indexOf('.') >= 0 || value.indexOf(':') >= 0;
+        boolean hasWhitespace = value.chars().anyMatch(Character::isWhitespace);
+        boolean hasCjk = value.chars().anyMatch(codePoint ->
+            Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HAN
+        );
+        return hasDelimiter && !hasWhitespace && !hasCjk;
     }
 
     private String resolveAttachmentLabel(String attachmentType) {

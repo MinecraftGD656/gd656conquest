@@ -8,6 +8,7 @@ import org.mods.gd656conquest.client.room.ClientRoomTeamMirror;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public final class RoomTeamMirrorSyncPacket {
@@ -83,6 +84,18 @@ public final class RoomTeamMirrorSyncPacket {
         context.setPacketHandled(true);
     }
 
+    public String cacheKey() {
+        return String.join("\u001F",
+            Boolean.toString(active),
+            roomId,
+            campADisplayName,
+            campBDisplayName,
+            campAPlayers.toString(),
+            campBPlayers.toString(),
+            squadEntries.toString()
+        );
+    }
+
     private static void writePlayers(FriendlyByteBuf buffer, List<String> players) {
         buffer.writeInt(players.size());
         for (String playerName : players) {
@@ -113,5 +126,27 @@ public final class RoomTeamMirrorSyncPacket {
             playerName = playerName == null ? "" : playerName;
             squadLabel = squadLabel == null ? "" : squadLabel;
         }
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof RoomTeamMirrorSyncPacket other)) {
+            return false;
+        }
+        return active == other.active
+            && Objects.equals(roomId, other.roomId)
+            && Objects.equals(campADisplayName, other.campADisplayName)
+            && Objects.equals(campBDisplayName, other.campBDisplayName)
+            && Objects.equals(campAPlayers, other.campAPlayers)
+            && Objects.equals(campBPlayers, other.campBPlayers)
+            && Objects.equals(squadEntries, other.squadEntries);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(active, roomId, campADisplayName, campBDisplayName, campAPlayers, campBPlayers, squadEntries);
     }
 }
