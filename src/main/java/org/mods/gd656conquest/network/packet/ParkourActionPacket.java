@@ -23,6 +23,10 @@ public final class ParkourActionPacket {
         return new ParkourActionPacket("quick_join");
     }
 
+    public static ParkourActionPacket fellBelowStart() {
+        return new ParkourActionPacket("fell_below_start");
+    }
+
     public static void encode(ParkourActionPacket packet, FriendlyByteBuf buffer) {
         buffer.writeUtf(packet.action);
     }
@@ -41,6 +45,10 @@ public final class ParkourActionPacket {
             String action = message.action().trim().toLowerCase(Locale.ROOT);
             if ("quick_join".equals(action)) {
                 ParkourRuntimeManager.of(sender.server).handleQuickJoinRequest(sender);
+                return;
+            }
+            if ("fell_below_start".equals(action)) {
+                ParkourRuntimeManager.of(sender.server).handleFallBelowStartRequest(sender);
             }
         });
         context.setPacketHandled(true);

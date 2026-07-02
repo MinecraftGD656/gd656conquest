@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import org.mods.gd656conquest.network.NetworkManager;
+import org.mods.gd656conquest.network.packet.ParkourActionPacket;
 import org.mods.gd656conquest.network.packet.ParkourSessionSyncPacket;
 import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
@@ -12,6 +13,7 @@ import java.util.Locale;
 public final class ClientParkourRuntimeState {
     private static boolean inParkour;
     private static boolean challengeActive;
+    private static boolean fallLeaveRequested;
     private static int runNonce;
     private static int startX;
     private static double startY;
@@ -57,6 +59,10 @@ public final class ClientParkourRuntimeState {
             clear();
             return;
         }
+        if (inParkour && !fallLeaveRequested && minecraft.player.getY() < startY) {
+            fallLeaveRequested = true;
+            NetworkManager.getChannel().sendToServer(ParkourActionPacket.fellBelowStart());
+        }
         if (!inParkour || !challengeActive || finishSubmitted || timerStartedAtNanos <= 0L) {
             return;
         }
@@ -82,6 +88,7 @@ public final class ClientParkourRuntimeState {
     public static synchronized void clear() {
         inParkour = false;
         challengeActive = false;
+        fallLeaveRequested = false;
         runNonce = 0;
         startX = 0;
         startY = 0.0D;

@@ -85,6 +85,10 @@ public final class ParkourRuntimeManager {
             return;
         }
         ParkourPlayerSession session = playerSessions.get(player.getUUID());
+        if (session != null && shouldForceLeaveForFallingBelowStart(player)) {
+            forceLeaveDueToFall(player);
+            return;
+        }
         if (!HubDimensionService.isHubDimension(player.level())) {
             ServerActionBarService.clearSource(player, ACTIONBAR_PROMPT_SOURCE);
             return;
@@ -134,6 +138,16 @@ public final class ParkourRuntimeManager {
         String result = joinParkour(player);
         ServerMessageSender.system(player, "跑酷", result, canQuickJoin(player) ? ChatFormatting.YELLOW : ChatFormatting.AQUA);
         sendLeaderboardSnapshot(player, false);
+    }
+
+    public void handleFallBelowStartRequest(ServerPlayer player) {
+        if (player == null || player.server == null) {
+            return;
+        }
+        if (!isInParkour(player.getUUID()) || !shouldForceLeaveForFallingBelowStart(player)) {
+            return;
+        }
+        forceLeaveDueToFall(player);
     }
 
     public String joinParkour(ServerPlayer player) {
@@ -637,6 +651,28 @@ public final class ParkourRuntimeManager {
         return Math.abs(player.getBlockX() - position.x()) <= 1
             && Math.abs(player.getBlockZ() - position.z()) <= 1
             && Math.abs(player.getY() - position.y()) <= verticalTolerance;
+    }
+
+    private boolean shouldForceLeaveForFallingBelowStart(ServerPlayer player) {
+        if (player == null) {
+            return false;
+        }
+        RoomPosition start = serverConfig().getParkourStartPosFallbackShared();
+        return start != null && player.getY() < start.y();
+    }
+
+    private void forceLeaveDueToFall(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        UUID uuid = player.getUUID();
+        if (!playerSessions.containsKey(uuid) && !hasPersistentSnapshot(player)) {
+            return;
+        }
+        leaveParkourInternal(player, true, true);
+        QuickAccessItemService.refreshHotbar(player);
+        sendLeaderboardSnapshot(player, false);
+        ServerMessageSender.system(player, "跑酷", "你已跌出跑酷区域，已返回主城", ChatFormatting.YELLOW);
     }
 
     private void completeParkourAfterFinish(ServerPlayer player, ParkourPlayerSession session) {
