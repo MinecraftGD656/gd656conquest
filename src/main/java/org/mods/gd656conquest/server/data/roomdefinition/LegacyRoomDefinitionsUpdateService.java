@@ -360,7 +360,11 @@ public final class LegacyRoomDefinitionsUpdateService {
             String resolvedGameMode = gameMode == null || gameMode.isBlank()
                 ? RoomPlayerStateConfig.defaults().gameMode()
                 : gameMode.trim();
-            return new RoomPlayerStateConfig(resolvedGameMode, invulnerableSeconds);
+            return new RoomPlayerStateConfig(
+                resolvedGameMode,
+                invulnerableSeconds,
+                RoomPlayerStateConfig.defaults().revivedInvulnerableSeconds()
+            );
         }
     }
 

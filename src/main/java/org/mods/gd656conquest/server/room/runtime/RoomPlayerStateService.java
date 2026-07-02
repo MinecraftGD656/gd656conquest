@@ -3,6 +3,7 @@ package org.mods.gd656conquest.server.room.runtime;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.level.GameType;
 import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
 import org.mods.gd656conquest.server.compat.tacz.TaczServerPoseCompat;
@@ -20,7 +21,6 @@ public final class RoomPlayerStateService {
     private static final int DOWNED_LOCKED_HOTBAR_SLOT = 6;
     private static final float REVIVED_HEALTH_FRACTION_ASSAULT = 0.50F;
     private static final float REVIVED_HEALTH_FRACTION_NON_ASSAULT = 0.25F;
-    private static final int REVIVED_INVULNERABLE_SECONDS = 2;
     private final MinecraftServer server;
     private final Map<UUID, Long> invulnerableUntilTickByPlayer = new HashMap<>();
 
@@ -130,21 +130,34 @@ public final class RoomPlayerStateService {
         }
         ServerPlayer player = server.getPlayerList().getPlayer(playerId);
         if (player != null) {
-            clearTransientItemUseState(player);
-            TaczServerPoseCompat.clearCrawlState(player);
-            PlayerAnimatorDebugDimensionsState.clearPlayer(player);
+            normalizePlayerModelState(player);
             if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR) {
                 player.setGameMode(GameType.ADVENTURE);
             }
             player.setInvulnerable(false);
-            player.setDeltaMovement(0.0D, 0.0D, 0.0D);
-            player.setForcedPose(null);
-            player.setShiftKeyDown(false);
             player.setRemainingFireTicks(0);
             refillHealth(player);
-            player.refreshDimensions();
         }
         invulnerableUntilTickByPlayer.remove(playerId);
+    }
+
+    public void normalizePlayerModelState(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        clearTransientItemUseState(player);
+        if (player.isPassenger()) {
+            player.stopRiding();
+        }
+        TaczServerPoseCompat.clearCrawlState(player);
+        PlayerAnimatorDebugDimensionsState.clearPlayer(player);
+        player.setNoGravity(false);
+        player.fallDistance = 0.0F;
+        player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+        player.setForcedPose(null);
+        player.setPose(Pose.STANDING);
+        player.setShiftKeyDown(false);
+        player.refreshDimensions();
     }
 
     public void applyRespawnState(RoomDefinition room, UUID playerId, long gameTick) {
@@ -208,7 +221,7 @@ public final class RoomPlayerStateService {
         float maxHealth = Math.max(1.0F, player.getMaxHealth());
         float healthFraction = revivedByAssault ? REVIVED_HEALTH_FRACTION_ASSAULT : REVIVED_HEALTH_FRACTION_NON_ASSAULT;
         player.setHealth(Math.min(maxHealth, Math.max(2.0F, maxHealth * healthFraction)));
-        applyInvulnerability(player, REVIVED_INVULNERABLE_SECONDS, gameTick);
+        applyInvulnerability(player, room.commonConfig().playerStateConfig().revivedInvulnerableSeconds(), gameTick);
     }
 
     private void applyPlayerState(RoomDefinition room, ServerPlayer player, long gameTick) {

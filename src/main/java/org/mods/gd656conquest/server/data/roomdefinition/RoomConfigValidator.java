@@ -258,6 +258,9 @@ public final class RoomConfigValidator {
         if (!Double.isFinite(playerState.invulnerableSeconds()) || playerState.invulnerableSeconds() < -1.0D) {
             result.addMissing("common.respawnInvulnerableSeconds", "invulnerableSeconds");
         }
+        if (!Double.isFinite(playerState.revivedInvulnerableSeconds()) || playerState.revivedInvulnerableSeconds() < -1.0D) {
+            result.addMissing("common.revivedInvulnerableSeconds", "revivedInvulnerableSeconds");
+        }
         if (playerState.gameMode() == null || playerState.gameMode().isBlank()) {
             result.addMissing("common.playerGameMode", "gameMode");
             return;

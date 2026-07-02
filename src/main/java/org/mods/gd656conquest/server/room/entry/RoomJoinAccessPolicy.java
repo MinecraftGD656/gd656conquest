@@ -23,6 +23,7 @@ public final class RoomJoinAccessPolicy {
         }
         RoomLifecycleState lifecycleState = room.lifecycleState();
         if (lifecycleState == RoomLifecycleState.DISABLED
+            || lifecycleState == RoomLifecycleState.ENDING
             || lifecycleState == RoomLifecycleState.CLEANING
             || lifecycleState == RoomLifecycleState.SAVING) {
             return JoinCheckResult.denied("加入失败，当前房间状态为: " + lifecycleState.name(), false);

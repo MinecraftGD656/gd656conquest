@@ -365,8 +365,9 @@ public final class RoomPlayerRespawnService {
         int deployDelayTicks = resolveDeployDelayTicks(room, 1);
         state.clearRespawnFlow(playerId);
         state.getDeployReadyTicks().put(playerId, gameTick + deployDelayTicks);
-        state.getDeployAutoStartOnReadyPlayers().add(playerId);
+        state.getDeployAutoStartOnReadyPlayers().remove(playerId);
         state.getDeployAllowFallbackOnMissingSelectionPlayers().add(playerId);
+        state.getDeployExplicitConfirmRequiredPlayers().add(playerId);
         RoomTeamId teamId = state.getRoomTeams().get(playerId);
         if (teamId == RoomTeamId.CAMP_A || teamId == RoomTeamId.CAMP_B) {
             deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
@@ -395,6 +396,7 @@ public final class RoomPlayerRespawnService {
         state.getDeployReadyTicks().put(playerId, gameTick + deployDelayTicks);
         state.getDeployAutoStartOnReadyPlayers().remove(playerId);
         state.getDeployAllowFallbackOnMissingSelectionPlayers().add(playerId);
+        state.getDeployExplicitConfirmRequiredPlayers().add(playerId);
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
         if (tryBeginAlignedOpeningJoinDeploy(room, state, player, gameTick, RoomGameplayDeployViewKind.MIDJOIN)) {
             return;
@@ -429,17 +431,35 @@ public final class RoomPlayerRespawnService {
         if (deployReadyTick == null || teamId == null) {
             return false;
         }
+        String previousSelectionKind = state.getDeploySelectionKinds().get(playerId);
+        String previousSelectionTargetId = state.getDeploySelectionTargetIds().get(playerId);
+        boolean explicitConfirmRequired = state.getDeployExplicitConfirmRequiredPlayers().contains(playerId);
         if (!deploySelectionService.updateSelection(room, state, playerId, teamId, kind, targetId)) {
             showDeployNotice(player, deploySelectionService.describeSelectionFailure(room, state, playerId, teamId, kind, targetId));
             return false;
         }
         if (!"confirm".equalsIgnoreCase(action)) {
-            if (!state.getDeployAllowFallbackOnMissingSelectionPlayers().contains(playerId)) {
+            if (explicitConfirmRequired || !state.getDeployAllowFallbackOnMissingSelectionPlayers().contains(playerId)) {
                 state.getDeployAutoStartOnReadyPlayers().remove(playerId);
             }
             LoadoutUiService.sendSnapshot(player, false, true);
             return true;
         }
+        String currentSelectionKind = state.getDeploySelectionKinds().get(playerId);
+        String currentSelectionTargetId = state.getDeploySelectionTargetIds().get(playerId);
+        boolean selectionAlreadyChosen = equalsDeploySelection(
+            previousSelectionKind,
+            previousSelectionTargetId,
+            currentSelectionKind,
+            currentSelectionTargetId
+        );
+        if (explicitConfirmRequired && !selectionAlreadyChosen) {
+            state.getDeployAutoStartOnReadyPlayers().remove(playerId);
+            showDeployNotice(player, "已选定部署点，请再次确认后部署");
+            LoadoutUiService.sendSnapshot(player, false, true);
+            return true;
+        }
+        state.getDeployExplicitConfirmRequiredPlayers().remove(playerId);
         if (gameTick < deployReadyTick) {
             state.getDeployAutoStartOnReadyPlayers().add(playerId);
             LoadoutUiService.sendSnapshot(player, false, true);
@@ -842,6 +862,12 @@ public final class RoomPlayerRespawnService {
         if (teamId == null) {
             return false;
         }
+        boolean midJoinForcedDeploy = viewKind == RoomGameplayDeployViewKind.MIDJOIN;
+        if (midJoinForcedDeploy) {
+            deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
+            state.getDeployAutoStartOnReadyPlayers().add(playerId);
+            state.getDeployExplicitConfirmRequiredPlayers().remove(playerId);
+        }
         if (gameTick < openingReadyTick) {
             enterDeployHoldingState(room, state, player, false);
             int remainTicks = (int) Math.max(0L, openingReadyTick - gameTick);
@@ -850,9 +876,12 @@ public final class RoomPlayerRespawnService {
                 viewKind,
                 gameTick,
                 remainTicks,
-                false
+                midJoinForcedDeploy
             ));
             return true;
+        }
+        if (viewKind == RoomGameplayDeployViewKind.RECONNECT) {
+            return false;
         }
         RoomPosition spawn = deploySelectionService.resolveSelectedSpawn(
             room,
@@ -1238,6 +1267,15 @@ public final class RoomPlayerRespawnService {
             )
         );
         return true;
+    }
+
+    private boolean equalsDeploySelection(String leftKind, String leftTargetId, String rightKind, String rightTargetId) {
+        return Objects.equals(normalizeDeploySelectionToken(leftKind), normalizeDeploySelectionToken(rightKind))
+            && Objects.equals(normalizeDeploySelectionToken(leftTargetId), normalizeDeploySelectionToken(rightTargetId));
+    }
+
+    private String normalizeDeploySelectionToken(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private void enterDeployHoldingState(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, boolean preserveWorldPosition) {

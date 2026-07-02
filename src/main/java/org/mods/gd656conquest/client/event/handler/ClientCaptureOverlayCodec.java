@@ -47,11 +47,6 @@ final class ClientCaptureOverlayCodec {
 
     void syncCaptureOverlayState(ClientCaptureOverlayState state) {
         Minecraft minecraft = Minecraft.getInstance();
-        long gameTime = minecraft.level == null ? Long.MIN_VALUE : minecraft.level.getGameTime();
-        if (state.lastOverlaySyncGameTime == gameTime) {
-            return;
-        }
-        state.lastOverlaySyncGameTime = gameTime;
         String roomPayload = ClientHudDebugState.getCaptureIcons();
         String debugPayload = ClientHudDebugState.getAdminDebugOverlay();
         boolean hasRoomPayload = isUsablePayload(roomPayload);

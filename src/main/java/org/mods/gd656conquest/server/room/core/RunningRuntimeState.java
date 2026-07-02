@@ -35,6 +35,7 @@ public final class RunningRuntimeState {
     private final Map<UUID, Long> deploySelectionChangedTicks = new LinkedHashMap<>();
     private final Set<UUID> deployAutoStartOnReadyPlayers = new LinkedHashSet<>();
     private final Set<UUID> deployAllowFallbackOnMissingSelectionPlayers = new LinkedHashSet<>();
+    private final Set<UUID> deployExplicitConfirmRequiredPlayers = new LinkedHashSet<>();
     private final Map<UUID, Integer> deathKillerEntityIds = new LinkedHashMap<>();
     private final Set<UUID> initialMovementLockedPlayers = new LinkedHashSet<>();
     private final Map<UUID, Integer> initialMovementLockLastShownSeconds = new LinkedHashMap<>();
@@ -163,6 +164,10 @@ public final class RunningRuntimeState {
 
     public Set<UUID> getDeployAllowFallbackOnMissingSelectionPlayers() {
         return deployAllowFallbackOnMissingSelectionPlayers;
+    }
+
+    public Set<UUID> getDeployExplicitConfirmRequiredPlayers() {
+        return deployExplicitConfirmRequiredPlayers;
     }
 
     public Map<UUID, Integer> getDeathKillerEntityIds() {
@@ -483,6 +488,7 @@ public final class RunningRuntimeState {
         deploySelectionChangedTicks.clear();
         deployAutoStartOnReadyPlayers.clear();
         deployAllowFallbackOnMissingSelectionPlayers.clear();
+        deployExplicitConfirmRequiredPlayers.clear();
         deathKillerEntityIds.clear();
         initialMovementLockedPlayers.clear();
         initialMovementLockLastShownSeconds.clear();
@@ -538,6 +544,7 @@ public final class RunningRuntimeState {
         deploySelectionChangedTicks.remove(playerId);
         deployAutoStartOnReadyPlayers.remove(playerId);
         deployAllowFallbackOnMissingSelectionPlayers.remove(playerId);
+        deployExplicitConfirmRequiredPlayers.remove(playerId);
         if (killerEntityId >= 0) {
             deathKillerEntityIds.put(playerId, killerEntityId);
         } else {
@@ -564,6 +571,7 @@ public final class RunningRuntimeState {
         deploySelectionChangedTicks.remove(playerId);
         deployAutoStartOnReadyPlayers.remove(playerId);
         deployAllowFallbackOnMissingSelectionPlayers.remove(playerId);
+        deployExplicitConfirmRequiredPlayers.remove(playerId);
         if (killerEntityId >= 0) {
             deathKillerEntityIds.put(playerId, killerEntityId);
         } else {
@@ -590,6 +598,7 @@ public final class RunningRuntimeState {
         deploySelectionChangedTicks.remove(playerId);
         deployAutoStartOnReadyPlayers.remove(playerId);
         deployAllowFallbackOnMissingSelectionPlayers.remove(playerId);
+        deployExplicitConfirmRequiredPlayers.remove(playerId);
         if (killerEntityId >= 0) {
             deathKillerEntityIds.put(playerId, killerEntityId);
         } else {
@@ -677,6 +686,7 @@ public final class RunningRuntimeState {
         deploySelectionChangedTicks.remove(playerId);
         deployAutoStartOnReadyPlayers.remove(playerId);
         deployAllowFallbackOnMissingSelectionPlayers.remove(playerId);
+        deployExplicitConfirmRequiredPlayers.remove(playerId);
         deathKillerEntityIds.remove(playerId);
         doubledRespawnPending.remove(playerId);
         boundaryDeathPendingPlayers.remove(playerId);

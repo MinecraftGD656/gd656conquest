@@ -213,8 +213,15 @@ public final class WeaponAttachmentService {
             if (entry == null
                 || !normalizedType.equals(normalizeAttachmentType(entry.getAttachmentType()))
                 || !isEntryUnlocked(entry, playerLevel)
-                || !compatService.isOfficialAttachmentSnbt(entry.getItemSnbt())
-                || !compatService.allowAttachment(weaponStack, compatService.deserializeStack(entry.getItemSnbt()))) {
+                || !compatService.isOfficialAttachmentSnbt(entry.getItemSnbt())) {
+                selection.remove(rawType);
+                changed = true;
+                continue;
+            }
+            ItemStack attachmentStack = compatService.deserializeStack(entry.getItemSnbt());
+            ItemStack validationStack = weaponStack.copy();
+            compatService.unloadAttachment(validationStack, normalizedType);
+            if (attachmentStack.isEmpty() || !compatService.allowAttachment(validationStack, attachmentStack)) {
                 selection.remove(rawType);
                 changed = true;
             }

@@ -191,7 +191,7 @@ public final class RoomDefinitionScalarConfigEditor {
         if ("progressspeed".equals(configId)) {
             return parsePositiveDouble(rawValue);
         }
-        if ("invulnerableseconds".equals(configId)) {
+        if ("invulnerableseconds".equals(configId) || "revivedinvulnerableseconds".equals(configId)) {
             return parseInvulnerableSeconds(rawValue);
         }
         if ("fullcaptureendseconds".equals(configId)) {

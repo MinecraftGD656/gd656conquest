@@ -23,7 +23,6 @@ final class ClientCaptureOverlayState {
     ClientCaptureOverlayModel.SelectedCrosshairRenderState selectedCrosshairState;
     final List<ClientCaptureOverlayModel.RenderedIconBounds> renderedDeployIcons = new ArrayList<>();
     long lastRenderNanos = -1L;
-    long lastOverlaySyncGameTime = Long.MIN_VALUE;
     boolean adminDebugOverlayActive;
     Matrix4f worldProjectionMatrix;
     float worldProjectionPartialTick;
@@ -53,7 +52,6 @@ final class ClientCaptureOverlayState {
         selectedCrosshairState = null;
         renderedDeployIcons.clear();
         lastRenderNanos = -1L;
-        lastOverlaySyncGameTime = Long.MIN_VALUE;
         hoveredDeployIcon = null;
         selectedDeployIconId = "";
         lastClickedDeployIconId = "";

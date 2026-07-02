@@ -1005,8 +1005,7 @@ public final class RoomCoreService {
             return rejoin.isPresent() ? rejoin : tryMidJoinRunningMatch(slot, player, gameTick);
         }
         if (lifecycleState == RoomLifecycleState.ENDING) {
-            Optional<RoomJoinResult> rejoin = tryRejoinRunningMatch(slot, player, gameTick);
-            return rejoin.isPresent() ? rejoin : tryMidJoinEndingMatch(slot, player, gameTick);
+            return Optional.empty();
         }
         if (lifecycleState == RoomLifecycleState.DISABLED
             || lifecycleState == RoomLifecycleState.MAINTENANCE
@@ -1582,7 +1581,7 @@ public final class RoomCoreService {
         if (!result.success()) {
             ServerLogger.failure("对局结束后的房间热重置失败: %s | %s", roomId, result.message());
         } else {
-            ServerLogger.info("对局结束后的房间热重置完成: %s", roomId);
+            ServerLogger.info("对局结束后的房间热重置完成: %s -> IDLE", roomId);
         }
     }
 
@@ -1603,6 +1602,7 @@ public final class RoomCoreService {
         if (player == null) {
             return;
         }
+        playerStateService.normalizePlayerModelState(player);
         TaczServerPoseCompat.clearCrawlState(player);
         PlayerAnimatorDebugDimensionsState.clearPlayer(player);
         NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());

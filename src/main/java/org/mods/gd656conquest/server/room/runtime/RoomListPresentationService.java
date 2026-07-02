@@ -65,7 +65,7 @@ public final class RoomListPresentationService {
                 || coreManager.canJoinInProgressRoom(player.getUUID(), room.roomId());
         }
         if (state == RoomLifecycleState.ENDING) {
-            return coreManager.canJoinInProgressRoom(player.getUUID(), room.roomId());
+            return false;
         }
         return RoomJoinAccessPolicy.evaluate(player, room, coreManager).allowed();
     }

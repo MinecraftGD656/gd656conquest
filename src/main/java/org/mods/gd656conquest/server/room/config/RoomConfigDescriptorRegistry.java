@@ -82,6 +82,7 @@ public final class RoomConfigDescriptorRegistry {
 
         common(descriptors, RoomConfigCategory.PLAYER_STATE, "gameMode", "玩家游戏模式", "commonConfig.playerStateConfig.gameMode", RoomConfigValueType.STRING, List.of("SURVIVAL", "ADVENTURE", "CREATIVE", "SPECTATOR"), "playerGameMode");
         common(descriptors, RoomConfigCategory.PLAYER_STATE, "invulnerableSeconds", "重生无敌秒数", "commonConfig.playerStateConfig.invulnerableSeconds", RoomConfigValueType.NUMBER, List.of(), "respawnInvulnerableSeconds");
+        common(descriptors, RoomConfigCategory.PLAYER_STATE, "revivedInvulnerableSeconds", "救起无敌秒数", "commonConfig.playerStateConfig.revivedInvulnerableSeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.CAPTURE, "campADisplayName", "阵营A名称", "commonConfig.campADisplayName", RoomConfigValueType.STRING, List.of());
         common(descriptors, RoomConfigCategory.CAPTURE, "campBDisplayName", "阵营B名称", "commonConfig.campBDisplayName", RoomConfigValueType.STRING, List.of());
         common(descriptors, RoomConfigCategory.RULES, "campAVoicePack", "campA语音包绑定", "commonConfig.campAVoicePack", RoomConfigValueType.STRING, RoomVoicePack.suggestions());

@@ -40,7 +40,7 @@ import java.util.Optional;
 
 public final class RoomDefinitionRepository extends JsonDataStoreSupport {
     private static final int DEFAULT_ROOM_COUNT = 16;
-    private static final int STORAGE_VERSION = 8;
+    private static final int STORAGE_VERSION = 9;
 
     private final MinecraftServer server;
     private final DelayedJsonWriteService delayedJsonWriteService;
@@ -412,7 +412,10 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
 
         public RoomDefinition toDefinition(String fallbackRoomId, ProgressSpeedMigrationData progressSpeedMigration) {
             if (definition != null) {
-                return upgradeLegacyProgressSpeedIfNeeded(definition, version);
+                return upgradeLegacyRevivedInvulnerabilityIfNeeded(
+                    upgradeLegacyProgressSpeedIfNeeded(definition, version),
+                    version
+                );
             }
             if (commonConfig != null || conquestConfig != null || breakthroughConfig != null) {
                 CommonConfig normalizedCommon = commonConfig == null
@@ -583,6 +586,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         private String playerGameMode;
         private int respawnDelaySeconds;
         private double respawnInvulnerableSeconds;
+        private Double revivedInvulnerableSeconds;
         private Boolean boolDisableHunger;
         private Boolean boolEnableAutoTeamSwitchPrompt;
         private Boolean boolDisableInventoryChange;
@@ -620,7 +624,10 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         private RoomPlayerStateConfig toPlayerStateConfig() {
             return new RoomPlayerStateConfig(
                 playerGameMode == null || playerGameMode.isBlank() ? RoomPlayerStateConfig.defaults().gameMode() : playerGameMode.trim(),
-                respawnInvulnerableSeconds
+                respawnInvulnerableSeconds,
+                revivedInvulnerableSeconds == null
+                    ? RoomPlayerStateConfig.defaults().revivedInvulnerableSeconds()
+                    : revivedInvulnerableSeconds
             );
         }
 
@@ -992,6 +999,51 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().campAVoicePack(),
             definition.commonConfig().campBVoicePack(),
             upgradedProgressSpeed,
+            definition.commonConfig().resultConfig(),
+            definition.commonConfig().disableHunger(),
+            definition.commonConfig().enableAutoTeamSwitchPrompt(),
+            definition.commonConfig().disableInventoryChange(),
+            definition.commonConfig().enableGoatHorn(),
+            definition.commonConfig().enablePlayerDowned()
+        );
+        return new RoomDefinition(
+            definition.roomId(),
+            definition.displayName(),
+            definition.gameplayId(),
+            definition.lifecycleState(),
+            upgradedCommon,
+            definition.conquestConfig(),
+            definition.breakthroughConfig()
+        );
+    }
+
+    private static RoomDefinition upgradeLegacyRevivedInvulnerabilityIfNeeded(RoomDefinition definition, int storageVersion) {
+        if (definition == null || storageVersion >= 9) {
+            return definition;
+        }
+        RoomPlayerStateConfig playerStateConfig = definition.commonConfig().playerStateConfig();
+        if (playerStateConfig == null || playerStateConfig.revivedInvulnerableSeconds() > 0.0D) {
+            return definition;
+        }
+        RoomPlayerStateConfig upgradedPlayerStateConfig = new RoomPlayerStateConfig(
+            playerStateConfig.gameMode(),
+            playerStateConfig.invulnerableSeconds(),
+            RoomPlayerStateConfig.defaults().revivedInvulnerableSeconds()
+        );
+        RoomCommonConfig upgradedCommon = new RoomCommonConfig(
+            definition.commonConfig().matchingConfig(),
+            definition.commonConfig().dimensionId(),
+            definition.commonConfig().queueSpawn(),
+            definition.commonConfig().respawnDelaySeconds(),
+            definition.commonConfig().vehicleBackend(),
+            upgradedPlayerStateConfig,
+            definition.commonConfig().outsideBoundaryDeathSeconds(),
+            definition.commonConfig().aircraftOutsideBoundaryCleanupSeconds(),
+            definition.commonConfig().campADisplayName(),
+            definition.commonConfig().campBDisplayName(),
+            definition.commonConfig().campAVoicePack(),
+            definition.commonConfig().campBVoicePack(),
+            definition.commonConfig().progressSpeed(),
             definition.commonConfig().resultConfig(),
             definition.commonConfig().disableHunger(),
             definition.commonConfig().enableAutoTeamSwitchPrompt(),

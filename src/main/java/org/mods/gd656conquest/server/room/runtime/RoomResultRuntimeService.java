@@ -72,6 +72,7 @@ public final class RoomResultRuntimeService {
             playerTransferQueueService.cancelPendingTransfers(playerId);
             state.clearRespawnFlow(playerId);
             ruleRuntimeService.clearPlayer(playerId);
+            playerStateService.normalizePlayerModelState(player);
             NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());
             NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
             NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setBoundaryPenalty(false));
@@ -139,6 +140,7 @@ public final class RoomResultRuntimeService {
         playerTransferQueueService.cancelPendingTransfers(playerId);
         state.clearRespawnFlow(playerId);
         ruleRuntimeService.clearPlayer(playerId);
+        playerStateService.normalizePlayerModelState(player);
         NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setBoundaryPenalty(false));
