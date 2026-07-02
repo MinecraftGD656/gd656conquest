@@ -11,6 +11,8 @@ import java.util.function.Consumer;
  * 自定义按钮类，具有悬停动画效果。
  */
 public class GDButton {
+    private static final float DEFAULT_FONT_SCALE = 1.0F;
+    private static final float DEFAULT_MIN_AUTO_SCALE = 0.62F;
     private int x, y, width, height;
     private Component message;
     private final Consumer<GDButton> onPress;
@@ -20,7 +22,9 @@ public class GDButton {
 
     private float hoverProgress = 0.0f;
     private long lastTime;
-    
+    private boolean autoScaleTextToFit = false;
+    private float minAutoScale = DEFAULT_MIN_AUTO_SCALE;
+
     private GDTextRenderer textRenderer;
 
     public GDButton(int x, int y, int width, int height, Component message, Consumer<GDButton> onPress) {
@@ -107,15 +111,40 @@ public class GDButton {
             textRenderer.setColor(color);
         }
     }
+
+    public void setAutoScaleTextToFit(boolean autoScaleTextToFit) {
+        this.autoScaleTextToFit = autoScaleTextToFit;
+        updateTextRendererBounds();
+    }
+
+    public void setMinAutoScale(float minAutoScale) {
+        this.minAutoScale = Math.max(0.1F, Math.min(1.0F, minAutoScale));
+        updateTextRendererBounds();
+    }
     
     private void updateTextRendererBounds() {
         if (textRenderer != null) {
-            int textY = y + (height - 9) / 2;
+            float fontScale = resolveFontScale();
+            int textHeight = Math.max(1, Math.round(9.0F * fontScale));
+            int textY = y + (height - textHeight) / 2;
             textRenderer.setX1(x);
             textRenderer.setY1(textY);
             textRenderer.setX2(x + width);
-            textRenderer.setY2(textY + 9);
+            textRenderer.setY2(textY + textHeight);
+            textRenderer.setFontSize(fontScale);
         }
+    }
+
+    private float resolveFontScale() {
+        if (!autoScaleTextToFit || minecraft == null || minecraft.font == null || message == null) {
+            return DEFAULT_FONT_SCALE;
+        }
+        int textWidth = minecraft.font.width(message.getString());
+        int availableWidth = Math.max(1, width - 8);
+        if (textWidth <= 0 || textWidth <= availableWidth) {
+            return DEFAULT_FONT_SCALE;
+        }
+        return Math.max(minAutoScale, Math.min(DEFAULT_FONT_SCALE, availableWidth / (float) textWidth));
     }
     
     public int getX() { return x; }

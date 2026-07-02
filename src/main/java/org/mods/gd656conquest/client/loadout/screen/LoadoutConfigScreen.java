@@ -116,6 +116,14 @@ public class LoadoutConfigScreen extends Screen {
         editRoomsButton = new GDButton(adminLeft + bottomButtonWidth + BOTTOM_BAR_GAP, bottomY, bottomButtonWidth, BOTTOM_BUTTON_H, Component.literal("房间数据"), btn -> openRoomEditorScreen());
         editAttachmentsButton = new GDButton(adminLeft + (bottomButtonWidth + BOTTOM_BAR_GAP) * 2, bottomY, bottomButtonWidth, BOTTOM_BUTTON_H, Component.literal("配件数据"), btn -> openAttachmentEditorScreen());
         editItemsButton = new GDButton(adminLeft + (bottomButtonWidth + BOTTOM_BAR_GAP) * 3, bottomY, bottomButtonWidth, BOTTOM_BUTTON_H, Component.literal("物品数据"), btn -> openItemEditorScreen());
+        closeButton.setAutoScaleTextToFit(true);
+        vehicleDeployButton.setAutoScaleTextToFit(true);
+        parkourLeaderboardButton.setAutoScaleTextToFit(true);
+        parkourLeaderboardButton.setMinAutoScale(0.52F);
+        editVehiclesButton.setAutoScaleTextToFit(true);
+        editRoomsButton.setAutoScaleTextToFit(true);
+        editAttachmentsButton.setAutoScaleTextToFit(true);
+        editItemsButton.setAutoScaleTextToFit(true);
         attachmentButtons.clear();
         createAttachmentButtons(CustomLoadoutSlot.PRIMARY_WEAPON, getPrimaryCardTop());
         createAttachmentButtons(CustomLoadoutSlot.SECONDARY_WEAPON, getSecondaryCardTop());

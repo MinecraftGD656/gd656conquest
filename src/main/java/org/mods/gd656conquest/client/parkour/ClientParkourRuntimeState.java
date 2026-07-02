@@ -75,7 +75,7 @@ public final class ClientParkourRuntimeState {
         long elapsedMillis = Math.max(0L, (System.nanoTime() - timerStartedAtNanos) / 1_000_000L);
         String text = formatElapsed(elapsedMillis);
         int x = (guiGraphics.guiWidth() - font.width(text)) / 2;
-        int y = guiGraphics.guiHeight() - 72;
+        int y = guiGraphics.guiHeight() - 88 - font.lineHeight;
         guiGraphics.drawString(font, text, x, y, 0xFFFFD78A, true);
     }
 

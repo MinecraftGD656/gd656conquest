@@ -43,6 +43,8 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
         this.backButton = new GDButton(this.width - 86, this.height - 26, 72, 20, Component.literal("返回"), btn -> closeToParent());
         this.refreshButton = new GDButton(this.width - 166, this.height - 26, 72, 20, Component.literal("刷新"), btn -> requestSnapshot(true));
         this.quickJoinButton = new GDButton(PADDING, this.height - 26, 96, 20, Component.literal("快速加入跑酷"), btn -> quickJoin());
+        this.quickJoinButton.setAutoScaleTextToFit(true);
+        this.quickJoinButton.setMinAutoScale(0.58F);
         this.rightScroll.reset();
         requestSnapshot(true);
     }
@@ -65,7 +67,6 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
         int contentY2 = this.height - 36;
 
         guiGraphics.drawString(this.font, "跑酷排行榜", PADDING, 6, 0xFFFFD78A, false);
-        guiGraphics.drawString(this.font, "仅主城可加入，挑战过程中切换玩法会自动作废当前成绩", PADDING + 86, 6, 0xFFB8C6D6, false);
 
         renderLeftPanel(guiGraphics, leftX1, leftX2, headerY, contentY1, contentY2);
         renderRightPanel(guiGraphics, mouseX, mouseY, partialTick, rightX1, rightX2, headerY, contentY1, contentY2);
@@ -132,7 +133,7 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
     private void renderLeftPanel(GuiGraphics guiGraphics, int x1, int x2, int headerY, int contentY1, int contentY2) {
         GDRowRenderer header = new GDRowRenderer(x1, headerY, x2, headerY + ROW_H, GuiConstants.COLOR_GOLD_ORANGE & 0x00FFFFFF, 0.76f, true);
         header.resetColumnConfig();
-        header.addColumn("当前信息", -1, 0xFF9FD3FF, true, false, null);
+        header.addColumn("当前信息", -1, GuiConstants.COLOR_WHITE, true, false, null);
         header.render(guiGraphics, 0, 0, 0.0F);
 
         ClientParkourLeaderboardState.Snapshot snapshot = ClientParkourLeaderboardState.snapshot();
@@ -140,7 +141,7 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
         int lineGap = 14;
         drawInfoLine(guiGraphics, x1 + 6, textY, "当前排名", snapshot == null || snapshot.currentRank() <= 0 ? "-" : String.valueOf(snapshot.currentRank()), resolveRankColor(snapshot == null ? 0 : snapshot.currentRank()));
         textY += lineGap;
-        drawInfoLine(guiGraphics, x1 + 6, textY, "最佳成绩", formatTime(snapshot == null ? 0L : snapshot.bestTimeMillis()), 0xFF9FD3FF);
+        drawInfoLine(guiGraphics, x1 + 6, textY, "最佳成绩", formatTime(snapshot == null ? 0L : snapshot.bestTimeMillis()), GuiConstants.COLOR_WHITE);
         textY += lineGap;
         drawInfoLine(guiGraphics, x1 + 6, textY, "上次成绩", formatTime(snapshot == null ? 0L : snapshot.lastTimeMillis()), 0xFFFFD78A);
         textY += lineGap;
@@ -148,11 +149,7 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
         textY += lineGap;
         drawInfoLine(guiGraphics, x1 + 6, textY, "纪录用时", formatTime(snapshot == null ? 0L : snapshot.recordHolderTimeMillis()), 0xFFFF7070);
         textY += lineGap;
-        drawInfoLine(guiGraphics, x1 + 6, textY, "当前状态", snapshot != null && snapshot.inParkour() ? "已加入跑酷" : "未加入", snapshot != null && snapshot.inParkour() ? 0xFF8EF7A2 : 0xFF9AA6B8);
-        textY += lineGap * 2;
-        guiGraphics.drawString(this.font, "挑战计时会显示在 actionbar 上方", x1 + 6, textY, 0xFFB8C6D6, false);
-        textY += lineGap;
-        guiGraphics.drawString(this.font, "格式: " + ClientParkourRuntimeState.formatElapsed(62_345L), x1 + 6, textY, 0xFFB8C6D6, false);
+        drawInfoLine(guiGraphics, x1 + 6, textY, "当前状态", snapshot != null && snapshot.inParkour() ? "已加入跑酷" : "未加入", snapshot != null && snapshot.inParkour() ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY);
         if (snapshot == null) {
             guiGraphics.drawString(this.font, "正在同步排行榜...", x1 + 6, contentY2 - 16, 0xFFFFD78A, false);
         }
@@ -162,8 +159,8 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
         GDRowRenderer header = new GDRowRenderer(x1, headerY, x2, headerY + ROW_H, GuiConstants.COLOR_GOLD_ORANGE & 0x00FFFFFF, 0.76f, true);
         header.resetColumnConfig();
         header.addColumn("排名", 40, 0xFFFFE39F, true, true, null);
-        header.addColumn("玩家", -1, 0xFF9FD3FF, true, false, null);
-        header.addColumn("用时", 84, 0xFFBDF5BD, true, false, null);
+        header.addColumn("玩家", -1, GuiConstants.COLOR_WHITE, true, false, null);
+        header.addColumn("用时", 84, 0xFFFFE39F, true, false, null);
         header.render(guiGraphics, mouseX, mouseY, partialTick);
 
         ClientParkourLeaderboardState.Snapshot snapshot = ClientParkourLeaderboardState.snapshot();
@@ -187,8 +184,8 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
             GDRowRenderer row = rightRows.get(index);
             row.setBounds(x1, rowTop, x2, rowBottom);
             row.resetColumnConfig();
-            row.setBackgroundColor((index % 2 == 0 ? 0x00161F2C : 0x0010181F) & 0x00FFFFFF);
-            row.setBackgroundAlpha(entry.self() ? 0.42f : (index % 2 == 0 ? 0.18f : 0.30f));
+            row.setBackgroundColor((index % 2 == 0 ? 0x002C2C2C : 0x001F1F1F) & 0x00FFFFFF);
+            row.setBackgroundAlpha(entry.self() ? 0.42f : (index % 2 == 0 ? 0.22f : 0.32f));
             row.addColumn(String.valueOf(entry.rank()), 40, resolveRankColor(entry.rank()), true, true, null);
             row.addColumn(entry.self() ? entry.playerName() + "  [你]" : entry.playerName(), -1, 0xFFEDEDED, true, false, null);
             row.addColumn(formatTime(entry.timeMillis()), 84, resolveRankColor(entry.rank()), true, false, null);

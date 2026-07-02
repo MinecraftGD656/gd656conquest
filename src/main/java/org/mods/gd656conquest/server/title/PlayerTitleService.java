@@ -169,6 +169,21 @@ public final class PlayerTitleService {
         return new GrantResult(true, normalizedTitleId, resolved.playerName(), resolved.playerId(), changed ? "已给予称号" : "该玩家已拥有该称号");
     }
 
+    public GrantResult giveTitleDirect(UUID playerId, String preferredName, String titleId, String giverName) {
+        String normalizedTitleId = normalizeTitleId(titleId);
+        PlayerTitleRegistryStore.TitleDefinition definition = registryStore.find(normalizedTitleId).orElse(null);
+        if (definition == null) {
+            return new GrantResult(false, normalizedTitleId, preferredName == null ? "" : preferredName, playerId, "未找到称号: " + normalizedTitleId);
+        }
+        if (playerId == null) {
+            return new GrantResult(false, normalizedTitleId, preferredName == null ? "" : preferredName, null, "玩家不存在");
+        }
+        String resolvedName = preferredName == null || preferredName.isBlank() ? playerId.toString() : preferredName.trim();
+        PlayerDataModel data = ensurePlayerDefaults(playerId, resolvedName);
+        boolean changed = grantTitleToPlayer(playerId, resolvedName, data, definition, giverName);
+        return new GrantResult(true, normalizedTitleId, resolvedName, playerId, changed ? "已给予称号" : "该玩家已拥有该称号");
+    }
+
     public RemoveResult removeAllTitles(String playerNameOrUuid) {
         ResolvedPlayer resolved = resolvePlayer(playerNameOrUuid);
         if (resolved == null) {
@@ -213,6 +228,28 @@ public final class PlayerTitleService {
             savePlayerData(resolved.playerId(), data);
         }
         return new RemoveResult(true, resolved.playerName(), resolved.playerId(), changed ? "已删除指定称号" : "该玩家未持有该称号");
+    }
+
+    public RemoveResult removeSingleTitleDirect(UUID playerId, String preferredName, String titleId) {
+        String normalizedTitleId = normalizeTitleId(titleId);
+        if (DEFAULT_TITLE_ID.equals(normalizedTitleId)) {
+            return new RemoveResult(false, preferredName == null ? "" : preferredName, playerId, "默认称号不可删除");
+        }
+        if (playerId == null) {
+            return new RemoveResult(false, preferredName == null ? "" : preferredName, null, "玩家不存在");
+        }
+        String resolvedName = preferredName == null || preferredName.isBlank() ? playerId.toString() : preferredName.trim();
+        PlayerDataModel data = ensurePlayerDefaults(playerId, resolvedName);
+        boolean changed = data.getOwnedTitleIds().remove(normalizedTitleId);
+        if (normalizedTitleId.equals(data.getEquippedTitleId())) {
+            data.setEquippedTitleId(DEFAULT_TITLE_ID);
+            changed = true;
+        }
+        changed |= removePendingNoticesByFilter(data, normalizedTitleId);
+        if (changed) {
+            savePlayerData(playerId, data);
+        }
+        return new RemoveResult(true, resolvedName, playerId, changed ? "已删除指定称号" : "该玩家未持有该称号");
     }
 
     public WearResult wearTitle(ServerPlayer player, String titleId) {

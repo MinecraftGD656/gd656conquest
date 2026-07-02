@@ -31,6 +31,7 @@ import org.mods.gd656conquest.server.data.roomdefinition.LegacyRoomDefinitionsUp
 import org.mods.gd656conquest.server.data.serverconfig.ServerConfigDataModel;
 import org.mods.gd656conquest.server.data.serverconfig.ServerConfigStore;
 import org.mods.gd656conquest.server.core.command.debug.VehicleDebugCommands;
+import org.mods.gd656conquest.server.facility.parkour.ParkourCommands;
 import org.mods.gd656conquest.server.facility.parkour.ParkourRuntimeManager;
 import org.mods.gd656conquest.server.facility.range.RangeCommands;
 import org.mods.gd656conquest.server.loadout.LoadoutCommands;
@@ -97,6 +98,7 @@ public final class ConquestServerCommands {
     private static LiteralArgumentBuilder<CommandSourceStack> buildRoot(String literal) {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(literal);
         root.then(buildPlayerTree());
+        root.then(ParkourCommands.buildTree());
         root.then(RangeCommands.buildTree());
         root.then(RoomCommands.buildTree());
         root.then(LoadoutCommands.buildTree());
@@ -458,6 +460,9 @@ public final class ConquestServerCommands {
     private static CompletableFuture<Suggestions> suggestServerConfigValues(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         String configId = StringArgumentType.getString(context, "configId");
         String normalized = normalizeServerConfigIdSafe(configId);
+        if (normalized == null) {
+            return builder.buildFuture();
+        }
         return switch (normalized) {
             case "boolOverworldInvulnerable", "boolRestrictConquestDimension", "boolNaturalRegeneration" ->
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);

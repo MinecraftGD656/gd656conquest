@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -77,9 +78,6 @@ public final class ParkourRuntimeManager {
     }
 
     public void onServerTick(long gameTick) {
-        if (gameTick % 200L == 0L) {
-            reconcileConfiguredTitles();
-        }
     }
 
     public void onPlayerTick(ServerPlayer player) {
@@ -87,22 +85,19 @@ public final class ParkourRuntimeManager {
             return;
         }
         ParkourPlayerSession session = playerSessions.get(player.getUUID());
-        if (session == null) {
-            return;
-        }
         if (!HubDimensionService.isHubDimension(player.level())) {
             ServerActionBarService.clearSource(player, ACTIONBAR_PROMPT_SOURCE);
             return;
         }
-        if (session.challengeActive()) {
+        if (session != null && session.challengeActive()) {
             ServerActionBarService.clearSource(player, ACTIONBAR_PROMPT_SOURCE);
             return;
         }
-        if (server.getTickCount() < session.statusUntilTick()) {
+        if (session != null && server.getTickCount() < session.statusUntilTick()) {
             ServerActionBarService.clearSource(player, ACTIONBAR_PROMPT_SOURCE);
             return;
         }
-        if (isInsideTargetArea(player, serverConfig().getParkourStartPosFallbackShared())) {
+        if (shouldShowStartPrompt(player, session)) {
             ServerActionBarService.showBuilder(player, ACTIONBAR_PROMPT_SOURCE, buildStartPromptActionbar(), 30);
         } else {
             ServerActionBarService.clearSource(player, ACTIONBAR_PROMPT_SOURCE);
@@ -274,11 +269,21 @@ public final class ParkourRuntimeManager {
         if (player == null || player.server == null) {
             return false;
         }
+        if (!HubDimensionService.isHubDimension(player.level())) {
+            return false;
+        }
         ParkourPlayerSession session = playerSessions.get(player.getUUID());
+        if (session == null) {
+            if (!canQuickJoin(player) || !isInsideStartArea(player)) {
+                return false;
+            }
+            joinParkour(player);
+            session = playerSessions.get(player.getUUID());
+        }
         if (session == null || session.challengeActive()) {
             return false;
         }
-        if (!isInsideTargetArea(player, serverConfig().getParkourStartPosFallbackShared())) {
+        if (!isInsideStartArea(player)) {
             return false;
         }
         session.beginNewRun(server.getTickCount());
@@ -307,7 +312,7 @@ public final class ParkourRuntimeManager {
         if (elapsedMillis <= 0L || elapsedMillis > MAX_ACCEPTED_TIME_MILLIS) {
             return;
         }
-        if (!isInsideTargetArea(player, serverConfig().getParkourEndPosFallbackShared())) {
+        if (!isInsideEndArea(player)) {
             return;
         }
         session.setFinishSubmitted(true);
@@ -315,7 +320,7 @@ public final class ParkourRuntimeManager {
         session.setStatusUntilTick(server.getTickCount() + 120L);
         SubmissionResult result = submitResult(player, elapsedMillis);
         ServerActionBarService.showComponent(player, ACTIONBAR_STATUS_SOURCE, buildCompletionActionbar(elapsedMillis, result.rank()), 120);
-        syncClientState(player);
+        completeParkourAfterFinish(player, session);
         sendLeaderboardSnapshot(player, false);
     }
 
@@ -365,7 +370,7 @@ public final class ParkourRuntimeManager {
         PlayerDataStore playerDataStore = ConquestDataManager.of(server).playerData();
         if (!completionTitleId.isBlank()) {
             for (RankedRecord record : sorted) {
-                titleService.giveTitle(completionTitleId, record.playerId().toString(), "跑酷");
+                titleService.giveTitleDirect(completionTitleId == null ? null : record.playerId(), record.playerName(), completionTitleId, "跑酷");
             }
         }
         if (!bestTitleId.isBlank()) {
@@ -375,13 +380,38 @@ public final class ParkourRuntimeManager {
                 if (uuid == null) {
                     continue;
                 }
+                String preferredName = playerDataStore.getPlayerData(uuid).getLastKnownPlayerName();
                 if (uuid.equals(championId)) {
-                    titleService.giveTitle(bestTitleId, uuid.toString(), "跑酷");
+                    titleService.giveTitleDirect(uuid, preferredName, bestTitleId, "跑酷");
                 } else {
-                    titleService.removeSingleTitle(uuid.toString(), bestTitleId);
+                    titleService.removeSingleTitleDirect(uuid, preferredName, bestTitleId);
                 }
             }
         }
+    }
+
+    public List<String> suggestKnownPlayers() {
+        return PlayerTitleService.of(server).suggestKnownPlayerNames();
+    }
+
+    public RemoveRecordResult removeRecord(String playerName) {
+        ResolvedPlayer resolved = resolvePlayerByName(playerName);
+        if (resolved == null) {
+            return new RemoveRecordResult(false, playerName == null ? "" : playerName, "未找到玩家: " + playerName);
+        }
+        ParkourDataModel model = ConquestDataManager.of(server).parkourData().get();
+        ParkourDataModel.PlayerRecord removed = model.getPlayerRecords().remove(resolved.playerId().toString());
+        if (removed == null) {
+            return new RemoveRecordResult(false, resolved.playerName(), "该玩家没有跑酷记录");
+        }
+        ConquestDataManager.of(server).parkourData().save(model);
+        String bestTitleId = serverConfig().getParkourBestTitleId();
+        if (!bestTitleId.isBlank()) {
+            PlayerTitleService.of(server).removeSingleTitleDirect(resolved.playerId(), resolved.playerName(), bestTitleId);
+        }
+        reconcileConfiguredTitles();
+        resyncOnlineState();
+        return new RemoveRecordResult(true, resolved.playerName(), "已删除该玩家的跑酷记录");
     }
 
     private SubmissionResult submitResult(ServerPlayer player, long elapsedMillis) {
@@ -406,16 +436,16 @@ public final class ParkourRuntimeManager {
         }
         ConquestDataManager.of(server).parkourData().save(model);
         if (!completionTitleId.isBlank()) {
-            titleService.giveTitle(completionTitleId, playerId.toString(), "跑酷");
+            titleService.giveTitleDirect(playerId, playerName, completionTitleId, "跑酷");
         }
         List<RankedRecord> after = sortedRecords();
         RankedRecord currentChampion = after.isEmpty() ? null : after.get(0);
         if (!bestTitleId.isBlank()) {
             if (previousChampion != null && (currentChampion == null || !previousChampion.equals(currentChampion.playerId()))) {
-                titleService.removeSingleTitle(previousChampion.toString(), bestTitleId);
+                titleService.removeSingleTitleDirect(previousChampion, before.isEmpty() ? previousChampion.toString() : before.get(0).playerName(), bestTitleId);
             }
             if (currentChampion != null) {
-                titleService.giveTitle(bestTitleId, currentChampion.playerId().toString(), "跑酷");
+                titleService.giveTitleDirect(currentChampion.playerId(), currentChampion.playerName(), bestTitleId, "跑酷");
             }
         }
         int rank = 0;
@@ -585,13 +615,42 @@ public final class ParkourRuntimeManager {
         player.clearFire();
     }
 
-    private boolean isInsideTargetArea(ServerPlayer player, RoomPosition position) {
+    private boolean shouldShowStartPrompt(ServerPlayer player, ParkourPlayerSession session) {
+        if (player == null || !isInsideStartArea(player)) {
+            return false;
+        }
+        return session != null || canQuickJoin(player);
+    }
+
+    private boolean isInsideStartArea(ServerPlayer player) {
+        return isInsideTargetArea(player, serverConfig().getParkourStartPosFallbackShared(), 3.5D);
+    }
+
+    private boolean isInsideEndArea(ServerPlayer player) {
+        return isInsideTargetArea(player, serverConfig().getParkourEndPosFallbackShared(), 2.5D);
+    }
+
+    private boolean isInsideTargetArea(ServerPlayer player, RoomPosition position, double verticalTolerance) {
         if (player == null || position == null) {
             return false;
         }
         return Math.abs(player.getBlockX() - position.x()) <= 1
             && Math.abs(player.getBlockZ() - position.z()) <= 1
-            && Math.abs(player.getY() - position.y()) <= 2.5D;
+            && Math.abs(player.getY() - position.y()) <= verticalTolerance;
+    }
+
+    private void completeParkourAfterFinish(ServerPlayer player, ParkourPlayerSession session) {
+        if (player == null) {
+            return;
+        }
+        UUID uuid = player.getUUID();
+        pendingRespawnPlayers.remove(uuid);
+        playerSessions.remove(uuid);
+        ServerActionBarService.clearSource(player, ACTIONBAR_PROMPT_SOURCE);
+        restoreInventory(player, session == null ? null : session.inventorySnapshot());
+        resetPostReturnState(player);
+        syncClientState(player);
+        QuickAccessItemService.refreshHotbar(player);
     }
 
     private void syncClientState(ServerPlayer player) {
@@ -658,7 +717,28 @@ public final class ParkourRuntimeManager {
         long minutes = totalSeconds / 60L;
         long seconds = totalSeconds % 60L;
         long millis = elapsedMillis % 1000L;
-        return String.format(java.util.Locale.ROOT, "%02d:%02d.%03d", minutes, seconds, millis);
+        return String.format(Locale.ROOT, "%02d:%02d.%03d", minutes, seconds, millis);
+    }
+
+    private ResolvedPlayer resolvePlayerByName(String playerName) {
+        if (playerName == null || playerName.isBlank()) {
+            return null;
+        }
+        String normalized = playerName.trim();
+        ServerPlayer online = server.getPlayerList().getPlayerByName(normalized);
+        if (online != null) {
+            return new ResolvedPlayer(online.getUUID(), online.getScoreboardName());
+        }
+        for (UUID uuid : ConquestDataManager.of(server).playerData().listKnownPlayerIds()) {
+            if (uuid == null) {
+                continue;
+            }
+            String knownName = ConquestDataManager.of(server).playerData().getPlayerData(uuid).getLastKnownPlayerName();
+            if (knownName != null && knownName.equalsIgnoreCase(normalized)) {
+                return new ResolvedPlayer(uuid, knownName);
+            }
+        }
+        return null;
     }
 
     private record RecordRow(UUID playerId, String playerName, long bestTimeMillis, long bestUpdatedAtEpochMs) {
@@ -671,6 +751,12 @@ public final class ParkourRuntimeManager {
     }
 
     private record SubmissionResult(int rank) {
+    }
+
+    public record RemoveRecordResult(boolean success, String playerName, String message) {
+    }
+
+    private record ResolvedPlayer(UUID playerId, String playerName) {
     }
 
     private static final class ParkourPlayerSession {

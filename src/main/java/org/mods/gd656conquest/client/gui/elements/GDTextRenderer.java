@@ -80,6 +80,10 @@ public class GDTextRenderer {
         this.centered = centered;
     }
 
+    public void setFontSize(float fontSize) {
+        this.fontSize = Math.max(0.1F, fontSize);
+    }
+
     public void render(GuiGraphics guiGraphics, float partialTick) {
         render(guiGraphics, partialTick, true);
     }
