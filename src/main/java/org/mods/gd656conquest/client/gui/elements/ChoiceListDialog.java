@@ -10,8 +10,8 @@ import org.lwjgl.glfw.GLFW;
 import org.mods.gd656conquest.client.gui.GuiConstants;
 import org.mods.gd656conquest.client.gui.elements.entries.FixedChoiceConfigEntry;
 
-import java.util.ArrayList;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
@@ -24,6 +24,14 @@ public class ChoiceListDialog {
     private static final int LIST_WIDTH = 140 + 15;
     private static final int PREVIEW_WIDTH = 64;
     private static final int PREVIEW_GAP = 8;
+    private static final int PANEL_WIDTH = PREVIEW_WIDTH + PREVIEW_GAP + LIST_WIDTH;
+    private static final int BUTTON_HEIGHT = GuiConstants.ROW_HEADER_HEIGHT;
+    private static final int INPUT_HEIGHT = GuiConstants.ROW_HEADER_HEIGHT;
+    private static final int ICON_COLUMN_WIDTH = GuiConstants.ROW_HEADER_HEIGHT;
+    private static final int PAD = GuiConstants.DEFAULT_PADDING;
+    private static final int LIST_HEIGHT = LIST_WIDTH - GuiConstants.ROW_HEADER_HEIGHT - PAD + 12;
+    private static final int PANEL_HEIGHT = LIST_HEIGHT + PAD + INPUT_HEIGHT + PAD + BUTTON_HEIGHT;
+
     private final Minecraft minecraft;
     private Consumer<String> onConfirm;
     private Runnable onCancel;
@@ -37,9 +45,8 @@ public class ChoiceListDialog {
     private int displayOffset = 0;
     private String selectedValue = "";
 
-    private final List<ChoiceGroup> groups = new ArrayList<>();
     private final List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
-    private final List<RenderItem> renderItems = new ArrayList<>();
+    private final List<FixedChoiceConfigEntry.Choice> filteredChoices = new ArrayList<>();
     private final List<GDRowRenderer> rowRenderers = new ArrayList<>();
     private Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate;
     private Consumer<FixedChoiceConfigEntry.Choice> onExtraAction;
@@ -47,11 +54,10 @@ public class ChoiceListDialog {
     private Consumer<FixedChoiceConfigEntry.Choice> onDirectAction;
     private Predicate<FixedChoiceConfigEntry.Choice> selectablePredicate;
     private Function<FixedChoiceConfigEntry.Choice, RowIcon> iconProvider;
+    private Consumer<FixedChoiceConfigEntry.Choice> onHoverChoice;
     private String extraActionText = "";
     private int extraActionColor = GuiConstants.COLOR_RED;
     private int extraActionWidth = GuiConstants.ROW_HEADER_HEIGHT;
-    private ChoiceListState persistentState;
-    private Consumer<FixedChoiceConfigEntry.Choice> onHoverChoice;
 
     private boolean isDraggingList = false;
     private double lastMouseY = 0;
@@ -64,15 +70,6 @@ public class ChoiceListDialog {
     private GDButton confirmButton;
     private GDButton cancelButton;
     private GDTextRenderer titleRenderer;
-
-    private static final int PANEL_WIDTH = PREVIEW_WIDTH + PREVIEW_GAP + LIST_WIDTH;
-    private static final int BUTTON_HEIGHT = GuiConstants.ROW_HEADER_HEIGHT;
-    private static final int INPUT_HEIGHT = GuiConstants.ROW_HEADER_HEIGHT;
-    private static final int HUE_BAR_WIDTH = GuiConstants.ROW_HEADER_HEIGHT;
-    private static final int ICON_COLUMN_WIDTH = GuiConstants.ROW_HEADER_HEIGHT;
-    private static final int PAD = GuiConstants.DEFAULT_PADDING;
-    private static final int LIST_HEIGHT = LIST_WIDTH - HUE_BAR_WIDTH - PAD + 12;
-    private static final int PANEL_HEIGHT = LIST_HEIGHT + PAD + INPUT_HEIGHT + PAD + BUTTON_HEIGHT;
 
     private static class EditState {
         final String text;
@@ -100,135 +97,8 @@ public class ChoiceListDialog {
         }
     }
 
-    public static class ChoiceGroup {
-        private final String groupId;
-        private final String displayName;
-        private final List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
-        private boolean expanded = false;
-
-        public ChoiceGroup(String groupId, String displayName) {
-            this.groupId = groupId;
-            this.displayName = displayName;
-        }
-
-        public String getGroupId() {
-            return groupId;
-        }
-
-        public String getDisplayName() {
-            return displayName;
-        }
-
-        public List<FixedChoiceConfigEntry.Choice> getChoices() {
-            return choices;
-        }
-
-        public boolean isExpanded() {
-            return expanded;
-        }
-
-        public void setExpanded(boolean expanded) {
-            this.expanded = expanded;
-        }
-    }
-
-    private static class RenderItem {
-        final boolean isGroupHeader;
-        final ChoiceGroup group;
-        final FixedChoiceConfigEntry.Choice choice;
-
-        RenderItem(ChoiceGroup group) {
-            this.isGroupHeader = true;
-            this.group = group;
-            this.choice = null;
-        }
-
-        RenderItem(ChoiceGroup group, FixedChoiceConfigEntry.Choice choice) {
-            this.isGroupHeader = false;
-            this.group = group;
-            this.choice = choice;
-        }
-    }
-
     public ChoiceListDialog(Minecraft minecraft) {
         this.minecraft = minecraft;
-    }
-
-    public void showWithGroups(
-        String initialValue,
-        String title,
-        List<ChoiceGroup> inputGroups,
-        Consumer<String> onConfirm,
-        Runnable onCancel,
-        Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate,
-        Consumer<FixedChoiceConfigEntry.Choice> onExtraAction,
-        String extraActionText,
-        int extraActionColor,
-        int extraActionWidth,
-        Predicate<FixedChoiceConfigEntry.Choice> directActionPredicate,
-        Consumer<FixedChoiceConfigEntry.Choice> onDirectAction,
-        Predicate<FixedChoiceConfigEntry.Choice> selectablePredicate,
-        Function<FixedChoiceConfigEntry.Choice, RowIcon> iconProvider,
-        ChoiceListState persistentState,
-        Consumer<FixedChoiceConfigEntry.Choice> onHoverChoice
-    ) {
-        this.title = title;
-        this.onConfirm = onConfirm;
-        this.onCancel = onCancel;
-        this.extraActionVisiblePredicate = extraActionVisiblePredicate;
-        this.onExtraAction = onExtraAction;
-        this.directActionPredicate = directActionPredicate;
-        this.onDirectAction = onDirectAction;
-        this.selectablePredicate = selectablePredicate;
-        this.iconProvider = iconProvider;
-        this.extraActionText = extraActionText == null ? "" : extraActionText;
-        this.extraActionColor = extraActionColor;
-        this.extraActionWidth = extraActionWidth <= 0 ? GuiConstants.ROW_HEADER_HEIGHT : extraActionWidth;
-        this.visible = true;
-        this.lastFrameTime = System.currentTimeMillis();
-        this.inputHoverProgress = 0.0f;
-        this.filterText = "";
-        this.cursorPosition = 0;
-        this.selectionAnchor = -1;
-        this.undoStack.clear();
-        this.displayOffset = 0;
-        this.persistentState = persistentState;
-        this.onHoverChoice = onHoverChoice;
-
-        this.groups.clear();
-        this.choices.clear();
-        
-        if (inputGroups != null) {
-            for (ChoiceGroup group : inputGroups) {
-                if (group != null && !group.getChoices().isEmpty()) {
-                    if (persistentState != null && persistentState.isExpanded(group.getGroupId())) {
-                        group.setExpanded(true);
-                    }
-                    this.groups.add(group);
-                    this.choices.addAll(group.getChoices());
-                }
-            }
-        }
-
-        this.selectedValue = resolveValue(initialValue);
-        applyFilter();
-
-        if (persistentState != null) {
-            this.targetScrollY = persistentState.getScrollY();
-            this.scrollY = this.targetScrollY;
-        }
-
-        int w1 = (PANEL_WIDTH - 1) / 2;
-        int w2 = PANEL_WIDTH - 1 - w1;
-        this.confirmButton = new GDButton(0, 0, w2, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal(I18n.get("gd656conquest.client.gui.config.confirm")), (btn) -> confirm());
-        this.cancelButton = new GDButton(0, 0, w1, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal(I18n.get("gd656conquest.client.gui.config.cancel")), (btn) -> cancel());
-
-        if (this.titleRenderer == null) {
-            this.titleRenderer = new GDTextRenderer(title, 0, 0, 0, 0, 1.0f, GuiConstants.COLOR_GOLD, false);
-        } else {
-            this.titleRenderer.setText(title);
-            this.titleRenderer.setColor(GuiConstants.COLOR_GOLD);
-        }
     }
 
     public void show(String initialValue, String title, List<FixedChoiceConfigEntry.Choice> options, Consumer<String> onConfirm, Runnable onCancel) {
@@ -401,6 +271,10 @@ public class ChoiceListDialog {
         this.selectionAnchor = -1;
         this.undoStack.clear();
         this.displayOffset = 0;
+        this.isDraggingList = false;
+        this.lastMouseY = 0.0D;
+        this.scrollY = 0.0D;
+        this.targetScrollY = 0.0D;
 
         this.choices.clear();
         if (options != null) {
@@ -412,8 +286,8 @@ public class ChoiceListDialog {
 
         int w1 = (PANEL_WIDTH - 1) / 2;
         int w2 = PANEL_WIDTH - 1 - w1;
-        this.confirmButton = new GDButton(0, 0, w2, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal(I18n.get("gd656conquest.client.gui.config.confirm")), (btn) -> confirm());
-        this.cancelButton = new GDButton(0, 0, w1, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal(I18n.get("gd656conquest.client.gui.config.cancel")), (btn) -> cancel());
+        this.confirmButton = new GDButton(0, 0, w2, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal(I18n.get("gd656conquest.client.gui.config.confirm")), btn -> confirm());
+        this.cancelButton = new GDButton(0, 0, w1, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal(I18n.get("gd656conquest.client.gui.config.cancel")), btn -> cancel());
 
         if (this.titleRenderer == null) {
             this.titleRenderer = new GDTextRenderer(title, 0, 0, 0, 0, 1.0f, GuiConstants.COLOR_GOLD, false);
@@ -432,7 +306,9 @@ public class ChoiceListDialog {
     }
 
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        if (!visible) return;
+        if (!visible) {
+            return;
+        }
 
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(0, 0, 500.0f);
@@ -440,22 +316,15 @@ public class ChoiceListDialog {
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
 
-        int dimColor = 0x88444444;
-        guiGraphics.fill(0, 0, screenWidth, screenHeight, dimColor);
+        guiGraphics.fill(0, 0, screenWidth, screenHeight, 0x88444444);
 
         int centerX = (screenWidth - PANEL_WIDTH) / 2;
         int centerY = (screenHeight - PANEL_HEIGHT) / 2 + 20;
-
         int fontHeight = minecraft.font.lineHeight;
         int titleY = centerY - fontHeight - PAD + 6;
         int buttonsY = centerY + PANEL_HEIGHT - BUTTON_HEIGHT;
 
-        int containerTop = titleY - PAD;
-        int containerLeft = centerX - PAD;
-        int containerRight = centerX + PANEL_WIDTH + PAD;
-        int containerBottom = buttonsY + BUTTON_HEIGHT + PAD;
-
-        guiGraphics.fill(containerLeft, containerTop, containerRight, containerBottom, GuiConstants.COLOR_BG);
+        guiGraphics.fill(centerX - PAD, titleY - PAD, centerX + PANEL_WIDTH + PAD, buttonsY + BUTTON_HEIGHT + PAD, GuiConstants.COLOR_BG);
 
         if (titleRenderer != null) {
             titleRenderer.setX1(centerX);
@@ -470,21 +339,22 @@ public class ChoiceListDialog {
         int previewW = PREVIEW_WIDTH;
         int previewH = LIST_HEIGHT;
         int listX = centerX + PREVIEW_WIDTH + PREVIEW_GAP;
-        int listY = buttonsY - PAD - INPUT_HEIGHT - PAD - LIST_HEIGHT;
+        int listY = previewY;
         int listW = LIST_WIDTH;
         int listH = LIST_HEIGHT;
-
         int inputX = centerX;
         int inputY = buttonsY - PAD - INPUT_HEIGHT;
-        int inputW = PANEL_WIDTH;
 
         long currentTime = System.currentTimeMillis();
         float dt = (currentTime - lastFrameTime) / 1000.0f;
         lastFrameTime = currentTime;
 
-        boolean isHoveringInput = mouseX >= inputX && mouseX <= inputX + inputW && mouseY >= inputY && mouseY <= inputY + INPUT_HEIGHT;
-        if (isHoveringInput) inputHoverProgress = Math.min(1.0f, inputHoverProgress + dt * 2.0f);
-        else inputHoverProgress = Math.max(0.0f, inputHoverProgress - dt * 2.0f);
+        boolean hoveringInput = mouseX >= inputX && mouseX <= inputX + PANEL_WIDTH && mouseY >= inputY && mouseY <= inputY + INPUT_HEIGHT;
+        if (hoveringInput) {
+            inputHoverProgress = Math.min(1.0f, inputHoverProgress + dt * 2.0f);
+        } else {
+            inputHoverProgress = Math.max(0.0f, inputHoverProgress - dt * 2.0f);
+        }
 
         if (isDraggingList) {
             double diff = mouseY - lastMouseY;
@@ -494,34 +364,30 @@ public class ChoiceListDialog {
 
         updateScroll(dt, listH);
 
-        int listBgColor = (GuiConstants.COLOR_BLACK & 0x00FFFFFF) | (int)(255 * 0.35f) << 24;
+        int listBgColor = (GuiConstants.COLOR_BLACK & 0x00FFFFFF) | (int) (255 * 0.35f) << 24;
         guiGraphics.fill(previewX, previewY, previewX + previewW, previewY + previewH, listBgColor);
         guiGraphics.fill(listX, listY, listX + listW, listY + listH, listBgColor);
-        
+
         FixedChoiceConfigEntry.Choice hoveredChoice = getHoveredChoice(mouseX, mouseY, listX, listY, listW, listH);
         if (onHoverChoice != null) {
             onHoverChoice.accept(hoveredChoice);
         }
-        
-        renderHoverPreview(guiGraphics, hoveredChoice, previewX, previewY, previewW, previewH);
 
+        renderHoverPreview(guiGraphics, hoveredChoice, previewX, previewY, previewW, previewH);
         renderList(guiGraphics, mouseX, mouseY, partialTick, listX, listY, listX + listW, listY + listH);
 
-        int inputBgColor = (GuiConstants.COLOR_BLACK & 0x00FFFFFF) | (int)(255 * 0.45f) << 24;
-        guiGraphics.fill(inputX, inputY, inputX + inputW, inputY + INPUT_HEIGHT, inputBgColor);
-
-        renderHoverTrail(guiGraphics, inputX, inputY, inputW, INPUT_HEIGHT, inputHoverProgress);
-        renderInputText(guiGraphics, inputX, inputY, inputW, INPUT_HEIGHT);
+        int inputBgColor = (GuiConstants.COLOR_BLACK & 0x00FFFFFF) | (int) (255 * 0.45f) << 24;
+        guiGraphics.fill(inputX, inputY, inputX + PANEL_WIDTH, inputY + INPUT_HEIGHT, inputBgColor);
+        renderHoverTrail(guiGraphics, inputX, inputY, PANEL_WIDTH, INPUT_HEIGHT, inputHoverProgress);
+        renderInputText(guiGraphics, inputX, inputY, PANEL_WIDTH, INPUT_HEIGHT);
 
         int btnLeftX = centerX;
         int btnRightX = centerX + (PANEL_WIDTH - 1) / 2 + 1;
-
         if (cancelButton != null) {
             cancelButton.setX(btnLeftX);
             cancelButton.setY(buttonsY);
             cancelButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
-
         if (confirmButton != null) {
             confirmButton.setX(btnRightX);
             confirmButton.setY(buttonsY);
@@ -532,16 +398,20 @@ public class ChoiceListDialog {
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (!visible) return false;
-
-        if (confirmButton != null && confirmButton.mouseClicked(mouseX, mouseY, button)) return true;
-        if (cancelButton != null && cancelButton.mouseClicked(mouseX, mouseY, button)) return true;
+        if (!visible) {
+            return false;
+        }
+        if (confirmButton != null && confirmButton.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        if (cancelButton != null && cancelButton.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
 
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
         int centerX = (screenWidth - PANEL_WIDTH) / 2;
         int centerY = (screenHeight - PANEL_HEIGHT) / 2 + 20;
-
         int buttonsY = centerY + PANEL_HEIGHT - BUTTON_HEIGHT;
         int inputY = buttonsY - PAD - INPUT_HEIGHT;
         int inputX = centerX;
@@ -549,7 +419,7 @@ public class ChoiceListDialog {
         int listX = centerX + PREVIEW_WIDTH + PREVIEW_GAP;
 
         if (mouseX >= inputX && mouseX <= inputX + PANEL_WIDTH && mouseY >= inputY && mouseY <= inputY + INPUT_HEIGHT) {
-            setCursorByMouse((int)mouseX, inputX);
+            setCursorByMouse((int) mouseX, inputX);
             selectionAnchor = -1;
             return true;
         }
@@ -558,48 +428,29 @@ public class ChoiceListDialog {
             double adjustedMouseY = mouseY + scrollY;
             int selectWidth = 30;
 
-            for (int i = 0; i < renderItems.size(); i++) {
-                RenderItem item = renderItems.get(i);
-                if (item.isGroupHeader) {
-                    int rowTop = listY + i * (ROW_HEIGHT + ROW_GAP);
-                    int rowBottom = rowTop + ROW_HEIGHT;
-                    if (adjustedMouseY >= rowTop && adjustedMouseY <= rowBottom) {
-                        if (button == 0) {
-                            item.group.setExpanded(!item.group.isExpanded());
-                            if (persistentState != null) {
-                                persistentState.setExpanded(item.group.getGroupId(), item.group.isExpanded());
-                            }
-                            double oldScroll = targetScrollY;
-                            applyFilter();
-                            targetScrollY = oldScroll;
-                            scrollY = oldScroll;
-                        }
-                        break;
-                    }
-                    continue;
-                }
-
-                FixedChoiceConfigEntry.Choice choice = item.choice;
+            for (int i = 0; i < filteredChoices.size(); i++) {
+                FixedChoiceConfigEntry.Choice choice = filteredChoices.get(i);
                 boolean hasExtraAction = hasExtraAction(choice);
                 int extraWidth = hasExtraAction ? extraActionWidth : 0;
                 int selectX1 = listX + LIST_WIDTH - selectWidth - extraWidth;
                 int extraX1 = listX + LIST_WIDTH - extraWidth;
                 int rowTop = listY + i * (ROW_HEIGHT + ROW_GAP);
                 int rowBottom = rowTop + ROW_HEIGHT;
-                if (adjustedMouseY >= rowTop && adjustedMouseY <= rowBottom) {
-                    if (button == 0 && isDirectAction(choice)) {
-                        if (onDirectAction != null) {
-                            onDirectAction.accept(choice);
-                        }
-                    } else if (button == 0 && hasExtraAction && mouseX >= extraX1) {
-                        if (onExtraAction != null) {
-                            onExtraAction.accept(choice);
-                        }
-                    } else if (button == 0 && mouseX >= selectX1 && isSelectable(choice)) {
-                        selectChoice(choice);
-                    }
-                    break;
+                if (adjustedMouseY < rowTop || adjustedMouseY > rowBottom) {
+                    continue;
                 }
+                if (button == 0 && isDirectAction(choice)) {
+                    if (onDirectAction != null) {
+                        onDirectAction.accept(choice);
+                    }
+                } else if (button == 0 && hasExtraAction && mouseX >= extraX1) {
+                    if (onExtraAction != null) {
+                        onExtraAction.accept(choice);
+                    }
+                } else if (button == 0 && mouseX >= selectX1 && isSelectable(choice)) {
+                    selectChoice(choice);
+                }
+                break;
             }
 
             isDraggingList = true;
@@ -616,7 +467,9 @@ public class ChoiceListDialog {
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (!visible) return false;
+        if (!visible) {
+            return false;
+        }
 
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
@@ -634,8 +487,9 @@ public class ChoiceListDialog {
     }
 
     public boolean charTyped(char codePoint, int modifiers) {
-        if (!visible) return false;
-
+        if (!visible) {
+            return false;
+        }
         if (net.minecraft.SharedConstants.isAllowedChatCharacter(codePoint)) {
             replaceSelection(String.valueOf(codePoint));
             applyFilter();
@@ -645,7 +499,9 @@ public class ChoiceListDialog {
     }
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (!visible) return false;
+        if (!visible) {
+            return false;
+        }
         boolean controlDown = Screen.hasControlDown() || (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
         boolean shiftDown = Screen.hasShiftDown() || (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
 
@@ -670,7 +526,6 @@ public class ChoiceListDialog {
             applyFilter();
             return true;
         }
-
         if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
             if (hasSelection()) {
                 deleteSelection();
@@ -685,7 +540,6 @@ public class ChoiceListDialog {
             }
             return true;
         }
-
         if (keyCode == GLFW.GLFW_KEY_DELETE) {
             if (hasSelection()) {
                 deleteSelection();
@@ -699,78 +553,82 @@ public class ChoiceListDialog {
             }
             return true;
         }
-
         if (keyCode == GLFW.GLFW_KEY_LEFT) {
             if (shiftDown) {
-                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+                if (selectionAnchor < 0) {
+                    selectionAnchor = cursorPosition;
+                }
             } else {
                 selectionAnchor = -1;
             }
-            if (cursorPosition > 0) cursorPosition--;
+            if (cursorPosition > 0) {
+                cursorPosition--;
+            }
             return true;
         }
-
         if (keyCode == GLFW.GLFW_KEY_RIGHT) {
             if (shiftDown) {
-                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+                if (selectionAnchor < 0) {
+                    selectionAnchor = cursorPosition;
+                }
             } else {
                 selectionAnchor = -1;
             }
-            if (cursorPosition < filterText.length()) cursorPosition++;
+            if (cursorPosition < filterText.length()) {
+                cursorPosition++;
+            }
             return true;
         }
-
         if (keyCode == GLFW.GLFW_KEY_HOME) {
             if (shiftDown) {
-                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+                if (selectionAnchor < 0) {
+                    selectionAnchor = cursorPosition;
+                }
             } else {
                 selectionAnchor = -1;
             }
             cursorPosition = 0;
             return true;
         }
-
         if (keyCode == GLFW.GLFW_KEY_END) {
             if (shiftDown) {
-                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+                if (selectionAnchor < 0) {
+                    selectionAnchor = cursorPosition;
+                }
             } else {
                 selectionAnchor = -1;
             }
             cursorPosition = filterText.length();
             return true;
         }
-
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             confirm();
             return true;
         }
-
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
             cancel();
             return true;
         }
-
         return true;
     }
 
     private void renderList(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int x1, int y1, int x2, int y2) {
-        if (y2 <= y1) return;
+        if (y2 <= y1) {
+            return;
+        }
 
         guiGraphics.enableScissor(x1, y1, x2, y2);
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(0, -scrollY, 0);
 
-        for (int i = 0; i < renderItems.size(); i++) {
-            RenderItem item = renderItems.get(i);
-            if (item.isGroupHeader) continue;
-            FixedChoiceConfigEntry.Choice choice = item.choice;
+        for (int i = 0; i < filteredChoices.size(); i++) {
+            FixedChoiceConfigEntry.Choice choice = filteredChoices.get(i);
             int rowTop = y1 + i * (ROW_HEIGHT + ROW_GAP);
             int rowBottom = rowTop + ROW_HEIGHT;
-
-            float actualTop = rowTop - (float)scrollY;
-            float actualBottom = rowBottom - (float)scrollY;
+            float actualTop = rowTop - (float) scrollY;
+            float actualBottom = rowBottom - (float) scrollY;
             if (actualBottom > y1 && actualTop < y2) {
-                renderChoiceRow(guiGraphics, mouseX, (int)(mouseY + scrollY), partialTick, i, choice, x1, rowTop, x2, rowBottom);
+                renderChoiceRow(guiGraphics, mouseX, (int) (mouseY + scrollY), partialTick, i, choice, x1, rowTop, x2, rowBottom);
             }
         }
 
@@ -793,15 +651,12 @@ public class ChoiceListDialog {
 
         boolean selected = choice.value().equals(selectedValue);
         boolean selectable = isSelectable(choice);
-        int firstColor = selectable
-            ? (selected ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_WHITE)
-            : GuiConstants.COLOR_GRAY;
-        int secondColor = selectable
-            ? (selected ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_WHITE)
-            : GuiConstants.COLOR_GRAY;
+        int firstColor = selectable ? (selected ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_WHITE) : GuiConstants.COLOR_GRAY;
+        int secondColor = selectable ? (selected ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_WHITE) : GuiConstants.COLOR_GRAY;
+
         if (isDirectAction(choice)) {
             addRowIconColumn(renderer, choice);
-            renderer.addColumn(" " + choice.label(), -1, GuiConstants.COLOR_GOLD, true, true, (btn) -> {
+            renderer.addColumn(" " + choice.label(), -1, GuiConstants.COLOR_GOLD, true, true, btn -> {
                 if (onDirectAction != null) {
                     onDirectAction.accept(choice);
                 }
@@ -818,10 +673,10 @@ public class ChoiceListDialog {
             secondColor,
             false,
             true,
-            selectable ? (btn) -> selectChoice(choice) : null
+            selectable ? btn -> selectChoice(choice) : null
         );
         if (hasExtraAction(choice)) {
-            renderer.addColumn(this.extraActionText, this.extraActionWidth, this.extraActionColor, true, true, (btn) -> {
+            renderer.addColumn(extraActionText, extraActionWidth, extraActionColor, true, true, btn -> {
                 if (onExtraAction != null) {
                     onExtraAction.accept(choice);
                 }
@@ -864,13 +719,11 @@ public class ChoiceListDialog {
             return null;
         }
         double adjustedMouseY = mouseY + scrollY;
-        for (int i = 0; i < renderItems.size(); i++) {
-            RenderItem item = renderItems.get(i);
-            if (item.isGroupHeader) continue;
+        for (int i = 0; i < filteredChoices.size(); i++) {
             int rowTop = listY + i * (ROW_HEIGHT + ROW_GAP);
             int rowBottom = rowTop + ROW_HEIGHT;
             if (adjustedMouseY >= rowTop && adjustedMouseY <= rowBottom) {
-                return item.choice;
+                return filteredChoices.get(i);
             }
         }
         return null;
@@ -936,7 +789,9 @@ public class ChoiceListDialog {
     }
 
     private void renderHoverTrail(GuiGraphics guiGraphics, int x, int y, int w, int h, float progress) {
-        if (progress <= 0.001f) return;
+        if (progress <= 0.001f) {
+            return;
+        }
 
         int color = GuiConstants.COLOR_GOLD;
         float totalLength = w + h + w + h;
@@ -945,33 +800,30 @@ public class ChoiceListDialog {
 
         if (currentLength > 0) {
             float segLen = Math.min(w, currentLength);
-            guiGraphics.fill(x, y + h - 1, x + (int)segLen, y + h, color);
+            guiGraphics.fill(x, y + h - 1, x + (int) segLen, y + h, color);
             drawn += w;
         }
-
         if (currentLength > drawn) {
             float rem = currentLength - drawn;
             float segLen = Math.min(h, rem);
-            guiGraphics.fill(x + w - 1, y + h - (int)segLen, x + w, y + h, color);
+            guiGraphics.fill(x + w - 1, y + h - (int) segLen, x + w, y + h, color);
             drawn += h;
         }
-
         if (currentLength > drawn) {
             float rem = currentLength - drawn;
             float segLen = Math.min(w, rem);
-            guiGraphics.fill(x + w - (int)segLen, y, x + w, y + 1, color);
+            guiGraphics.fill(x + w - (int) segLen, y, x + w, y + 1, color);
             drawn += w;
         }
-
         if (currentLength > drawn) {
             float rem = currentLength - drawn;
             float segLen = Math.min(h, rem);
-            guiGraphics.fill(x, y, x + 1, y + (int)segLen, color);
+            guiGraphics.fill(x, y, x + 1, y + (int) segLen, color);
         }
     }
 
     private float easeOut(float t) {
-        return 1.0f - (float)Math.pow(1.0f - t, 3);
+        return 1.0f - (float) Math.pow(1.0f - t, 3);
     }
 
     private void setCursorByMouse(int mouseX, int inputX) {
@@ -1001,10 +853,9 @@ public class ChoiceListDialog {
             return;
         }
         String sanitized = clipboard.replace("\r", "").replace("\n", "");
-        if (sanitized.isEmpty()) {
-            return;
+        if (!sanitized.isEmpty()) {
+            replaceSelection(sanitized);
         }
-        replaceSelection(sanitized);
     }
 
     private boolean hasSelection() {
@@ -1066,12 +917,11 @@ public class ChoiceListDialog {
     }
 
     private void updateScroll(float dt, int viewHeight) {
-        int contentHeight = renderItems.size() * (ROW_HEIGHT + ROW_GAP);
+        int contentHeight = filteredChoices.size() * (ROW_HEIGHT + ROW_GAP);
         double maxScroll = Math.max(0, contentHeight - viewHeight);
         targetScrollY = Math.max(0, Math.min(maxScroll, targetScrollY));
-
         double diff = targetScrollY - scrollY;
-        if (Math.abs(diff) < 0.01) {
+        if (Math.abs(diff) < 0.01D) {
             scrollY = targetScrollY;
         } else {
             scrollY += diff * GuiConstants.SCROLL_SMOOTHING * dt;
@@ -1080,40 +930,16 @@ public class ChoiceListDialog {
 
     private void applyFilter() {
         String filter = filterText == null ? "" : filterText.toLowerCase(Locale.ROOT);
-        renderItems.clear();
-        
-        if (groups.isEmpty()) {
-            for (FixedChoiceConfigEntry.Choice choice : choices) {
-                String label = choice.label() == null ? "" : choice.label();
-                String value = choice.value() == null ? "" : choice.value();
-                if (filter.isEmpty() || label.toLowerCase(Locale.ROOT).contains(filter) || value.toLowerCase(Locale.ROOT).contains(filter)) {
-                    renderItems.add(new RenderItem(null, choice));
-                }
-            }
-        } else {
-            for (ChoiceGroup group : groups) {
-                List<FixedChoiceConfigEntry.Choice> groupMatches = new ArrayList<>();
-                for (FixedChoiceConfigEntry.Choice choice : group.getChoices()) {
-                    String label = choice.label() == null ? "" : choice.label();
-                    String value = choice.value() == null ? "" : choice.value();
-                    if (filter.isEmpty() || label.toLowerCase(Locale.ROOT).contains(filter) || value.toLowerCase(Locale.ROOT).contains(filter)) {
-                        groupMatches.add(choice);
-                    }
-                }
-                
-                if (!groupMatches.isEmpty()) {
-                    renderItems.add(new RenderItem(group));
-                    if (group.isExpanded() || !filter.isEmpty()) { // Auto expand if filtering
-                        for (FixedChoiceConfigEntry.Choice match : groupMatches) {
-                            renderItems.add(new RenderItem(group, match));
-                        }
-                    }
-                }
+        filteredChoices.clear();
+        for (FixedChoiceConfigEntry.Choice choice : choices) {
+            String label = choice.label() == null ? "" : choice.label();
+            String value = choice.value() == null ? "" : choice.value();
+            if (filter.isEmpty() || label.toLowerCase(Locale.ROOT).contains(filter) || value.toLowerCase(Locale.ROOT).contains(filter)) {
+                filteredChoices.add(choice);
             }
         }
-        
-        targetScrollY = 0;
-        scrollY = 0;
+        targetScrollY = 0.0D;
+        scrollY = 0.0D;
         cursorPosition = Math.min(cursorPosition, filterText.length());
         if (selectionAnchor >= 0) {
             selectionAnchor = Math.min(selectionAnchor, filterText.length());
@@ -1160,13 +986,13 @@ public class ChoiceListDialog {
             }
             onConfirm.accept(result);
         }
-        this.visible = false;
+        visible = false;
     }
 
     private void cancel() {
         if (onCancel != null) {
             onCancel.run();
         }
-        this.visible = false;
+        visible = false;
     }
 }
