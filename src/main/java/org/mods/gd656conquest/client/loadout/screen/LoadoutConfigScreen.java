@@ -351,9 +351,8 @@ public class LoadoutConfigScreen extends Screen {
         int panelHeight = propertyPanel.getPanelHeight();
         int dialogLeft = getChoiceDialogLeft();
         int overlayX = resolveWeaponPropertyOverlayX(panelWidth);
-        boolean overlayOnLeft = overlayX < dialogLeft;
-        int buttonX = overlayOnLeft ? overlayX + panelWidth - WEAPON_PROPERTY_BUTTON_W : overlayX;
-        int buttonY = getChoiceDialogTop();
+        int buttonX = dialogLeft + CHOICE_DIALOG_WIDTH - WEAPON_PROPERTY_BUTTON_W;
+        int buttonY = Math.max(8, getChoiceDialogTop() - WEAPON_PROPERTY_BUTTON_H - 4);
 
         weaponPropertyButton.setX(buttonX);
         weaponPropertyButton.setY(buttonY);
@@ -361,13 +360,16 @@ public class LoadoutConfigScreen extends Screen {
         weaponPropertyButton.setHeight(WEAPON_PROPERTY_BUTTON_H);
         weaponPropertyButton.active = canRender;
         weaponPropertyButton.setTextColor(canRender ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY);
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(0.0F, 0.0F, 510.0F);
         weaponPropertyButton.render(guiGraphics, mouseX, mouseY, partialTick);
+        guiGraphics.pose().popPose();
 
         if (!weaponPropertyPanelVisible || !canRender) {
             return;
         }
 
-        int panelY = Math.max(12, Math.min(buttonY + WEAPON_PROPERTY_BUTTON_H + 6, this.height - panelHeight - 12));
+        int panelY = Math.max(12, Math.min(getChoiceDialogTop() + WEAPON_PROPERTY_BUTTON_H + 12, this.height - panelHeight - 12));
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(0.0F, 0.0F, 510.0F);
         propertyPanel.render(guiGraphics, this.font, overlayX, panelY, displayedWeapon);
@@ -447,6 +449,9 @@ public class LoadoutConfigScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && weaponPropertyButton != null && shouldShowWeaponPropertyOverlay() && weaponPropertyButton.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
         if (choiceDialog != null && choiceDialog.isVisible() && choiceDialog.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
@@ -476,9 +481,6 @@ public class LoadoutConfigScreen extends Screen {
                 return true;
             }
             if (editRoomsButton != null && shouldShowRoomEditorButton() && editRoomsButton.mouseClicked(mouseX, mouseY, button)) {
-                return true;
-            }
-            if (weaponPropertyButton != null && shouldShowWeaponPropertyOverlay() && weaponPropertyButton.mouseClicked(mouseX, mouseY, button)) {
                 return true;
             }
             for (GDButton attachmentButton : attachmentButtons.values()) {
