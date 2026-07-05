@@ -36,6 +36,8 @@ public final class TacticalMarkerRenderer {
     private static final float SQUAD_GREEN_RED = 0.38F;
     private static final float SQUAD_GREEN_GREEN = 1.00F;
     private static final float SQUAD_GREEN_BLUE = 0.58F;
+    private static final float CLASS_MARKER_HALF_SIZE = 5.0F;
+    private static final float AMMO_BOX_MARKER_HALF_SIZE = 12.0F;
 
     private TacticalMarkerRenderer() {
     }
@@ -147,7 +149,7 @@ public final class TacticalMarkerRenderer {
         BufferBuilder buffer = Tesselator.getInstance().getBuilder();
         buffer.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
         
-        float halfSize = (textureSize == 256.0f ? 8.0f : 5.0f) * scale;
+        float halfSize = (textureSize == 256.0f ? AMMO_BOX_MARKER_HALF_SIZE : CLASS_MARKER_HALF_SIZE) * scale;
         
         buffer.vertex(matrix, -halfSize, -halfSize, 0.0F).uv(0.0F, 0.0F).color(r, g, b, alpha).endVertex();
         buffer.vertex(matrix, -halfSize, halfSize, 0.0F).uv(0.0F, 1.0F).color(r, g, b, alpha).endVertex();

@@ -248,23 +248,39 @@ public final class ClientRoomMarkerState {
     }
 
     private static boolean isPrimaryWeaponEmpty(Minecraft minecraft) {
-        if (minecraft == null || minecraft.player == null) return false;
-        net.minecraft.world.item.ItemStack primary = minecraft.player.getInventory().getItem(0);
-        if (primary.isEmpty()) return false;
-        
-        // Use TaczClientAttachmentCompat or similar to check ammo
+        if (minecraft == null || minecraft.player == null) {
+            return false;
+        }
+        net.minecraft.world.item.ItemStack primary = minecraft.player.getMainHandItem();
+        if (primary.isEmpty()) {
+            return false;
+        }
         try {
             Class<?> iGunClass = Class.forName("com.tacz.guns.api.item.IGun");
             java.lang.reflect.Method getIGunOrNull = iGunClass.getMethod("getIGunOrNull", net.minecraft.world.item.ItemStack.class);
             Object iGun = getIGunOrNull.invoke(null, primary);
             if (iGun != null) {
                 java.lang.reflect.Method getCurrentAmmoCount = iGun.getClass().getMethod("getCurrentAmmoCount", net.minecraft.world.item.ItemStack.class);
-                int ammo = (Integer) getCurrentAmmoCount.invoke(iGun, primary);
-                return ammo <= 0;
+                int currentAmmo = (Integer) getCurrentAmmoCount.invoke(iGun, primary);
+                int dummyAmmo = 0;
+                boolean hasBulletInBarrel = false;
+                try {
+                    java.lang.reflect.Method useDummyAmmo = iGun.getClass().getMethod("useDummyAmmo", net.minecraft.world.item.ItemStack.class);
+                    boolean usesDummyAmmo = (Boolean) useDummyAmmo.invoke(iGun, primary);
+                    if (usesDummyAmmo) {
+                        java.lang.reflect.Method getDummyAmmoAmount = iGun.getClass().getMethod("getDummyAmmoAmount", net.minecraft.world.item.ItemStack.class);
+                        dummyAmmo = (Integer) getDummyAmmoAmount.invoke(iGun, primary);
+                    }
+                } catch (Exception ignored) {
+                }
+                try {
+                    java.lang.reflect.Method hasBulletInBarrelMethod = iGun.getClass().getMethod("hasBulletInBarrel", net.minecraft.world.item.ItemStack.class);
+                    hasBulletInBarrel = (Boolean) hasBulletInBarrelMethod.invoke(iGun, primary);
+                } catch (Exception ignored) {
+                }
+                return currentAmmo + dummyAmmo + (hasBulletInBarrel ? 1 : 0) <= 0;
             }
         } catch (Exception ignored) {}
-        
-        // Also check SuperbWarfare
         try {
             Class<?> sbwBridge = Class.forName("org.mods.gd656conquest.server.compat.superbwarfare.SuperbWarfareCompatBridge");
             java.lang.reflect.Method isGunItem = sbwBridge.getMethod("isGunItem", net.minecraft.world.item.ItemStack.class);
