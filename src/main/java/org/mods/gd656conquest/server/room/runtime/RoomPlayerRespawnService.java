@@ -300,11 +300,24 @@ public final class RoomPlayerRespawnService {
         state.clearRespawnFlow(playerId);
         state.getDoubledRespawnPending().add(playerId);
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
-        if (!forceRedeployDeath(player)) {
-            state.getDoubledRespawnPending().remove(playerId);
-            return "重新部署触发失败，请稍后重试";
+        if (forceRedeployDeath(player)) {
+            state.getRoomTeams().computeIfPresent(playerId, (id, teamId) -> {
+                state.getGameplayRuntime().ifPresent(runtime -> {
+                    runtime.onPlayerInvalidated(
+                        room,
+                        playerId,
+                        teamId,
+                        org.mods.gd656conquest.server.room.core.RoomPlayerInvalidationReason.REDEPLOY,
+                        -1,
+                        server.getTickCount()
+                    );
+                });
+                return teamId;
+            });
+            return "已触发重新部署：本次会立即自杀，并按双倍等待时长进入部署";
         }
-        return "已触发重新部署：本次会立即自杀，并按双倍等待时长进入部署";
+        state.getDoubledRespawnPending().remove(playerId);
+        return "重新部署触发失败，请稍后重试";
     }
 
     private boolean forceRedeployDeath(ServerPlayer player) {
@@ -774,12 +787,15 @@ public final class RoomPlayerRespawnService {
         }
         clearDownedRescueHint(reviver);
         state.startRevive(reviver.getUUID(), hint.targetId(), gameTick);
-        audioRuntimeService.emitPlayerThirdPersonCue(
-            room,
-            state,
-            reviver,
-            RoomThirdPersonAudioCueRegistry.PLAYER_REVIVING
-        );
+        
+        boolean isAssault = resolvePlayerClassType(reviver) == PlayerClassType.ASSAULT;
+        if (isAssault) {
+            FrontlineVoiceBridge.playCue(reviver, "REVIVE_ASSAULT_START");
+            FrontlineVoiceBridge.playCue(reviver, "REVIVE_ASSAULT_CHARGE");
+        } else {
+            FrontlineVoiceBridge.playCue(reviver, "REVIVE_NORMAL_START");
+        }
+        
         return true;
     }
 
@@ -1517,6 +1533,12 @@ public final class RoomPlayerRespawnService {
         NetworkManager.sendToPlayer(target, RoomDownedStatePacket.clear());
         NetworkManager.sendToPlayer(target, RoomDeathFlowPacket.clear());
         ServerActionBarService.clearSource(target, ACTIONBAR_SOURCE_DOWNED);
+        
+        if (revivedByAssault) {
+            FrontlineVoiceBridge.playCue(reviver, "REVIVE_ASSAULT_FINISH");
+        } else {
+            FrontlineVoiceBridge.playCue(reviver, "REVIVE_NORMAL_FINISH");
+        }
         audioRuntimeService.emitPlayerThirdPersonCue(room, state, target, RoomThirdPersonAudioCueRegistry.PLAYER_REVIVED);
         broadcastPlayerAnimatorState(state, targetId, 0, false);
         KilliconScoreboardBridge.tryAddReviveStat(reviver, 1);

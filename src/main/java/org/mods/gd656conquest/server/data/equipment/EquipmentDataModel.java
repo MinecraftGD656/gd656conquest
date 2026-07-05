@@ -50,6 +50,7 @@ public final class EquipmentDataModel {
         private int unlockLevel;
         private int availableClasses = 1234;
         private String itemSnbt;
+        private Boolean autoReplenish;
         private int replenishSeconds;
         private Boolean ammoBoxRefillEnabled = Boolean.TRUE;
 
@@ -120,7 +121,18 @@ public final class EquipmentDataModel {
             this.itemSnbt = itemSnbt;
         }
 
+        public Boolean getAutoReplenish() {
+            return autoReplenish;
+        }
+
+        public void setAutoReplenish(Boolean autoReplenish) {
+            this.autoReplenish = autoReplenish;
+        }
+
         public int getReplenishSeconds() {
+            if (autoReplenish != null && !autoReplenish) {
+                return 0;
+            }
             return Math.max(0, replenishSeconds);
         }
 

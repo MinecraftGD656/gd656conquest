@@ -19,6 +19,7 @@ public final class RoomTeamMirrorSyncPacket {
     private final List<String> campAPlayers;
     private final List<String> campBPlayers;
     private final List<PlayerSquadEntry> squadEntries;
+    private final List<PlayerClassEntry> classEntries;
 
     public RoomTeamMirrorSyncPacket(
         boolean active,
@@ -27,7 +28,8 @@ public final class RoomTeamMirrorSyncPacket {
         String campBDisplayName,
         List<String> campAPlayers,
         List<String> campBPlayers,
-        List<PlayerSquadEntry> squadEntries
+        List<PlayerSquadEntry> squadEntries,
+        List<PlayerClassEntry> classEntries
     ) {
         this.active = active;
         this.roomId = roomId == null ? "-" : roomId;
@@ -36,10 +38,11 @@ public final class RoomTeamMirrorSyncPacket {
         this.campAPlayers = campAPlayers == null ? List.of() : List.copyOf(campAPlayers);
         this.campBPlayers = campBPlayers == null ? List.of() : List.copyOf(campBPlayers);
         this.squadEntries = squadEntries == null ? List.of() : List.copyOf(squadEntries);
+        this.classEntries = classEntries == null ? List.of() : List.copyOf(classEntries);
     }
 
     public static RoomTeamMirrorSyncPacket clear() {
-        return new RoomTeamMirrorSyncPacket(false, "-", "CampA", "CampB", List.of(), List.of(), List.of());
+        return new RoomTeamMirrorSyncPacket(false, "-", "CampA", "CampB", List.of(), List.of(), List.of(), List.of());
     }
 
     public static void encode(RoomTeamMirrorSyncPacket message, FriendlyByteBuf buffer) {
@@ -54,6 +57,11 @@ public final class RoomTeamMirrorSyncPacket {
             buffer.writeUtf(squadEntry.playerName());
             buffer.writeUtf(squadEntry.squadLabel());
         }
+        buffer.writeInt(message.classEntries.size());
+        for (PlayerClassEntry classEntry : message.classEntries) {
+            buffer.writeUtf(classEntry.playerName());
+            buffer.writeUtf(classEntry.classKey());
+        }
     }
 
     public static RoomTeamMirrorSyncPacket decode(FriendlyByteBuf buffer) {
@@ -64,7 +72,8 @@ public final class RoomTeamMirrorSyncPacket {
             buffer.readUtf(),
             readPlayers(buffer),
             readPlayers(buffer),
-            readSquadEntries(buffer)
+            readSquadEntries(buffer),
+            readClassEntries(buffer)
         );
     }
 
@@ -78,7 +87,8 @@ public final class RoomTeamMirrorSyncPacket {
                 message.campBDisplayName,
                 message.campAPlayers,
                 message.campBPlayers,
-                message.squadEntries
+                message.squadEntries,
+                message.classEntries
             )
         ));
         context.setPacketHandled(true);
@@ -92,7 +102,8 @@ public final class RoomTeamMirrorSyncPacket {
             campBDisplayName,
             campAPlayers.toString(),
             campBPlayers.toString(),
-            squadEntries.toString()
+            squadEntries.toString(),
+            classEntries.toString()
         );
     }
 
@@ -121,10 +132,26 @@ public final class RoomTeamMirrorSyncPacket {
         return entries;
     }
 
+    private static List<PlayerClassEntry> readClassEntries(FriendlyByteBuf buffer) {
+        int size = Math.max(0, buffer.readInt());
+        List<PlayerClassEntry> entries = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            entries.add(new PlayerClassEntry(buffer.readUtf(), buffer.readUtf()));
+        }
+        return entries;
+    }
+
     public record PlayerSquadEntry(String playerName, String squadLabel) {
         public PlayerSquadEntry {
             playerName = playerName == null ? "" : playerName;
             squadLabel = squadLabel == null ? "" : squadLabel;
+        }
+    }
+
+    public record PlayerClassEntry(String playerName, String classKey) {
+        public PlayerClassEntry {
+            playerName = playerName == null ? "" : playerName;
+            classKey = classKey == null ? "" : classKey;
         }
     }
 
@@ -142,11 +169,12 @@ public final class RoomTeamMirrorSyncPacket {
             && Objects.equals(campBDisplayName, other.campBDisplayName)
             && Objects.equals(campAPlayers, other.campAPlayers)
             && Objects.equals(campBPlayers, other.campBPlayers)
-            && Objects.equals(squadEntries, other.squadEntries);
+            && Objects.equals(squadEntries, other.squadEntries)
+            && Objects.equals(classEntries, other.classEntries);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(active, roomId, campADisplayName, campBDisplayName, campAPlayers, campBPlayers, squadEntries);
+        return Objects.hash(active, roomId, campADisplayName, campBDisplayName, campAPlayers, campBPlayers, squadEntries, classEntries);
     }
 }

@@ -10,7 +10,19 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
 import org.joml.Matrix4f;
 
+import net.minecraft.resources.ResourceLocation;
+
 public final class TacticalMarkerRenderer {
+    private static final ResourceLocation TEX_ASSAULT_TEAM = ResourceLocation.parse("gd656conquest:textures/gui/marker_class_assault_team.png");
+    private static final ResourceLocation TEX_ASSAULT_SQUAD = ResourceLocation.parse("gd656conquest:textures/gui/marker_class_assault_squad.png");
+    private static final ResourceLocation TEX_ENGINEER_TEAM = ResourceLocation.parse("gd656conquest:textures/gui/marker_class_engineer_team.png");
+    private static final ResourceLocation TEX_ENGINEER_SQUAD = ResourceLocation.parse("gd656conquest:textures/gui/marker_class_engineer_squad.png");
+    private static final ResourceLocation TEX_RECON_TEAM = ResourceLocation.parse("gd656conquest:textures/gui/marker_class_recon_team.png");
+    private static final ResourceLocation TEX_RECON_SQUAD = ResourceLocation.parse("gd656conquest:textures/gui/marker_class_recon_squad.png");
+    private static final ResourceLocation TEX_SUPPORT_TEAM = ResourceLocation.parse("gd656conquest:textures/gui/marker_class_support_team.png");
+    private static final ResourceLocation TEX_SUPPORT_SQUAD = ResourceLocation.parse("gd656conquest:textures/gui/marker_class_support_squad.png");
+    private static final ResourceLocation TEX_AMMO_BOX = ResourceLocation.parse("gd656conquest:textures/gui/marker_ammo_box.png");
+
     private static final float MAX_MARKER_VISUAL_OPACITY = 1.0F;
     private static final float TRIANGLE_BASE_Y = 4F;
     private static final float TRIANGLE_HALF_WIDTH = 3F;
@@ -38,7 +50,9 @@ public final class TacticalMarkerRenderer {
         boolean hovered,
         MarkerVisualType visualType,
         float entryScale,
-        float helpPulseProgress
+        float helpPulseProgress,
+        String targetClass,
+        boolean isAmmoBoxEmpty
     ) {
         float clampedAlpha = Math.max(0.0F, Math.min(1.0F, alpha)) * MAX_MARKER_VISUAL_OPACITY;
         float clampedShapeOpacity = Math.max(0.0F, Math.min(1.0F, shapeOpacity));
@@ -63,7 +77,7 @@ public final class TacticalMarkerRenderer {
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableCull();
         if (finalAlpha > 0.01F) {
-            drawShape(matrix, visual, scale, red, green, blue, finalAlpha);
+            drawShape(gui, matrix, visual, scale, red, green, blue, finalAlpha, targetClass, isAmmoBoxEmpty);
             if (visual.hasCenterCross()) {
                 drawCenterCross(matrix, visual.crossRadius() * scale, 0.72F + (hovered ? 0.08F : 0.0F), 1.0F, 1.0F, 1.0F, Math.min(1.0F, finalAlpha * 0.97F));
             }
@@ -72,20 +86,40 @@ public final class TacticalMarkerRenderer {
             float pulseFade = 1.0F - helpPulseProgress;
             float pulseScale = 1.0F + helpPulseProgress * 2.55F;
             float pulseAlpha = pulseFade * Math.max(0.40F, visual.opacityMultiplier()) * clampedAlpha;
-            drawShape(matrix, visual, scale * pulseScale, red, green, blue, pulseAlpha);
+            drawShape(gui, matrix, visual, scale * pulseScale, red, green, blue, pulseAlpha, targetClass, isAmmoBoxEmpty);
             if (visual.hasCenterCross()) {
                 drawCenterCross(matrix, visual.crossRadius() * scale * pulseScale, 0.84F, 1.0F, 1.0F, 1.0F, Math.min(1.0F, pulseAlpha));
             }
             float outerPulseScale = 1.28F + helpPulseProgress * 3.15F;
             float outerPulseAlpha = pulseFade * pulseFade * Math.max(0.20F, visual.opacityMultiplier() * 0.52F) * clampedAlpha;
-            drawShape(matrix, visual, scale * outerPulseScale, red, green, blue, outerPulseAlpha);
+            drawShape(gui, matrix, visual, scale * outerPulseScale, red, green, blue, outerPulseAlpha, targetClass, isAmmoBoxEmpty);
         }
         RenderSystem.enableCull();
         RenderSystem.enableDepthTest();
         gui.pose().popPose();
     }
 
-    private static void drawShape(Matrix4f matrix, MarkerVisual visual, float scale, float red, float green, float blue, float alpha) {
+    private static void drawShape(GuiGraphics gui, Matrix4f matrix, MarkerVisual visual, float scale, float red, float green, float blue, float alpha, String targetClass, boolean isAmmoBoxEmpty) {
+        if (visual.shape() == MarkerShape.AMMO_BOX) {
+            float r = 1.0f, g = 1.0f, b = 1.0f;
+            if (isAmmoBoxEmpty) {
+                long time = System.currentTimeMillis();
+                float flash = (float) (Math.sin(time / 150.0) * 0.5 + 0.5); // 0.0 to 1.0 smooth
+                g = flash;
+                b = flash;
+            }
+            drawTextureMarker(gui, matrix, TEX_AMMO_BOX, scale, r, g, b, alpha, 256.0f);
+            return;
+        }
+        
+        if ((visual.shape() == MarkerShape.CIRCLE) && targetClass != null && !targetClass.isBlank()) {
+            ResourceLocation tex = resolveClassTexture(targetClass, visual.isSquad());
+            if (tex != null) {
+                drawTextureMarker(gui, matrix, tex, scale, 1.0f, 1.0f, 1.0f, alpha, 16.0f);
+                return;
+            }
+        }
+        
         switch (visual.shape()) {
             case TRIANGLE -> {
                 float triangleCenterY = TRIANGLE_BASE_Y * scale;
@@ -94,6 +128,33 @@ public final class TacticalMarkerRenderer {
             case CIRCLE -> drawFilledCircle(matrix, visual.radius() * scale, red, green, blue, alpha, 28);
             case DIAMOND -> drawDiamond(matrix, 0.0F, 0.0F, DIAMOND_HALF_DIAGONAL * scale, red, green, blue, alpha);
         }
+    }
+
+    private static ResourceLocation resolveClassTexture(String targetClass, boolean isSquad) {
+        String lowerClass = targetClass.toLowerCase(java.util.Locale.ROOT);
+        return switch (lowerClass) {
+            case "assault" -> isSquad ? TEX_ASSAULT_SQUAD : TEX_ASSAULT_TEAM;
+            case "engineer" -> isSquad ? TEX_ENGINEER_SQUAD : TEX_ENGINEER_TEAM;
+            case "recon" -> isSquad ? TEX_RECON_SQUAD : TEX_RECON_TEAM;
+            case "support" -> isSquad ? TEX_SUPPORT_SQUAD : TEX_SUPPORT_TEAM;
+            default -> null;
+        };
+    }
+
+    private static void drawTextureMarker(GuiGraphics gui, Matrix4f matrix, ResourceLocation texture, float scale, float r, float g, float b, float alpha, float textureSize) {
+        RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+        RenderSystem.setShaderTexture(0, texture);
+        BufferBuilder buffer = Tesselator.getInstance().getBuilder();
+        buffer.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+        
+        float halfSize = (textureSize == 256.0f ? 8.0f : 5.0f) * scale;
+        
+        buffer.vertex(matrix, -halfSize, -halfSize, 0.0F).uv(0.0F, 0.0F).color(r, g, b, alpha).endVertex();
+        buffer.vertex(matrix, -halfSize, halfSize, 0.0F).uv(0.0F, 1.0F).color(r, g, b, alpha).endVertex();
+        buffer.vertex(matrix, halfSize, halfSize, 0.0F).uv(1.0F, 1.0F).color(r, g, b, alpha).endVertex();
+        buffer.vertex(matrix, halfSize, -halfSize, 0.0F).uv(1.0F, 0.0F).color(r, g, b, alpha).endVertex();
+        
+        BufferUploader.drawWithShader(buffer.end());
     }
 
     private static void drawCenterCross(Matrix4f matrix, float radius, float lineWidth, float red, float green, float blue, float alpha) {
@@ -189,13 +250,15 @@ public final class TacticalMarkerRenderer {
         ALLY_PERSISTENT,
         SQUAD_PERSISTENT,
         DOWNED_ALLY,
-        DOWNED_SQUAD
+        DOWNED_SQUAD,
+        AMMO_BOX
     }
 
     private enum MarkerShape {
         DIAMOND,
         TRIANGLE,
-        CIRCLE
+        CIRCLE,
+        AMMO_BOX
     }
 
     private record MarkerVisual(
@@ -207,18 +270,20 @@ public final class TacticalMarkerRenderer {
         float radius,
         boolean hasCenterCross,
         float crossRadius,
-        boolean downed
+        boolean downed,
+        boolean isSquad
     ) {
         private static MarkerVisual resolve(MarkerVisualType type) {
             return switch (type) {
-                case ENEMY_GROUND -> new MarkerVisual(MarkerShape.DIAMOND, 0.84F, 0.20F, 0.20F, 0.90F, DIAMOND_HALF_DIAGONAL, false, 0.0F, false);
-                case ENEMY_TRACKED -> new MarkerVisual(MarkerShape.TRIANGLE, 0.84F, 0.20F, 0.20F, 0.90F, TRIANGLE_HALF_WIDTH, false, 0.0F, false);
-                case AUTO_ENEMY -> new MarkerVisual(MarkerShape.TRIANGLE, 0.84F, 0.20F, 0.20F, 0.60F, TRIANGLE_HALF_WIDTH, false, 0.0F, false);
-                case ALLY_PERSISTENT -> new MarkerVisual(MarkerShape.CIRCLE, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.50F, ALLY_DOT_RADIUS, false, 0.0F, false);
-                case SQUAD_PERSISTENT -> new MarkerVisual(MarkerShape.CIRCLE, SQUAD_GREEN_RED, SQUAD_GREEN_GREEN, SQUAD_GREEN_BLUE, 0.50F, ALLY_DOT_RADIUS, false, 0.0F, false);
-                case DOWNED_ALLY -> new MarkerVisual(MarkerShape.CIRCLE, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.85F, DOWNED_RADIUS, true, 1.95F, true);
-                case DOWNED_SQUAD -> new MarkerVisual(MarkerShape.CIRCLE, SQUAD_GREEN_RED, SQUAD_GREEN_GREEN, SQUAD_GREEN_BLUE, 0.85F, DOWNED_RADIUS, true, 1.95F, true);
-                case NORMAL -> new MarkerVisual(MarkerShape.DIAMOND, 0.95F, 0.82F, 0.20F, 0.90F, DIAMOND_HALF_DIAGONAL, false, 0.0F, false);
+                case ENEMY_GROUND -> new MarkerVisual(MarkerShape.DIAMOND, 0.84F, 0.20F, 0.20F, 0.90F, DIAMOND_HALF_DIAGONAL, false, 0.0F, false, false);
+                case ENEMY_TRACKED -> new MarkerVisual(MarkerShape.TRIANGLE, 0.84F, 0.20F, 0.20F, 0.90F, TRIANGLE_HALF_WIDTH, false, 0.0F, false, false);
+                case AUTO_ENEMY -> new MarkerVisual(MarkerShape.TRIANGLE, 0.84F, 0.20F, 0.20F, 0.60F, TRIANGLE_HALF_WIDTH, false, 0.0F, false, false);
+                case ALLY_PERSISTENT -> new MarkerVisual(MarkerShape.CIRCLE, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.50F, ALLY_DOT_RADIUS, false, 0.0F, false, false);
+                case SQUAD_PERSISTENT -> new MarkerVisual(MarkerShape.CIRCLE, SQUAD_GREEN_RED, SQUAD_GREEN_GREEN, SQUAD_GREEN_BLUE, 0.50F, ALLY_DOT_RADIUS, false, 0.0F, false, true);
+                case DOWNED_ALLY -> new MarkerVisual(MarkerShape.CIRCLE, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.85F, DOWNED_RADIUS, true, 1.95F, true, false);
+                case DOWNED_SQUAD -> new MarkerVisual(MarkerShape.CIRCLE, SQUAD_GREEN_RED, SQUAD_GREEN_GREEN, SQUAD_GREEN_BLUE, 0.85F, DOWNED_RADIUS, true, 1.95F, true, true);
+                case AMMO_BOX -> new MarkerVisual(MarkerShape.AMMO_BOX, 1.0F, 1.0F, 1.0F, 0.85F, ALLY_DOT_RADIUS, false, 0.0F, false, false);
+                case NORMAL -> new MarkerVisual(MarkerShape.DIAMOND, 0.95F, 0.82F, 0.20F, 0.90F, DIAMOND_HALF_DIAGONAL, false, 0.0F, false, false);
             };
         }
     }

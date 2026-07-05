@@ -45,7 +45,7 @@ final class ClientCaptureOverlayState {
         objectiveEntryByCode = Map.of();
         cachedRoomBoundaryPolygons = List.of();
         cachedDebugBoundaryPolygons = List.of();
-        boundaryGeometryVersion = 0L;
+        markBoundaryGeometryDirty();
         currentCaptureFocus = null;
         progressInterpolation.clear();
         hudIconLayoutStates.clear();

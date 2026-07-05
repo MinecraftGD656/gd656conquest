@@ -19,6 +19,10 @@ public final class TaczClientAttachmentCompat {
     private Method getAttachmentIdMethod;
     private Method timelessGetClientAttachmentIndexMethod;
     private Method clientAttachmentIndexGetZoomMethod;
+    private Method timelessGetCommonGunIndexMethod;
+    private Method gunIndexGetGunDataMethod;
+    private Method iGunClassGetIGunOrNullMethod;
+    private Method iGunClassGetGunIdMethod;
 
     private TaczClientAttachmentCompat() {
     }
@@ -94,6 +98,42 @@ public final class TaczClientAttachmentCompat {
         }
     }
 
+    public String resolveGunType(String itemSnbt) {
+        return resolveGunType(parseItemStack(itemSnbt));
+    }
+
+    public String resolveGunType(ItemStack stack) {
+        ensureResolved();
+        if (!available || stack == null || stack.isEmpty() || iGunClassGetIGunOrNullMethod == null) {
+            return "others";
+        }
+        try {
+            Object iGun = iGunClassGetIGunOrNullMethod.invoke(null, stack);
+            if (iGun == null) return "others";
+            Object gunId = iGunClassGetGunIdMethod.invoke(iGun, stack);
+            if (!(gunId instanceof ResourceLocation resourceLocation)) return "others";
+            
+            Object optionalIndex = timelessGetCommonGunIndexMethod.invoke(null, resourceLocation);
+            Object gunIndex = unwrapOptional(optionalIndex);
+            if (gunIndex == null) return "others";
+            
+            if (gunIndexGetGunDataMethod == null) {
+                gunIndexGetGunDataMethod = gunIndex.getClass().getMethod("getGunData");
+            }
+            Object gunData = gunIndexGetGunDataMethod.invoke(gunIndex);
+            
+            // Assume we can get type via reflection if needed
+            Method getTypeMethod = gunData.getClass().getMethod("getType");
+            Object type = getTypeMethod.invoke(gunData);
+            if (type == null) return "others";
+            
+            String typeName = type.toString().toLowerCase(Locale.ROOT);
+            return typeName;
+        } catch (Exception ignored) {
+            return "others";
+        }
+    }
+
     private Object unwrapOptional(Object value) {
         if (!(value instanceof Optional<?> optional)) {
             return null;
@@ -113,6 +153,39 @@ public final class TaczClientAttachmentCompat {
         }
     }
 
+    public ItemStack installAttachment(ItemStack gunStack, ItemStack attachmentStack) {
+        ensureResolved();
+        if (!available || gunStack == null || gunStack.isEmpty() || attachmentStack == null || attachmentStack.isEmpty()) {
+            return gunStack;
+        }
+        try {
+            ItemStack modifiedGun = gunStack.copy();
+            // Install attachment logic via TACZ API
+            // IGun.getIGunOrNull(modifiedGun) -> getGunId
+            Object iGun = iGunClassGetIGunOrNullMethod.invoke(null, modifiedGun);
+            if (iGun == null) return modifiedGun;
+            
+            // IAttachment.getIAttachmentOrNull(attachmentStack) -> getType
+            Object iAttachment = iAttachmentClassGetIAttachmentOrNullMethod.invoke(null, attachmentStack);
+            if (iAttachment == null) return modifiedGun;
+            
+            Object type = getTypeMethod.invoke(iAttachment, attachmentStack);
+            if (type == null) return modifiedGun;
+            
+            // IGun API has an installAttachment method?
+            // Actually com.tacz.guns.api.item.IGun has:
+            // void installAttachment(ItemStack gunItem, ItemStack attachmentItem)
+            Method installAttachmentMethod = iGun.getClass().getMethod("installAttachment", ItemStack.class, ItemStack.class);
+            installAttachmentMethod.invoke(iGun, modifiedGun, attachmentStack);
+            
+            return modifiedGun;
+        } catch (Exception ignored) {
+            return gunStack;
+        }
+    }
+    private Method timelessGetCommonAttachmentIndexMethod;
+    private Method attachmentIndexGetAttachmentDataMethod;
+    
     private void ensureResolved() {
         if (resolved) {
             return;
@@ -120,13 +193,23 @@ public final class TaczClientAttachmentCompat {
         resolved = true;
         try {
             Class<?> iAttachmentClass = Class.forName("com.tacz.guns.api.item.IAttachment");
+            iAttachmentClassGetIAttachmentOrNullMethod = iAttachmentClass.getMethod("getIAttachmentOrNull", ItemStack.class);
             Class<?> timelessApiClass = Class.forName("com.tacz.guns.api.TimelessAPI");
+            timelessGetCommonAttachmentIndexMethod = timelessApiClass.getMethod("getCommonAttachmentIndex", ResourceLocation.class);
             Class<?> clientAttachmentIndexClass = Class.forName("com.tacz.guns.client.resource.index.ClientAttachmentIndex");
             getIAttachmentOrNullMethod = iAttachmentClass.getMethod("getIAttachmentOrNull", ItemStack.class);
             getTypeMethod = iAttachmentClass.getMethod("getType", ItemStack.class);
             getAttachmentIdMethod = iAttachmentClass.getMethod("getAttachmentId", ItemStack.class);
             timelessGetClientAttachmentIndexMethod = timelessApiClass.getMethod("getClientAttachmentIndex", ResourceLocation.class);
             clientAttachmentIndexGetZoomMethod = clientAttachmentIndexClass.getMethod("getZoom");
+
+            Class<?> iGunClass = Class.forName("com.tacz.guns.api.item.IGun");
+            iGunClassGetIGunOrNullMethod = iGunClass.getMethod("getIGunOrNull", ItemStack.class);
+            iGunClassGetGunIdMethod = iGunClass.getMethod("getGunId", ItemStack.class);
+            timelessGetCommonGunIndexMethod = timelessApiClass.getMethod("getCommonGunIndex", ResourceLocation.class);
+            // Class<?> commonGunIndexClass = Class.forName("com.tacz.guns.resource.index.CommonGunIndex");
+            // gunIndexGetGunDataMethod = commonGunIndexClass.getMethod("getGunData");
+            
             available = true;
         } catch (Throwable ignored) {
             available = false;

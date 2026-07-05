@@ -12,7 +12,10 @@ import org.mods.gd656conquest.client.compat.tacz.TaczClientAttachmentCompat;
 import org.mods.gd656conquest.client.gui.elements.ChoiceListDialog;
 import org.mods.gd656conquest.client.gui.elements.GDButton;
 import org.mods.gd656conquest.client.gui.elements.GDScrollState;
+import org.mods.gd656conquest.client.gui.elements.ChoiceListDialog.ChoiceGroup;
 import org.mods.gd656conquest.client.gui.elements.entries.FixedChoiceConfigEntry;
+import org.mods.gd656conquest.client.gui.elements.ChoiceListState;
+import org.mods.gd656conquest.client.gui.elements.GunStatComparator;
 import org.mods.gd656conquest.client.loadout.ClientLoadoutUiState;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.LoadoutUiActionPacket;
@@ -67,6 +70,11 @@ public class LoadoutConfigScreen extends Screen {
     private long lastRequestAt;
     private long outOfGameCloseAtMs;
     private final GDScrollState rightContentScroll = new GDScrollState();
+    private ChoiceListState primaryWeaponChoiceState;
+    private ChoiceListState secondaryWeaponChoiceState;
+    private FixedChoiceConfigEntry.Choice hoveredGunChoice;
+    private FixedChoiceConfigEntry.Choice hoveredAttachmentChoice;
+    private CustomLoadoutSlot currentHoverSlot;
 
     public LoadoutConfigScreen(Screen parent) {
         super(Component.translatable("gd656conquest.client.gui.loadout.title"));
@@ -217,7 +225,110 @@ public class LoadoutConfigScreen extends Screen {
         rightContentScroll.renderScrollbar(guiGraphics, getRightPanelLeft(), getRightContentViewportTop(), getRightPanelRight(), getRightContentViewportBottom(), getRightContentHeight());
         if (choiceDialog != null) {
             choiceDialog.render(guiGraphics, mouseX, mouseY, partialTick);
+            
+            // Render gun stat comparator if picking primary/secondary weapon
+            if (choiceDialog.isVisible() && (currentHoverSlot == CustomLoadoutSlot.PRIMARY_WEAPON || currentHoverSlot == CustomLoadoutSlot.SECONDARY_WEAPON)) {
+                renderGunStatComparator(guiGraphics, currentHoverSlot, hoveredGunChoice);
+            }
+            
+            // Render attachment stat comparator if picking attachments
+            if (choiceDialog.isVisible() && hoveredAttachmentChoice != null && currentHoverSlot != null) {
+                renderAttachmentStatComparator(guiGraphics, currentHoverSlot, hoveredAttachmentChoice);
+            }
         }
+    }
+
+    private void renderGunStatComparator(GuiGraphics guiGraphics, CustomLoadoutSlot slot, FixedChoiceConfigEntry.Choice hoveredChoice) {
+        ClientLoadoutUiState.Snapshot snapshot = ClientLoadoutUiState.snapshot();
+        if (snapshot == null) return;
+        
+        ClientLoadoutUiState.ClassState currentClass = snapshot.classes().get(snapshot.currentClassKey());
+        if (currentClass == null) return;
+        
+        ClientLoadoutUiState.SlotState slotState = currentClass.slots().get(slot.getIndex());
+        if (slotState == null) return;
+        
+        String selectedId = slotState.selectedId();
+        ClientLoadoutUiState.EntryState selectedEntry = slotState.entries().get(selectedId);
+        
+        ItemStack originalStack = ItemStack.EMPTY;
+        if (selectedEntry != null) {
+            originalStack = parseStack(selectedEntry.itemSnbt());
+        }
+        
+        ItemStack compareStack = ItemStack.EMPTY;
+        if (hoveredChoice != null) {
+            ClientLoadoutUiState.EntryState hoveredEntry = slotState.entries().get(hoveredChoice.value());
+            if (hoveredEntry != null) {
+                compareStack = parseStack(hoveredEntry.itemSnbt());
+            }
+        }
+        
+        if (originalStack.isEmpty() && compareStack.isEmpty()) {
+            return;
+        }
+
+        int panelWidth = 200;
+        int panelHeight = 120;
+        // Position it to the left of the ChoiceListDialog
+        int screenWidth = minecraft.getWindow().getGuiScaledWidth();
+        int screenHeight = minecraft.getWindow().getGuiScaledHeight();
+        int dialogWidth = 64 + 8 + 155; // PREVIEW_WIDTH + PREVIEW_GAP + LIST_WIDTH
+        int centerX = (screenWidth - dialogWidth) / 2;
+        int panelX = centerX - panelWidth - 20;
+        int panelY = (screenHeight - panelHeight) / 2;
+        
+        // Draw background
+        guiGraphics.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, 0xDD10181F);
+        guiGraphics.fill(panelX, panelY, panelX + panelWidth, panelY + 1, 0x66FFD78A);
+        
+        guiGraphics.drawString(this.font, "枪械数据对比", panelX + 8, panelY + 6, 0xFFFFD78A, false);
+        
+        GunStatComparator.render(guiGraphics, this.font, panelX + 8, panelY + 24, panelWidth - 16, originalStack, compareStack);
+    }
+    
+    private void renderAttachmentStatComparator(GuiGraphics guiGraphics, CustomLoadoutSlot slot, FixedChoiceConfigEntry.Choice hoveredChoice) {
+        ClientLoadoutUiState.WeaponAttachmentPanelState panel = getAttachmentPanel(slot);
+        if (panel == null || !panel.available() || !panel.taczGun()) return;
+        
+        ItemStack weaponStack = parseStack(panel.weaponItemSnbt());
+        if (weaponStack.isEmpty()) return;
+        
+        ItemStack compareStack = weaponStack.copy();
+        if (hoveredChoice != null && hoveredChoice.value() != null && !hoveredChoice.value().isBlank()) {
+            ClientLoadoutUiState.AttachmentTypeState typeState = panel.attachmentTypes().get(hoveredChoice.value().split(":")[0]); // We don't have type in value...
+            // Wait, hoveredChoice is from the ChoiceListDialog of ATTACHMENTS
+            // In openAttachmentDialog, choices have id as choice.value()
+            // And choice is an AttachmentChoiceState
+            
+            // To apply it, we can just deserialize the hovered attachment snbt and apply it using TaczClientAttachmentCompat
+            String hoverId = hoveredChoice.value();
+            for (ClientLoadoutUiState.AttachmentTypeState state : panel.attachmentTypes().values()) {
+                ClientLoadoutUiState.AttachmentChoiceState hoverChoiceState = state.choices().get(hoverId);
+                if (hoverChoiceState != null) {
+                    ItemStack attachmentStack = parseStack(hoverChoiceState.itemSnbt());
+                    if (!attachmentStack.isEmpty()) {
+                        compareStack = TaczClientAttachmentCompat.getInstance().installAttachment(compareStack, attachmentStack);
+                    }
+                    break;
+                }
+            }
+        }
+        
+        int panelWidth = 200;
+        int panelHeight = 120;
+        int screenWidth = minecraft.getWindow().getGuiScaledWidth();
+        int screenHeight = minecraft.getWindow().getGuiScaledHeight();
+        int dialogWidth = 64 + 8 + 155;
+        int centerX = (screenWidth - dialogWidth) / 2;
+        int panelX = centerX - panelWidth - 20;
+        int panelY = (screenHeight - panelHeight) / 2;
+        
+        guiGraphics.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, 0xDD10181F);
+        guiGraphics.fill(panelX, panelY, panelX + panelWidth, panelY + 1, 0x66FFD78A);
+        guiGraphics.drawString(this.font, "安装配件后数据预览", panelX + 8, panelY + 6, 0xFFFFD78A, false);
+        
+        GunStatComparator.render(guiGraphics, this.font, panelX + 8, panelY + 24, panelWidth - 16, weaponStack, compareStack);
     }
 
     @Override
@@ -367,9 +478,94 @@ public class LoadoutConfigScreen extends Screen {
         if (slotState == null || slotState.entries().isEmpty()) {
             return;
         }
-        List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
+
         Set<String> lockedIds = new HashSet<>();
         Map<String, ChoiceListDialog.RowIcon> iconByEntryId = new HashMap<>();
+        String classKey = currentClass.classKey();
+        String selectedId = slotState.selectedId();
+        if (selectedId == null || selectedId.isBlank() || !slotState.entries().containsKey(selectedId)) {
+            selectedId = slotState.entries().isEmpty() ? "" : slotState.entries().keySet().iterator().next();
+        }
+
+        if (slot == CustomLoadoutSlot.PRIMARY_WEAPON || slot == CustomLoadoutSlot.SECONDARY_WEAPON) {
+            Map<String, ChoiceGroup> groupsMap = new LinkedHashMap<>();
+            String[] gunTypes = {"rifle", "sniper", "pistol", "shotgun", "smg", "mg", "rpg"};
+            String[] gunTypeLabels = {"突击步枪", "狙击步枪", "手枪", "霰弹枪", "冲锋枪", "机枪", "发射器"};
+            
+            for (int i = 0; i < gunTypes.length; i++) {
+                groupsMap.put(gunTypes[i], new ChoiceGroup(gunTypes[i], gunTypeLabels[i]));
+            }
+            ChoiceGroup othersGroup = new ChoiceGroup("others", "其它武器");
+
+            for (ClientLoadoutUiState.EntryState entry : slotState.sortedEntries()) {
+                String display = entry.displayName().isBlank() ? entry.id() : entry.displayName();
+                String lockSuffix = entry.unlocked() ? "" : ("  Lv." + entry.unlockLevel() + "未解锁");
+                String prefix = entry.unlocked() ? "§f" : "§7";
+                String label = prefix + display + " §8[" + entry.id() + "]" + (lockSuffix.isBlank() ? "" : " §7" + lockSuffix);
+                FixedChoiceConfigEntry.Choice choice = new FixedChoiceConfigEntry.Choice(entry.id(), label);
+                
+                ChoiceListDialog.RowIcon icon = buildItemIcon(entry.itemSnbt());
+                if (icon != null && !icon.isEmpty()) {
+                    iconByEntryId.put(entry.id(), icon);
+                }
+                if (!entry.unlocked()) {
+                    lockedIds.add(entry.id());
+                }
+
+                String gunType = TaczClientAttachmentCompat.getInstance().resolveGunType(entry.itemSnbt());
+                ChoiceGroup targetGroup = groupsMap.get(gunType);
+                if (targetGroup != null) {
+                    targetGroup.getChoices().add(choice);
+                } else {
+                    othersGroup.getChoices().add(choice);
+                }
+            }
+
+            List<ChoiceGroup> activeGroups = new ArrayList<>();
+            for (ChoiceGroup group : groupsMap.values()) {
+                if (!group.getChoices().isEmpty()) {
+                    activeGroups.add(group);
+                }
+            }
+            if (!othersGroup.getChoices().isEmpty()) {
+                activeGroups.add(othersGroup);
+            }
+
+            if (slot == CustomLoadoutSlot.PRIMARY_WEAPON) {
+                if (primaryWeaponChoiceState == null) {
+                    primaryWeaponChoiceState = new ChoiceListState("primary_weapon");
+                }
+            } else {
+                if (secondaryWeaponChoiceState == null) {
+                    secondaryWeaponChoiceState = new ChoiceListState("secondary_weapon");
+                }
+            }
+            
+            currentHoverSlot = slot;
+            hoveredGunChoice = null;
+
+            choiceDialog.showWithGroups(
+                selectedId,
+                slotState.slotLabel().isBlank() ? slot.getKey() : slotState.slotLabel(),
+                activeGroups,
+                selected -> NetworkManager.getChannel().sendToServer(LoadoutUiActionPacket.selectSlot(classKey, slot.getIndex(), selected)),
+                null,
+                null,
+                null,
+                "",
+                0xFFFF0000,
+                17,
+                null,
+                null,
+                choice -> choice != null && !lockedIds.contains(choice.value()),
+                choice -> choice == null ? null : iconByEntryId.get(choice.value()),
+                slot == CustomLoadoutSlot.PRIMARY_WEAPON ? primaryWeaponChoiceState : secondaryWeaponChoiceState,
+                choice -> hoveredGunChoice = choice
+            );
+            return;
+        }
+
+        List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
         for (ClientLoadoutUiState.EntryState entry : slotState.sortedEntries()) {
             String display = entry.displayName().isBlank() ? entry.id() : entry.displayName();
             String lockSuffix = entry.unlocked() ? "" : ("  Lv." + entry.unlockLevel() + "未解锁");
@@ -384,11 +580,7 @@ public class LoadoutConfigScreen extends Screen {
                 lockedIds.add(entry.id());
             }
         }
-        String selectedId = slotState.selectedId();
-        if (selectedId == null || selectedId.isBlank() || !slotState.entries().containsKey(selectedId)) {
-            selectedId = choices.isEmpty() ? "" : choices.get(0).value();
-        }
-        String classKey = currentClass.classKey();
+        
         choiceDialog.show(
                 selectedId,
                 slotState.slotLabel().isBlank() ? slot.getKey() : slotState.slotLabel(),
@@ -670,6 +862,9 @@ public class LoadoutConfigScreen extends Screen {
             }
         }
         String selectedId = typeState.hasStoredSelection() ? typeState.selectedAttachmentId() : "";
+        currentHoverSlot = slot;
+        hoveredAttachmentChoice = null;
+
         choiceDialog.show(
             selectedId,
             typeState.attachmentLabel(),
@@ -686,7 +881,8 @@ public class LoadoutConfigScreen extends Screen {
             null,
             null,
             choice -> choice != null && (!lockedIds.contains(choice.value()) || choice.value().isBlank()),
-            choice -> choice == null ? null : iconById.get(choice.value())
+            choice -> choice == null ? null : iconById.get(choice.value()),
+            choice -> hoveredAttachmentChoice = choice
         );
     }
 

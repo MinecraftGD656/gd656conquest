@@ -17,6 +17,7 @@ public final class ClientMusicCatalog {
     public static final String LOOP_LAST_OBJECTIVE_VICTORY = "gd656conquest:loop.last_objective_victory";
     public static final String LOOP_FINAL_SEGMENT_VICTORY = "gd656conquest:loop.final_segment_victory";
     public static final String LOOP_FINAL_SEGMENT_DEFEAT = "gd656conquest:loop.final_segment_defeat";
+    public static final String LOOP_DESPERATE_MODE = "gd656conquest:loop.desperate_mode";
 
     private ClientMusicCatalog() {
     }

@@ -252,6 +252,7 @@ public final class RoomHudSyncService {
         List<String> campAPlayers = new ArrayList<>();
         List<String> campBPlayers = new ArrayList<>();
         List<RoomTeamMirrorSyncPacket.PlayerSquadEntry> squadEntries = new ArrayList<>();
+        List<RoomTeamMirrorSyncPacket.PlayerClassEntry> classEntries = new ArrayList<>();
         for (UUID playerId : state.getRoomPlayers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player == null) {
@@ -269,6 +270,10 @@ public final class RoomHudSyncService {
                 playerName,
                 squadLabel
             ));
+            classEntries.add(new RoomTeamMirrorSyncPacket.PlayerClassEntry(
+                playerName,
+                resolveHudClassKey(player)
+            ));
         }
         String campADisplayName = RoomTeamPresentationSupport.resolveTeamDisplayName(room, state, RoomTeamId.CAMP_A);
         String campBDisplayName = RoomTeamPresentationSupport.resolveTeamDisplayName(room, state, RoomTeamId.CAMP_B);
@@ -280,7 +285,8 @@ public final class RoomHudSyncService {
                 campBDisplayName,
                 campAPlayers,
                 campBPlayers,
-                squadEntries
+                squadEntries,
+                classEntries
             )
         );
     }
@@ -289,6 +295,7 @@ public final class RoomHudSyncService {
         List<String> campAPlayers = new ArrayList<>();
         List<String> campBPlayers = new ArrayList<>();
         List<RoomTeamMirrorSyncPacket.PlayerSquadEntry> squadEntries = new ArrayList<>();
+        List<RoomTeamMirrorSyncPacket.PlayerClassEntry> classEntries = new ArrayList<>();
         for (UUID playerId : state.getMatchingState().getQueuePlayers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player == null) {
@@ -306,6 +313,10 @@ public final class RoomHudSyncService {
                 playerName,
                 squadLabel
             ));
+            classEntries.add(new RoomTeamMirrorSyncPacket.PlayerClassEntry(
+                playerName,
+                resolveHudClassKey(player)
+            ));
         }
         String campADisplayName = RoomTeamPresentationSupport.resolveConfiguredDisplayName(room, RoomTeamId.CAMP_A);
         String campBDisplayName = RoomTeamPresentationSupport.resolveConfiguredDisplayName(room, RoomTeamId.CAMP_B);
@@ -317,7 +328,8 @@ public final class RoomHudSyncService {
                 campBDisplayName,
                 campAPlayers,
                 campBPlayers,
-                squadEntries
+                squadEntries,
+                classEntries
             )
         );
     }

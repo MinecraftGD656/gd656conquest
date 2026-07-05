@@ -87,6 +87,7 @@ public final class RoomItemReplenishService {
             return true;
         }
         if (currentStack.getCount() >= targetCount) {
+            lastReplenishTickBySlot.put(slotKey, gameTick); // 修复：物品满时持续重置计时器，确保消耗后才开始计算冷却
             return false;
         }
         currentStack.grow(1);

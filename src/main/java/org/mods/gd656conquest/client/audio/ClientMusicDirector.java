@@ -231,13 +231,15 @@ final class ClientMusicDirector {
             : FINAL_SEGMENT_CROSSFADE_TICKS;
         int fadeInTicks = 0;
         if (ClientMusicCatalog.LOOP_FINAL_SEGMENT_VICTORY.equals(desired)
-            || ClientMusicCatalog.LOOP_FINAL_SEGMENT_DEFEAT.equals(desired)) {
+            || ClientMusicCatalog.LOOP_FINAL_SEGMENT_DEFEAT.equals(desired)
+            || ClientMusicCatalog.LOOP_DESPERATE_MODE.equals(desired)) {
             fadeOutTicks = FINAL_SEGMENT_CROSSFADE_TICKS;
             fadeInTicks = FINAL_SEGMENT_CROSSFADE_TICKS;
         } else if (isLastObjectiveLoop(desired)) {
             fadeOutTicks = LAST_OBJECTIVE_LOOP_FADE_TICKS;
             fadeInTicks = ClientMusicCatalog.LOOP_FINAL_SEGMENT_VICTORY.equals(activeFinaleLoop)
                 || ClientMusicCatalog.LOOP_FINAL_SEGMENT_DEFEAT.equals(activeFinaleLoop)
+                || ClientMusicCatalog.LOOP_DESPERATE_MODE.equals(activeFinaleLoop)
                 ? FINAL_SEGMENT_CROSSFADE_TICKS
                 : 0;
         }
@@ -275,6 +277,9 @@ final class ClientMusicDirector {
     private static String resolveDesiredFinaleLoop(MusicContext context) {
         if (context.maintenanceState) {
             return NONE;
+        }
+        if ("BT_DESPERATE".equals(context.audioState)) {
+            return ClientMusicCatalog.LOOP_DESPERATE_MODE;
         }
         if ("BT_LAST_SEGMENT".equals(context.audioState)) {
             if (context.selfTeam == TeamToken.CAMP_A) {

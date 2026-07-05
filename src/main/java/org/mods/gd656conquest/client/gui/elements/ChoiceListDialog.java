@@ -37,8 +37,9 @@ public class ChoiceListDialog {
     private int displayOffset = 0;
     private String selectedValue = "";
 
+    private final List<ChoiceGroup> groups = new ArrayList<>();
     private final List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
-    private final List<FixedChoiceConfigEntry.Choice> filteredChoices = new ArrayList<>();
+    private final List<RenderItem> renderItems = new ArrayList<>();
     private final List<GDRowRenderer> rowRenderers = new ArrayList<>();
     private Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate;
     private Consumer<FixedChoiceConfigEntry.Choice> onExtraAction;
@@ -49,6 +50,8 @@ public class ChoiceListDialog {
     private String extraActionText = "";
     private int extraActionColor = GuiConstants.COLOR_RED;
     private int extraActionWidth = GuiConstants.ROW_HEADER_HEIGHT;
+    private ChoiceListState persistentState;
+    private Consumer<FixedChoiceConfigEntry.Choice> onHoverChoice;
 
     private boolean isDraggingList = false;
     private double lastMouseY = 0;
@@ -97,8 +100,135 @@ public class ChoiceListDialog {
         }
     }
 
+    public static class ChoiceGroup {
+        private final String groupId;
+        private final String displayName;
+        private final List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
+        private boolean expanded = false;
+
+        public ChoiceGroup(String groupId, String displayName) {
+            this.groupId = groupId;
+            this.displayName = displayName;
+        }
+
+        public String getGroupId() {
+            return groupId;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
+
+        public List<FixedChoiceConfigEntry.Choice> getChoices() {
+            return choices;
+        }
+
+        public boolean isExpanded() {
+            return expanded;
+        }
+
+        public void setExpanded(boolean expanded) {
+            this.expanded = expanded;
+        }
+    }
+
+    private static class RenderItem {
+        final boolean isGroupHeader;
+        final ChoiceGroup group;
+        final FixedChoiceConfigEntry.Choice choice;
+
+        RenderItem(ChoiceGroup group) {
+            this.isGroupHeader = true;
+            this.group = group;
+            this.choice = null;
+        }
+
+        RenderItem(ChoiceGroup group, FixedChoiceConfigEntry.Choice choice) {
+            this.isGroupHeader = false;
+            this.group = group;
+            this.choice = choice;
+        }
+    }
+
     public ChoiceListDialog(Minecraft minecraft) {
         this.minecraft = minecraft;
+    }
+
+    public void showWithGroups(
+        String initialValue,
+        String title,
+        List<ChoiceGroup> inputGroups,
+        Consumer<String> onConfirm,
+        Runnable onCancel,
+        Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onExtraAction,
+        String extraActionText,
+        int extraActionColor,
+        int extraActionWidth,
+        Predicate<FixedChoiceConfigEntry.Choice> directActionPredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onDirectAction,
+        Predicate<FixedChoiceConfigEntry.Choice> selectablePredicate,
+        Function<FixedChoiceConfigEntry.Choice, RowIcon> iconProvider,
+        ChoiceListState persistentState,
+        Consumer<FixedChoiceConfigEntry.Choice> onHoverChoice
+    ) {
+        this.title = title;
+        this.onConfirm = onConfirm;
+        this.onCancel = onCancel;
+        this.extraActionVisiblePredicate = extraActionVisiblePredicate;
+        this.onExtraAction = onExtraAction;
+        this.directActionPredicate = directActionPredicate;
+        this.onDirectAction = onDirectAction;
+        this.selectablePredicate = selectablePredicate;
+        this.iconProvider = iconProvider;
+        this.extraActionText = extraActionText == null ? "" : extraActionText;
+        this.extraActionColor = extraActionColor;
+        this.extraActionWidth = extraActionWidth <= 0 ? GuiConstants.ROW_HEADER_HEIGHT : extraActionWidth;
+        this.visible = true;
+        this.lastFrameTime = System.currentTimeMillis();
+        this.inputHoverProgress = 0.0f;
+        this.filterText = "";
+        this.cursorPosition = 0;
+        this.selectionAnchor = -1;
+        this.undoStack.clear();
+        this.displayOffset = 0;
+        this.persistentState = persistentState;
+        this.onHoverChoice = onHoverChoice;
+
+        this.groups.clear();
+        this.choices.clear();
+        
+        if (inputGroups != null) {
+            for (ChoiceGroup group : inputGroups) {
+                if (group != null && !group.getChoices().isEmpty()) {
+                    if (persistentState != null && persistentState.isExpanded(group.getGroupId())) {
+                        group.setExpanded(true);
+                    }
+                    this.groups.add(group);
+                    this.choices.addAll(group.getChoices());
+                }
+            }
+        }
+
+        this.selectedValue = resolveValue(initialValue);
+        applyFilter();
+
+        if (persistentState != null) {
+            this.targetScrollY = persistentState.getScrollY();
+            this.scrollY = this.targetScrollY;
+        }
+
+        int w1 = (PANEL_WIDTH - 1) / 2;
+        int w2 = PANEL_WIDTH - 1 - w1;
+        this.confirmButton = new GDButton(0, 0, w2, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal(I18n.get("gd656conquest.client.gui.config.confirm")), (btn) -> confirm());
+        this.cancelButton = new GDButton(0, 0, w1, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal(I18n.get("gd656conquest.client.gui.config.cancel")), (btn) -> cancel());
+
+        if (this.titleRenderer == null) {
+            this.titleRenderer = new GDTextRenderer(title, 0, 0, 0, 0, 1.0f, GuiConstants.COLOR_GOLD, false);
+        } else {
+            this.titleRenderer.setText(title);
+            this.titleRenderer.setColor(GuiConstants.COLOR_GOLD);
+        }
     }
 
     public void show(String initialValue, String title, List<FixedChoiceConfigEntry.Choice> options, Consumer<String> onConfirm, Runnable onCancel) {
@@ -214,6 +344,42 @@ public class ChoiceListDialog {
         Predicate<FixedChoiceConfigEntry.Choice> selectablePredicate,
         Function<FixedChoiceConfigEntry.Choice, RowIcon> iconProvider
     ) {
+        show(
+            initialValue,
+            title,
+            options,
+            onConfirm,
+            onCancel,
+            extraActionVisiblePredicate,
+            onExtraAction,
+            extraActionText,
+            extraActionColor,
+            extraActionWidth,
+            directActionPredicate,
+            onDirectAction,
+            selectablePredicate,
+            iconProvider,
+            null
+        );
+    }
+
+    public void show(
+        String initialValue,
+        String title,
+        List<FixedChoiceConfigEntry.Choice> options,
+        Consumer<String> onConfirm,
+        Runnable onCancel,
+        Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onExtraAction,
+        String extraActionText,
+        int extraActionColor,
+        int extraActionWidth,
+        Predicate<FixedChoiceConfigEntry.Choice> directActionPredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onDirectAction,
+        Predicate<FixedChoiceConfigEntry.Choice> selectablePredicate,
+        Function<FixedChoiceConfigEntry.Choice, RowIcon> iconProvider,
+        Consumer<FixedChoiceConfigEntry.Choice> onHoverChoice
+    ) {
         this.title = title;
         this.onConfirm = onConfirm;
         this.onCancel = onCancel;
@@ -223,6 +389,7 @@ public class ChoiceListDialog {
         this.onDirectAction = onDirectAction;
         this.selectablePredicate = selectablePredicate;
         this.iconProvider = iconProvider;
+        this.onHoverChoice = onHoverChoice;
         this.extraActionText = extraActionText == null ? "" : extraActionText;
         this.extraActionColor = extraActionColor;
         this.extraActionWidth = extraActionWidth <= 0 ? GuiConstants.ROW_HEADER_HEIGHT : extraActionWidth;
@@ -330,7 +497,13 @@ public class ChoiceListDialog {
         int listBgColor = (GuiConstants.COLOR_BLACK & 0x00FFFFFF) | (int)(255 * 0.35f) << 24;
         guiGraphics.fill(previewX, previewY, previewX + previewW, previewY + previewH, listBgColor);
         guiGraphics.fill(listX, listY, listX + listW, listY + listH, listBgColor);
-        renderHoverPreview(guiGraphics, mouseX, mouseY, previewX, previewY, previewW, previewH, listX, listY, listW, listH);
+        
+        FixedChoiceConfigEntry.Choice hoveredChoice = getHoveredChoice(mouseX, mouseY, listX, listY, listW, listH);
+        if (onHoverChoice != null) {
+            onHoverChoice.accept(hoveredChoice);
+        }
+        
+        renderHoverPreview(guiGraphics, hoveredChoice, previewX, previewY, previewW, previewH);
 
         renderList(guiGraphics, mouseX, mouseY, partialTick, listX, listY, listX + listW, listY + listH);
 
@@ -636,8 +809,7 @@ public class ChoiceListDialog {
         renderer.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
-    private void renderHoverPreview(GuiGraphics guiGraphics, int mouseX, int mouseY, int previewX, int previewY, int previewW, int previewH, int listX, int listY, int listW, int listH) {
-        FixedChoiceConfigEntry.Choice hoveredChoice = getHoveredChoice(mouseX, mouseY, listX, listY, listW, listH);
+    private void renderHoverPreview(GuiGraphics guiGraphics, FixedChoiceConfigEntry.Choice hoveredChoice, int previewX, int previewY, int previewW, int previewH) {
         if (hoveredChoice == null || iconProvider == null) {
             return;
         }

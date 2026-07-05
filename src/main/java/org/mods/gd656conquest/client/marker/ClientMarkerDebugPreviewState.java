@@ -49,21 +49,23 @@ public final class ClientMarkerDebugPreviewState {
         float spacing = 96.0F;
         float rowSpacing = 88.0F;
         List<PreviewEntry> entries = List.of(
-            new PreviewEntry("普通标记", TacticalMarkerRenderer.MarkerVisualType.NORMAL, false, MARKER_SHAPE_OPACITY, -1.0F, 0),
-            new PreviewEntry("敌军地面", TacticalMarkerRenderer.MarkerVisualType.ENEMY_GROUND, false, MARKER_SHAPE_OPACITY, -1.0F, 0),
-            new PreviewEntry("敌军实体", TacticalMarkerRenderer.MarkerVisualType.ENEMY_TRACKED, true, MARKER_SHAPE_OPACITY, -1.0F, 0),
-            new PreviewEntry("自动敌军", TacticalMarkerRenderer.MarkerVisualType.AUTO_ENEMY, false, AUTO_ENEMY_SHAPE_OPACITY, -1.0F, 0),
-            new PreviewEntry("友军永久", TacticalMarkerRenderer.MarkerVisualType.ALLY_PERSISTENT, false, 1.0F, -1.0F, 1),
-            new PreviewEntry("小队永久", TacticalMarkerRenderer.MarkerVisualType.SQUAD_PERSISTENT, false, 1.0F, -1.0F, 1),
-            new PreviewEntry("倒地友军", TacticalMarkerRenderer.MarkerVisualType.DOWNED_ALLY, false, 1.0F, helpPulse, 1),
-            new PreviewEntry("倒地小队", TacticalMarkerRenderer.MarkerVisualType.DOWNED_SQUAD, false, 1.0F, helpPulse, 1)
+            new PreviewEntry("普通标记", TacticalMarkerRenderer.MarkerVisualType.NORMAL, false, MARKER_SHAPE_OPACITY, -1.0F, 0, ""),
+            new PreviewEntry("敌军地面", TacticalMarkerRenderer.MarkerVisualType.ENEMY_GROUND, false, MARKER_SHAPE_OPACITY, -1.0F, 0, ""),
+            new PreviewEntry("敌军实体", TacticalMarkerRenderer.MarkerVisualType.ENEMY_TRACKED, true, MARKER_SHAPE_OPACITY, -1.0F, 0, ""),
+            new PreviewEntry("自动敌军", TacticalMarkerRenderer.MarkerVisualType.AUTO_ENEMY, false, AUTO_ENEMY_SHAPE_OPACITY, -1.0F, 0, ""),
+            new PreviewEntry("友军永久", TacticalMarkerRenderer.MarkerVisualType.ALLY_PERSISTENT, false, 1.0F, -1.0F, 1, "assault"),
+            new PreviewEntry("小队永久", TacticalMarkerRenderer.MarkerVisualType.SQUAD_PERSISTENT, false, 1.0F, -1.0F, 1, "engineer"),
+            new PreviewEntry("倒地友军", TacticalMarkerRenderer.MarkerVisualType.DOWNED_ALLY, false, 1.0F, helpPulse, 1, "recon"),
+            new PreviewEntry("倒地小队", TacticalMarkerRenderer.MarkerVisualType.DOWNED_SQUAD, false, 1.0F, helpPulse, 1, "support"),
+            new PreviewEntry("弹药箱", TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX, false, 1.0F, -1.0F, 2, "")
         );
         for (int i = 0; i < entries.size(); i++) {
             PreviewEntry entry = entries.get(i);
             int column = i % 4;
-            int row = i / 4;
+            int row = entry.row();
             float centerX = startX + spacing * column;
             float centerY = baseY + rowSpacing * row;
+            boolean isAmmoBoxEmpty = entry.visualType() == TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX && (elapsedTicks % 40) > 20;
             TacticalMarkerRenderer.drawMarker(
                 gui,
                 centerX,
@@ -74,7 +76,9 @@ public final class ClientMarkerDebugPreviewState {
                 entry.hovered(),
                 entry.visualType(),
                 resolveEntryScale(entryProgress),
-                entry.helpPulseProgress()
+                entry.helpPulseProgress(),
+                entry.targetClass(),
+                isAmmoBoxEmpty
             );
             int textRgb = switch (entry.visualType()) {
                 case ENEMY_GROUND, ENEMY_TRACKED, AUTO_ENEMY -> 0x00F1C1C1;
@@ -110,7 +114,8 @@ public final class ClientMarkerDebugPreviewState {
         boolean hovered,
         float shapeOpacity,
         float helpPulseProgress,
-        int row
+        int row,
+        String targetClass
     ) {
     }
 }

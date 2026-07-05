@@ -21,6 +21,8 @@ public final class ClientRoomTeamMirror {
     private static final Map<String, TeamToken> TEAM_BY_PLAYER = new LinkedHashMap<>();
     private static final Map<String, String> SQUAD_BY_PLAYER = new LinkedHashMap<>();
 
+    private static final Map<String, String> CLASS_BY_PLAYER = new LinkedHashMap<>();
+
     private ClientRoomTeamMirror() {
     }
 
@@ -31,7 +33,8 @@ public final class ClientRoomTeamMirror {
         String campBDisplayName,
         List<String> campAPlayers,
         List<String> campBPlayers,
-        List<RoomTeamMirrorSyncPacket.PlayerSquadEntry> squadEntries
+        List<RoomTeamMirrorSyncPacket.PlayerSquadEntry> squadEntries,
+        List<RoomTeamMirrorSyncPacket.PlayerClassEntry> classEntries
     ) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null || minecraft.level == null) {
@@ -39,6 +42,7 @@ public final class ClientRoomTeamMirror {
                 lastRoomId = "";
                 TEAM_BY_PLAYER.clear();
                 SQUAD_BY_PLAYER.clear();
+                CLASS_BY_PLAYER.clear();
             }
             return;
         }
@@ -51,6 +55,7 @@ public final class ClientRoomTeamMirror {
             lastRoomId = "";
             TEAM_BY_PLAYER.clear();
             SQUAD_BY_PLAYER.clear();
+            CLASS_BY_PLAYER.clear();
             return;
         }
         String normalizedRoomId = roomId.toLowerCase(Locale.ROOT);
@@ -63,7 +68,7 @@ public final class ClientRoomTeamMirror {
         PlayerTeam campBTeam = ensureTeam(scoreboard, campBTeamName, campBDisplayName, ChatFormatting.WHITE);
         syncTeamMembers(scoreboard, campATeam, toNameSet(campAPlayers));
         syncTeamMembers(scoreboard, campBTeam, toNameSet(campBPlayers));
-        rebuildMirrorState(campAPlayers, campBPlayers, squadEntries);
+        rebuildMirrorState(campAPlayers, campBPlayers, squadEntries, classEntries);
         lastRoomId = normalizedRoomId;
     }
 
@@ -73,12 +78,14 @@ public final class ClientRoomTeamMirror {
             lastRoomId = "";
             TEAM_BY_PLAYER.clear();
             SQUAD_BY_PLAYER.clear();
+            CLASS_BY_PLAYER.clear();
             return;
         }
         clearRoom(minecraft.level.getScoreboard(), lastRoomId);
         lastRoomId = "";
         TEAM_BY_PLAYER.clear();
         SQUAD_BY_PLAYER.clear();
+        CLASS_BY_PLAYER.clear();
     }
 
     public static boolean isTeammate(Player targetPlayer) {
@@ -102,6 +109,13 @@ public final class ClientRoomTeamMirror {
         String selfSquad = resolveSelfSquadLabel();
         String targetSquad = SQUAD_BY_PLAYER.getOrDefault(normalizePlayerName(targetPlayer.getScoreboardName()), "");
         return !selfSquad.isBlank() && selfSquad.equals(targetSquad);
+    }
+
+    public static String getPlayerClass(Player targetPlayer) {
+        if (targetPlayer == null) {
+            return "";
+        }
+        return CLASS_BY_PLAYER.getOrDefault(normalizePlayerName(targetPlayer.getScoreboardName()), "");
     }
 
     private static PlayerTeam ensureTeam(Scoreboard scoreboard, String teamName, String displayName, ChatFormatting color) {
@@ -146,10 +160,12 @@ public final class ClientRoomTeamMirror {
     private static void rebuildMirrorState(
         List<String> campAPlayers,
         List<String> campBPlayers,
-        List<RoomTeamMirrorSyncPacket.PlayerSquadEntry> squadEntries
+        List<RoomTeamMirrorSyncPacket.PlayerSquadEntry> squadEntries,
+        List<RoomTeamMirrorSyncPacket.PlayerClassEntry> classEntries
     ) {
         TEAM_BY_PLAYER.clear();
         SQUAD_BY_PLAYER.clear();
+        CLASS_BY_PLAYER.clear();
         for (String playerName : campAPlayers) {
             String normalized = normalizePlayerName(playerName);
             if (!normalized.isBlank()) {
@@ -162,16 +178,26 @@ public final class ClientRoomTeamMirror {
                 TEAM_BY_PLAYER.put(normalized, TeamToken.CAMP_B);
             }
         }
-        if (squadEntries == null) {
-            return;
-        }
-        for (RoomTeamMirrorSyncPacket.PlayerSquadEntry squadEntry : squadEntries) {
-            if (squadEntry == null) {
-                continue;
+        if (squadEntries != null) {
+            for (RoomTeamMirrorSyncPacket.PlayerSquadEntry squadEntry : squadEntries) {
+                if (squadEntry == null) {
+                    continue;
+                }
+                String normalized = normalizePlayerName(squadEntry.playerName());
+                if (!normalized.isBlank()) {
+                    SQUAD_BY_PLAYER.put(normalized, squadEntry.squadLabel() == null ? "" : squadEntry.squadLabel().trim());
+                }
             }
-            String normalized = normalizePlayerName(squadEntry.playerName());
-            if (!normalized.isBlank()) {
-                SQUAD_BY_PLAYER.put(normalized, squadEntry.squadLabel() == null ? "" : squadEntry.squadLabel().trim());
+        }
+        if (classEntries != null) {
+            for (RoomTeamMirrorSyncPacket.PlayerClassEntry classEntry : classEntries) {
+                if (classEntry == null) {
+                    continue;
+                }
+                String normalized = normalizePlayerName(classEntry.playerName());
+                if (!normalized.isBlank()) {
+                    CLASS_BY_PLAYER.put(normalized, classEntry.classKey() == null ? "" : classEntry.classKey().trim());
+                }
             }
         }
     }

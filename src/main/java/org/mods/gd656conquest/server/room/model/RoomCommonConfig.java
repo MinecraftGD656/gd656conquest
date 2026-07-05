@@ -23,7 +23,8 @@ public record RoomCommonConfig(
     boolean enableGoatHorn,
     boolean enablePlayerDowned,
     boolean enableBackAgainstWall,
-    boolean enableRandomLoadout
+    boolean enableRandomLoadout,
+    boolean enableParachute
 ) {
     public RoomCommonConfig {
         matchingConfig = matchingConfig == null ? RoomMatchingConfig.defaults() : matchingConfig;
@@ -80,7 +81,8 @@ public record RoomCommonConfig(
             false,
             false,
             false,
-            false
+            false,
+            true
         );
     }
 
@@ -124,7 +126,8 @@ public record RoomCommonConfig(
             false,
             false,
             false,
-            false
+            false,
+            true
         );
     }
 
@@ -150,7 +153,9 @@ public record RoomCommonConfig(
             false,
             false,
             false,
-            false
+            false,
+            false,
+            true
         );
     }
 

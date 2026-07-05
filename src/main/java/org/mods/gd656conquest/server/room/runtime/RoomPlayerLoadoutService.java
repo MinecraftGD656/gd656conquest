@@ -17,7 +17,9 @@ import net.minecraft.world.item.InstrumentItem;
 import net.minecraft.world.item.Instruments;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.mods.gd656conquest.server.compat.superbwarfare.SuperbWarfareCompatBridge;
+import org.mods.gd656conquest.server.compat.curios.CuriosCompatBridge;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataModel;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataStore;
@@ -178,6 +180,7 @@ public final class RoomPlayerLoadoutService {
         }
         moveConfiguredTotemToOffhand(player);
         applyOptionalRoomGoatHorn(player);
+        applyOptionalParachute(roomContext, player);
         if (selection.playerDataChanged()) {
             playerDataHandler.savePlayerData(player.getUUID(), playerData);
         }
@@ -979,6 +982,27 @@ public final class RoomPlayerLoadoutService {
             return;
         }
         player.getInventory().setItem(GOAT_HORN_HOTBAR_SLOT, goatHorn);
+    }
+
+    private void applyOptionalParachute(RoomRuntimeContext roomContext, ServerPlayer player) {
+        if (player == null || roomContext == null || roomContext.room() == null) {
+            return;
+        }
+        if (!roomContext.room().commonConfig().enableParachute()) {
+            return;
+        }
+        if (!CuriosCompatBridge.isLoaded()) {
+            return;
+        }
+        ResourceLocation parachuteId = ResourceLocation.tryParse("superbwarfare:parachute");
+        if (parachuteId == null) {
+            return;
+        }
+        net.minecraft.world.item.Item parachuteItem = ForgeRegistries.ITEMS.getValue(parachuteId);
+        if (parachuteItem == null || parachuteItem == Items.AIR) {
+            return;
+        }
+        CuriosCompatBridge.setCurio(player, "back", 0, new ItemStack(parachuteItem));
     }
 
     private RoomDefinition resolvePlayerRoom(ServerPlayer player) {

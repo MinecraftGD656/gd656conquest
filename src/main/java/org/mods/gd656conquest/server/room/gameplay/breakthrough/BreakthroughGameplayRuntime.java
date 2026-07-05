@@ -232,10 +232,10 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         int killerEntityId,
         long gameTick
     ) {
-        if (reason != RoomPlayerInvalidationReason.DEATH || pendingEndRequest != null) {
+        if ((reason != RoomPlayerInvalidationReason.DEATH && reason != RoomPlayerInvalidationReason.REDEPLOY) || pendingEndRequest != null) {
             return;
         }
-        if (teamId == RoomTeamId.CAMP_A && runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT) {
+        if (reason == RoomPlayerInvalidationReason.DEATH && teamId == RoomTeamId.CAMP_A && runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT) {
             if (runtimeState.isDesperateModeActive()) {
                 return;
             }
@@ -252,6 +252,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, "进攻方兵力耗尽");
                 return;
             }
+        }
+        if (reason == RoomPlayerInvalidationReason.REDEPLOY) {
+            return;
         }
         if (teamId != RoomTeamId.CAMP_B || room == null || runtimeState.getPhase() != BreakthroughRuntimeState.Phase.RETREAT) {
             return;
@@ -1190,7 +1193,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
 
     private String buildAudioState(RoomTeamId selfTeam) {
         if (runtimeState.isDesperateModeActive()) {
-            return "RUNNING";
+            return "BT_DESPERATE";
         }
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) {
             return "BT_RETREAT";
@@ -1387,48 +1390,14 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private void syncDesperatePersistentSubtitles() {
-        String persistentText = resolveDesperatePersistentSubtitle();
-        for (java.util.UUID playerId : runningState.getRoomPlayers()) {
-            ServerPlayer player = captureRuntimeService.findOnlinePlayer(playerId);
-            if (player == null) {
-                desperateSubtitleByPlayer.remove(playerId);
-                continue;
-            }
-            String previous = desperateSubtitleByPlayer.getOrDefault(playerId, "");
-            if (persistentText.isBlank()) {
-                if (!previous.isBlank()) {
-                    NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.clearPersistent("bt_desperate"));
-                    desperateSubtitleByPlayer.remove(playerId);
-                }
-                continue;
-            }
-            if (persistentText.equals(previous)) {
-                continue;
-            }
-            NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.setPersistent("bt_desperate", persistentText));
-            desperateSubtitleByPlayer.put(playerId, persistentText);
-        }
+        // Feature Removed: Desperate mode no longer displays persistent subtitles with black backgrounds.
     }
 
     private void clearDesperatePersistentSubtitles() {
-        for (java.util.UUID playerId : new LinkedHashSet<>(desperateSubtitleByPlayer.keySet())) {
-            ServerPlayer player = captureRuntimeService.findOnlinePlayer(playerId);
-            if (player != null) {
-                NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.clearPersistent("bt_desperate"));
-            }
-        }
-        desperateSubtitleByPlayer.clear();
+        // Feature Removed: Desperate mode no longer displays persistent subtitles with black backgrounds.
     }
 
-    private String resolveDesperatePersistentSubtitle() {
-        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BACK_TO_WALL) {
-            return hudStyledText("BT_LAST_STAND_PERSISTENT", "背水一战");
-        }
-        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BURN_BOATS) {
-            return hudStyledText("BT_BURN_BOATS_PERSISTENT", "破釜沉舟");
-        }
-        return "";
-    }
+
 
     private String resolveDesperateEventText() {
         if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BACK_TO_WALL) {

@@ -8,7 +8,6 @@ import org.joml.Matrix4f;
 final class ClientHudProjectionCacheKey {
     private static final double POSITION_STEP = 0.02D;
     private static final double ROTATION_STEP = 0.05D;
-    private static final double FOV_STEP = 0.05D;
 
     private ClientHudProjectionCacheKey() {
     }
@@ -31,11 +30,22 @@ final class ClientHudProjectionCacheKey {
         hash = mix(hash, quantize(position.z, POSITION_STEP));
         hash = mix(hash, quantize(camera.getXRot(), ROTATION_STEP));
         hash = mix(hash, quantize(camera.getYRot(), ROTATION_STEP));
-        hash = mix(hash, quantize(resolveCurrentFov(minecraft), FOV_STEP));
         hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m00), 1.0E-4D));
+        hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m01), 1.0E-4D));
+        hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m02), 1.0E-4D));
+        hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m03), 1.0E-4D));
+        hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m10), 1.0E-4D));
         hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m11), 1.0E-4D));
+        hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m12), 1.0E-4D));
+        hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m13), 1.0E-4D));
+        hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m20), 1.0E-4D));
+        hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m21), 1.0E-4D));
         hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m22), 1.0E-4D));
         hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m23), 1.0E-4D));
+        hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m30), 1.0E-4D));
+        hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m31), 1.0E-4D));
+        hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m32), 1.0E-4D));
+        hash = mix(hash, quantize(resolveProjectionComponent(viewProjectionMatrix, Matrix4f::m33), 1.0E-4D));
         return hash;
     }
 
@@ -45,11 +55,6 @@ final class ClientHudProjectionCacheKey {
 
     private static long quantize(double value, double step) {
         return Math.round(value / step);
-    }
-
-    private static double resolveCurrentFov(Minecraft minecraft) {
-        Object value = minecraft.options.fov().get();
-        return value instanceof Number number ? number.doubleValue() : 70.0D;
     }
 
     private static double resolveProjectionComponent(Matrix4f matrix, MatrixComponentResolver resolver) {

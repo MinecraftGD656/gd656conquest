@@ -105,10 +105,10 @@ public final class ConquestGameplayRuntime implements
         int killerEntityId,
         long gameTick
     ) {
-        if (reason != RoomPlayerInvalidationReason.DEATH || pendingEndRequest != null) {
+        if ((reason != RoomPlayerInvalidationReason.DEATH && reason != RoomPlayerInvalidationReason.REDEPLOY) || pendingEndRequest != null) {
             return;
         }
-        if ("TROOP_DEPLETION".equalsIgnoreCase(captureConfig(room).scoreMethod())) {
+        if (reason == RoomPlayerInvalidationReason.DEATH && "TROOP_DEPLETION".equalsIgnoreCase(captureConfig(room).scoreMethod())) {
             if (teamId == RoomTeamId.CAMP_A) {
                 scoreState.setCampAScore(scoreState.getCampAScore() - 1);
             } else if (teamId == RoomTeamId.CAMP_B) {
@@ -120,11 +120,18 @@ public final class ConquestGameplayRuntime implements
             }
         }
 
+        if (reason == RoomPlayerInvalidationReason.REDEPLOY) {
+            return;
+        }
+
         ServerPlayer deadPlayer = runningState.getRoomPlayers().contains(playerId)
             ? captureRuntimeService.findOnlinePlayer(playerId)
             : null;
         ServerPlayer killerPlayer = captureRuntimeService.resolveKillerPlayer(deadPlayer, killerEntityId);
-        if (killerPlayer == null || killerPlayer.getUUID().equals(playerId)) {
+        if (killerPlayer == null) {
+            return; // 自杀（包括非系统判定的重新部署）时，不执行任何加分或特殊连杀逻辑
+        }
+        if (killerPlayer.getUUID().equals(playerId)) {
             return;
         }
         RoomTeamId killerTeam = runningState.getRoomTeams().get(killerPlayer.getUUID());

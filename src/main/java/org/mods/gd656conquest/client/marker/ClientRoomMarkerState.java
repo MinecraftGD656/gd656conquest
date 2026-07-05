@@ -210,6 +210,22 @@ public final class ClientRoomMarkerState {
             float entryProgress = resolveEntryAnimationProgress(markerAge);
             float entryOffset = resolveEntryYOffset(entryProgress);
             float shapeOpacity = resolveShapeOpacity(marker.kind()) * lifetimeAlpha;
+            String targetClass = "";
+            if (marker.kind().isFriendlyPersistentOrDownedMarker() || marker.kind().isDownedMarker()) {
+                Player targetPlayer = marker.resolveTrackedPlayer(minecraft);
+                if (targetPlayer != null) {
+                    targetClass = ClientRoomTeamMirror.getPlayerClass(targetPlayer);
+                }
+            }
+
+            boolean isAmmoBoxEmpty = false;
+            if (marker.kind() == MarkerKind.AMMO_BOX) {
+                // Check if primary weapon has no ammo
+                // But wait, the prompt says: "当玩家主武器没有弹药时，会自动给这个子弹图片平滑红色闪烁的着色器色彩效果"
+                // Let's implement this later in the tick logic.
+                isAmmoBoxEmpty = isPrimaryWeaponEmpty(minecraft);
+            }
+
             TacticalMarkerRenderer.drawMarker(
                 gui,
                 (float) projection.screenX(),
@@ -220,12 +236,45 @@ public final class ClientRoomMarkerState {
                 isHovered,
                 marker.kind().toVisualType(),
                 resolveEntryScale(entryProgress),
-                resolveHelpPulseProgress(marker)
+                resolveHelpPulseProgress(marker),
+                targetClass,
+                isAmmoBoxEmpty
             );
         }
         if (hovered != null && hovered.crosshairDistance() <= CROSSHAIR_LABEL_RADIUS_PIXELS) {
             renderHoveredLabel(gui, minecraft, hovered);
         }
+    }
+
+    private static boolean isPrimaryWeaponEmpty(Minecraft minecraft) {
+        if (minecraft == null || minecraft.player == null) return false;
+        net.minecraft.world.item.ItemStack primary = minecraft.player.getInventory().getItem(0);
+        if (primary.isEmpty()) return false;
+        
+        // Use TaczClientAttachmentCompat or similar to check ammo
+        try {
+            Class<?> iGunClass = Class.forName("com.tacz.guns.api.item.IGun");
+            java.lang.reflect.Method getIGunOrNull = iGunClass.getMethod("getIGunOrNull", net.minecraft.world.item.ItemStack.class);
+            Object iGun = getIGunOrNull.invoke(null, primary);
+            if (iGun != null) {
+                java.lang.reflect.Method getCurrentAmmoCount = iGun.getClass().getMethod("getCurrentAmmoCount", net.minecraft.world.item.ItemStack.class);
+                int ammo = (Integer) getCurrentAmmoCount.invoke(iGun, primary);
+                return ammo <= 0;
+            }
+        } catch (Exception ignored) {}
+        
+        // Also check SuperbWarfare
+        try {
+            Class<?> sbwBridge = Class.forName("org.mods.gd656conquest.server.compat.superbwarfare.SuperbWarfareCompatBridge");
+            java.lang.reflect.Method isGunItem = sbwBridge.getMethod("isGunItem", net.minecraft.world.item.ItemStack.class);
+            if ((Boolean) isGunItem.invoke(null, primary)) {
+                java.lang.reflect.Method getAmmo = sbwBridge.getMethod("getReserveAmmo", net.minecraft.world.item.ItemStack.class);
+                int ammo = (Integer) getAmmo.invoke(null, primary);
+                return ammo <= 0;
+            }
+        } catch (Exception ignored) {}
+        
+        return false;
     }
 
     private static void renderHoveredLabel(GuiGraphics gui, Minecraft minecraft, HoveredMarker hovered) {
@@ -626,6 +675,32 @@ public final class ClientRoomMarkerState {
         if (minecraft == null || minecraft.level == null || minecraft.player == null) {
             return renderMarkers;
         }
+        
+        // Render ammo boxes
+        for (net.minecraft.world.entity.Entity entity : minecraft.level.entitiesForRendering()) {
+            if (entity == null || entity == minecraft.player) continue;
+            
+            // Check distance (30 blocks)
+            if (entity.distanceToSqr(minecraft.player) > 30.0 * 30.0) continue;
+            
+            // Check if ammo box
+            String entityType = net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getKey(entity.getType()).toString();
+            if ("superbwarfare:ammo_box".equals(entityType) || "tacz:ammo_box".equals(entityType)) {
+                renderMarkers.add(new ClientMarker(
+                    entity.getUUID(),
+                    "弹药箱",
+                    MarkerKind.AMMO_BOX,
+                    entity.blockPosition().getX(),
+                    entity.blockPosition().getY(),
+                    entity.blockPosition().getZ(),
+                    null, // Not tracked on a player
+                    Integer.MAX_VALUE,
+                    0L,
+                    0L
+                ));
+            }
+        }
+
         for (Player targetPlayer : minecraft.level.players()) {
             if (targetPlayer == null || targetPlayer == minecraft.player || targetPlayer.isSpectator() || !targetPlayer.isAlive()) {
                 continue;
@@ -789,7 +864,7 @@ public final class ClientRoomMarkerState {
         }
     }
 
-    private enum MarkerKind {
+    public enum MarkerKind {
         NORMAL,
         ENEMY,
         DIRECT_ENEMY,
@@ -797,7 +872,8 @@ public final class ClientRoomMarkerState {
         ALLY_PERSISTENT,
         SQUAD_PERSISTENT,
         DOWNED_ALLY,
-        DOWNED_SQUAD;
+        DOWNED_SQUAD,
+        AMMO_BOX;
 
         private static MarkerKind from(String value) {
             if (value == null || value.isBlank()) {
@@ -848,6 +924,7 @@ public final class ClientRoomMarkerState {
                 case SQUAD_PERSISTENT -> TacticalMarkerRenderer.MarkerVisualType.SQUAD_PERSISTENT;
                 case DOWNED_ALLY -> TacticalMarkerRenderer.MarkerVisualType.DOWNED_ALLY;
                 case DOWNED_SQUAD -> TacticalMarkerRenderer.MarkerVisualType.DOWNED_SQUAD;
+                case AMMO_BOX -> TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX;
             };
         }
     }

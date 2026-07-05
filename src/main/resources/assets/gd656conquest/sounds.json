@@ -119,6 +119,14 @@
       }
     ]
   },
+  "loop.desperate_mode": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/loop_desperate_mode",
+        "stream": true
+      }
+    ]
+  },
   "sfx.capture_in": {
     "sounds": [
       {

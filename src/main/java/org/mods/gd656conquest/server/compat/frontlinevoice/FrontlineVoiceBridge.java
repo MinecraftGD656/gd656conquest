@@ -7,7 +7,7 @@ import net.minecraftforge.fml.ModList;
 import java.lang.reflect.Method;
 
 public final class FrontlineVoiceBridge {
-    public static final String MOD_ID = "gd656frontlinevoice";
+    public static final String MOD_ID = "gd656frontvoice";
 
     private static Method playCueMethod;
     private static Method playCueAtMethod;
@@ -82,17 +82,23 @@ public final class FrontlineVoiceBridge {
             return false;
         }
         try {
-            Class<?> apiClass = Class.forName("org.mods.gd656frontlinevoice.api.FrontlineVoiceApi");
+            Class<?> apiClass = Class.forName("org.mods.gd656frontvoice.api.FrontVoiceApi");
             playCueMethod = apiClass.getMethod("playCue", ServerPlayer.class, String.class);
-            playCueAtMethod = apiClass.getMethod("playCueAt", ServerPlayer.class, Vec3.class, String.class);
-            playThirdPersonSoundMethod = apiClass.getMethod(
-                "playThirdPersonSound",
-                ServerPlayer.class,
-                String.class,
-                float.class,
-                float.class,
-                double.class
-            );
+            try {
+                playCueAtMethod = apiClass.getMethod("playCueAt", ServerPlayer.class, Vec3.class, String.class);
+                playThirdPersonSoundMethod = apiClass.getMethod(
+                    "playThirdPersonSound",
+                    ServerPlayer.class,
+                    String.class,
+                    float.class,
+                    float.class,
+                    double.class
+                );
+            } catch (NoSuchMethodException e) {
+                // Ignore missing methods in the new API for now, we don't use them currently
+                playCueAtMethod = null;
+                playThirdPersonSoundMethod = null;
+            }
             playConfirmedDeathMethod = apiClass.getMethod("playConfirmedDeath", ServerPlayer.class);
             return true;
         } catch (ReflectiveOperationException ignored) {

@@ -10,6 +10,7 @@ import org.mods.gd656conquest.client.compat.tacz.TaczClientInputCompat;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.PlayerAnimatorHelpRequestPacket;
 import org.mods.gd656conquest.network.packet.RoomDownedActionPacket;
+import org.mods.gd656conquest.client.audio.DownedLoopSoundInstance;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -50,6 +51,7 @@ public final class ClientDownedState {
     private static long helpCooldownUntilMs;
     private static float surrenderHoldTicks;
     private static List<RescuerEntry> rescuers = List.of();
+    private static DownedLoopSoundInstance loopSound;
 
     private ClientDownedState() {
     }
@@ -82,6 +84,11 @@ public final class ClientDownedState {
         remainTicks = Math.max(0, remainTicksValue);
         debugExpireAtMs = 0L;
         rescuers = sanitizeRescuers(rescuerEntries);
+        
+        if (loopSound == null || loopSound.isStopped()) {
+            loopSound = new DownedLoopSoundInstance();
+            minecraft.getSoundManager().play(loopSound);
+        }
     }
 
     public static void startDebugPreview(int durationMs) {
@@ -103,6 +110,10 @@ public final class ClientDownedState {
         helpCooldownUntilMs = 0L;
         redeployRequestRetryTicksRemaining = 0;
         rescuers = buildLocalPreviewRescuers(player);
+        if (loopSound == null || loopSound.isStopped()) {
+            loopSound = new DownedLoopSoundInstance();
+            minecraft.getSoundManager().play(loopSound);
+        }
         ClientDeathFlowState.clear();
     }
 
@@ -120,6 +131,10 @@ public final class ClientDownedState {
         redeployRequestRetryTicksRemaining = 0;
         surrenderHoldTicks = 0.0F;
         rescuers = List.of();
+        if (loopSound != null) {
+            loopSound.fadeOut();
+            loopSound = null;
+        }
         ClientDeathFlowState.clear();
         ClientDeathFlowState.setDownedBlackoutStrength(0.0F);
     }
