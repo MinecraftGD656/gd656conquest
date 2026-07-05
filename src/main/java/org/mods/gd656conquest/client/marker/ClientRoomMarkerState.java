@@ -64,6 +64,7 @@ public final class ClientRoomMarkerState {
     private static UUID autoAimTriggeredTargetId;
     private static long lastKeyPressAtMs;
     private static final Map<UUID, Long> HELP_PULSE_STARTED_AT_MS = new HashMap<>();
+    private static final Map<UUID, Long> dynamicEntityFirstSeen = new HashMap<>();
 
     private ClientRoomMarkerState() {
     }
@@ -136,6 +137,7 @@ public final class ClientRoomMarkerState {
         autoAimTriggeredTargetId = null;
         lastKeyPressAtMs = 0L;
         HELP_PULSE_STARTED_AT_MS.clear();
+        dynamicEntityFirstSeen.clear();
     }
 
     public static void triggerHelpPulse(UUID playerId) {
@@ -260,10 +262,7 @@ public final class ClientRoomMarkerState {
             java.lang.reflect.Method getIGunOrNull = iGunClass.getMethod("getIGunOrNull", net.minecraft.world.item.ItemStack.class);
             Object iGun = getIGunOrNull.invoke(null, primary);
             if (iGun != null) {
-                java.lang.reflect.Method getCurrentAmmoCount = iGun.getClass().getMethod("getCurrentAmmoCount", net.minecraft.world.item.ItemStack.class);
-                int currentAmmo = (Integer) getCurrentAmmoCount.invoke(iGun, primary);
                 int dummyAmmo = 0;
-                boolean hasBulletInBarrel = false;
                 try {
                     java.lang.reflect.Method useDummyAmmo = iGun.getClass().getMethod("useDummyAmmo", net.minecraft.world.item.ItemStack.class);
                     boolean usesDummyAmmo = (Boolean) useDummyAmmo.invoke(iGun, primary);
@@ -273,12 +272,47 @@ public final class ClientRoomMarkerState {
                     }
                 } catch (Exception ignored) {
                 }
+                
+                int inventoryAmmo = 0;
                 try {
-                    java.lang.reflect.Method hasBulletInBarrelMethod = iGun.getClass().getMethod("hasBulletInBarrel", net.minecraft.world.item.ItemStack.class);
-                    hasBulletInBarrel = (Boolean) hasBulletInBarrelMethod.invoke(iGun, primary);
+                    java.lang.reflect.Method getGunId = iGun.getClass().getMethod("getGunId", net.minecraft.world.item.ItemStack.class);
+                    Object gunIdObject = getGunId.invoke(iGun, primary);
+                    if (gunIdObject instanceof net.minecraft.resources.ResourceLocation gunId) {
+                        Class<?> timelessApiClass = Class.forName("com.tacz.guns.api.TimelessAPI");
+                        java.lang.reflect.Method getCommonGunIndex = timelessApiClass.getMethod("getCommonGunIndex", net.minecraft.resources.ResourceLocation.class);
+                        Object gunIndexOptionalObject = getCommonGunIndex.invoke(null, gunId);
+                        if (gunIndexOptionalObject instanceof java.util.Optional<?> gunIndexOptional && gunIndexOptional.isPresent()) {
+                            Object gunIndex = gunIndexOptional.get();
+                            java.lang.reflect.Method getGunData = gunIndex.getClass().getMethod("getGunData");
+                            Object gunData = getGunData.invoke(gunIndex);
+                            if (gunData != null) {
+                                java.lang.reflect.Method getAmmoId = gunData.getClass().getMethod("getAmmoId");
+                                Object ammoIdObject = getAmmoId.invoke(gunData);
+                                if (ammoIdObject instanceof net.minecraft.resources.ResourceLocation ammoId) {
+                                    Class<?> builderClass = Class.forName("com.tacz.guns.api.item.builder.AmmoItemBuilder");
+                                    java.lang.reflect.Method create = builderClass.getMethod("create");
+                                    Object builder = create.invoke(null);
+                                    java.lang.reflect.Method setId = builderClass.getMethod("setId", net.minecraft.resources.ResourceLocation.class);
+                                    java.lang.reflect.Method setCount = builderClass.getMethod("setCount", int.class);
+                                    java.lang.reflect.Method build = builderClass.getMethod("build");
+                                    builder = setId.invoke(builder, ammoId);
+                                    builder = setCount.invoke(builder, 1);
+                                    Object ammoStackObject = build.invoke(builder);
+                                    if (ammoStackObject instanceof net.minecraft.world.item.ItemStack ammoStack) {
+                                        for (net.minecraft.world.item.ItemStack stack : minecraft.player.getInventory().items) {
+                                            if (stack != null && !stack.isEmpty() && net.minecraft.world.item.ItemStack.isSameItemSameTags(stack, ammoStack)) {
+                                                inventoryAmmo += stack.getCount();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } catch (Exception ignored) {
                 }
-                return currentAmmo + dummyAmmo + (hasBulletInBarrel ? 1 : 0) <= 0;
+
+                return dummyAmmo + inventoryAmmo <= 0;
             }
         } catch (Exception ignored) {}
         try {
@@ -693,6 +727,8 @@ public final class ClientRoomMarkerState {
             return renderMarkers;
         }
         
+        java.util.Set<UUID> currentFrameEntities = new java.util.HashSet<>();
+
         // Render ammo boxes
         for (net.minecraft.world.entity.Entity entity : minecraft.level.entitiesForRendering()) {
             if (entity == null || entity == minecraft.player) continue;
@@ -700,6 +736,7 @@ public final class ClientRoomMarkerState {
                 if (!ammoBox.isAlive() || ammoBox.distanceToSqr(minecraft.player) > 30.0D * 30.0D) {
                     continue;
                 }
+                currentFrameEntities.add(ammoBox.getUUID());
                 renderMarkers.add(new ClientMarker(
                     ammoBox.getUUID(),
                     "弹药箱",
@@ -710,7 +747,7 @@ public final class ClientRoomMarkerState {
                     null,
                     Integer.MAX_VALUE,
                     gameTick,
-                    gameTick
+                    dynamicEntityFirstSeen.computeIfAbsent(ammoBox.getUUID(), k -> gameTick)
                 ));
                 continue;
             }
@@ -721,6 +758,7 @@ public final class ClientRoomMarkerState {
             // Check if ammo box
             String entityType = net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getKey(entity.getType()).toString();
             if ("superbwarfare:ammo_box".equals(entityType) || "tacz:ammo_box".equals(entityType)) {
+                currentFrameEntities.add(entity.getUUID());
                 renderMarkers.add(new ClientMarker(
                     entity.getUUID(),
                     "弹药箱",
@@ -730,8 +768,8 @@ public final class ClientRoomMarkerState {
                     entity.blockPosition().getZ(),
                     null, // Not tracked on a player
                     Integer.MAX_VALUE,
-                    0L,
-                    0L
+                    gameTick,
+                    dynamicEntityFirstSeen.computeIfAbsent(entity.getUUID(), k -> gameTick)
                 ));
             }
         }
@@ -754,6 +792,8 @@ public final class ClientRoomMarkerState {
             MarkerKind kind = downed
                 ? (squadMate ? MarkerKind.DOWNED_SQUAD : MarkerKind.DOWNED_ALLY)
                 : (squadMate ? MarkerKind.SQUAD_PERSISTENT : MarkerKind.ALLY_PERSISTENT);
+            
+            currentFrameEntities.add(targetPlayer.getUUID());
             renderMarkers.add(new ClientMarker(
                 targetPlayer.getUUID(),
                 targetPlayer.getScoreboardName(),
@@ -763,10 +803,13 @@ public final class ClientRoomMarkerState {
                 targetPlayer.blockPosition().getZ(),
                 targetPlayer.getUUID(),
                 Integer.MAX_VALUE,
-                0L,
-                0L
+                gameTick,
+                dynamicEntityFirstSeen.computeIfAbsent(targetPlayer.getUUID(), k -> gameTick)
             ));
         }
+        
+        dynamicEntityFirstSeen.keySet().retainAll(currentFrameEntities);
+        
         return renderMarkers;
     }
 

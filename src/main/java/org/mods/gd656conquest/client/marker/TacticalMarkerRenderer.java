@@ -37,7 +37,7 @@ public final class TacticalMarkerRenderer {
     private static final float SQUAD_GREEN_GREEN = 1.00F;
     private static final float SQUAD_GREEN_BLUE = 0.58F;
     private static final float CLASS_MARKER_HALF_SIZE = 5.0F;
-    private static final float AMMO_BOX_MARKER_HALF_SIZE = 12.0F;
+    private static final float AMMO_BOX_MARKER_HALF_SIZE = 28.0F;
 
     private TacticalMarkerRenderer() {
     }
