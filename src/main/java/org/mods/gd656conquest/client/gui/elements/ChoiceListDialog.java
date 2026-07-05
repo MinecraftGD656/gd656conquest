@@ -19,6 +19,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class ChoiceListDialog {
+    // Current loadout selectors apply immediately on row selection, so the confirm button stays hidden.
+    private static final boolean SHOW_CONFIRM_BUTTON = false;
     private static final int ROW_HEIGHT = GuiConstants.ROW_HEADER_HEIGHT + 2;
     private static final int ROW_GAP = 1;
     private static final int LIST_WIDTH = 140 + 15;
@@ -63,6 +65,7 @@ public class ChoiceListDialog {
     private double lastMouseY = 0;
     private double scrollY = 0;
     private double targetScrollY = 0;
+    private int horizontalOffset = 0;
 
     private float inputHoverProgress = 0.0f;
     private long lastFrameTime;
@@ -275,6 +278,7 @@ public class ChoiceListDialog {
         this.lastMouseY = 0.0D;
         this.scrollY = 0.0D;
         this.targetScrollY = 0.0D;
+        this.horizontalOffset = 0;
 
         this.choices.clear();
         if (options != null) {
@@ -287,7 +291,7 @@ public class ChoiceListDialog {
         int w1 = (PANEL_WIDTH - 1) / 2;
         int w2 = PANEL_WIDTH - 1 - w1;
         this.confirmButton = new GDButton(0, 0, w2, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal(I18n.get("gd656conquest.client.gui.config.confirm")), btn -> confirm());
-        this.cancelButton = new GDButton(0, 0, w1, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal(I18n.get("gd656conquest.client.gui.config.cancel")), btn -> cancel());
+        this.cancelButton = new GDButton(0, 0, SHOW_CONFIRM_BUTTON ? w1 : PANEL_WIDTH, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal("关闭"), btn -> cancel());
 
         if (this.titleRenderer == null) {
             this.titleRenderer = new GDTextRenderer(title, 0, 0, 0, 0, 1.0f, GuiConstants.COLOR_GOLD, false);
@@ -299,6 +303,10 @@ public class ChoiceListDialog {
 
     public boolean isVisible() {
         return visible;
+    }
+
+    public void setHorizontalOffset(int horizontalOffset) {
+        this.horizontalOffset = horizontalOffset;
     }
 
     public void hide() {
@@ -318,7 +326,7 @@ public class ChoiceListDialog {
 
         guiGraphics.fill(0, 0, screenWidth, screenHeight, 0x88444444);
 
-        int centerX = (screenWidth - PANEL_WIDTH) / 2;
+        int centerX = (screenWidth - PANEL_WIDTH) / 2 + horizontalOffset;
         int centerY = (screenHeight - PANEL_HEIGHT) / 2 + 20;
         int fontHeight = minecraft.font.lineHeight;
         int titleY = centerY - fontHeight - PAD + 6;
@@ -384,11 +392,13 @@ public class ChoiceListDialog {
         int btnLeftX = centerX;
         int btnRightX = centerX + (PANEL_WIDTH - 1) / 2 + 1;
         if (cancelButton != null) {
+            cancelButton.setWidth(SHOW_CONFIRM_BUTTON ? (PANEL_WIDTH - 1) / 2 : PANEL_WIDTH);
             cancelButton.setX(btnLeftX);
             cancelButton.setY(buttonsY);
             cancelButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
-        if (confirmButton != null) {
+        // Keep confirm button logic available for keyboard/manual fallback, but hide it in the current UI flow.
+        if (SHOW_CONFIRM_BUTTON && confirmButton != null) {
             confirmButton.setX(btnRightX);
             confirmButton.setY(buttonsY);
             confirmButton.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -401,7 +411,7 @@ public class ChoiceListDialog {
         if (!visible) {
             return false;
         }
-        if (confirmButton != null && confirmButton.mouseClicked(mouseX, mouseY, button)) {
+        if (SHOW_CONFIRM_BUTTON && confirmButton != null && confirmButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
         if (cancelButton != null && cancelButton.mouseClicked(mouseX, mouseY, button)) {
@@ -410,7 +420,7 @@ public class ChoiceListDialog {
 
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
-        int centerX = (screenWidth - PANEL_WIDTH) / 2;
+        int centerX = (screenWidth - PANEL_WIDTH) / 2 + horizontalOffset;
         int centerY = (screenHeight - PANEL_HEIGHT) / 2 + 20;
         int buttonsY = centerY + PANEL_HEIGHT - BUTTON_HEIGHT;
         int inputY = buttonsY - PAD - INPUT_HEIGHT;
@@ -473,7 +483,7 @@ public class ChoiceListDialog {
 
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
-        int centerX = (screenWidth - PANEL_WIDTH) / 2;
+        int centerX = (screenWidth - PANEL_WIDTH) / 2 + horizontalOffset;
         int centerY = (screenHeight - PANEL_HEIGHT) / 2 + 20;
         int buttonsY = centerY + PANEL_HEIGHT - BUTTON_HEIGHT;
         int listY = buttonsY - PAD - INPUT_HEIGHT - PAD - LIST_HEIGHT;
@@ -963,6 +973,9 @@ public class ChoiceListDialog {
     private void selectChoice(FixedChoiceConfigEntry.Choice choice) {
         if (choice != null) {
             selectedValue = choice.value();
+            if (onConfirm != null) {
+                onConfirm.accept(selectedValue);
+            }
         }
     }
 

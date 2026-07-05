@@ -47,19 +47,16 @@ public final class TaczGunPropertyPanelCompat {
         return PANEL_WIDTH;
     }
 
-    public int getPanelHeight() {
-        ensureResolved();
-        if (!available || getHidePropertyButtonYOffsetMethod == null) {
+    public int getPanelHeight(ItemStack gunStack) {
+        GunContext context = resolveContext(gunStack);
+        if (context == null) {
             return FALLBACK_PANEL_HEIGHT;
         }
-        try {
-            Object value = getHidePropertyButtonYOffsetMethod.invoke(null);
-            if (value instanceof Number number) {
-                return Math.max(80, number.intValue() - 11);
-            }
-        } catch (Exception ignored) {
+        Object cacheProperty = createCacheProperty(gunStack, context.gunData());
+        if (cacheProperty == null) {
+            return FALLBACK_PANEL_HEIGHT;
         }
-        return FALLBACK_PANEL_HEIGHT;
+        return Math.max(FALLBACK_PANEL_HEIGHT, calculateContentHeight(gunStack, context, cacheProperty));
     }
 
     public boolean canRender(ItemStack gunStack) {
@@ -67,6 +64,10 @@ public final class TaczGunPropertyPanelCompat {
     }
 
     public void render(GuiGraphics guiGraphics, Font font, int x, int y, ItemStack gunStack) {
+        render(guiGraphics, font, x, y, getPanelHeight(gunStack), gunStack);
+    }
+
+    public void render(GuiGraphics guiGraphics, Font font, int x, int y, int panelHeight, ItemStack gunStack) {
         GunContext context = resolveContext(gunStack);
         if (context == null) {
             return;
@@ -76,7 +77,6 @@ public final class TaczGunPropertyPanelCompat {
             return;
         }
 
-        int panelHeight = getPanelHeight();
         guiGraphics.fill(x, y, x + PANEL_WIDTH, y + panelHeight, 0xAF222222);
 
         int barStartX = x + 83;
@@ -166,6 +166,14 @@ public final class TaczGunPropertyPanelCompat {
                 currentY += 10;
             }
         }
+    }
+
+    private int calculateContentHeight(ItemStack gunStack, GunContext context, Object cacheProperty) {
+        int rowCount = 3;
+        for (Object modifier : getRegisteredModifiers().values()) {
+            rowCount += invokeDiagrams(modifier, gunStack, context.gunData(), cacheProperty).size();
+        }
+        return 14 + rowCount * 10;
     }
 
     private GunContext resolveContext(ItemStack gunStack) {
