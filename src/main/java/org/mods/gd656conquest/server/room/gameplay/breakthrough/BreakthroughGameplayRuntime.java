@@ -1363,24 +1363,10 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
 
     private void activateBackToWall(long gameTick) {
         runtimeState.startBackToWall(gameTick, BACK_TO_WALL_DURATION_SECONDS);
-        runtimeState.pushTeamEvent(RoomTeamId.CAMP_A, hudStyledText("BT_LAST_STAND_ATTACKER_FLASH", "组织最后一次冲锋"), gameTick + DESPERATE_TRIGGER_EVENT_TICKS);
-        runtimeState.pushTeamEvent(RoomTeamId.CAMP_B, hudStyledText("BT_LAST_STAND_DEFENDER_FLASH", "阻止敌方反攻"), gameTick + DESPERATE_TRIGGER_EVENT_TICKS);
-        broadcastStageTransitionSubtitle(
-            "bt_back_to_wall_" + gameTick,
-            hudStyledText("BT_LAST_STAND_ATTACKER_FLASH", "组织最后一次冲锋"),
-            hudStyledText("BT_LAST_STAND_DEFENDER_FLASH", "阻止敌方反攻")
-        );
     }
 
     private void activateBurnBoats(long gameTick) {
         runtimeState.startBurnBoats(gameTick, BURN_BOATS_DURATION_SECONDS);
-        runtimeState.pushTeamEvent(RoomTeamId.CAMP_A, hudStyledText("BT_BURN_BOATS_FLASH", "二段加时"), gameTick + DESPERATE_TRIGGER_EVENT_TICKS);
-        runtimeState.pushTeamEvent(RoomTeamId.CAMP_B, hudStyledText("BT_BURN_BOATS_FLASH", "二段加时"), gameTick + DESPERATE_TRIGGER_EVENT_TICKS);
-        broadcastStageTransitionSubtitle(
-            "bt_burn_boats_" + gameTick,
-            hudStyledText("BT_BURN_BOATS_FLASH", "二段加时"),
-            hudStyledText("BT_BURN_BOATS_FLASH", "二段加时")
-        );
     }
 
     private void failDesperateMode(long gameTick, String reason, String attackerText, String defenderText) {
@@ -1390,11 +1376,36 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private void syncDesperatePersistentSubtitles() {
-        // Feature Removed: Desperate mode no longer displays persistent subtitles with black backgrounds.
+        boolean active = runtimeState.isDesperateModeActive();
+        for (java.util.UUID playerId : runningState.getRoomPlayers()) {
+            ServerPlayer player = captureRuntimeService.findOnlinePlayer(playerId);
+            if (player == null) {
+                desperateSubtitleByPlayer.remove(playerId);
+                continue;
+            }
+            String desired = active ? resolveDesperateEventText() : "";
+            String previous = desperateSubtitleByPlayer.getOrDefault(playerId, "");
+            if (desired.equals(previous)) {
+                continue;
+            }
+            if (desired.isBlank()) {
+                NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.clearPersistent("bt_desperate_mode"));
+                desperateSubtitleByPlayer.remove(playerId);
+                continue;
+            }
+            NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.setPersistent("bt_desperate_mode", desired));
+            desperateSubtitleByPlayer.put(playerId, desired);
+        }
     }
 
     private void clearDesperatePersistentSubtitles() {
-        // Feature Removed: Desperate mode no longer displays persistent subtitles with black backgrounds.
+        for (java.util.UUID playerId : new LinkedHashSet<>(desperateSubtitleByPlayer.keySet())) {
+            ServerPlayer player = captureRuntimeService.findOnlinePlayer(playerId);
+            if (player != null) {
+                NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.clearPersistent("bt_desperate_mode"));
+            }
+        }
+        desperateSubtitleByPlayer.clear();
     }
 
 

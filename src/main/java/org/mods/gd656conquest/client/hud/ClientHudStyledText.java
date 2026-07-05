@@ -31,12 +31,6 @@ final class ClientHudStyledText {
                 new Descriptor(content, 0xFFFFD85A, 0xFFFFD85A, false);
             case "BT_BURN_BOATS_STATUS", "BT_BURN_BOATS_PERSISTENT" ->
                 new Descriptor(content, 0xFFFF5555, 0xFFFF5555, false);
-            case "BT_LAST_STAND_ATTACKER_FLASH" ->
-                new Descriptor(content, 0xFF6EB8FF, 0xFFFFFFFF, true);
-            case "BT_LAST_STAND_DEFENDER_FLASH" ->
-                new Descriptor(content, 0xFFFFFFFF, 0xFFFF5555, true);
-            case "BT_BURN_BOATS_FLASH" ->
-                new Descriptor(content, 0xFFFFFFFF, 0xFFFF5555, true);
             default -> new Descriptor(content, fallbackColor, fallbackColor, false);
         };
     }
