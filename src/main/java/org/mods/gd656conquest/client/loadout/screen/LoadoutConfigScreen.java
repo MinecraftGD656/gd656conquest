@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 public class LoadoutConfigScreen extends Screen {
@@ -169,28 +170,30 @@ public class LoadoutConfigScreen extends Screen {
             }
             return;
         }
+        int baseMouseX = getBaseUiMouseX(mouseX);
+        int baseMouseY = getBaseUiMouseY(mouseY);
         for (GDButton button : actionButtons) {
-            button.render(guiGraphics, mouseX, mouseY, partialTick);
+            button.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         if (closeButton != null) {
-            closeButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            closeButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         if (parkourLeaderboardButton != null) {
-            parkourLeaderboardButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            parkourLeaderboardButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         if (vehicleDeployButton != null) {
             ClientLoadoutUiState.Snapshot snapshot = ClientLoadoutUiState.snapshot();
             boolean available = snapshot != null && snapshot.vehiclePageAvailable();
             vehicleDeployButton.active = available;
             vehicleDeployButton.setTextColor(available ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY);
-            vehicleDeployButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            vehicleDeployButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         if (editItemsButton != null) {
             boolean showEditButton = shouldShowItemEditorButton();
             editItemsButton.active = showEditButton;
             editItemsButton.setTextColor(showEditButton ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY);
             if (showEditButton) {
-                editItemsButton.render(guiGraphics, mouseX, mouseY, partialTick);
+                editItemsButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
             }
         }
         if (editAttachmentsButton != null) {
@@ -198,7 +201,7 @@ public class LoadoutConfigScreen extends Screen {
             editAttachmentsButton.active = showAttachmentEditor;
             editAttachmentsButton.setTextColor(showAttachmentEditor ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY);
             if (showAttachmentEditor) {
-                editAttachmentsButton.render(guiGraphics, mouseX, mouseY, partialTick);
+                editAttachmentsButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
             }
         }
         if (editVehiclesButton != null) {
@@ -206,7 +209,7 @@ public class LoadoutConfigScreen extends Screen {
             editVehiclesButton.active = showVehicleButton;
             editVehiclesButton.setTextColor(showVehicleButton ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY);
             if (showVehicleButton) {
-                editVehiclesButton.render(guiGraphics, mouseX, mouseY, partialTick);
+                editVehiclesButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
             }
         }
         if (editRoomsButton != null) {
@@ -214,19 +217,19 @@ public class LoadoutConfigScreen extends Screen {
             editRoomsButton.active = showRoomButton;
             editRoomsButton.setTextColor(showRoomButton ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY);
             if (showRoomButton) {
-                editRoomsButton.render(guiGraphics, mouseX, mouseY, partialTick);
+                editRoomsButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
             }
         }
         ClientLoadoutUiState.Snapshot snapshot = ClientLoadoutUiState.snapshot();
-        rightContentScroll.update(mouseY, getRightContentViewportBottom() - getRightContentViewportTop(), getRightContentHeight());
+        rightContentScroll.update(baseMouseY, getRightContentViewportBottom() - getRightContentViewportTop(), getRightContentHeight());
         layoutAttachmentButtons(CustomLoadoutSlot.PRIMARY_WEAPON, getPrimaryCardTop());
         layoutAttachmentButtons(CustomLoadoutSlot.SECONDARY_WEAPON, getSecondaryCardTop());
         guiGraphics.drawString(this.font, this.title, LEFT, 12, 0xFFFFFF, false);
         guiGraphics.drawString(this.font, "选中枪械后右侧可快速自定义配件", LEFT, 24, 0xFFB8C6D6, false);
         guiGraphics.enableScissor(getRightPanelLeft(), getRightContentViewportTop(), getRightPanelRight(), getRightContentViewportBottom());
         renderOverviewPanel(guiGraphics, snapshot);
-        renderAttachmentCard(guiGraphics, mouseX, mouseY, partialTick, CustomLoadoutSlot.PRIMARY_WEAPON, getPrimaryCardTop());
-        renderAttachmentCard(guiGraphics, mouseX, mouseY, partialTick, CustomLoadoutSlot.SECONDARY_WEAPON, getSecondaryCardTop());
+        renderAttachmentCard(guiGraphics, baseMouseX, baseMouseY, partialTick, CustomLoadoutSlot.PRIMARY_WEAPON, getPrimaryCardTop());
+        renderAttachmentCard(guiGraphics, baseMouseX, baseMouseY, partialTick, CustomLoadoutSlot.SECONDARY_WEAPON, getSecondaryCardTop());
         guiGraphics.disableScissor();
         if (snapshot == null) {
             guiGraphics.drawString(this.font, Component.translatable("gd656conquest.client.gui.loadout.loading"), LEFT, TOP + (HEIGHT + GAP) * 7 + 12, 0xFFAA00, false);
@@ -384,6 +387,18 @@ public class LoadoutConfigScreen extends Screen {
 
     private boolean shouldShowWeaponPropertyOverlay() {
         return choiceDialog != null && choiceDialog.isVisible() && isWeaponSlot(currentHoverSlot);
+    }
+
+    private boolean isBlockingOverlayVisible() {
+        return choiceDialog != null && choiceDialog.isVisible();
+    }
+
+    private int getBaseUiMouseX(int mouseX) {
+        return isBlockingOverlayVisible() ? Integer.MIN_VALUE / 4 : mouseX;
+    }
+
+    private int getBaseUiMouseY(int mouseY) {
+        return isBlockingOverlayVisible() ? Integer.MIN_VALUE / 4 : mouseY;
     }
 
     private void toggleWeaponPropertyPanel() {
@@ -1116,9 +1131,12 @@ public class LoadoutConfigScreen extends Screen {
             selectedId,
             typeState.attachmentLabel(),
             choices,
-            selected -> NetworkManager.getChannel().sendToServer(
-                LoadoutUiActionPacket.selectAttachment(slot.getIndex(), panel.loadoutEntryId(), attachmentType, selected)
-            ),
+            selected -> {
+                playAttachmentSelectionSound(typeState, selectedId, selected);
+                NetworkManager.getChannel().sendToServer(
+                    LoadoutUiActionPacket.selectAttachment(slot.getIndex(), panel.loadoutEntryId(), attachmentType, selected)
+                );
+            },
             null,
             null,
             null,
@@ -1132,6 +1150,32 @@ public class LoadoutConfigScreen extends Screen {
             choice -> hoveredAttachmentChoice = choice
         );
         syncChoiceDialogHorizontalOffset();
+    }
+
+    private void playAttachmentSelectionSound(ClientLoadoutUiState.AttachmentTypeState typeState, String previousSelectedId, String selectedId) {
+        if (typeState == null || Objects.equals(previousSelectedId, selectedId)) {
+            return;
+        }
+        TaczClientAttachmentCompat compat = TaczClientAttachmentCompat.getInstance();
+        if (selectedId == null || selectedId.isBlank()) {
+            ItemStack previousAttachment = resolveAttachmentChoiceStack(typeState, previousSelectedId);
+            if (!previousAttachment.isEmpty()) {
+                compat.playAttachmentUninstallSound(previousAttachment);
+            }
+            return;
+        }
+        ItemStack selectedAttachment = resolveAttachmentChoiceStack(typeState, selectedId);
+        if (!selectedAttachment.isEmpty()) {
+            compat.playAttachmentInstallSound(selectedAttachment);
+        }
+    }
+
+    private ItemStack resolveAttachmentChoiceStack(ClientLoadoutUiState.AttachmentTypeState typeState, String attachmentId) {
+        if (typeState == null || attachmentId == null || attachmentId.isBlank()) {
+            return ItemStack.EMPTY;
+        }
+        ClientLoadoutUiState.AttachmentChoiceState choiceState = typeState.choices().get(attachmentId);
+        return choiceState == null ? ItemStack.EMPTY : parseStack(choiceState.itemSnbt());
     }
 
     private ChoiceListDialog.RowIcon buildItemIcon(String itemSnbt) {

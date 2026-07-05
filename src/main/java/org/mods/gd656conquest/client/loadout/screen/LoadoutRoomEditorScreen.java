@@ -94,16 +94,18 @@ public class LoadoutRoomEditorScreen extends Screen {
             guiGraphics.drawCenteredString(this.font, "仅管理员可编辑房间数据", this.width / 2, this.height / 2, 0xFFFF8080);
             return;
         }
-        renderPanels(guiGraphics, mouseX, mouseY, partialTick);
+        int baseMouseX = hasBlockingDialog() ? Integer.MIN_VALUE / 4 : mouseX;
+        int baseMouseY = hasBlockingDialog() ? Integer.MIN_VALUE / 4 : mouseY;
+        renderPanels(guiGraphics, baseMouseX, baseMouseY, partialTick);
         if (backButton != null) {
             backButton.setX(this.width - 86);
             backButton.setY(this.height - 26);
-            backButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            backButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         if (refreshButton != null) {
             refreshButton.setX(this.width - 166);
             refreshButton.setY(this.height - 26);
-            refreshButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            refreshButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         if (choiceListDialog != null && choiceListDialog.isVisible()) {
             choiceListDialog.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -114,6 +116,12 @@ public class LoadoutRoomEditorScreen extends Screen {
         if (confirmDialog != null && confirmDialog.isVisible()) {
             confirmDialog.render(guiGraphics, mouseX, mouseY, partialTick);
         }
+    }
+
+    private boolean hasBlockingDialog() {
+        return (choiceListDialog != null && choiceListDialog.isVisible())
+                || (textInputDialog != null && textInputDialog.isVisible())
+                || (confirmDialog != null && confirmDialog.isVisible());
     }
 
     private void renderPanels(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {

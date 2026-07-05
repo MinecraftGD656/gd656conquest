@@ -70,13 +70,15 @@ public class LoadoutItemEditorScreen extends Screen {
             return;
         }
 
+        int baseMouseX = hasBlockingDialog() ? Integer.MIN_VALUE / 4 : mouseX;
+        int baseMouseY = hasBlockingDialog() ? Integer.MIN_VALUE / 4 : mouseY;
         int x1 = LEFT;
         int y1 = TOP + ROW_H + 1;
         int x2 = this.width - LEFT;
         int y2 = this.height - 36;
         int viewH = Math.max(1, y2 - y1);
         int contentHeight = entries.size() * (ROW_H + ROW_GAP);
-        scrollState.update(mouseY, viewH, contentHeight);
+        scrollState.update(baseMouseY, viewH, contentHeight);
 
         guiGraphics.drawString(this.font, "装备数据编辑器", LEFT, 6, 0xFFFFD78A, false);
 
@@ -96,7 +98,7 @@ public class LoadoutItemEditorScreen extends Screen {
         headerRenderer.addColumn("弹药补给", 52, 0xFFB8D8FF, false, true, null);
         headerRenderer.addColumn("物品SNBT", -1, 0xFF9FC7AF, true, false, null);
         headerRenderer.addColumn("", ROW_H, 0xFFFF8080, true, true, null);
-        headerRenderer.render(guiGraphics, mouseX, mouseY, partialTick);
+        headerRenderer.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
 
         guiGraphics.enableScissor(x1, y1, x2, y2);
         guiGraphics.pose().pushPose();
@@ -109,7 +111,7 @@ public class LoadoutItemEditorScreen extends Screen {
             if (screenBottom <= y1 || screenTop >= y2) {
                 continue;
             }
-            renderEntryRow(guiGraphics, mouseX, (int) (mouseY + scrollState.scrollY()), partialTick, i, entries.get(i), x1, rowTop, x2, rowBottom);
+            renderEntryRow(guiGraphics, baseMouseX, (int) (baseMouseY + scrollState.scrollY()), partialTick, i, entries.get(i), x1, rowTop, x2, rowBottom);
         }
         guiGraphics.pose().popPose();
         guiGraphics.disableScissor();
@@ -118,12 +120,12 @@ public class LoadoutItemEditorScreen extends Screen {
         if (backButton != null) {
             backButton.setX(this.width - 86);
             backButton.setY(this.height - 26);
-            backButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            backButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         if (refreshButton != null) {
             refreshButton.setX(this.width - 166);
             refreshButton.setY(this.height - 26);
-            refreshButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            refreshButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         guiGraphics.drawString(this.font, "总数: " + entries.size(), LEFT, this.height - 20, 0xFFB8C6D6, false);
 
@@ -133,6 +135,11 @@ public class LoadoutItemEditorScreen extends Screen {
         if (confirmDialog != null && confirmDialog.isVisible()) {
             confirmDialog.render(guiGraphics, mouseX, mouseY, partialTick);
         }
+    }
+
+    private boolean hasBlockingDialog() {
+        return (textInputDialog != null && textInputDialog.isVisible())
+                || (confirmDialog != null && confirmDialog.isVisible());
     }
 
     private void renderEntryRow(

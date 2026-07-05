@@ -1,5 +1,7 @@
 package org.mods.gd656conquest.client.compat.tacz;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.resources.ResourceLocation;
@@ -23,9 +25,10 @@ public final class TaczClientAttachmentCompat {
     private Method gunIndexGetGunDataMethod;
     private Method iGunClassGetIGunOrNullMethod;
     private Method iGunClassGetGunIdMethod;
-    private Method iAttachmentClassGetIAttachmentOrNullMethod;
     private Method timelessGetCommonAttachmentIndexMethod;
-    private Method attachmentIndexGetAttachmentDataMethod;
+    private Method soundPlayManagerPlayerRefitSoundMethod;
+    private String installSoundName;
+    private String uninstallSoundName;
 
     private TaczClientAttachmentCompat() {
     }
@@ -186,6 +189,27 @@ public final class TaczClientAttachmentCompat {
             return gunStack;
         }
     }
+
+    public void playAttachmentInstallSound(ItemStack attachmentStack) {
+        playRefitSound(attachmentStack, installSoundName);
+    }
+
+    public void playAttachmentUninstallSound(ItemStack attachmentStack) {
+        playRefitSound(attachmentStack, uninstallSoundName);
+    }
+
+    private void playRefitSound(ItemStack attachmentStack, String soundName) {
+        ensureResolved();
+        LocalPlayer player = Minecraft.getInstance() == null ? null : Minecraft.getInstance().player;
+        if (!available || soundPlayManagerPlayerRefitSoundMethod == null || player == null || attachmentStack == null || attachmentStack.isEmpty() || soundName == null || soundName.isBlank()) {
+            return;
+        }
+        try {
+            soundPlayManagerPlayerRefitSoundMethod.invoke(null, attachmentStack, player, soundName);
+        } catch (Exception ignored) {
+        }
+    }
+
     private void ensureResolved() {
         if (resolved) {
             return;
@@ -193,7 +217,6 @@ public final class TaczClientAttachmentCompat {
         resolved = true;
         try {
             Class<?> iAttachmentClass = Class.forName("com.tacz.guns.api.item.IAttachment");
-            iAttachmentClassGetIAttachmentOrNullMethod = iAttachmentClass.getMethod("getIAttachmentOrNull", ItemStack.class);
             Class<?> timelessApiClass = Class.forName("com.tacz.guns.api.TimelessAPI");
             timelessGetCommonAttachmentIndexMethod = timelessApiClass.getMethod("getCommonAttachmentIndex", ResourceLocation.class);
             Class<?> clientAttachmentIndexClass = Class.forName("com.tacz.guns.client.resource.index.ClientAttachmentIndex");
@@ -207,8 +230,12 @@ public final class TaczClientAttachmentCompat {
             iGunClassGetIGunOrNullMethod = iGunClass.getMethod("getIGunOrNull", ItemStack.class);
             iGunClassGetGunIdMethod = iGunClass.getMethod("getGunId", ItemStack.class);
             timelessGetCommonGunIndexMethod = timelessApiClass.getMethod("getCommonGunIndex", ResourceLocation.class);
-            // Class<?> commonGunIndexClass = Class.forName("com.tacz.guns.resource.index.CommonGunIndex");
-            // gunIndexGetGunDataMethod = commonGunIndexClass.getMethod("getGunData");
+
+            Class<?> soundPlayManagerClass = Class.forName("com.tacz.guns.client.sound.SoundPlayManager");
+            soundPlayManagerPlayerRefitSoundMethod = soundPlayManagerClass.getMethod("playerRefitSound", ItemStack.class, LocalPlayer.class, String.class);
+            Class<?> soundManagerClass = Class.forName("com.tacz.guns.sound.SoundManager");
+            installSoundName = (String) soundManagerClass.getField("INSTALL_SOUND").get(null);
+            uninstallSoundName = (String) soundManagerClass.getField("UNINSTALL_SOUND").get(null);
             
             available = true;
         } catch (Throwable ignored) {
