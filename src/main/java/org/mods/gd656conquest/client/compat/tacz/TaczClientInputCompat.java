@@ -27,6 +27,12 @@ public final class TaczClientInputCompat {
     private static Method aimMethod;
     private static Method crawlMethod;
 
+    private static boolean lrAvailable;
+    private static boolean lrReflectionResolved;
+    private static Field lrNormalAttackKeyField;
+    private static Field lrSpecialAttackKeyField;
+    private static Field lrInteractKeyField;
+
     private TaczClientInputCompat() {
     }
 
@@ -94,21 +100,21 @@ public final class TaczClientInputCompat {
 
     private static void forceCombatStateReleased(Minecraft minecraft) {
         clearVanillaCombatState(minecraft);
-        if (!ModList.get().isLoaded(TACZ_MOD_ID)) {
-            return;
+        if (ModList.get().isLoaded(TACZ_MOD_ID)) {
+            LocalPlayer player = minecraft.player;
+            if (player != null && resolveReflection()) {
+                clearAimKeyState();
+                clearShootKeyState();
+                clearZoomKeyState();
+                clearControllerShootState();
+                resetLocalPlayerGunState(player);
+            }
         }
-        LocalPlayer player = minecraft.player;
-        if (player == null) {
-            return;
+        if (ModList.get().isLoaded("lrtactical")) {
+            if (resolveLrReflection()) {
+                clearLrKeyState();
+            }
         }
-        if (!resolveReflection()) {
-            return;
-        }
-        clearAimKeyState();
-        clearShootKeyState();
-        clearZoomKeyState();
-        clearControllerShootState();
-        resetLocalPlayerGunState(player);
     }
 
     public static void clearCrawlState(Minecraft minecraft) {
@@ -162,6 +168,39 @@ public final class TaczClientInputCompat {
             available = false;
         }
         return available;
+    }
+
+    private static boolean resolveLrReflection() {
+        if (lrReflectionResolved) {
+            return lrAvailable;
+        }
+        lrReflectionResolved = true;
+        try {
+            Class<?> attackKeysClass = Class.forName("me.xjqsh.lrtactical.client.input.AttackKeys");
+            lrNormalAttackKeyField = attackKeysClass.getDeclaredField("NORMAL_ATTACK");
+            lrSpecialAttackKeyField = attackKeysClass.getDeclaredField("SPECIAL_ATTACK");
+            Class<?> interactKeyClass = Class.forName("me.xjqsh.lrtactical.client.input.LrInteractKey");
+            lrInteractKeyField = interactKeyClass.getDeclaredField("INTERACT_KEY");
+            lrAvailable = true;
+        } catch (Throwable ignored) {
+            lrAvailable = false;
+        }
+        return lrAvailable;
+    }
+
+    private static void clearLrKeyState() {
+        try {
+            if (lrNormalAttackKeyField != null) {
+                releaseKeyMapping((KeyMapping) lrNormalAttackKeyField.get(null));
+            }
+            if (lrSpecialAttackKeyField != null) {
+                releaseKeyMapping((KeyMapping) lrSpecialAttackKeyField.get(null));
+            }
+            if (lrInteractKeyField != null) {
+                releaseKeyMapping((KeyMapping) lrInteractKeyField.get(null));
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     private static void clearAimKeyState() {

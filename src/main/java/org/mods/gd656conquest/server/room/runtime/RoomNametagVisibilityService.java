@@ -108,6 +108,7 @@ public final class RoomNametagVisibilityService {
         team.setColor(resolveTeamColor(teamId));
         team.setDisplayName(Component.literal(RoomTeamPresentationSupport.resolveTeamDisplayName(room, runningState, teamId)));
         team.setNameTagVisibility(Team.Visibility.HIDE_FOR_OTHER_TEAMS);
+        team.setCollisionRule(Team.CollisionRule.ALWAYS);
         return team;
     }
 

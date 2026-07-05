@@ -5,6 +5,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.scores.Team;
 import org.mods.gd656conquest.common.match.MatchResultType;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.RoomDeathFlowPacket;
@@ -113,12 +114,21 @@ public final class PlayerSessionStateService {
         }
         Scoreboard scoreboard = player.server.getScoreboard();
         PlayerTeam currentTeam = scoreboard.getPlayersTeam(player.getScoreboardName());
-        if (currentTeam == null || currentTeam.getName() == null) {
-            return;
+        if (currentTeam != null && currentTeam.getName() != null) {
+            String normalized = currentTeam.getName().toLowerCase(Locale.ROOT);
+            if (normalized.endsWith("_camp_a") || normalized.endsWith("_camp_b")) {
+                scoreboard.removePlayerFromTeam(player.getScoreboardName());
+            }
         }
-        String normalized = currentTeam.getName().toLowerCase(Locale.ROOT);
-        if (normalized.endsWith("_camp_a") || normalized.endsWith("_camp_b")) {
-            scoreboard.removePlayerFromTeam(player.getScoreboardName());
+        
+        PlayerTeam lobbyTeam = scoreboard.getPlayerTeam("gdcq_lobby");
+        if (lobbyTeam == null) {
+            lobbyTeam = scoreboard.addPlayerTeam("gdcq_lobby");
+            lobbyTeam.setCollisionRule(Team.CollisionRule.NEVER);
+            lobbyTeam.setNameTagVisibility(Team.Visibility.ALWAYS);
+        }
+        if (scoreboard.getPlayersTeam(player.getScoreboardName()) != lobbyTeam) {
+            scoreboard.addPlayerToTeam(player.getScoreboardName(), lobbyTeam);
         }
     }
 

@@ -126,6 +126,7 @@ public final class ClientRoomTeamMirror {
         team.setAllowFriendlyFire(true);
         team.setSeeFriendlyInvisibles(false);
         team.setNameTagVisibility(Team.Visibility.HIDE_FOR_OTHER_TEAMS);
+        team.setCollisionRule(Team.CollisionRule.ALWAYS);
         team.setDisplayName(Component.literal(displayName == null || displayName.isBlank() ? teamName : displayName));
         team.setColor(color == null ? ChatFormatting.WHITE : color);
         return team;
