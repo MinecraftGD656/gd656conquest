@@ -558,8 +558,28 @@ public class ChoiceListDialog {
             double adjustedMouseY = mouseY + scrollY;
             int selectWidth = 30;
 
-            for (int i = 0; i < filteredChoices.size(); i++) {
-                FixedChoiceConfigEntry.Choice choice = filteredChoices.get(i);
+            for (int i = 0; i < renderItems.size(); i++) {
+                RenderItem item = renderItems.get(i);
+                if (item.isGroupHeader) {
+                    int rowTop = listY + i * (ROW_HEIGHT + ROW_GAP);
+                    int rowBottom = rowTop + ROW_HEIGHT;
+                    if (adjustedMouseY >= rowTop && adjustedMouseY <= rowBottom) {
+                        if (button == 0) {
+                            item.group.setExpanded(!item.group.isExpanded());
+                            if (persistentState != null) {
+                                persistentState.setExpanded(item.group.getGroupId(), item.group.isExpanded());
+                            }
+                            double oldScroll = targetScrollY;
+                            applyFilter();
+                            targetScrollY = oldScroll;
+                            scrollY = oldScroll;
+                        }
+                        break;
+                    }
+                    continue;
+                }
+
+                FixedChoiceConfigEntry.Choice choice = item.choice;
                 boolean hasExtraAction = hasExtraAction(choice);
                 int extraWidth = hasExtraAction ? extraActionWidth : 0;
                 int selectX1 = listX + LIST_WIDTH - selectWidth - extraWidth;
@@ -740,8 +760,10 @@ public class ChoiceListDialog {
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(0, -scrollY, 0);
 
-        for (int i = 0; i < filteredChoices.size(); i++) {
-            FixedChoiceConfigEntry.Choice choice = filteredChoices.get(i);
+        for (int i = 0; i < renderItems.size(); i++) {
+            RenderItem item = renderItems.get(i);
+            if (item.isGroupHeader) continue;
+            FixedChoiceConfigEntry.Choice choice = item.choice;
             int rowTop = y1 + i * (ROW_HEIGHT + ROW_GAP);
             int rowBottom = rowTop + ROW_HEIGHT;
 
@@ -842,11 +864,13 @@ public class ChoiceListDialog {
             return null;
         }
         double adjustedMouseY = mouseY + scrollY;
-        for (int i = 0; i < filteredChoices.size(); i++) {
+        for (int i = 0; i < renderItems.size(); i++) {
+            RenderItem item = renderItems.get(i);
+            if (item.isGroupHeader) continue;
             int rowTop = listY + i * (ROW_HEIGHT + ROW_GAP);
             int rowBottom = rowTop + ROW_HEIGHT;
             if (adjustedMouseY >= rowTop && adjustedMouseY <= rowBottom) {
-                return filteredChoices.get(i);
+                return item.choice;
             }
         }
         return null;
@@ -1042,7 +1066,7 @@ public class ChoiceListDialog {
     }
 
     private void updateScroll(float dt, int viewHeight) {
-        int contentHeight = filteredChoices.size() * (ROW_HEIGHT + ROW_GAP);
+        int contentHeight = renderItems.size() * (ROW_HEIGHT + ROW_GAP);
         double maxScroll = Math.max(0, contentHeight - viewHeight);
         targetScrollY = Math.max(0, Math.min(maxScroll, targetScrollY));
 
@@ -1056,14 +1080,38 @@ public class ChoiceListDialog {
 
     private void applyFilter() {
         String filter = filterText == null ? "" : filterText.toLowerCase(Locale.ROOT);
-        filteredChoices.clear();
-        for (FixedChoiceConfigEntry.Choice choice : choices) {
-            String label = choice.label() == null ? "" : choice.label();
-            String value = choice.value() == null ? "" : choice.value();
-            if (filter.isEmpty() || label.toLowerCase(Locale.ROOT).contains(filter) || value.toLowerCase(Locale.ROOT).contains(filter)) {
-                filteredChoices.add(choice);
+        renderItems.clear();
+        
+        if (groups.isEmpty()) {
+            for (FixedChoiceConfigEntry.Choice choice : choices) {
+                String label = choice.label() == null ? "" : choice.label();
+                String value = choice.value() == null ? "" : choice.value();
+                if (filter.isEmpty() || label.toLowerCase(Locale.ROOT).contains(filter) || value.toLowerCase(Locale.ROOT).contains(filter)) {
+                    renderItems.add(new RenderItem(null, choice));
+                }
+            }
+        } else {
+            for (ChoiceGroup group : groups) {
+                List<FixedChoiceConfigEntry.Choice> groupMatches = new ArrayList<>();
+                for (FixedChoiceConfigEntry.Choice choice : group.getChoices()) {
+                    String label = choice.label() == null ? "" : choice.label();
+                    String value = choice.value() == null ? "" : choice.value();
+                    if (filter.isEmpty() || label.toLowerCase(Locale.ROOT).contains(filter) || value.toLowerCase(Locale.ROOT).contains(filter)) {
+                        groupMatches.add(choice);
+                    }
+                }
+                
+                if (!groupMatches.isEmpty()) {
+                    renderItems.add(new RenderItem(group));
+                    if (group.isExpanded() || !filter.isEmpty()) { // Auto expand if filtering
+                        for (FixedChoiceConfigEntry.Choice match : groupMatches) {
+                            renderItems.add(new RenderItem(group, match));
+                        }
+                    }
+                }
             }
         }
+        
         targetScrollY = 0;
         scrollY = 0;
         cursorPosition = Math.min(cursorPosition, filterText.length());

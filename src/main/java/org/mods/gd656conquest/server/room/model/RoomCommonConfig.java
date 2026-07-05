@@ -42,6 +42,52 @@ public record RoomCommonConfig(
         progressSpeed = Double.isFinite(progressSpeed) && progressSpeed > 0.0D ? progressSpeed : 40.0D;
     }
 
+    public static RoomCommonConfig defaults() {
+        return new RoomCommonConfig(
+            RoomMatchingConfig.defaults(),
+            "",
+            defaultQueueSpawn(),
+            0,
+            RoomVehicleBackend.defaultValue(),
+            RoomPlayerStateConfig.defaults(),
+            0,
+            0,
+            "CampA",
+            "CampB",
+            "",
+            "",
+            40.0D,
+            RoomResultConfig.defaults(),
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+        );
+    }
+
+    public static RoomPosition defaultQueueSpawn() {
+        return new RoomPosition(0, 100, 0);
+    }
+
+    private static String normalizeDimensionId(String dimensionId) {
+        return dimensionId == null ? "" : dimensionId.trim();
+    }
+
+    private static String normalizeDisplayName(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        return value.trim();
+    }
+
+    private static String normalizeVoicePack(String voicePack) {
+        return voicePack == null ? "" : voicePack.trim().toUpperCase(java.util.Locale.ROOT);
+    }
+
     public RoomCommonConfig(
         RoomMatchingConfig matchingConfig,
         String dimensionId,
@@ -131,50 +177,52 @@ public record RoomCommonConfig(
         );
     }
 
-    public static RoomCommonConfig defaults() {
-        return new RoomCommonConfig(
-            RoomMatchingConfig.defaults(),
-            "",
-            defaultQueueSpawn(),
-            0,
-            RoomVehicleBackend.defaultValue(),
-            RoomPlayerStateConfig.defaults(),
-            0,
-            0,
-            "CampA",
-            "CampB",
-            "",
-            "",
-            40.0D,
-            RoomResultConfig.defaults(),
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
+    public RoomCommonConfig(
+        RoomMatchingConfig matchingConfig,
+        String dimensionId,
+        RoomPosition queueSpawn,
+        int respawnDelaySeconds,
+        RoomVehicleBackend vehicleBackend,
+        RoomPlayerStateConfig playerStateConfig,
+        int outsideBoundaryDeathSeconds,
+        int aircraftOutsideBoundaryCleanupSeconds,
+        String campADisplayName,
+        String campBDisplayName,
+        String campAVoicePack,
+        String campBVoicePack,
+        double progressSpeed,
+        RoomResultConfig resultConfig,
+        boolean disableHunger,
+        boolean enableAutoTeamSwitchPrompt,
+        boolean disableInventoryChange,
+        boolean enableGoatHorn,
+        boolean enablePlayerDowned,
+        boolean enableBackAgainstWall,
+        boolean enableRandomLoadout
+    ) {
+        this(
+            matchingConfig,
+            dimensionId,
+            queueSpawn,
+            respawnDelaySeconds,
+            vehicleBackend,
+            playerStateConfig,
+            outsideBoundaryDeathSeconds,
+            aircraftOutsideBoundaryCleanupSeconds,
+            campADisplayName,
+            campBDisplayName,
+            campAVoicePack,
+            campBVoicePack,
+            progressSpeed,
+            resultConfig,
+            disableHunger,
+            enableAutoTeamSwitchPrompt,
+            disableInventoryChange,
+            enableGoatHorn,
+            enablePlayerDowned,
+            enableBackAgainstWall,
+            enableRandomLoadout,
             true
         );
-    }
-
-    public static RoomPosition defaultQueueSpawn() {
-        return new RoomPosition(0, 100, 0);
-    }
-
-    private static String normalizeDimensionId(String dimensionId) {
-        return dimensionId == null ? "" : dimensionId.trim();
-    }
-
-    private static String normalizeDisplayName(String value, String fallback) {
-        if (value == null || value.isBlank()) {
-            return fallback;
-        }
-        return value.trim();
-    }
-
-    private static String normalizeVoicePack(String voicePack) {
-        return voicePack == null ? "" : voicePack.trim().toUpperCase(java.util.Locale.ROOT);
     }
 }

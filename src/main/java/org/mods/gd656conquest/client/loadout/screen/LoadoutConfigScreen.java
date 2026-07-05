@@ -1014,6 +1014,18 @@ public class LoadoutConfigScreen extends Screen {
         return snapshot.attachmentPanels().get(slot.getIndex());
     }
 
+    private ItemStack parseStack(String snbt) {
+        if (snbt == null || snbt.isBlank()) {
+            return ItemStack.EMPTY;
+        }
+        try {
+            CompoundTag tag = TagParser.parseTag(snbt);
+            return ItemStack.of(tag);
+        } catch (Exception ignored) {
+            return ItemStack.EMPTY;
+        }
+    }
+
     private String buildAttachmentSummary(ClientLoadoutUiState.WeaponAttachmentPanelState panel) {
         if (panel == null || panel.attachmentTypes().isEmpty()) {
             return "暂无可用配件";

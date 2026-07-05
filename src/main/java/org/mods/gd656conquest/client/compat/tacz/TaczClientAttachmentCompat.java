@@ -23,6 +23,9 @@ public final class TaczClientAttachmentCompat {
     private Method gunIndexGetGunDataMethod;
     private Method iGunClassGetIGunOrNullMethod;
     private Method iGunClassGetGunIdMethod;
+    private Method iAttachmentClassGetIAttachmentOrNullMethod;
+    private Method timelessGetCommonAttachmentIndexMethod;
+    private Method attachmentIndexGetAttachmentDataMethod;
 
     private TaczClientAttachmentCompat() {
     }
@@ -166,7 +169,7 @@ public final class TaczClientAttachmentCompat {
             if (iGun == null) return modifiedGun;
             
             // IAttachment.getIAttachmentOrNull(attachmentStack) -> getType
-            Object iAttachment = iAttachmentClassGetIAttachmentOrNullMethod.invoke(null, attachmentStack);
+            Object iAttachment = getIAttachmentOrNullMethod.invoke(null, attachmentStack);
             if (iAttachment == null) return modifiedGun;
             
             Object type = getTypeMethod.invoke(iAttachment, attachmentStack);
@@ -183,9 +186,6 @@ public final class TaczClientAttachmentCompat {
             return gunStack;
         }
     }
-    private Method timelessGetCommonAttachmentIndexMethod;
-    private Method attachmentIndexGetAttachmentDataMethod;
-    
     private void ensureResolved() {
         if (resolved) {
             return;

@@ -33,7 +33,7 @@ public class GunStatComparator {
                 originalData.rpmModified, compareData != null ? compareData.rpmModified : null, 1200.0, false);
 
         currentY = renderStatRow(guiGraphics, font, x, currentY, width, rowHeight, "载弹量", 
-                originalData.capacityModified, compareData != null ? compareData.capacityModified : null, 150.0, false);
+                (double) originalData.capacityModified, compareData != null ? (double) compareData.capacityModified : null, 150.0, false);
         
         currentY = renderStatRow(guiGraphics, font, x, currentY, width, rowHeight, "换弹耗时", 
                 originalData.reloadTimeModified, compareData != null ? compareData.reloadTimeModified : null, 5.0, true);
