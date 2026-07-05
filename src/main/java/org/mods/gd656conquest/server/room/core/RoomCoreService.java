@@ -557,8 +557,9 @@ public final class RoomCoreService {
         if (roomId.isEmpty()) {
             return;
         }
+        long gameTick = server.getTickCount();
         runtimeRepository.find(roomId.get())
-            .ifPresent(slot -> removePlayerFromSlot(playerId, slot, 0L, true));
+            .ifPresent(slot -> removePlayerFromSlot(playerId, slot, gameTick, true));
         playerSessionService.removePlayer(playerId);
     }
 
@@ -1396,6 +1397,22 @@ public final class RoomCoreService {
             || !runningState.getRoomPlayers().contains(playerId)) {
             return false;
         }
+        notifyGameplayPlayerInvalidated(slot.get(), playerId, gameTick, reason);
+        removeRunningPlayerFromSlot(playerId, slot.get(), gameTick, false);
+        playerSessionService.removePlayer(playerId);
+        return true;
+    }
+
+    private void notifyGameplayPlayerInvalidated(
+        RoomRuntimeSlot<RoomRuntimeState> slot,
+        UUID playerId,
+        long gameTick,
+        RoomPlayerInvalidationReason reason
+    ) {
+        if (slot == null || playerId == null || reason == null) {
+            return;
+        }
+        RunningRuntimeState runningState = slot.runtime().getRunningState();
         RoomTeamId teamId = runningState.getRoomTeams().get(playerId);
         RoomPlayerInvalidationReason effectiveReason = reason;
         int killerEntityId = -1;
@@ -1407,11 +1424,8 @@ public final class RoomCoreService {
         final RoomPlayerInvalidationReason finalEffectiveReason = effectiveReason;
         final int finalKillerEntityId = killerEntityId;
         runningState.getGameplayRuntime().ifPresent(runtime ->
-            runtime.onPlayerInvalidated(slot.get().room(), playerId, teamId, finalEffectiveReason, finalKillerEntityId, gameTick)
+            runtime.onPlayerInvalidated(slot.room(), playerId, teamId, finalEffectiveReason, finalKillerEntityId, gameTick)
         );
-        removeRunningPlayerFromSlot(playerId, slot.get(), gameTick, false);
-        playerSessionService.removePlayer(playerId);
-        return true;
     }
 
     private void removePlayerFromSlot(UUID playerId, RoomRuntimeSlot<RoomRuntimeState> slot, long gameTick, boolean shouldTransferLobby) {
@@ -1447,6 +1461,7 @@ public final class RoomCoreService {
             return;
         }
 
+        notifyGameplayPlayerInvalidated(slot, playerId, gameTick, RoomPlayerInvalidationReason.LOGOUT);
         removeRunningPlayerFromSlot(playerId, slot, gameTick, shouldTransferLobby);
     }
 
