@@ -741,9 +741,9 @@ public final class ClientRoomMarkerState {
                     ammoBox.getUUID(),
                     "弹药箱",
                     MarkerKind.AMMO_BOX,
-                    ammoBox.blockPosition().getX(),
-                    ammoBox.blockPosition().getY(),
-                    ammoBox.blockPosition().getZ(),
+                    ammoBox.getX(),
+                    ammoBox.getY(),
+                    ammoBox.getZ(),
                     null,
                     Integer.MAX_VALUE,
                     gameTick,
@@ -763,9 +763,9 @@ public final class ClientRoomMarkerState {
                     entity.getUUID(),
                     "弹药箱",
                     MarkerKind.AMMO_BOX,
-                    entity.blockPosition().getX(),
-                    entity.blockPosition().getY(),
-                    entity.blockPosition().getZ(),
+                    entity.getX(),
+                    entity.getY(),
+                    entity.getZ(),
                     null, // Not tracked on a player
                     Integer.MAX_VALUE,
                     gameTick,
@@ -798,9 +798,9 @@ public final class ClientRoomMarkerState {
                 targetPlayer.getUUID(),
                 targetPlayer.getScoreboardName(),
                 kind,
-                targetPlayer.blockPosition().getX(),
-                targetPlayer.blockPosition().getY(),
-                targetPlayer.blockPosition().getZ(),
+                targetPlayer.getX(),
+                targetPlayer.getY(),
+                targetPlayer.getZ(),
                 targetPlayer.getUUID(),
                 Integer.MAX_VALUE,
                 gameTick,
@@ -889,24 +889,24 @@ public final class ClientRoomMarkerState {
         UUID ownerId,
         String ownerName,
         MarkerKind kind,
-        int blockX,
-        int blockY,
-        int blockZ,
+        double x,
+        double y,
+        double z,
         UUID targetPlayerId,
         int baseRemainingTicks,
         long syncTick,
         long firstSeenTick
     ) {
-        private static String renderKeyOf(UUID ownerId, MarkerKind kind, int blockX, int blockY, int blockZ, UUID targetPlayerId) {
+        private static String renderKeyOf(UUID ownerId, MarkerKind kind, double x, double y, double z, UUID targetPlayerId) {
             boolean trackedEntityMarker = kind != null && kind.isTrackedPlayerMarker();
             return (ownerId == null ? "0" : ownerId.toString())
                 + "|" + (kind == null ? MarkerKind.NORMAL.name() : kind.name())
-                + "|" + (trackedEntityMarker ? "entity" : (blockX + "," + blockY + "," + blockZ))
+                + "|" + (trackedEntityMarker ? "entity" : ((int) x + "," + (int) y + "," + (int) z))
                 + "|" + (targetPlayerId == null ? "-" : targetPlayerId.toString());
         }
 
         private String renderKey() {
-            return renderKeyOf(ownerId, kind, blockX, blockY, blockZ, targetPlayerId);
+            return renderKeyOf(ownerId, kind, x, y, z, targetPlayerId);
         }
 
         private Vec3 worldAnchor(Minecraft minecraft, float partialTick) {
@@ -918,7 +918,10 @@ public final class ClientRoomMarkerState {
                     return pos.add(0.0D, heightOffset, 0.0D);
                 }
             }
-            return new Vec3(blockX + 0.5D, blockY + ICON_WORLD_Y_OFFSET, blockZ + 0.5D);
+            if (kind == MarkerKind.AMMO_BOX) {
+                return new Vec3(x, y + 0.5D, z);
+            }
+            return new Vec3((int) x + 0.5D, (int) y + ICON_WORLD_Y_OFFSET, (int) z + 0.5D);
         }
 
         private Player resolveTrackedPlayer(Minecraft minecraft) {
