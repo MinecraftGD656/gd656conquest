@@ -51,6 +51,13 @@ public interface RoomGameplayDeployPresentationProvider {
         return List.of();
     }
 
+    default Integer resolveRespawnDelaySeconds(
+        RoomDefinition room,
+        RunningRuntimeState state
+    ) {
+        return null;
+    }
+
     static RoomGameplayDeployPresentationProvider resolve(RunningRuntimeState state) {
         if (state == null) {
             return null;

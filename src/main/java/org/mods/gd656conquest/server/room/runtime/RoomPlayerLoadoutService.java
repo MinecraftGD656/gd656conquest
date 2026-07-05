@@ -39,10 +39,12 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 public final class RoomPlayerLoadoutService {
     private static final int PRIMARY_WEAPON_HOTBAR_SLOT = 0;
@@ -80,7 +82,7 @@ public final class RoomPlayerLoadoutService {
         if (state == null || player == null || player.server == null) {
             return;
         }
-        applyLoadout(state.getRoomTeams().get(player.getUUID()), player, true, true);
+        applyLoadout(resolvePlayerRoom(player), state, state.getRoomTeams().get(player.getUUID()), player, true, true, true);
         initializeConsumableReplenishBaseline(state, player, server.getTickCount());
     }
 
@@ -88,7 +90,7 @@ public final class RoomPlayerLoadoutService {
         if (player == null || player.server == null) {
             return;
         }
-        applyLoadout(null, player, grantTaczAmmo, false);
+        applyLoadout(null, null, null, player, grantTaczAmmo, false, false);
     }
 
     public boolean tryRefillLoadoutByAmmoBox(RoomTeamId teamId, ServerPlayer player) {
@@ -96,12 +98,21 @@ public final class RoomPlayerLoadoutService {
             return false;
         }
         Map<Integer, ItemStack> blockedSnapshots = snapshotAmmoBoxBlockedSlots(player);
-        applyLoadout(teamId, player, true, true);
+        RoomRuntimeContext roomContext = resolveRoomRuntimeContext(player);
+        applyLoadout(roomContext.room(), roomContext.state(), teamId, player, true, true, false);
         restoreBlockedSlots(player, blockedSnapshots);
         return true;
     }
 
-    private void applyLoadout(RoomTeamId teamId, ServerPlayer player, boolean grantTaczAmmo, boolean grantArmor) {
+    private void applyLoadout(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        RoomTeamId teamId,
+        ServerPlayer player,
+        boolean grantTaczAmmo,
+        boolean grantArmor,
+        boolean refreshRandomSelection
+    ) {
         if (player == null || player.server == null) {
             return;
         }
@@ -112,6 +123,7 @@ public final class RoomPlayerLoadoutService {
         if (equipmentData == null) {
             return;
         }
+        RoomRuntimeContext roomContext = room == null || state == null ? resolveRoomRuntimeContext(player) : new RoomRuntimeContext(room, state);
         int playerLevel = PlayerLevelService.getEffectiveLevel(player);
         if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false)) {
             equipmentData = equipmentDataHandler.getData();
@@ -119,36 +131,24 @@ public final class RoomPlayerLoadoutService {
         PlayerDataModel playerData = playerDataHandler.getPlayerData(player.getUUID());
         WeaponAttachmentDataModel attachmentData = dataManager.weaponAttachments().getData();
         TaczAttachmentCompatService attachmentCompatService = TaczAttachmentCompatService.getInstance();
-        PlayerClassType classType = CustomLoadoutService.resolveCurrentClass(playerData);
-        boolean selectionChanged = false;
+        ActiveLoadoutSelection selection = resolveActiveLoadoutSelection(
+            roomContext,
+            equipmentData,
+            playerData,
+            player,
+            playerLevel,
+            refreshRandomSelection
+        );
+        PlayerClassType classType = selection.classType();
 
         if (player.isUsingItem()) {
             player.stopUsingItem();
         }
         player.getInventory().clearContent();
         for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
-            String selectedId = CustomLoadoutService.getSelectedIdForClassSlot(playerData, classType, slot);
-            EquipmentDataModel.EquipmentEntry selectedEntry = equipmentData.getEquipmentById().get(selectedId);
-            boolean valid = selectedEntry != null
-                && selectedEntry.getSlot() == slot.getIndex()
-                && CustomLoadoutService.isEntryUnlocked(selectedEntry, playerLevel)
-                && CustomLoadoutService.isEntryAvailableForClass(selectedEntry, classType);
-            if (!valid) {
-                String fallbackId = CustomLoadoutService.resolveFallbackIdForClassSlot(equipmentData, classType, slot, playerLevel);
-                if (fallbackId == null || fallbackId.isBlank()) {
-                    if (!selectedId.isBlank()) {
-                        CustomLoadoutService.setSelectedIdForClassSlot(playerData, classType, slot, "");
-                        selectionChanged = true;
-                    }
-                    continue;
-                }
-                selectedId = fallbackId;
-                selectedEntry = equipmentData.getEquipmentById().get(selectedId);
-                CustomLoadoutService.setSelectedIdForClassSlot(playerData, classType, slot, selectedId);
-                selectionChanged = true;
-                if (selectedEntry == null || selectedEntry.getSlot() != slot.getIndex()) {
-                    continue;
-                }
+            EquipmentDataModel.EquipmentEntry selectedEntry = selection.entriesBySlot().get(slot);
+            if (selectedEntry == null) {
+                continue;
             }
             ItemStack equipmentStack = deserializeEquipmentItem(selectedEntry.getItemSnbt());
             if (equipmentStack.isEmpty()) {
@@ -161,9 +161,9 @@ public final class RoomPlayerLoadoutService {
                 playerData,
                 attachmentData,
                 playerLevel,
-                attachmentCompatService
+                attachmentCompatService,
+                !selection.randomized()
             );
-            selectionChanged |= preparedStack.playerDataChanged();
             ItemStack placedStack = placeLoadoutItem(player, slot, preparedStack.stack());
             if (grantTaczAmmo && slot == CustomLoadoutSlot.PRIMARY_WEAPON) {
                 grantConfiguredWeaponAmmoByExtraData(player, placedStack, selectedEntry.getExtraData(), buildSlotRange(PRIMARY_AMMO_ROW_START, PRIMARY_AMMO_ROW_END));
@@ -178,7 +178,7 @@ public final class RoomPlayerLoadoutService {
         }
         moveConfiguredTotemToOffhand(player);
         applyOptionalRoomGoatHorn(player);
-        if (selectionChanged) {
+        if (selection.playerDataChanged()) {
             playerDataHandler.savePlayerData(player.getUUID(), playerData);
         }
         player.getInventory().setChanged();
@@ -198,11 +198,19 @@ public final class RoomPlayerLoadoutService {
             equipmentData = dataManager.equipmentData().getData();
         }
         PlayerDataModel playerData = dataManager.playerData().getPlayerData(player.getUUID());
-        PlayerClassType classType = CustomLoadoutService.resolveCurrentClass(playerData);
         int playerLevel = PlayerLevelService.getEffectiveLevel(player);
+        RoomRuntimeContext roomContext = resolveRoomRuntimeContext(player);
+        ActiveLoadoutSelection selection = resolveActiveLoadoutSelection(
+            roomContext,
+            equipmentData,
+            playerData,
+            player,
+            playerLevel,
+            false
+        );
         Map<Integer, ItemStack> snapshots = new HashMap<>();
         for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
-            EquipmentDataModel.EquipmentEntry selectedEntry = resolveEffectiveLoadoutEntry(equipmentData, playerData, classType, slot, playerLevel);
+            EquipmentDataModel.EquipmentEntry selectedEntry = selection.entriesBySlot().get(slot);
             if (selectedEntry == null || selectedEntry.isAmmoBoxRefillEnabled()) {
                 continue;
             }
@@ -264,12 +272,16 @@ public final class RoomPlayerLoadoutService {
         PlayerDataModel playerData,
         WeaponAttachmentDataModel attachmentData,
         int playerLevel,
-        TaczAttachmentCompatService attachmentCompatService
+        TaczAttachmentCompatService attachmentCompatService,
+        boolean applyStoredAttachments
     ) {
         if (equipmentStack == null || equipmentStack.isEmpty()) {
             return new PreparedLoadoutStack(ItemStack.EMPTY, false);
         }
         ItemStack preparedStack = equipmentStack.copy();
+        if (!applyStoredAttachments) {
+            return new PreparedLoadoutStack(preparedStack, false);
+        }
         if (!WeaponAttachmentService.supportsSlot(slot)
             || entry == null
             || playerData == null
@@ -350,11 +362,19 @@ public final class RoomPlayerLoadoutService {
             equipmentData = equipmentDataHandler.getData();
         }
         PlayerDataModel playerData = playerDataHandler.getPlayerData(player.getUUID());
-        PlayerClassType classType = CustomLoadoutService.resolveCurrentClass(playerData);
         int playerLevel = PlayerLevelService.getEffectiveLevel(player);
+        RoomRuntimeContext roomContext = resolveRoomRuntimeContext(player);
+        ActiveLoadoutSelection selection = resolveActiveLoadoutSelection(
+            roomContext,
+            equipmentData,
+            playerData,
+            player,
+            playerLevel,
+            false
+        );
         Map<CustomLoadoutSlot, ResolvedLoadoutItem> resolved = new EnumMap<>(CustomLoadoutSlot.class);
         for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
-            EquipmentDataModel.EquipmentEntry entry = resolveEffectiveLoadoutEntry(equipmentData, playerData, classType, slot, playerLevel);
+            EquipmentDataModel.EquipmentEntry entry = selection.entriesBySlot().get(slot);
             if (entry == null) {
                 continue;
             }
@@ -364,6 +384,9 @@ public final class RoomPlayerLoadoutService {
                 entry,
                 deserializeEquipmentItem(entry.getItemSnbt())
             ));
+        }
+        if (selection.playerDataChanged()) {
+            playerDataHandler.savePlayerData(player.getUUID(), playerData);
         }
         return resolved;
     }
@@ -615,9 +638,16 @@ public final class RoomPlayerLoadoutService {
             equipmentData = equipmentDataHandler.getData();
         }
         PlayerDataModel playerData = playerDataHandler.getPlayerData(player.getUUID());
-        PlayerClassType classType = CustomLoadoutService.resolveCurrentClass(playerData);
         int playerLevel = PlayerLevelService.getEffectiveLevel(player);
-        EquipmentDataModel.EquipmentEntry selectedEntry = resolveEffectiveLoadoutEntry(equipmentData, playerData, classType, slot, playerLevel);
+        ActiveLoadoutSelection selection = resolveActiveLoadoutSelection(
+            resolveRoomRuntimeContext(player),
+            equipmentData,
+            playerData,
+            player,
+            playerLevel,
+            false
+        );
+        EquipmentDataModel.EquipmentEntry selectedEntry = selection.entriesBySlot().get(slot);
 
         int targetAmmo = selectedEntry == null ? 0 : Math.max(0, selectedEntry.getExtraData());
         ItemStack hotbarStack = (hotbarSlot >= 0 && hotbarSlot < player.getInventory().items.size())
@@ -663,6 +693,145 @@ public final class RoomPlayerLoadoutService {
             return null;
         }
         return fallbackEntry;
+    }
+
+    private ActiveLoadoutSelection resolveActiveLoadoutSelection(
+        RoomRuntimeContext roomContext,
+        EquipmentDataModel equipmentData,
+        PlayerDataModel playerData,
+        ServerPlayer player,
+        int playerLevel,
+        boolean refreshRandomSelection
+    ) {
+        if (equipmentData == null || player == null) {
+            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), false, false);
+        }
+        if (isRandomizedLoadoutEnabled(roomContext)) {
+            return resolveRandomizedLoadoutSelection(roomContext.state(), equipmentData, player, refreshRandomSelection);
+        }
+        PlayerClassType classType = CustomLoadoutService.resolveCurrentClass(playerData);
+        Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entriesBySlot = new EnumMap<>(CustomLoadoutSlot.class);
+        boolean playerDataChanged = false;
+        for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
+            String selectedId = CustomLoadoutService.getSelectedIdForClassSlot(playerData, classType, slot);
+            EquipmentDataModel.EquipmentEntry selectedEntry = equipmentData.getEquipmentById().get(selectedId);
+            boolean valid = selectedEntry != null
+                && selectedEntry.getSlot() == slot.getIndex()
+                && CustomLoadoutService.isEntryUnlocked(selectedEntry, playerLevel)
+                && CustomLoadoutService.isEntryAvailableForClass(selectedEntry, classType);
+            if (!valid) {
+                String fallbackId = CustomLoadoutService.resolveFallbackIdForClassSlot(equipmentData, classType, slot, playerLevel);
+                if (fallbackId == null || fallbackId.isBlank()) {
+                    if (!selectedId.isBlank()) {
+                        CustomLoadoutService.setSelectedIdForClassSlot(playerData, classType, slot, "");
+                        playerDataChanged = true;
+                    }
+                    continue;
+                }
+                selectedEntry = equipmentData.getEquipmentById().get(fallbackId);
+                CustomLoadoutService.setSelectedIdForClassSlot(playerData, classType, slot, fallbackId);
+                playerDataChanged = true;
+                if (selectedEntry == null || selectedEntry.getSlot() != slot.getIndex()) {
+                    continue;
+                }
+            }
+            entriesBySlot.put(slot, selectedEntry);
+        }
+        return new ActiveLoadoutSelection(classType, entriesBySlot, false, playerDataChanged);
+    }
+
+    private ActiveLoadoutSelection resolveRandomizedLoadoutSelection(
+        RunningRuntimeState state,
+        EquipmentDataModel equipmentData,
+        ServerPlayer player,
+        boolean refreshRandomSelection
+    ) {
+        if (state == null || equipmentData == null || player == null) {
+            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false);
+        }
+        UUID playerId = player.getUUID();
+        if (!refreshRandomSelection) {
+            ActiveLoadoutSelection existing = resolveStoredRandomizedLoadoutSelection(state, equipmentData, playerId);
+            if (!existing.entriesBySlot().isEmpty()) {
+                return existing;
+            }
+        }
+        List<PlayerClassType> fullCoverageClasses = new ArrayList<>();
+        List<PlayerClassType> partialCoverageClasses = new ArrayList<>();
+        for (PlayerClassType classType : PlayerClassType.values()) {
+            int coveredSlots = 0;
+            for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
+                if (!CustomLoadoutService.listEntriesByClassAndSlot(equipmentData, classType, slot).isEmpty()) {
+                    coveredSlots++;
+                }
+            }
+            if (coveredSlots >= CustomLoadoutSlot.values().length) {
+                fullCoverageClasses.add(classType);
+            } else if (coveredSlots > 0) {
+                partialCoverageClasses.add(classType);
+            }
+        }
+        List<PlayerClassType> candidates = !fullCoverageClasses.isEmpty() ? fullCoverageClasses : partialCoverageClasses;
+        if (candidates.isEmpty()) {
+            state.getRandomizedLoadoutClassKeysByPlayer().remove(playerId);
+            state.getRandomizedLoadoutSelectionIdsByPlayerSlot().remove(playerId);
+            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false);
+        }
+        PlayerClassType chosenClass = candidates.get(player.getRandom().nextInt(candidates.size()));
+        Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entriesBySlot = new EnumMap<>(CustomLoadoutSlot.class);
+        Map<String, String> storedSelectionIds = new LinkedHashMap<>();
+        for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
+            List<EquipmentDataModel.EquipmentEntry> candidatesBySlot = CustomLoadoutService.listEntriesByClassAndSlot(equipmentData, chosenClass, slot);
+            if (candidatesBySlot.isEmpty()) {
+                continue;
+            }
+            EquipmentDataModel.EquipmentEntry selectedEntry = candidatesBySlot.get(player.getRandom().nextInt(candidatesBySlot.size()));
+            if (selectedEntry == null) {
+                continue;
+            }
+            entriesBySlot.put(slot, selectedEntry);
+            storedSelectionIds.put(slot.getKey(), CustomLoadoutService.normalizeEquipmentId(selectedEntry.getId()));
+        }
+        state.getRandomizedLoadoutClassKeysByPlayer().put(playerId, chosenClass.getKey());
+        state.getRandomizedLoadoutSelectionIdsByPlayerSlot().put(playerId, storedSelectionIds);
+        return new ActiveLoadoutSelection(chosenClass, entriesBySlot, true, false);
+    }
+
+    private ActiveLoadoutSelection resolveStoredRandomizedLoadoutSelection(
+        RunningRuntimeState state,
+        EquipmentDataModel equipmentData,
+        UUID playerId
+    ) {
+        if (state == null || equipmentData == null || playerId == null) {
+            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false);
+        }
+        PlayerClassType classType = PlayerClassType.fromInput(state.getRandomizedLoadoutClassKeysByPlayer().get(playerId));
+        Map<String, String> storedIds = state.getRandomizedLoadoutSelectionIdsByPlayerSlot().get(playerId);
+        if (classType == null || storedIds == null || storedIds.isEmpty()) {
+            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false);
+        }
+        Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entriesBySlot = new EnumMap<>(CustomLoadoutSlot.class);
+        for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
+            String selectedId = CustomLoadoutService.normalizeEquipmentId(storedIds.get(slot.getKey()));
+            if (selectedId.isBlank()) {
+                continue;
+            }
+            EquipmentDataModel.EquipmentEntry entry = equipmentData.getEquipmentById().get(selectedId);
+            if (entry == null
+                || entry.getSlot() != slot.getIndex()
+                || !CustomLoadoutService.isEntryAvailableForClass(entry, classType)) {
+                return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false);
+            }
+            entriesBySlot.put(slot, entry);
+        }
+        return new ActiveLoadoutSelection(classType, entriesBySlot, true, false);
+    }
+
+    private boolean isRandomizedLoadoutEnabled(RoomRuntimeContext roomContext) {
+        return roomContext != null
+            && roomContext.room() != null
+            && roomContext.state() != null
+            && roomContext.room().commonConfig().enableRandomLoadout();
     }
 
     private int[] buildSlotRange(int startInclusive, int endInclusive) {
@@ -813,15 +982,21 @@ public final class RoomPlayerLoadoutService {
     }
 
     private RoomDefinition resolvePlayerRoom(ServerPlayer player) {
+        return resolveRoomRuntimeContext(player).room();
+    }
+
+    private RoomRuntimeContext resolveRoomRuntimeContext(ServerPlayer player) {
         if (player == null || player.server == null) {
-            return null;
+            return RoomRuntimeContext.EMPTY;
         }
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(player.server);
         String roomId = manager.findPlayerRoomId(player.getUUID()).orElse(null);
         if (roomId == null || roomId.isBlank()) {
-            return null;
+            return RoomRuntimeContext.EMPTY;
         }
-        return manager.findRoom(roomId).orElse(null);
+        RoomDefinition room = manager.findRoom(roomId).orElse(null);
+        RunningRuntimeState state = manager.findRunningState(roomId).orElse(null);
+        return new RoomRuntimeContext(room, state);
     }
 
     private ItemStack createRandomRoomGoatHorn(ServerPlayer player) {
@@ -868,6 +1043,18 @@ public final class RoomPlayerLoadoutService {
     }
 
     private record PreparedLoadoutStack(ItemStack stack, boolean playerDataChanged) {
+    }
+
+    private record ActiveLoadoutSelection(
+        PlayerClassType classType,
+        Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entriesBySlot,
+        boolean randomized,
+        boolean playerDataChanged
+    ) {
+    }
+
+    private record RoomRuntimeContext(RoomDefinition room, RunningRuntimeState state) {
+        private static final RoomRuntimeContext EMPTY = new RoomRuntimeContext(null, null);
     }
 
     public record ResolvedLoadoutItem(

@@ -92,6 +92,16 @@ public final class ClientHudSubtitleManager {
         drawHudText(gui, font, state.text(), centerX, topY, state.alpha());
     }
 
+    static String currentText() {
+        DisplayState state = currentDisplayState;
+        return state == null ? "" : state.text();
+    }
+
+    static float currentAlpha() {
+        DisplayState state = currentDisplayState;
+        return state == null ? 0.0F : state.alpha();
+    }
+
     public static void reset() {
         queue.clear();
         activeOnce = null;
@@ -136,21 +146,29 @@ public final class ClientHudSubtitleManager {
     }
 
     private static void drawHudText(GuiGraphics gui, Font font, String text, int centerX, int topY, float alpha) {
+        ClientHudStyledText.Descriptor styled = ClientHudStyledText.parse(text, SUBTITLE_RGB | 0xFF000000);
+        if (!styled.visible()) {
+            return;
+        }
         int alphaByte = Math.max(0, Math.min(255, Math.round(alpha * 255.0F))) << 24;
-        int color = alphaByte | (SUBTITLE_RGB & 0x00FFFFFF);
+        int color = alphaByte | (styled.currentColor() & 0x00FFFFFF);
         float usingScale = Math.max(0.1F, SUBTITLE_SCALE);
-        int drawX = Math.round(centerX / usingScale) - font.width(text) / 2;
+        int drawX = Math.round(centerX / usingScale) - font.width(styled.text()) / 2;
         int drawY = Math.round(topY / usingScale);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         gui.pose().pushPose();
         gui.pose().scale(usingScale, usingScale, 1.0F);
-        gui.drawString(font, text, drawX, drawY, color, true);
+        gui.drawString(font, styled.text(), drawX, drawY, color, true);
         gui.pose().popPose();
         gui.flush();
         RenderSystem.disableBlend();
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    static void renderPreviewText(GuiGraphics gui, Font font, int centerX, int topY, String text) {
+        drawHudText(gui, font, text, centerX, topY, 1.0F);
     }
 
     private record SubtitleEntry(String key, String text) {

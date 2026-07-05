@@ -10,6 +10,7 @@ import org.mods.gd656conquest.server.loadout.domain.CustomLoadoutSlot;
 import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
+import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 public final class CustomLoadoutService {
@@ -111,6 +113,16 @@ public final class CustomLoadoutService {
         }
         PlayerClassType classType = PlayerClassType.fromInput(playerData.getCurrentClassType());
         return classType == null ? PlayerClassType.defaultType() : classType;
+    }
+
+    public static PlayerClassType resolveCurrentClass(PlayerDataModel playerData, RunningRuntimeState state, UUID playerId) {
+        if (state != null && playerId != null) {
+            PlayerClassType runtimeClassType = PlayerClassType.fromInput(state.getRandomizedLoadoutClassKeysByPlayer().get(playerId));
+            if (runtimeClassType != null) {
+                return runtimeClassType;
+            }
+        }
+        return resolveCurrentClass(playerData);
     }
 
     public static String getSelectedIdForClassSlot(PlayerDataModel playerData, PlayerClassType classType, CustomLoadoutSlot slot) {
@@ -310,6 +322,5 @@ public final class CustomLoadoutService {
         return safeTeamId.name().toLowerCase(Locale.ROOT);
     }
 }
-
 
 

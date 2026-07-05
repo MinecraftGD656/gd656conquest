@@ -11,6 +11,11 @@ import java.util.List;
 import java.util.Locale;
 
 public final class ClientHudRenderer {
+    private static final long OVERLAY_EVENT_FADE_MS = 450L;
+    private static String overlayEventText = "";
+    private static float overlayEventBaseAlpha = 0.0F;
+    private static long overlayEventFadeStartMs = -1L;
+
     public void render(RenderGuiOverlayEvent.Post event) {
         render(event.getGuiGraphics());
     }
@@ -18,9 +23,11 @@ public final class ClientHudRenderer {
     public void render(GuiGraphics gui) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) {
+            clearOverlayEventState();
             return;
         }
         if (ClientHudDebugPreviewState.isActive()) {
+            clearOverlayEventState();
             renderPreview(gui, minecraft.font);
             return;
         }
@@ -29,6 +36,7 @@ public final class ClientHudRenderer {
         }
         String roomState = ClientHudDebugState.getRoomState();
         if ("未加入房间".equals(roomState) || "-".equals(ClientHudDebugState.getRoomId())) {
+            clearOverlayEventState();
             ClientParkourRuntimeState.render(gui, minecraft.font);
             ClientDownedState.render(gui, minecraft.font);
             return;
@@ -39,6 +47,7 @@ public final class ClientHudRenderer {
         int y1 = 8;
         drawTopScoreLine(gui, font, centerX, y1);
         ClientHudSubtitleManager.render(gui, font, centerX, 43);
+        renderDesperateModeEventLine(gui, font, centerX, 57);
         ClientParkourRuntimeState.render(gui, font);
         ClientDownedState.render(gui, font);
     }
@@ -68,10 +77,22 @@ public final class ClientHudRenderer {
     private void renderPreview(GuiGraphics gui, Font font) {
         int centerX = gui.guiWidth() / 2;
         int y = 8;
-        if ("BREAKTHROUGH".equalsIgnoreCase(ClientHudDebugPreviewState.mode())) {
-            drawBreakthroughPreviewTopLine(gui, font, centerX, y);
+        if (ClientHudDebugPreviewState.mode().startsWith("BREAKTHROUGH")) {
+            drawBreakthroughPreview(gui, font, centerX, y, ClientHudDebugPreviewState.mode());
         } else {
             drawConquestPreviewTopLine(gui, font, centerX, y);
+        }
+    }
+
+    private void drawBreakthroughPreview(GuiGraphics gui, Font font, int centerX, int y, String previewMode) {
+        drawBreakthroughPreviewTopLine(gui, font, centerX, y, previewMode);
+        String event = resolveBreakthroughPreviewEvent(previewMode);
+        String subtitle = resolveBreakthroughPreviewSubtitle(previewMode);
+        if (!subtitle.isBlank()) {
+            ClientHudSubtitleManager.renderPreviewText(gui, font, centerX, 43, subtitle);
+        }
+        if (!event.isBlank()) {
+            drawOverlayEventLine(gui, font, centerX, 57, event, 1.0F);
         }
     }
 
@@ -125,6 +146,7 @@ public final class ClientHudRenderer {
         int stageIndex = Math.max(0, ClientHudDebugState.getCampBScore());
         int troopCap = Math.max(1, ClientHudDebugState.getCampAGoal());
         int stageCount = Math.max(1, ClientHudDebugState.getCampBGoal());
+        boolean infiniteTroops = ClientHudDebugState.getCampAScore() < 0;
         String selfTeam = ClientHudDebugState.getSelfTeam();
         boolean selfCampA = selfTeam != null && (selfTeam.contains("CampA") || selfTeam.contains("阵营A"));
         boolean selfCampB = selfTeam != null && (selfTeam.contains("CampB") || selfTeam.contains("阵营B"));
@@ -134,7 +156,8 @@ public final class ClientHudRenderer {
         int minute = displaySeconds / 60;
         int second = displaySeconds % 60;
         String timeText = String.format(Locale.ROOT, "%02d:%02d", minute, second);
-        String leftText = String.valueOf(attackTroops);
+        int timeColor = resolveBreakthroughTimerColor();
+        String leftText = infiniteTroops ? "∞" : String.valueOf(attackTroops);
         String rightText = "阶段" + stageLetter(stageIndex);
         int timeWidth = font.width(timeText);
         int timeHalf = Math.max(28, timeWidth / 2 + 6);
@@ -149,13 +172,13 @@ public final class ClientHudRenderer {
         int leftBarRight = leftScoreLeft - textToBarGap;
         int leftBarLeft = leftBarRight - barWidth;
         int rightBarLeft = rightScoreRight + textToBarGap;
-        float troopRatio = Math.min(1.0F, attackTroops / (float) troopCap);
+        float troopRatio = infiniteTroops ? 1.0F : Math.min(1.0F, attackTroops / (float) troopCap);
         float stageRatio = Math.min(1.0F, stageIndex / (float) stageCount);
         drawProgressBar(gui, leftBarLeft, y + 3, barWidth, barHeight, troopRatio, themePrimary, true, true);
         drawProgressBar(gui, rightBarLeft, y + 3, barWidth, barHeight, stageRatio, themePrimary, false, true);
         drawScaledBoldText(gui, font, leftText, leftScoreLeft, y + 1, themeText, 1.1F);
         drawScaledBoldText(gui, font, rightText, rightScoreLeft, y + 1, themeText, 1.0F);
-        drawScaledText(gui, font, timeText, centerX - timeWidth / 2, y + 1, 0xFFFFFFFF, 1.1F, true);
+        drawScaledText(gui, font, timeText, centerX - timeWidth / 2, y + 1, timeColor, 1.1F, true);
     }
 
     private void drawConquestPreviewTopLine(GuiGraphics gui, Font font, int centerX, int y) {
@@ -188,16 +211,19 @@ public final class ClientHudRenderer {
         drawScaledText(gui, font, timeText, centerX - timeWidth / 2, y + 1, 0xFFFFFFFF, 1.1F, true);
     }
 
-    private void drawBreakthroughPreviewTopLine(GuiGraphics gui, Font font, int centerX, int y) {
-        int attackTroops = 148;
+    private void drawBreakthroughPreviewTopLine(GuiGraphics gui, Font font, int centerX, int y, String previewMode) {
+        boolean backToWall = "BREAKTHROUGH_BACK_TO_WALL_ATTACK".equals(previewMode) || "BREAKTHROUGH_BACK_TO_WALL_DEFEND".equals(previewMode);
+        boolean burnBoats = "BREAKTHROUGH_BURN_BOATS".equals(previewMode);
+        int attackTroops = backToWall || burnBoats ? -1 : 148;
         int stageIndex = 3;
         int troopCap = 220;
         int stageCount = 6;
         boolean selfCampB = false;
         int themePrimary = selfCampB ? 0xFFFF4A4A : 0xFF4A96FF;
         int themeText = selfCampB ? 0xFFFF9B9B : 0xFF9BC2FF;
-        String timeText = "07:28";
-        String leftText = String.valueOf(attackTroops);
+        String timeText = burnBoats ? "01:00" : backToWall ? "03:00" : "07:28";
+        int timeColor = burnBoats ? 0xFFFF5555 : backToWall ? 0xFFFFD85A : 0xFFFFFFFF;
+        String leftText = attackTroops < 0 ? "∞" : String.valueOf(attackTroops);
         String rightText = "阶段" + stageLetter(stageIndex);
         int timeWidth = font.width(timeText);
         int timeHalf = Math.max(28, timeWidth / 2 + 6);
@@ -212,13 +238,13 @@ public final class ClientHudRenderer {
         int leftBarRight = leftScoreLeft - textToBarGap;
         int leftBarLeft = leftBarRight - barWidth;
         int rightBarLeft = rightScoreRight + textToBarGap;
-        float troopRatio = Math.min(1.0F, attackTroops / (float) troopCap);
+        float troopRatio = attackTroops < 0 ? 1.0F : Math.min(1.0F, attackTroops / (float) troopCap);
         float stageRatio = Math.min(1.0F, stageIndex / (float) stageCount);
         drawProgressBar(gui, leftBarLeft, y + 3, barWidth, barHeight, troopRatio, themePrimary, true, true);
         drawProgressBar(gui, rightBarLeft, y + 3, barWidth, barHeight, stageRatio, themePrimary, false, true);
         drawScaledBoldText(gui, font, leftText, leftScoreLeft, y + 1, themeText, 1.1F);
         drawScaledBoldText(gui, font, rightText, rightScoreLeft, y + 1, themeText, 1.0F);
-        drawScaledText(gui, font, timeText, centerX - timeWidth / 2, y + 1, 0xFFFFFFFF, 1.1F, true);
+        drawScaledText(gui, font, timeText, centerX - timeWidth / 2, y + 1, timeColor, 1.1F, true);
     }
 
     private void drawProgressBar(GuiGraphics gui, int x, int y, int w, int h, float ratio, int color, boolean reverse, boolean withBackground) {
@@ -270,6 +296,106 @@ public final class ClientHudRenderer {
             return "-";
         }
         return String.valueOf((char) ('A' + Math.max(0, Math.min(5, stageIndex - 1))));
+    }
+
+    private void drawOverlayEventLine(GuiGraphics gui, Font font, int centerX, int y, String text, float alpha) {
+        ClientHudStyledText.Descriptor event = ClientHudStyledText.parse(text, 0xFFF0F3F8);
+        if (!event.visible() || alpha <= 0.05F) {
+            return;
+        }
+        int alphaByte = Math.max(0, Math.min(255, Math.round(alpha * 255.0F))) << 24;
+        int textWidth = font.width(event.text());
+        int padding = 6;
+        int left = centerX - textWidth / 2 - padding;
+        int top = y - 2;
+        int right = centerX + textWidth / 2 + padding;
+        int bottom = y + font.lineHeight;
+        gui.fill(left, top, right, bottom, alphaByte | 0x00101010);
+        gui.drawString(font, event.text(), centerX - textWidth / 2, y, alphaByte | (event.currentColor() & 0x00FFFFFF), true);
+    }
+
+    private void renderDesperateModeEventLine(GuiGraphics gui, Font font, int centerX, int y) {
+        OverlayEventState state = resolveOverlayEventState();
+        if (state == null) {
+            return;
+        }
+        drawOverlayEventLine(gui, font, centerX, y, state.text(), state.alpha());
+    }
+
+    private boolean isDesperateModeActive() {
+        ClientHudStyledText.Descriptor status = ClientHudStyledText.parse(ClientHudDebugState.getCaptureStatus(), 0xFFFFFFFF);
+        String text = status.text();
+        return "背水一战".equals(text) || "破釜沉舟".equals(text);
+    }
+
+    private OverlayEventState resolveOverlayEventState() {
+        long now = System.currentTimeMillis();
+        if (isDesperateModeActive()) {
+            String subtitleText = ClientHudSubtitleManager.currentText();
+            float subtitleAlpha = ClientHudSubtitleManager.currentAlpha();
+            if (!subtitleText.isBlank() && subtitleAlpha > 0.05F) {
+                overlayEventText = subtitleText;
+                overlayEventBaseAlpha = subtitleAlpha;
+                overlayEventFadeStartMs = -1L;
+                return new OverlayEventState(subtitleText, subtitleAlpha);
+            }
+        }
+        if (overlayEventText.isBlank() || overlayEventBaseAlpha <= 0.05F) {
+            overlayEventText = "";
+            overlayEventBaseAlpha = 0.0F;
+            overlayEventFadeStartMs = -1L;
+            return null;
+        }
+        if (overlayEventFadeStartMs < 0L) {
+            overlayEventFadeStartMs = now;
+        }
+        float progress = Math.min(1.0F, (now - overlayEventFadeStartMs) / (float) OVERLAY_EVENT_FADE_MS);
+        float alpha = overlayEventBaseAlpha * (1.0F - progress);
+        if (alpha <= 0.05F) {
+            overlayEventText = "";
+            overlayEventBaseAlpha = 0.0F;
+            overlayEventFadeStartMs = -1L;
+            return null;
+        }
+        return new OverlayEventState(overlayEventText, alpha);
+    }
+
+    private void clearOverlayEventState() {
+        overlayEventText = "";
+        overlayEventBaseAlpha = 0.0F;
+        overlayEventFadeStartMs = -1L;
+    }
+
+    private String resolveBreakthroughPreviewEvent(String previewMode) {
+        return switch (previewMode) {
+            case "BREAKTHROUGH_BACK_TO_WALL_ATTACK" -> "<hud:BT_LAST_STAND_ATTACKER_FLASH>组织最后一次冲锋";
+            case "BREAKTHROUGH_BACK_TO_WALL_DEFEND" -> "<hud:BT_LAST_STAND_DEFENDER_FLASH>阻止敌方反攻";
+            case "BREAKTHROUGH_BURN_BOATS" -> "<hud:BT_BURN_BOATS_FLASH>二段加时";
+            default -> "";
+        };
+    }
+
+    private String resolveBreakthroughPreviewSubtitle(String previewMode) {
+        return switch (previewMode) {
+            case "BREAKTHROUGH_BACK_TO_WALL_ATTACK", "BREAKTHROUGH_BACK_TO_WALL_DEFEND" -> "<hud:BT_LAST_STAND_PERSISTENT>背水一战";
+            case "BREAKTHROUGH_BURN_BOATS" -> "<hud:BT_BURN_BOATS_PERSISTENT>破釜沉舟";
+            default -> "";
+        };
+    }
+
+    private int resolveBreakthroughTimerColor() {
+        ClientHudStyledText.Descriptor status = ClientHudStyledText.parse(ClientHudDebugState.getCaptureStatus(), 0xFFFFFFFF);
+        String text = status.text();
+        if ("破釜沉舟".equals(text)) {
+            return 0xFFFF5555;
+        }
+        if ("背水一战".equals(text)) {
+            return 0xFFFFD85A;
+        }
+        return 0xFFFFFFFF;
+    }
+
+    private record OverlayEventState(String text, float alpha) {
     }
 
 }

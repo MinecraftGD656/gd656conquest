@@ -45,6 +45,8 @@ public final class ParkourRuntimeManager {
     private static final String ACTIONBAR_PROMPT_SOURCE = "parkour_prompt";
     private static final String ACTIONBAR_STATUS_SOURCE = "parkour_status";
     private static final int PARKOUR_LEAVE_SLOT = 8;
+    private static final int FALL_LEAVE_DELAY_TICKS = 4;
+    private static final int LEAVE_ACTIONBAR_DURATION_TICKS = 40;
     private static final long MAX_ACCEPTED_TIME_MILLIS = 60L * 60L * 1000L;
     private static final Map<MinecraftServer, ParkourRuntimeManager> INSTANCES = new WeakHashMap<>();
 
@@ -85,9 +87,15 @@ public final class ParkourRuntimeManager {
             return;
         }
         ParkourPlayerSession session = playerSessions.get(player.getUUID());
-        if (session != null && shouldForceLeaveForFallingBelowStart(player)) {
-            forceLeaveDueToFall(player);
-            return;
+        if (session != null) {
+            if (session.pendingFallLeaveTick() > 0L) {
+                if (!isBelowStartY(player)) {
+                    session.clearPendingFallLeave();
+                } else if (server.getTickCount() >= session.pendingFallLeaveTick()) {
+                    forceLeaveDueToFall(player);
+                    return;
+                }
+            }
         }
         if (!HubDimensionService.isHubDimension(player.level())) {
             ServerActionBarService.clearSource(player, ACTIONBAR_PROMPT_SOURCE);
@@ -144,10 +152,15 @@ public final class ParkourRuntimeManager {
         if (player == null || player.server == null) {
             return;
         }
-        if (!isInParkour(player.getUUID()) || !shouldForceLeaveForFallingBelowStart(player)) {
+        ParkourPlayerSession session = playerSessions.get(player.getUUID());
+        if (session == null) {
             return;
         }
-        forceLeaveDueToFall(player);
+        if (!isBelowStartY(player)) {
+            session.clearPendingFallLeave();
+            return;
+        }
+        session.setPendingFallLeaveTick(server.getTickCount() + FALL_LEAVE_DELAY_TICKS);
     }
 
     public String joinParkour(ServerPlayer player) {
@@ -207,6 +220,10 @@ public final class ParkourRuntimeManager {
         if (player == null) {
             return;
         }
+        UUID uuid = player.getUUID();
+        if (!playerSessions.containsKey(uuid) && !hasPersistentSnapshot(player)) {
+            return;
+        }
         leaveParkourInternal(player, false, false);
         QuickAccessItemService.refreshHotbar(player);
         sendLeaderboardSnapshot(player, false);
@@ -248,7 +265,7 @@ public final class ParkourRuntimeManager {
             return;
         }
         tryRestoreFromPersistent(player);
-        teleportToLeaveSpawn(player);
+        teleportToStart(player);
         syncClientState(player);
         QuickAccessItemService.refreshHotbar(player);
         sendLeaderboardSnapshot(player, false);
@@ -523,21 +540,22 @@ public final class ParkourRuntimeManager {
         return ranked;
     }
 
-    private void leaveParkourInternal(ServerPlayer player, boolean teleportToLeaveSpawn, boolean announceClear) {
+    private void leaveParkourInternal(ServerPlayer player, boolean teleportToStart, boolean announceClear) {
         UUID uuid = player.getUUID();
         pendingRespawnPlayers.remove(uuid);
         ParkourPlayerSession session = playerSessions.remove(uuid);
         ServerActionBarService.clearSource(player, ACTIONBAR_PROMPT_SOURCE);
         ServerActionBarService.clearSource(player, ACTIONBAR_STATUS_SOURCE);
         restoreInventory(player, session == null ? null : session.inventorySnapshot());
-        if (teleportToLeaveSpawn) {
-            teleportToLeaveSpawn(player);
+        if (teleportToStart) {
+            teleportToStart(player);
         }
         if (announceClear) {
             syncClientState(player);
         } else {
             NetworkManager.sendToPlayer(player, buildClearedSyncPacket());
         }
+        showLeaveActionbar(player);
     }
 
     private void backupInventory(ServerPlayer player) {
@@ -611,11 +629,6 @@ public final class ParkourRuntimeManager {
         player.teleportTo(HubDimensionService.resolveHubLevel(server), position.x() + 0.5D, position.y(), position.z() + 0.5D, player.getYRot(), player.getXRot());
     }
 
-    private void teleportToLeaveSpawn(ServerPlayer player) {
-        RoomPosition position = serverConfig().getOverworldSpawnFallbackShared();
-        player.teleportTo(HubDimensionService.resolveHubLevel(server), position.x() + 0.5D, position.y(), position.z() + 0.5D, player.getYRot(), player.getXRot());
-    }
-
     private void resetPostReturnState(ServerPlayer player) {
         if (player == null) {
             return;
@@ -653,7 +666,7 @@ public final class ParkourRuntimeManager {
             && Math.abs(player.getY() - position.y()) <= verticalTolerance;
     }
 
-    private boolean shouldForceLeaveForFallingBelowStart(ServerPlayer player) {
+    private boolean isBelowStartY(ServerPlayer player) {
         if (player == null) {
             return false;
         }
@@ -687,6 +700,18 @@ public final class ParkourRuntimeManager {
         resetPostReturnState(player);
         syncClientState(player);
         QuickAccessItemService.refreshHotbar(player);
+    }
+
+    private void showLeaveActionbar(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        ServerActionBarService.showComponent(
+            player,
+            ACTIONBAR_STATUS_SOURCE,
+            Component.literal("您已离开跑酷").withStyle(ChatFormatting.RED),
+            LEAVE_ACTIONBAR_DURATION_TICKS
+        );
     }
 
     private void syncClientState(ServerPlayer player) {
@@ -800,6 +825,7 @@ public final class ParkourRuntimeManager {
         private boolean challengeActive;
         private boolean finishSubmitted;
         private long statusUntilTick;
+        private long pendingFallLeaveTick;
         private int runNonce;
 
         private ParkourPlayerSession(String inventorySnapshot) {
@@ -838,10 +864,23 @@ public final class ParkourRuntimeManager {
             return runNonce;
         }
 
+        public long pendingFallLeaveTick() {
+            return pendingFallLeaveTick;
+        }
+
+        public void setPendingFallLeaveTick(long pendingFallLeaveTick) {
+            this.pendingFallLeaveTick = pendingFallLeaveTick;
+        }
+
+        public void clearPendingFallLeave() {
+            this.pendingFallLeaveTick = 0L;
+        }
+
         public void beginNewRun(long currentTick) {
             runNonce++;
             challengeActive = true;
             finishSubmitted = false;
+            pendingFallLeaveTick = 0L;
             statusUntilTick = currentTick + 40L;
         }
     }

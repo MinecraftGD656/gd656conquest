@@ -14,7 +14,8 @@ final class ClientCaptureOverlayState {
     List<ClientCaptureOverlayModel.CaptureIconEntry> cachedCaptureIcons = List.of();
     List<ClientCaptureOverlayModel.CaptureIconEntry> cachedObjectiveEntries = List.of();
     Map<String, ClientCaptureOverlayModel.CaptureIconEntry> objectiveEntryByCode = Map.of();
-    List<ClientCaptureOverlayModel.BoundaryPolygon> cachedBoundaryPolygons = List.of();
+    List<ClientCaptureOverlayModel.BoundaryPolygon> cachedRoomBoundaryPolygons = List.of();
+    List<ClientCaptureOverlayModel.BoundaryPolygon> cachedDebugBoundaryPolygons = List.of();
     long boundaryGeometryVersion;
     final Map<String, ClientCaptureOverlayModel.ProgressInterpolationState> progressInterpolation = new HashMap<>();
     final Map<String, ClientCaptureOverlayModel.HudIconLayoutState> hudIconLayoutStates = new HashMap<>();
@@ -42,7 +43,8 @@ final class ClientCaptureOverlayState {
         cachedCaptureIcons = List.of();
         cachedObjectiveEntries = List.of();
         objectiveEntryByCode = Map.of();
-        cachedBoundaryPolygons = List.of();
+        cachedRoomBoundaryPolygons = List.of();
+        cachedDebugBoundaryPolygons = List.of();
         boundaryGeometryVersion = 0L;
         currentCaptureFocus = null;
         progressInterpolation.clear();

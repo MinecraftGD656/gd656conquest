@@ -8,6 +8,7 @@ import org.mods.gd656conquest.server.loadout.application.CustomLoadoutService;
 import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.room.core.RoomRuntimeState;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
+import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayHudState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
@@ -125,8 +126,13 @@ public final class StandardRoomRunningHudRenderer implements RoomRunningHudRende
         if (player == null || player.server == null) {
             return PlayerClassType.defaultType().getKey();
         }
+        RunningRuntimeState state = RoomCoreRuntimeManager.of(player.server)
+            .findRunningState(RoomCoreRuntimeManager.of(player.server).findPlayerRoomId(player.getUUID()).orElse(""))
+            .orElse(null);
         PlayerClassType classType = CustomLoadoutService.resolveCurrentClass(
-            ConquestDataManager.of(player.server).playerData().getPlayerData(player.getUUID())
+            ConquestDataManager.of(player.server).playerData().getPlayerData(player.getUUID()),
+            state,
+            player.getUUID()
         );
         return classType == null ? PlayerClassType.defaultType().getKey() : classType.getKey();
     }

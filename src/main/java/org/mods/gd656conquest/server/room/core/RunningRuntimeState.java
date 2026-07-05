@@ -51,6 +51,8 @@ public final class RunningRuntimeState {
     private final Map<UUID, Long> autoTeamSwitchOfferExpireTicks = new LinkedHashMap<>();
     private final Map<UUID, KilliconMatchStats> killiconMatchStatsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Map<Integer, Long>> loadoutItemLastReplenishTickByPlayerSlot = new LinkedHashMap<>();
+    private final Map<UUID, String> randomizedLoadoutClassKeysByPlayer = new LinkedHashMap<>();
+    private final Map<UUID, Map<String, String>> randomizedLoadoutSelectionIdsByPlayerSlot = new LinkedHashMap<>();
     private long autoTeamBalanceImbalanceSinceTick = -1L;
     private long autoTeamBalanceLastPromptTick = -1L;
     private int autoTeamBalanceLastDelta;
@@ -266,6 +268,14 @@ public final class RunningRuntimeState {
         return loadoutItemLastReplenishTickByPlayerSlot;
     }
 
+    public Map<UUID, String> getRandomizedLoadoutClassKeysByPlayer() {
+        return randomizedLoadoutClassKeysByPlayer;
+    }
+
+    public Map<UUID, Map<String, String>> getRandomizedLoadoutSelectionIdsByPlayerSlot() {
+        return randomizedLoadoutSelectionIdsByPlayerSlot;
+    }
+
     public long getAutoTeamBalanceImbalanceSinceTick() {
         return autoTeamBalanceImbalanceSinceTick;
     }
@@ -458,6 +468,8 @@ public final class RunningRuntimeState {
         autoTeamSwitchOfferTargetTeams.remove(playerId);
         autoTeamSwitchOfferExpireTicks.remove(playerId);
         loadoutItemLastReplenishTickByPlayerSlot.remove(playerId);
+        randomizedLoadoutClassKeysByPlayer.remove(playerId);
+        randomizedLoadoutSelectionIdsByPlayerSlot.remove(playerId);
         outsideBoundarySinceTicks.remove(playerId);
         boundaryPenaltyLastShownSeconds.remove(playerId);
         boundaryPenaltyVisualApplied.remove(playerId);
@@ -504,6 +516,8 @@ public final class RunningRuntimeState {
         autoTeamSwitchOfferExpireTicks.clear();
         killiconMatchStatsByPlayer.clear();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
+        randomizedLoadoutClassKeysByPlayer.clear();
+        randomizedLoadoutSelectionIdsByPlayerSlot.clear();
         autoTeamBalanceImbalanceSinceTick = -1L;
         autoTeamBalanceLastPromptTick = -1L;
         autoTeamBalanceLastDelta = 0;

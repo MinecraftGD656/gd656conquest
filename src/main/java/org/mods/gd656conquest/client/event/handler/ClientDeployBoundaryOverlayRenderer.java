@@ -77,7 +77,11 @@ final class ClientDeployBoundaryOverlayRenderer {
         if (alphaFactor <= 0.001F) {
             return;
         }
-        ResolvedBoundarySegments segments = boundaryRenderer.resolveRenderableSegments(state, selfTeam);
+        ResolvedBoundarySegments segments = boundaryRenderer.resolveRenderableSegments(
+            state,
+            selfTeam,
+            ClientCaptureBoundaryRenderer.BoundaryDataSource.ROOM
+        );
         if (segments.isEmpty()) {
             return;
         }
@@ -156,7 +160,11 @@ final class ClientDeployBoundaryOverlayRenderer {
         TeamToken selfTeam,
         java.util.Map<WorldPointKey, ScreenPoint> pointProjectionCache
     ) {
-        List<BoundaryPolygon> rawPolygons = boundaryRenderer.resolveRenderablePolygons(state, selfTeam);
+        List<BoundaryPolygon> rawPolygons = boundaryRenderer.resolveRenderablePolygons(
+            state,
+            selfTeam,
+            ClientCaptureBoundaryRenderer.BoundaryDataSource.ROOM
+        );
         if (rawPolygons.isEmpty()) {
             return List.of();
         }

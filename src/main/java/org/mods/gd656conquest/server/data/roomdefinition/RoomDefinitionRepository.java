@@ -40,7 +40,7 @@ import java.util.Optional;
 
 public final class RoomDefinitionRepository extends JsonDataStoreSupport {
     private static final int DEFAULT_ROOM_COUNT = 16;
-    private static final int STORAGE_VERSION = 9;
+    private static final int STORAGE_VERSION = 11;
 
     private final MinecraftServer server;
     private final DelayedJsonWriteService delayedJsonWriteService;
@@ -102,6 +102,15 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         cache.put(normalized.roomId(), normalized);
         persist(normalized);
         return normalized;
+    }
+
+    public synchronized RoomDefinition resetDefinition(String roomId) {
+        ensureInitialized();
+        String normalizedRoomId = normalizeRoomId(roomId);
+        RoomDefinition reset = validateAndNormalize(createDefaultDefinition(normalizedRoomId));
+        cache.put(reset.roomId(), reset);
+        persist(reset);
+        return reset;
     }
 
     public synchronized Optional<RoomDefinition> reloadDefinitionFromFile(String roomId) {
@@ -228,7 +237,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().enableAutoTeamSwitchPrompt(),
             base.commonConfig().disableInventoryChange(),
             base.commonConfig().enableGoatHorn(),
-            base.commonConfig().enablePlayerDowned()
+            base.commonConfig().enablePlayerDowned(),
+            base.commonConfig().enableBackAgainstWall(),
+            base.commonConfig().enableRandomLoadout()
         );
         RoomConquestConfig conquestConfig = new RoomConquestConfig(
             base.conquestConfig().equipmentConfig(),
@@ -307,6 +318,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             "",
             40.0D,
             RoomResultConfig.defaults(),
+            false,
+            false,
             false,
             false,
             false,
@@ -455,7 +468,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                         normalizedCommon.resolveEnableAutoTeamSwitchPrompt(normalizedConquest.enableAutoTeamSwitchPrompt()),
                         normalizedCommon.resolveDisableInventoryChange(normalizedConquest.disableInventoryChange()),
                         normalizedCommon.resolveEnableGoatHorn(false),
-                        normalizedCommon.enablePlayerDowned()
+                        normalizedCommon.enablePlayerDowned(),
+                        normalizedCommon.enableBackAgainstWall(),
+                        normalizedCommon.enableRandomLoadout()
                     ),
                     new RoomConquestConfig(
                         normalizedConquest.equipmentConfig(),
@@ -517,6 +532,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 gameplayConfig != null && gameplayConfig.disableHunger(),
                 gameplayConfig != null && gameplayConfig.enableAutoTeamSwitchPrompt(),
                 gameplayConfig != null && gameplayConfig.disableInventoryChange(),
+                false,
+                false,
                 false,
                 false
             );
@@ -723,6 +740,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         private Boolean disableInventoryChange;
         private Boolean enableGoatHorn;
         private boolean enablePlayerDowned;
+        private boolean enableBackAgainstWall;
+        private boolean enableRandomLoadout;
 
         public static CommonConfig from(RoomDefinition definition) {
             CommonConfig config = new CommonConfig();
@@ -753,6 +772,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.disableInventoryChange = definition.commonConfig().disableInventoryChange();
             config.enableGoatHorn = definition.commonConfig().enableGoatHorn();
             config.enablePlayerDowned = definition.commonConfig().enablePlayerDowned();
+            config.enableBackAgainstWall = definition.commonConfig().enableBackAgainstWall();
+            config.enableRandomLoadout = definition.commonConfig().enableRandomLoadout();
             return config;
         }
 
@@ -783,6 +804,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.disableInventoryChange = false;
             config.enableGoatHorn = false;
             config.enablePlayerDowned = false;
+            config.enableBackAgainstWall = false;
+            config.enableRandomLoadout = false;
             return config;
         }
 
@@ -813,6 +836,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             normalized.disableInventoryChange = disableInventoryChange;
             normalized.enableGoatHorn = enableGoatHorn;
             normalized.enablePlayerDowned = enablePlayerDowned;
+            normalized.enableBackAgainstWall = enableBackAgainstWall;
+            normalized.enableRandomLoadout = enableRandomLoadout;
             return normalized;
         }
 
@@ -926,6 +951,14 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         public boolean enablePlayerDowned() {
             return enablePlayerDowned;
         }
+
+        public boolean enableBackAgainstWall() {
+            return enableBackAgainstWall;
+        }
+
+        public boolean enableRandomLoadout() {
+            return enableRandomLoadout;
+        }
     }
 
     private record ProgressSpeedMigrationData(Double commonProgressSpeed, Double legacyCaptureProgressSpeed) {
@@ -1004,7 +1037,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().enableAutoTeamSwitchPrompt(),
             definition.commonConfig().disableInventoryChange(),
             definition.commonConfig().enableGoatHorn(),
-            definition.commonConfig().enablePlayerDowned()
+            definition.commonConfig().enablePlayerDowned(),
+            definition.commonConfig().enableBackAgainstWall(),
+            definition.commonConfig().enableRandomLoadout()
         );
         return new RoomDefinition(
             definition.roomId(),
@@ -1049,7 +1084,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().enableAutoTeamSwitchPrompt(),
             definition.commonConfig().disableInventoryChange(),
             definition.commonConfig().enableGoatHorn(),
-            definition.commonConfig().enablePlayerDowned()
+            definition.commonConfig().enablePlayerDowned(),
+            definition.commonConfig().enableBackAgainstWall(),
+            definition.commonConfig().enableRandomLoadout()
         );
         return new RoomDefinition(
             definition.roomId(),

@@ -15,6 +15,7 @@ import org.mods.gd656conquest.server.social.chat.ServerActionBarService;
 import org.mods.gd656conquest.server.loadout.application.CustomLoadoutService;
 import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
+import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.runtime.audio.RoomThirdPersonAudioCueRegistry;
@@ -307,8 +308,13 @@ public final class RoomMarkerRuntimeService {
         if (player == null) {
             return false;
         }
+        RunningRuntimeState state = RoomCoreRuntimeManager.of(server)
+            .findRunningState(RoomCoreRuntimeManager.of(server).findPlayerRoomId(player.getUUID()).orElse(""))
+            .orElse(null);
         PlayerClassType classType = CustomLoadoutService.resolveCurrentClass(
-            ConquestDataManager.of(server).playerData().getPlayerData(player.getUUID())
+            ConquestDataManager.of(server).playerData().getPlayerData(player.getUUID()),
+            state,
+            player.getUUID()
         );
         return classType == PlayerClassType.RECON;
     }
@@ -430,10 +436,17 @@ public final class RoomMarkerRuntimeService {
             return RoomThirdPersonAudioCueRegistry.PLAYER_SPOTTED_ENEMY;
         }
         ServerPlayer targetPlayer = server.getPlayerList().getPlayer(targetPlayerId);
+        RunningRuntimeState state = targetPlayer == null
+            ? null
+            : RoomCoreRuntimeManager.of(server)
+                .findRunningState(RoomCoreRuntimeManager.of(server).findPlayerRoomId(targetPlayer.getUUID()).orElse(""))
+                .orElse(null);
         PlayerClassType classType = CustomLoadoutService.resolveCurrentClass(
             targetPlayer == null
                 ? null
-                : ConquestDataManager.of(server).playerData().getPlayerData(targetPlayer.getUUID())
+                : ConquestDataManager.of(server).playerData().getPlayerData(targetPlayer.getUUID()),
+            state,
+            targetPlayer == null ? null : targetPlayer.getUUID()
         );
         if (classType == PlayerClassType.ENGINEER) {
             return RoomThirdPersonAudioCueRegistry.PLAYER_SPOTTED_ENGINEER;

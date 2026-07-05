@@ -38,7 +38,9 @@ import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
 import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
 import org.mods.gd656conquest.server.social.chat.ServerActionBarService;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
+import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentationSupport;
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentationProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployViewKind;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployViewRequest;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
@@ -362,7 +364,7 @@ public final class RoomPlayerRespawnService {
         NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
         NetworkManager.sendToPlayer(player, PlayerAnimatorDebugPacket.stop(playerId));
-        int deployDelayTicks = resolveDeployDelayTicks(room, 1);
+        int deployDelayTicks = resolveDeployDelayTicks(room, state, 1);
         state.clearRespawnFlow(playerId);
         state.getDeployReadyTicks().put(playerId, gameTick + deployDelayTicks);
         state.getDeployAutoStartOnReadyPlayers().remove(playerId);
@@ -391,7 +393,7 @@ public final class RoomPlayerRespawnService {
             return;
         }
         UUID playerId = player.getUUID();
-        int deployDelayTicks = resolveDeployDelayTicks(room, 1);
+        int deployDelayTicks = resolveDeployDelayTicks(room, state, 1);
         state.clearRespawnFlow(playerId);
         state.getDeployReadyTicks().put(playerId, gameTick + deployDelayTicks);
         state.getDeployAutoStartOnReadyPlayers().remove(playerId);
@@ -486,7 +488,7 @@ public final class RoomPlayerRespawnService {
                 continue;
             }
             UUID playerId = entry.getKey();
-            int deployDelayTicks = resolveDeployDelayTicks(room, 1);
+            int deployDelayTicks = resolveDeployDelayTicks(room, state, 1);
             if (state.getDoubledRespawnPending().remove(playerId)) {
                 deployDelayTicks *= 2;
             }
@@ -982,7 +984,7 @@ public final class RoomPlayerRespawnService {
         }
         UUID playerId = player.getUUID();
         notifyGameplayConfirmedDeath(room, state, playerId, killerEntityId, gameTick);
-        int deployDelayTicks = resolveDeployDelayTicks(room, 1);
+        int deployDelayTicks = resolveDeployDelayTicks(room, state, 1);
         if (state.getDoubledRespawnPending().remove(playerId)) {
             deployDelayTicks *= 2;
         }
@@ -1393,8 +1395,13 @@ public final class RoomPlayerRespawnService {
         if (player == null || player.server == null) {
             return PlayerClassType.defaultType();
         }
+        RunningRuntimeState state = RoomCoreRuntimeManager.of(player.server)
+            .findRunningState(RoomCoreRuntimeManager.of(player.server).findPlayerRoomId(player.getUUID()).orElse(""))
+            .orElse(null);
         return CustomLoadoutService.resolveCurrentClass(
-            ConquestDataManager.of(player.server).playerData().getPlayerData(player.getUUID())
+            ConquestDataManager.of(player.server).playerData().getPlayerData(player.getUUID()),
+            state,
+            player.getUUID()
         );
     }
 
@@ -1864,8 +1871,12 @@ public final class RoomPlayerRespawnService {
         return "§b";
     }
 
-    private int resolveDeployDelayTicks(RoomDefinition room, int multiplier) {
-        int seconds = room == null ? 1 : Math.max(1, room.gameplayRespawnDelaySeconds());
+    private int resolveDeployDelayTicks(RoomDefinition room, RunningRuntimeState state, int multiplier) {
+        RoomGameplayDeployPresentationProvider provider = RoomGameplayDeployPresentationProvider.resolve(state);
+        Integer overrideSeconds = provider == null ? null : provider.resolveRespawnDelaySeconds(room, state);
+        int seconds = overrideSeconds != null
+            ? Math.max(0, overrideSeconds)
+            : room == null ? 1 : Math.max(1, room.gameplayRespawnDelaySeconds());
         return (int) (seconds * 20L) * Math.max(1, multiplier);
     }
 

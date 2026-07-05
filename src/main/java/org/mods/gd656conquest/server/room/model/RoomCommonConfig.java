@@ -21,7 +21,9 @@ public record RoomCommonConfig(
     boolean enableAutoTeamSwitchPrompt,
     boolean disableInventoryChange,
     boolean enableGoatHorn,
-    boolean enablePlayerDowned
+    boolean enablePlayerDowned,
+    boolean enableBackAgainstWall,
+    boolean enableRandomLoadout
 ) {
     public RoomCommonConfig {
         matchingConfig = matchingConfig == null ? RoomMatchingConfig.defaults() : matchingConfig;
@@ -76,6 +78,8 @@ public record RoomCommonConfig(
             enableAutoTeamSwitchPrompt,
             disableInventoryChange,
             false,
+            false,
+            false,
             false
         );
     }
@@ -118,6 +122,8 @@ public record RoomCommonConfig(
             enableAutoTeamSwitchPrompt,
             disableInventoryChange,
             false,
+            false,
+            false,
             false
         );
     }
@@ -138,6 +144,8 @@ public record RoomCommonConfig(
             "",
             40.0D,
             RoomResultConfig.defaults(),
+            false,
+            false,
             false,
             false,
             false,

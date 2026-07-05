@@ -29,10 +29,12 @@ final class ClientCaptureBoundaryRenderer {
     private static final double ROUND_CAP_RADIUS_MULTIPLIER = 1.35D;
 
     private long cachedPolygonVersion = Long.MIN_VALUE;
+    private BoundaryDataSource cachedPolygonSource = BoundaryDataSource.ROOM;
     private List<BoundaryPolygon> cachedRenderablePolygons = List.of();
     private long cachedSegmentVersion = Long.MIN_VALUE;
     private TeamToken cachedSegmentSelfTeam = TeamToken.NEUTRAL;
     private BoundaryRenderMode cachedSegmentMode = BoundaryRenderMode.CONQUEST;
+    private BoundaryDataSource cachedSegmentSource = BoundaryDataSource.ROOM;
     private ResolvedBoundarySegments cachedRenderableSegments = ResolvedBoundarySegments.empty();
 
     void captureWorldProjectionState(ClientCaptureOverlayState state, RenderLevelStageEvent event) {
@@ -76,39 +78,58 @@ final class ClientCaptureBoundaryRenderer {
     }
 
     List<BoundaryPolygon> resolveRenderablePolygons(ClientCaptureOverlayState state, TeamToken selfTeam) {
+        return resolveRenderablePolygons(state, selfTeam, BoundaryDataSource.DEBUG);
+    }
+
+    List<BoundaryPolygon> resolveRenderablePolygons(
+        ClientCaptureOverlayState state,
+        TeamToken selfTeam,
+        BoundaryDataSource boundarySource
+    ) {
         if (state == null) {
             return List.of();
         }
-        if (cachedPolygonVersion == state.boundaryGeometryVersion) {
+        if (cachedPolygonVersion == state.boundaryGeometryVersion && cachedPolygonSource == boundarySource) {
             return cachedRenderablePolygons;
         }
         List<BoundaryPolygon> polygons = new ArrayList<>();
-        polygons.addAll(resolveBoundaryPolygonsForTeamToken(state, TeamToken.CAMP_A));
-        polygons.addAll(resolveBoundaryPolygonsForTeamToken(state, TeamToken.CAMP_B));
-        polygons.addAll(resolveBoundaryPolygonsForTeamToken(state, TeamToken.NEUTRAL));
+        polygons.addAll(resolveBoundaryPolygonsForTeamToken(state, TeamToken.CAMP_A, boundarySource));
+        polygons.addAll(resolveBoundaryPolygonsForTeamToken(state, TeamToken.CAMP_B, boundarySource));
+        polygons.addAll(resolveBoundaryPolygonsForTeamToken(state, TeamToken.NEUTRAL, boundarySource));
         cachedRenderablePolygons = polygons.isEmpty() ? List.of() : List.copyOf(polygons);
         cachedPolygonVersion = state.boundaryGeometryVersion;
+        cachedPolygonSource = boundarySource;
         return cachedRenderablePolygons;
     }
 
     ResolvedBoundarySegments resolveRenderableSegments(ClientCaptureOverlayState state, TeamToken selfTeam) {
+        return resolveRenderableSegments(state, selfTeam, BoundaryDataSource.DEBUG);
+    }
+
+    ResolvedBoundarySegments resolveRenderableSegments(
+        ClientCaptureOverlayState state,
+        TeamToken selfTeam,
+        BoundaryDataSource boundarySource
+    ) {
         if (state == null) {
             return ResolvedBoundarySegments.empty();
         }
         BoundaryRenderMode renderMode = resolveBoundaryRenderMode();
         if (cachedSegmentVersion == state.boundaryGeometryVersion
             && cachedSegmentSelfTeam == selfTeam
-            && cachedSegmentMode == renderMode) {
+            && cachedSegmentMode == renderMode
+            && cachedSegmentSource == boundarySource) {
             return cachedRenderableSegments;
         }
-        List<BoundaryPolygon> campABoundary = resolveBoundaryPolygonsForTeamToken(state, TeamToken.CAMP_A);
-        List<BoundaryPolygon> campBBoundary = resolveBoundaryPolygonsForTeamToken(state, TeamToken.CAMP_B);
-        List<BoundaryPolygon> neutralBoundary = resolveBoundaryPolygonsForTeamToken(state, TeamToken.NEUTRAL);
+        List<BoundaryPolygon> campABoundary = resolveBoundaryPolygonsForTeamToken(state, TeamToken.CAMP_A, boundarySource);
+        List<BoundaryPolygon> campBBoundary = resolveBoundaryPolygonsForTeamToken(state, TeamToken.CAMP_B, boundarySource);
+        List<BoundaryPolygon> neutralBoundary = resolveBoundaryPolygonsForTeamToken(state, TeamToken.NEUTRAL, boundarySource);
         if (campABoundary.isEmpty() && campBBoundary.isEmpty() && neutralBoundary.isEmpty()) {
             cachedRenderableSegments = ResolvedBoundarySegments.empty();
             cachedSegmentVersion = state.boundaryGeometryVersion;
             cachedSegmentSelfTeam = selfTeam;
             cachedSegmentMode = renderMode;
+            cachedSegmentSource = boundarySource;
             return cachedRenderableSegments;
         }
         if (renderMode == BoundaryRenderMode.CONQUEST) {
@@ -116,6 +137,7 @@ final class ClientCaptureBoundaryRenderer {
             cachedSegmentVersion = state.boundaryGeometryVersion;
             cachedSegmentSelfTeam = selfTeam;
             cachedSegmentMode = renderMode;
+            cachedSegmentSource = boundarySource;
             return cachedRenderableSegments;
         }
         List<LineSegment> campASegments = collectVisibleSegments(campABoundary);
@@ -132,6 +154,7 @@ final class ClientCaptureBoundaryRenderer {
             cachedSegmentVersion = state.boundaryGeometryVersion;
             cachedSegmentSelfTeam = selfTeam;
             cachedSegmentMode = renderMode;
+            cachedSegmentSource = boundarySource;
             return cachedRenderableSegments;
         }
         cachedRenderableSegments = new ResolvedBoundarySegments(
@@ -143,6 +166,7 @@ final class ClientCaptureBoundaryRenderer {
         cachedSegmentVersion = state.boundaryGeometryVersion;
         cachedSegmentSelfTeam = selfTeam;
         cachedSegmentMode = renderMode;
+        cachedSegmentSource = boundarySource;
         return cachedRenderableSegments;
     }
 
@@ -182,13 +206,17 @@ final class ClientCaptureBoundaryRenderer {
 
     private List<BoundaryPolygon> resolveBoundaryPolygonsForTeamToken(
         ClientCaptureOverlayState state,
-        TeamToken teamToken
+        TeamToken teamToken,
+        BoundaryDataSource boundarySource
     ) {
-        if (state.cachedBoundaryPolygons.isEmpty()) {
+        List<BoundaryPolygon> polygons = boundarySource == BoundaryDataSource.ROOM
+            ? state.cachedRoomBoundaryPolygons
+            : state.cachedDebugBoundaryPolygons;
+        if (polygons.isEmpty()) {
             return List.of();
         }
         List<BoundaryPolygon> matched = new ArrayList<>();
-        for (BoundaryPolygon polygon : state.cachedBoundaryPolygons) {
+        for (BoundaryPolygon polygon : polygons) {
             if (polygon == null || polygon.points() == null || polygon.points().size() < 2) {
                 continue;
             }
@@ -917,6 +945,11 @@ final class ClientCaptureBoundaryRenderer {
     private enum BoundaryRenderMode {
         CONQUEST,
         BREAKTHROUGH
+    }
+
+    enum BoundaryDataSource {
+        ROOM,
+        DEBUG
     }
 
     record ResolvedBoundarySegments(

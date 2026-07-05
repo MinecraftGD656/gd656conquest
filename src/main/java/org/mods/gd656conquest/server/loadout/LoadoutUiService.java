@@ -31,6 +31,7 @@ import org.mods.gd656conquest.server.loadout.application.WeaponAttachmentService
 import org.mods.gd656conquest.server.loadout.domain.CustomLoadoutSlot;
 import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.room.core.RoomCoreService;
+import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.title.PlayerTitleService;
 import org.mods.gd656conquest.server.room.config.RoomConfigDescriptor;
@@ -895,6 +896,10 @@ public final class LoadoutUiService {
     }
 
     private static boolean applyClassSelection(ServerPlayer player, String classKey) {
+        if (isRandomLoadoutEnabledInCurrentRoom(player)) {
+            sendError(player, "当前房间已启用随机配备，兵种将于部署时随机发放");
+            return false;
+        }
         PlayerClassType classType = PlayerClassType.fromInput(classKey);
         if (classType == null) {
             sendError(player, "兵种选择无效");
@@ -915,6 +920,10 @@ public final class LoadoutUiService {
     }
 
     private static boolean applySlotSelection(ServerPlayer player, String classKey, int slotIndex, String itemId) {
+        if (isRandomLoadoutEnabledInCurrentRoom(player)) {
+            sendError(player, "当前房间已启用随机配备，配装将于部署时随机发放");
+            return false;
+        }
         PlayerClassType classType = PlayerClassType.fromInput(classKey);
         CustomLoadoutSlot slot = CustomLoadoutSlot.fromIndex(slotIndex);
         String normalizedId = CustomLoadoutService.normalizeEquipmentId(itemId);
@@ -961,6 +970,10 @@ public final class LoadoutUiService {
         String attachmentType,
         String attachmentEntryId
     ) {
+        if (isRandomLoadoutEnabledInCurrentRoom(player)) {
+            sendError(player, "当前房间已启用随机配备，武器配件不会按个人配置发放");
+            return false;
+        }
         CustomLoadoutSlot slot = CustomLoadoutSlot.fromIndex(slotIndex);
         if (!WeaponAttachmentService.supportsSlot(slot)) {
             sendError(player, "当前槽位不支持配件配置");
@@ -1068,6 +1081,19 @@ public final class LoadoutUiService {
         sendError(player, "当前不在房间或靶场中");
     }
 
+    private static boolean isRandomLoadoutEnabledInCurrentRoom(ServerPlayer player) {
+        if (player == null || player.server == null) {
+            return false;
+        }
+        RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(player.server);
+        String roomId = manager.findPlayerRoomId(player.getUUID()).orElse(null);
+        if (roomId == null || roomId.isBlank()) {
+            return false;
+        }
+        RoomDefinition room = manager.findRoom(roomId).orElse(null);
+        return room != null && room.commonConfig().enableRandomLoadout();
+    }
+
     private static boolean refreshRangeLoadoutIfNeeded(ServerPlayer player) {
         if (player == null || player.server == null) {
             return false;
@@ -1085,7 +1111,11 @@ public final class LoadoutUiService {
         EquipmentDataModel equipmentData = dataManager.equipmentData().getData();
         WeaponAttachmentDataModel attachmentData = dataManager.weaponAttachments().getData();
         PlayerDataModel playerData = dataManager.playerData().getPlayerData(player.getUUID());
-        PlayerClassType currentClass = CustomLoadoutService.resolveCurrentClass(playerData);
+        RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(player.server);
+        RunningRuntimeState runningState = roomManager
+            .findRunningState(roomManager.findPlayerRoomId(player.getUUID()).orElse(""))
+            .orElse(null);
+        PlayerClassType currentClass = CustomLoadoutService.resolveCurrentClass(playerData, runningState, player.getUUID());
         int level = PlayerLevelService.getEffectiveLevel(player);
         String playerTitleText = PlayerTitleService.of(player.server)
             .findTitle(playerData.getEquippedTitleId())

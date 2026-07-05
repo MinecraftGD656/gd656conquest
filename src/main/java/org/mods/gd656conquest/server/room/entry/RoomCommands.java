@@ -44,10 +44,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.UUID;
 
 public final class RoomCommands {
     private static final Gson GSON = new Gson();
     private static final String ROOM_SERVICE_NOT_INITIALIZED = "房间服务尚未初始化";
+    private static final long ROOM_ADMIN_CONFIRM_WINDOW_MS = 5_000L;
+    private static final Map<String, Long> ROOM_ADMIN_CONFIRMATIONS = new ConcurrentHashMap<>();
 
     private RoomCommands() {
     }
@@ -57,6 +61,18 @@ public final class RoomCommands {
             .then(Commands.literal("list").executes(RoomCommands::executeList))
             .then(Commands.literal("current").executes(RoomCommands::executeCurrent))
             .then(Commands.literal("leave").executes(RoomCommands::executeLeave))
+            .then(Commands.literal("copy")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.argument("templateRoomId", StringArgumentType.word())
+                    .suggests(RoomCommands::suggestRoomIds)
+                    .then(Commands.argument("targetRoomId", StringArgumentType.word())
+                        .suggests(RoomCommands::suggestRoomIds)
+                        .executes(RoomCommands::executeCopyRoomConfig))))
+            .then(Commands.literal("delete")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.argument("targetRoomId", StringArgumentType.word())
+                    .suggests(RoomCommands::suggestRoomIds)
+                    .executes(RoomCommands::executeDeleteRoom)))
             .then(buildCurrentTeamTree())
             .then(buildRoomScopedTree());
     }
@@ -532,6 +548,41 @@ public final class RoomCommands {
         return result.success() ? replyInfo(context.getSource(), result.message()) : replyFailure(context.getSource(), result.message());
     }
 
+    private static int executeCopyRoomConfig(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(source.getServer());
+        if (!manager.isInitialized()) {
+            return replyFailure(source, ROOM_SERVICE_NOT_INITIALIZED);
+        }
+        String templateRoomId = normalizeRoomId(StringArgumentType.getString(context, "templateRoomId"));
+        String targetRoomId = normalizeRoomId(StringArgumentType.getString(context, "targetRoomId"));
+        String confirmCommand = "/gdc room copy " + templateRoomId + " " + targetRoomId;
+        if (!confirmRoomAdminAction(source, "copy:" + templateRoomId + "->" + targetRoomId)) {
+            return replyInfo(source, "请在5秒内再次输入 " + confirmCommand);
+        }
+        sendLine(source, Component.literal("正在复制房间配置: " + templateRoomId + " -> " + targetRoomId).withStyle(ChatFormatting.YELLOW));
+        RoomAdminLifecycleService.OperationResult result = new RoomAdminConfigTemplateService(source.getServer())
+            .copyRoomConfig(templateRoomId, targetRoomId, source.getServer().getTickCount());
+        return result.success() ? replyInfo(source, result.message()) : replyFailure(source, result.message());
+    }
+
+    private static int executeDeleteRoom(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(source.getServer());
+        if (!manager.isInitialized()) {
+            return replyFailure(source, ROOM_SERVICE_NOT_INITIALIZED);
+        }
+        String targetRoomId = normalizeRoomId(StringArgumentType.getString(context, "targetRoomId"));
+        String confirmCommand = "/gdc room delete " + targetRoomId;
+        if (!confirmRoomAdminAction(source, "delete:" + targetRoomId)) {
+            return replyInfo(source, "请在5秒内再次输入 " + confirmCommand);
+        }
+        sendLine(source, Component.literal("正在删除房间配置并清空房间: " + targetRoomId).withStyle(ChatFormatting.YELLOW));
+        RoomAdminLifecycleService.OperationResult result = new RoomAdminConfigTemplateService(source.getServer())
+            .deleteRoom(targetRoomId, source.getServer().getTickCount());
+        return result.success() ? replyInfo(source, result.message()) : replyFailure(source, result.message());
+    }
+
     private static int executeConfigCommonSet(CommandContext<CommandSourceStack> context) {
         return executeConfigSetById(
             context,
@@ -981,5 +1032,29 @@ public final class RoomCommands {
             return position.x() + "," + position.y() + "," + position.z();
         }
         return GSON.toJson(value);
+    }
+
+    private static boolean confirmRoomAdminAction(CommandSourceStack source, String actionToken) {
+        String key = buildRoomAdminConfirmationKey(source, actionToken);
+        long now = System.currentTimeMillis();
+        Long deadline = ROOM_ADMIN_CONFIRMATIONS.get(key);
+        if (deadline != null && deadline >= now) {
+            ROOM_ADMIN_CONFIRMATIONS.remove(key);
+            return true;
+        }
+        ROOM_ADMIN_CONFIRMATIONS.put(key, now + ROOM_ADMIN_CONFIRM_WINDOW_MS);
+        return false;
+    }
+
+    private static String buildRoomAdminConfirmationKey(CommandSourceStack source, String actionToken) {
+        ServerPlayer player = source.getPlayer();
+        String actor = source.getTextName();
+        if (player != null) {
+            UUID uuid = player.getUUID();
+            if (uuid != null) {
+                actor = "player:" + uuid;
+            }
+        }
+        return actor + "::" + (actionToken == null ? "" : actionToken.trim().toLowerCase(Locale.ROOT));
     }
 }

@@ -67,6 +67,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private static final int ATTACK_TROOP_REFERENCE_PLAYERS = 12;
     private static final int STAGE_REWARD_DIVISOR = 2;
     private static final long STAGE_REWARD_EVENT_TICKS = 5L * 20L;
+    private static final int BACK_TO_WALL_DURATION_SECONDS = 180;
+    private static final int BURN_BOATS_DURATION_SECONDS = 60;
+    private static final long DESPERATE_TRIGGER_EVENT_TICKS = 5L * 20L;
     private static final String RETREAT_MARKER_ATTACKER_PREFIX = "bt_retreat_attackers_";
     private static final String RETREAT_MARKER_DEFENDER_PREFIX = "bt_retreat_defenders_";
     private static final String RETREAT_MARKER_OWNER_NAME = "撤离标记";
@@ -87,6 +90,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private final Map<java.util.UUID, String> endingSubtitleByPlayer = new LinkedHashMap<>();
     private final Map<java.util.UUID, String> retreatSubtitleByPlayer = new LinkedHashMap<>();
     private final Map<java.util.UUID, String> finalSegmentSubtitleByPlayer = new LinkedHashMap<>();
+    private final Map<java.util.UUID, String> desperateSubtitleByPlayer = new LinkedHashMap<>();
     private final Set<java.util.UUID> retreatMarkedDefenders = new LinkedHashSet<>();
 
     private long enteredTick = -1L;
@@ -120,6 +124,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         initializeObjectiveSubtitles(room);
         clearRetreatDefenderMarkers(room, gameTick);
         clearRetreatPersistentSubtitles();
+        clearDesperatePersistentSubtitles();
     }
 
     @Override
@@ -128,6 +133,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             return;
         }
         syncCombatNarrativeSubtitles(room, gameTick);
+        syncDesperatePersistentSubtitles();
         syncFinalSegmentPersistentSubtitles();
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT) {
             if (gameTick >= runtimeState.getStageDeadlineTick()) {
@@ -166,6 +172,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                     syncRetreatDefenderMarkers(room, gameTick);
                 }
             }
+            if (tickDesperateModeState(room, gameTick)) {
+                return;
+            }
             return;
         }
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) {
@@ -203,6 +212,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         objectiveSubtitleRuntimeService.resetAllPlayers(objectiveSubtitleState, runningState);
         clearRetreatDefenderMarkers(room, gameTick);
         clearRetreatPersistentSubtitles();
+        clearDesperatePersistentSubtitles();
         clearFinalSegmentPersistentSubtitles();
         endingSubtitleByPlayer.clear();
         enteredTick = -1L;
@@ -226,8 +236,14 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             return;
         }
         if (teamId == RoomTeamId.CAMP_A && runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT) {
+            if (runtimeState.isDesperateModeActive()) {
+                return;
+            }
             runtimeState.consumeAttackTroop(1);
             if (runtimeState.getAttackTroops() <= 0) {
+                if (tryActivateBackToWall(room, gameTick)) {
+                    return;
+                }
                 broadcastOutcomeSubtitle(
                     "bt_match_end_troops_" + gameTick,
                     "我方兵力已耗尽",
@@ -262,23 +278,20 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         long gameTick
     ) {
         int elapsedSeconds = enteredTick < 0L || gameTick <= enteredTick ? 0 : (int) ((gameTick - enteredTick) / 20L);
-        String topStatus = room != null && room.lifecycleState() == RoomLifecycleState.ENDING
-            ? "结算中"
-            : resolveTopStatus(inDeployFlow);
         boolean initialLockActive = state != null && player != null && state.isInitialMovementLockActive(player.getUUID(), gameTick);
         RoomTeamId selfTeam = state == null || player == null ? null : state.getRoomTeams().get(player.getUUID());
         String audioState = room != null && room.lifecycleState() == RoomLifecycleState.ENDING
             ? "ENDING"
             : initialLockActive ? "INITIAL_STAGE_BEGIN" : buildAudioState(selfTeam);
         return new RoomGameplayHudState(
-            runtimeState.getAttackTroops(),
+            runtimeState.isDesperateModeActive() ? -1 : runtimeState.getAttackTroops(),
             runtimeState.getCurrentStageIndex(),
             elapsedSeconds,
             "BREAKTHROUGH",
             runtimeState.getAttackTroopCap(),
             runtimeState.getMaxStageCount(),
             resolveRemainSeconds(gameTick),
-            topStatus,
+            room != null && room.lifecycleState() == RoomLifecycleState.ENDING ? "结算中" : resolveTopStatus(inDeployFlow, gameTick),
             buildEventText(room, player, state == null || player == null ? null : state.getRoomTeams().get(player.getUUID()), gameTick),
             buildFocusPayload(room, player),
             audioState
@@ -354,6 +367,11 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     @Override
     public RoomObjectiveSpawnPolicy objectiveSpawnPolicy() {
         return objectiveSpawnPolicy;
+    }
+
+    @Override
+    public Integer resolveRespawnDelaySeconds(RoomDefinition room, RunningRuntimeState state) {
+        return runtimeState.isDesperateModeActive() ? 0 : null;
     }
 
     @Override
@@ -586,6 +604,10 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private int resolveRemainSeconds(long gameTick) {
+        if (runtimeState.isDesperateModeActive()) {
+            long deadline = runtimeState.getDesperateModeDeadlineTick();
+            return deadline <= 0L || gameTick >= deadline ? 0 : (int) Math.max(0L, (deadline - gameTick + 19L) / 20L);
+        }
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN) {
             long deadline = runtimeState.getAdvanceCountdownEndTick();
             return deadline <= 0L || gameTick >= deadline ? 0 : (int) Math.max(0L, (deadline - gameTick + 19L) / 20L);
@@ -601,9 +623,15 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         return (int) Math.max(0L, (deadline - gameTick + 19L) / 20L);
     }
 
-    private String resolveTopStatus(boolean inDeployFlow) {
+    private String resolveTopStatus(boolean inDeployFlow, long gameTick) {
         if (runtimeState.getCurrentStageIndex() <= 0) {
             return "等待阶段初始化";
+        }
+        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BACK_TO_WALL) {
+            return hudStyledText("BT_LAST_STAND_STATUS", "背水一战");
+        }
+        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BURN_BOATS) {
+            return hudStyledText("BT_BURN_BOATS_STATUS", "破釜沉舟");
         }
         String stageLabel = stageLabel(runtimeState.getCurrentStageIndex());
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) {
@@ -743,7 +771,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private void syncAttackTroopThresholdSubtitles(long gameTick) {
-        if (runtimeState.getAttackTroopCap() <= 0) {
+        if (runtimeState.getAttackTroopCap() <= 0 || runtimeState.isDesperateModeActive()) {
             return;
         }
         double ratio = runtimeState.getAttackTroops() / (double) runtimeState.getAttackTroopCap();
@@ -992,6 +1020,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
 
     private void syncFinalSegmentPersistentSubtitles() {
         boolean active = runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT
+            && !runtimeState.isDesperateModeActive()
             && runtimeState.getCurrentStageIndex() == runtimeState.getMaxStageCount()
             && runtimeState.isLastStageFinalFightPressure();
         for (java.util.UUID playerId : runningState.getRoomPlayers()) {
@@ -1029,6 +1058,13 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private String buildEventText(RoomDefinition room, ServerPlayer player, RoomTeamId selfTeam, long gameTick) {
         if (runtimeState.getCurrentStageIndex() <= 0) {
             return "-";
+        }
+        if (runtimeState.isDesperateModeActive()) {
+            String teamEvent = runtimeState.resolveTeamEvent(selfTeam, gameTick);
+            if (!"-".equals(teamEvent)) {
+                return teamEvent;
+            }
+            return resolveDesperateEventText();
         }
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) {
             int defenders = captureRuntimeService.countDefendersInStageBoundary(room, runningState, runtimeState.getRetreatStageIndex());
@@ -1153,6 +1189,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private String buildAudioState(RoomTeamId selfTeam) {
+        if (runtimeState.isDesperateModeActive()) {
+            return "RUNNING";
+        }
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) {
             return "BT_RETREAT";
         }
@@ -1237,6 +1276,175 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             return "坚守我方最后的据点";
         }
         return "";
+    }
+
+    private boolean tickDesperateModeState(RoomDefinition room, long gameTick) {
+        if (!runtimeState.isDesperateModeActive()) {
+            return false;
+        }
+        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BURN_BOATS
+            && areAllActiveObjectivesFullyControlledByDefenders(room)) {
+            failDesperateMode(gameTick, "破釜沉舟失败，进攻方兵力耗尽", "破釜沉舟失败", "敌军破釜沉舟失败");
+            return true;
+        }
+        long deadline = runtimeState.getDesperateModeDeadlineTick();
+        if (deadline > 0L && gameTick < deadline) {
+            return false;
+        }
+        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BACK_TO_WALL) {
+            if (shouldTriggerDesperateMode(room)) {
+                activateBurnBoats(gameTick);
+            } else {
+                failDesperateMode(gameTick, "背水一战结束，进攻方兵力耗尽", "背水一战失败，兵力耗尽", "敌军背水一战失败");
+            }
+            return true;
+        }
+        failDesperateMode(gameTick, "破釜沉舟结束，进攻方兵力耗尽", "破釜沉舟失败，兵力耗尽", "敌军破釜沉舟失败");
+        return true;
+    }
+
+    private boolean tryActivateBackToWall(RoomDefinition room, long gameTick) {
+        if (!isBackToWallEnabled(room) || runtimeState.isDesperateModeActive() || runtimeState.getPhase() != BreakthroughRuntimeState.Phase.COMBAT) {
+            return false;
+        }
+        if (!shouldTriggerDesperateMode(room)) {
+            return false;
+        }
+        activateBackToWall(gameTick);
+        return true;
+    }
+
+    private boolean isBackToWallEnabled(RoomDefinition room) {
+        return room != null && room.commonConfig().enableBackAgainstWall();
+    }
+
+    private boolean shouldTriggerDesperateMode(RoomDefinition room) {
+        if (room == null || runtimeState.getCurrentStageIndex() <= 0) {
+            return false;
+        }
+        List<RoomCapturePointDefinition> activePoints = room.breakthroughConfig().stageActivePoints(runtimeState.getCurrentStageIndex());
+        if (activePoints.isEmpty()) {
+            return false;
+        }
+        int neutralDrivenByAttackers = 0;
+        for (RoomCapturePointDefinition point : activePoints) {
+            String code = point.code();
+            RoomTeamId owner = runtimeState.getOwnerByCode().get(code);
+            RoomTeamId driving = runtimeState.getDrivingTeamByCode().get(code);
+            if (owner == null && driving == RoomTeamId.CAMP_A) {
+                neutralDrivenByAttackers++;
+                continue;
+            }
+            if (!runtimeState.isFullyControlledBy(code, RoomTeamId.CAMP_A)) {
+                return false;
+            }
+        }
+        return neutralDrivenByAttackers == 1;
+    }
+
+    private boolean areAllActiveObjectivesFullyControlledByDefenders(RoomDefinition room) {
+        if (room == null || runtimeState.getCurrentStageIndex() <= 0) {
+            return false;
+        }
+        List<RoomCapturePointDefinition> activePoints = room.breakthroughConfig().stageActivePoints(runtimeState.getCurrentStageIndex());
+        if (activePoints.isEmpty()) {
+            return false;
+        }
+        for (RoomCapturePointDefinition point : activePoints) {
+            if (!runtimeState.isFullyControlledBy(point.code(), RoomTeamId.CAMP_B)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void activateBackToWall(long gameTick) {
+        runtimeState.startBackToWall(gameTick, BACK_TO_WALL_DURATION_SECONDS);
+        runtimeState.pushTeamEvent(RoomTeamId.CAMP_A, hudStyledText("BT_LAST_STAND_ATTACKER_FLASH", "组织最后一次冲锋"), gameTick + DESPERATE_TRIGGER_EVENT_TICKS);
+        runtimeState.pushTeamEvent(RoomTeamId.CAMP_B, hudStyledText("BT_LAST_STAND_DEFENDER_FLASH", "阻止敌方反攻"), gameTick + DESPERATE_TRIGGER_EVENT_TICKS);
+        broadcastStageTransitionSubtitle(
+            "bt_back_to_wall_" + gameTick,
+            hudStyledText("BT_LAST_STAND_ATTACKER_FLASH", "组织最后一次冲锋"),
+            hudStyledText("BT_LAST_STAND_DEFENDER_FLASH", "阻止敌方反攻")
+        );
+    }
+
+    private void activateBurnBoats(long gameTick) {
+        runtimeState.startBurnBoats(gameTick, BURN_BOATS_DURATION_SECONDS);
+        runtimeState.pushTeamEvent(RoomTeamId.CAMP_A, hudStyledText("BT_BURN_BOATS_FLASH", "二段加时"), gameTick + DESPERATE_TRIGGER_EVENT_TICKS);
+        runtimeState.pushTeamEvent(RoomTeamId.CAMP_B, hudStyledText("BT_BURN_BOATS_FLASH", "二段加时"), gameTick + DESPERATE_TRIGGER_EVENT_TICKS);
+        broadcastStageTransitionSubtitle(
+            "bt_burn_boats_" + gameTick,
+            hudStyledText("BT_BURN_BOATS_FLASH", "二段加时"),
+            hudStyledText("BT_BURN_BOATS_FLASH", "二段加时")
+        );
+    }
+
+    private void failDesperateMode(long gameTick, String reason, String attackerText, String defenderText) {
+        runtimeState.clearDesperateMode();
+        broadcastOutcomeSubtitle("bt_desperate_fail_" + gameTick, attackerText, defenderText);
+        pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, reason);
+    }
+
+    private void syncDesperatePersistentSubtitles() {
+        String persistentText = resolveDesperatePersistentSubtitle();
+        for (java.util.UUID playerId : runningState.getRoomPlayers()) {
+            ServerPlayer player = captureRuntimeService.findOnlinePlayer(playerId);
+            if (player == null) {
+                desperateSubtitleByPlayer.remove(playerId);
+                continue;
+            }
+            String previous = desperateSubtitleByPlayer.getOrDefault(playerId, "");
+            if (persistentText.isBlank()) {
+                if (!previous.isBlank()) {
+                    NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.clearPersistent("bt_desperate"));
+                    desperateSubtitleByPlayer.remove(playerId);
+                }
+                continue;
+            }
+            if (persistentText.equals(previous)) {
+                continue;
+            }
+            NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.setPersistent("bt_desperate", persistentText));
+            desperateSubtitleByPlayer.put(playerId, persistentText);
+        }
+    }
+
+    private void clearDesperatePersistentSubtitles() {
+        for (java.util.UUID playerId : new LinkedHashSet<>(desperateSubtitleByPlayer.keySet())) {
+            ServerPlayer player = captureRuntimeService.findOnlinePlayer(playerId);
+            if (player != null) {
+                NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.clearPersistent("bt_desperate"));
+            }
+        }
+        desperateSubtitleByPlayer.clear();
+    }
+
+    private String resolveDesperatePersistentSubtitle() {
+        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BACK_TO_WALL) {
+            return hudStyledText("BT_LAST_STAND_PERSISTENT", "背水一战");
+        }
+        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BURN_BOATS) {
+            return hudStyledText("BT_BURN_BOATS_PERSISTENT", "破釜沉舟");
+        }
+        return "";
+    }
+
+    private String resolveDesperateEventText() {
+        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BACK_TO_WALL) {
+            return hudStyledText("BT_LAST_STAND_PERSISTENT", "背水一战");
+        }
+        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BURN_BOATS) {
+            return hudStyledText("BT_BURN_BOATS_PERSISTENT", "破釜沉舟");
+        }
+        return "-";
+    }
+
+    private String hudStyledText(String style, String text) {
+        if (style == null || style.isBlank() || text == null || text.isBlank()) {
+            return text == null ? "" : text;
+        }
+        return "<hud:" + style + ">" + text;
     }
 
     private record AttackTroopBalanceSnapshot(int attackerCount, int troopCap, int stageReward) {

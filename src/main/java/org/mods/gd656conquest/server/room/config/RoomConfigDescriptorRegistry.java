@@ -78,6 +78,8 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.PLAYER_STATE, "respawnDelaySeconds", "重生等待秒数", "commonConfig.respawnDelaySeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "progressSpeed", "占领速度", "commonConfig.progressSpeed", RoomConfigValueType.NUMBER, List.of(), "captureProgressSpeed");
         common(descriptors, RoomConfigCategory.RULES, "enablePlayerDowned", "启用倒地", "commonConfig.enablePlayerDowned", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnablePlayerDowned");
+        common(descriptors, RoomConfigCategory.RULES, "enableBackAgainstWall", "启用背水一战", "commonConfig.enableBackAgainstWall", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableBackAgainstWall");
+        common(descriptors, RoomConfigCategory.RULES, "enableRandomLoadout", "启用随机配备", "commonConfig.enableRandomLoadout", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomLoadout");
         common(descriptors, RoomConfigCategory.RESULT, "endViewPosition", "结算视角", "commonConfig.resultConfig.endViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"), "matchEndViewPosition");
 
         common(descriptors, RoomConfigCategory.PLAYER_STATE, "gameMode", "玩家游戏模式", "commonConfig.playerStateConfig.gameMode", RoomConfigValueType.STRING, List.of("SURVIVAL", "ADVENTURE", "CREATIVE", "SPECTATOR"), "playerGameMode");

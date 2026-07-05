@@ -160,7 +160,13 @@ public final class ConquestServerCommands {
             .then(Commands.literal("marker").executes(ConquestServerCommands::executeDebugMarktest))
             .then(Commands.literal("hud")
                 .then(Commands.literal("conquest").executes(ConquestServerCommands::executeDebugConquestHud))
-                .then(Commands.literal("breakthrough").executes(ConquestServerCommands::executeDebugBreakthroughHud)))
+                .then(Commands.literal("breakthrough")
+                    .executes(ConquestServerCommands::executeDebugBreakthroughHud)
+                    .then(Commands.literal("backtowall")
+                        .executes(ConquestServerCommands::executeDebugBreakthroughBackToWallAttackHud)
+                        .then(Commands.literal("attack").executes(ConquestServerCommands::executeDebugBreakthroughBackToWallAttackHud))
+                        .then(Commands.literal("defend").executes(ConquestServerCommands::executeDebugBreakthroughBackToWallDefendHud)))
+                    .then(Commands.literal("burnboats").executes(ConquestServerCommands::executeDebugBreakthroughBurnBoatsHud))))
             .then(Commands.literal("playeranimator").executes(ConquestServerCommands::executeDebugPlayerAnimator));
     }
 
@@ -301,6 +307,24 @@ public final class ConquestServerCommands {
         ServerPlayer player = context.getSource().getPlayerOrException();
         NetworkManager.sendToPlayer(player, new HudDebugPreviewPacket("BREAKTHROUGH", HUDTEST_PREVIEW_DURATION_MS));
         return CommandFeedbacks.info(context.getSource(), "Breakthrough 顶部 HUD 调试预览已开启，持续 10 秒");
+    }
+
+    private static int executeDebugBreakthroughBackToWallAttackHud(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        NetworkManager.sendToPlayer(player, new HudDebugPreviewPacket("BREAKTHROUGH_BACK_TO_WALL_ATTACK", HUDTEST_PREVIEW_DURATION_MS));
+        return CommandFeedbacks.info(context.getSource(), "背水一战 HUD 预览已开启，当前为进攻方视角，持续 10 秒");
+    }
+
+    private static int executeDebugBreakthroughBackToWallDefendHud(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        NetworkManager.sendToPlayer(player, new HudDebugPreviewPacket("BREAKTHROUGH_BACK_TO_WALL_DEFEND", HUDTEST_PREVIEW_DURATION_MS));
+        return CommandFeedbacks.info(context.getSource(), "背水一战 HUD 预览已开启，当前为防守方视角，持续 10 秒");
+    }
+
+    private static int executeDebugBreakthroughBurnBoatsHud(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        NetworkManager.sendToPlayer(player, new HudDebugPreviewPacket("BREAKTHROUGH_BURN_BOATS", HUDTEST_PREVIEW_DURATION_MS));
+        return CommandFeedbacks.info(context.getSource(), "破釜沉舟 HUD 预览已开启，持续 10 秒");
     }
 
     private static int executeDebugPlayerAnimator(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

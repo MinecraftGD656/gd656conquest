@@ -79,6 +79,24 @@ public final class RoomDimensionResetService {
         return savePath;
     }
 
+    public Path clearDimensionData(RoomDefinition definition) {
+        Objects.requireNonNull(definition, "definition");
+        ResourceKey<Level> dimensionKey = requireDimensionKey(definition);
+        Path savePath = resolveDimensionSavePath(dimensionKey);
+        prepareLevelForReplacement(dimensionKey);
+        if (!RoomDimensionControlService.unloadRoomDimension(server, dimensionKey)) {
+            throw new IllegalStateException("卸载维度失败: " + dimensionKey.location());
+        }
+        try {
+            deleteIfExists(savePath);
+            ensureDirectory(savePath);
+        } finally {
+            reloadAndVerifyDimension(dimensionKey);
+            prepareLevelAfterReplacement(dimensionKey);
+        }
+        return savePath;
+    }
+
     private ResourceKey<Level> requireDimensionKey(RoomDefinition definition) {
         ResourceKey<Level> dimensionKey = RoomDimensionControlService.resolveRoomDimensionKey(definition);
         if (dimensionKey == null) {

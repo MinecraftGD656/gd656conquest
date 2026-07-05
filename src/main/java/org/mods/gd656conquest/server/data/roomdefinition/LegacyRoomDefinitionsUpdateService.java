@@ -238,6 +238,8 @@ public final class LegacyRoomDefinitionsUpdateService {
                 normalizedRules.enableAutoTeamSwitchPrompt,
                 normalizedRules.disableInventoryChange,
                 false,
+                false,
+                false,
                 false
             );
             RoomConquestConfig conquestConfig = new RoomConquestConfig(

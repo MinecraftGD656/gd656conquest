@@ -65,7 +65,14 @@ final class ClientCaptureOverlayCodec {
         state.adminDebugOverlayActive = hasDebugPayload;
         if (!iconPayload.equals(state.cachedCaptureIconPayload)) {
             ParsedCaptureIcons parsedIcons = parseCaptureIcons(iconPayload);
-            applyParsedBoundaryPolygons(state, parsedIcons.boundaryPolygons());
+            ParsedCaptureIcons roomBoundaryIcons = hasRoomPayload
+                ? (roomPayload.equals(iconPayload) ? parsedIcons : parseCaptureIcons(roomPayload))
+                : emptyParsedCaptureIcons();
+            ParsedCaptureIcons debugBoundaryIcons = hasDebugPayload
+                ? (debugPayload.equals(iconPayload) ? parsedIcons : parseCaptureIcons(debugPayload))
+                : emptyParsedCaptureIcons();
+            applyParsedRoomBoundaryPolygons(state, roomBoundaryIcons.boundaryPolygons());
+            applyParsedDebugBoundaryPolygons(state, debugBoundaryIcons.boundaryPolygons());
             state.cachedCaptureIcons = parsedIcons.entries();
             state.cachedObjectiveEntries = parsedIcons.objectiveEntries();
             state.objectiveEntryByCode = parsedIcons.objectiveEntryByCode();
@@ -205,13 +212,26 @@ final class ClientCaptureOverlayCodec {
         );
     }
 
-    private void applyParsedBoundaryPolygons(ClientCaptureOverlayState state, List<BoundaryPolygon> nextPolygons) {
+    private void applyParsedRoomBoundaryPolygons(ClientCaptureOverlayState state, List<BoundaryPolygon> nextPolygons) {
         List<BoundaryPolygon> safePolygons = nextPolygons == null ? List.of() : nextPolygons;
-        if (safePolygons.equals(state.cachedBoundaryPolygons)) {
+        if (safePolygons.equals(state.cachedRoomBoundaryPolygons)) {
             return;
         }
-        state.cachedBoundaryPolygons = safePolygons;
+        state.cachedRoomBoundaryPolygons = safePolygons;
         state.markBoundaryGeometryDirty();
+    }
+
+    private void applyParsedDebugBoundaryPolygons(ClientCaptureOverlayState state, List<BoundaryPolygon> nextPolygons) {
+        List<BoundaryPolygon> safePolygons = nextPolygons == null ? List.of() : nextPolygons;
+        if (safePolygons.equals(state.cachedDebugBoundaryPolygons)) {
+            return;
+        }
+        state.cachedDebugBoundaryPolygons = safePolygons;
+        state.markBoundaryGeometryDirty();
+    }
+
+    private ParsedCaptureIcons emptyParsedCaptureIcons() {
+        return new ParsedCaptureIcons(List.of(), List.of(), List.of(), Map.of());
     }
 
     private List<BoundaryPolygon> freezeBoundaryPolygons(Map<BoundaryPolygonKey, List<BoundaryPoint>> polygonsById) {

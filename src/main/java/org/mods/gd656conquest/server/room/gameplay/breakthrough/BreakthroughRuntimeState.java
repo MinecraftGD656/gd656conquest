@@ -17,6 +17,12 @@ public final class BreakthroughRuntimeState {
         ADVANCE_COUNTDOWN
     }
 
+    public enum DesperateMode {
+        NONE,
+        BACK_TO_WALL,
+        BURN_BOATS
+    }
+
     private final Map<String, Double> progressByCode = new LinkedHashMap<>();
     private final Map<String, RoomTeamId> ownerByCode = new LinkedHashMap<>();
     private final Map<String, RoomTeamId> drivingTeamByCode = new LinkedHashMap<>();
@@ -42,6 +48,8 @@ public final class BreakthroughRuntimeState {
     private long lastStageRewardTick = -1L;
     private int lastStageRewardAmount;
     private int lastAdvancedStageIndex;
+    private DesperateMode desperateMode = DesperateMode.NONE;
+    private long desperateModeDeadlineTick = -1L;
 
     public void initialize(RoomBreakthroughConfig config, long gameTick) {
         progressByCode.clear();
@@ -69,6 +77,8 @@ public final class BreakthroughRuntimeState {
         lastStageRewardTick = -1L;
         lastStageRewardAmount = 0;
         lastAdvancedStageIndex = 0;
+        desperateMode = DesperateMode.NONE;
+        desperateModeDeadlineTick = -1L;
         synchronizeWithConfig(config);
     }
 
@@ -180,6 +190,14 @@ public final class BreakthroughRuntimeState {
         return lastAdvancedStageIndex;
     }
 
+    public DesperateMode getDesperateMode() {
+        return desperateMode;
+    }
+
+    public long getDesperateModeDeadlineTick() {
+        return desperateModeDeadlineTick;
+    }
+
     public void consumeAttackTroop(int amount) {
         attackTroops = Math.max(0, attackTroops - Math.max(0, amount));
     }
@@ -246,6 +264,8 @@ public final class BreakthroughRuntimeState {
         advanceCountdownEndTick = -1L;
         advanceCountdownLastShownSecondsByPlayer.clear();
         retreatCountdownLastShownSecondsByPlayer.clear();
+        desperateMode = DesperateMode.NONE;
+        desperateModeDeadlineTick = -1L;
         synchronizeWithConfig(config);
     }
 
@@ -292,6 +312,25 @@ public final class BreakthroughRuntimeState {
             }
         }
         return true;
+    }
+
+    public void startBackToWall(long gameTick, int durationSeconds) {
+        desperateMode = DesperateMode.BACK_TO_WALL;
+        desperateModeDeadlineTick = gameTick + Math.max(0L, (long) durationSeconds * 20L);
+    }
+
+    public void startBurnBoats(long gameTick, int durationSeconds) {
+        desperateMode = DesperateMode.BURN_BOATS;
+        desperateModeDeadlineTick = gameTick + Math.max(0L, (long) durationSeconds * 20L);
+    }
+
+    public void clearDesperateMode() {
+        desperateMode = DesperateMode.NONE;
+        desperateModeDeadlineTick = -1L;
+    }
+
+    public boolean isDesperateModeActive() {
+        return desperateMode != DesperateMode.NONE;
     }
 
     public boolean isLastStageFinalFightPressure() {

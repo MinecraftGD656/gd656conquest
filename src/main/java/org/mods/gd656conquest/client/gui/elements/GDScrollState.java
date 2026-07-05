@@ -30,7 +30,7 @@ public final class GDScrollState {
         lastFrameNanos = now;
         if (dragging) {
             double diff = mouseY - lastMouseY;
-            targetScrollY -= diff;
+            targetScrollY += diff;
             lastMouseY = mouseY;
         }
         targetScrollY = clamp(targetScrollY, viewportHeight, contentHeight);
