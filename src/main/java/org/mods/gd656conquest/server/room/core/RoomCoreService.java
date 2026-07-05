@@ -813,6 +813,22 @@ public final class RoomCoreService {
             || state.isInRespawnFlow(playerId);
     }
 
+    public boolean isPlayerDowned(UUID playerId) {
+        if (playerId == null) {
+            return false;
+        }
+        Optional<String> roomId = playerSessionService.findRoomId(playerId);
+        if (roomId.isEmpty()) {
+            return false;
+        }
+        Optional<RoomRuntimeSlot<RoomRuntimeState>> slot = runtimeRepository.find(roomId.get());
+        if (slot.isEmpty() || (slot.get().room().lifecycleState() != RoomLifecycleState.RUNNING && slot.get().room().lifecycleState() != RoomLifecycleState.ENDING)) {
+            return false;
+        }
+        RunningRuntimeState state = slot.get().runtime().getRunningState();
+        return state.getRoomPlayers().contains(playerId) && (state.isPlayerPendingDowned(playerId) || state.isPlayerDowned(playerId));
+    }
+
     public boolean shouldBlockPassiveRegen(ServerPlayer player) {
         if (player == null || player.server == null) {
             return false;

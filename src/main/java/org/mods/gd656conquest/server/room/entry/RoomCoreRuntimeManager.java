@@ -391,6 +391,13 @@ public final class RoomCoreRuntimeManager {
         coreService.handleMarkedPlayerDeath(victim, killer, gameTick);
     }
 
+    public boolean isPlayerDowned(UUID playerId) {
+        if (coreService == null) {
+            return false;
+        }
+        return coreService.isPlayerDowned(playerId);
+    }
+
     public boolean shouldCancelDamage(ServerPlayer player) {
         if (coreService == null) {
             return false;

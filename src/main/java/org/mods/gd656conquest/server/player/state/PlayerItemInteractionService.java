@@ -36,6 +36,18 @@ public final class PlayerItemInteractionService {
         if (dropped.isEmpty()) {
             return;
         }
+
+        if (RoomCoreRuntimeManager.of(player.server).isPlayerDowned(player.getUUID())) {
+            event.setCanceled(true);
+            restoreNonDroppableItemToInventory(player, dropped.copy());
+            if (!event.getEntity().isRemoved()) {
+                event.getEntity().discard();
+            }
+            player.getInventory().setChanged();
+            player.containerMenu.broadcastChanges();
+            return;
+        }
+
         if (!isNonDroppableInteractItem(dropped.getItem())) {
             return;
         }
