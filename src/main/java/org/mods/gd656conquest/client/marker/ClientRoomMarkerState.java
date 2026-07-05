@@ -15,6 +15,7 @@ import net.minecraftforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
 import org.mods.gd656conquest.client.animation.ClientPlayerAnimatorDebugState;
 import org.mods.gd656conquest.client.hud.ClientHudDebugState;
+import org.mods.gd656conquest.common.entity.AmmoBoxEntity;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.client.room.ClientRoomTeamMirror;
 import org.mods.gd656conquest.client.render.ClientWorldHudProjectionSupport;
@@ -679,6 +680,24 @@ public final class ClientRoomMarkerState {
         // Render ammo boxes
         for (net.minecraft.world.entity.Entity entity : minecraft.level.entitiesForRendering()) {
             if (entity == null || entity == minecraft.player) continue;
+            if (entity instanceof AmmoBoxEntity ammoBox) {
+                if (!ammoBox.isAlive() || ammoBox.distanceToSqr(minecraft.player) > 30.0D * 30.0D) {
+                    continue;
+                }
+                renderMarkers.add(new ClientMarker(
+                    ammoBox.getUUID(),
+                    "弹药箱",
+                    MarkerKind.AMMO_BOX,
+                    ammoBox.blockPosition().getX(),
+                    ammoBox.blockPosition().getY(),
+                    ammoBox.blockPosition().getZ(),
+                    null,
+                    Integer.MAX_VALUE,
+                    gameTick,
+                    gameTick
+                ));
+                continue;
+            }
             
             // Check distance (30 blocks)
             if (entity.distanceToSqr(minecraft.player) > 30.0 * 30.0) continue;
