@@ -80,6 +80,7 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "enablePlayerDowned", "启用倒地", "commonConfig.enablePlayerDowned", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnablePlayerDowned");
         common(descriptors, RoomConfigCategory.RULES, "enableBackAgainstWall", "启用背水一战", "commonConfig.enableBackAgainstWall", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableBackAgainstWall");
         common(descriptors, RoomConfigCategory.RULES, "enableRandomLoadout", "启用随机配备", "commonConfig.enableRandomLoadout", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomLoadout");
+        common(descriptors, RoomConfigCategory.RULES, "enableRandomAttachments", "启用房间随机配件", "commonConfig.enableRandomAttachments", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomAttachments");
         common(descriptors, RoomConfigCategory.RULES, "enableParachute", "启用对局降落伞", "commonConfig.enableParachute", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableParachute");
         common(descriptors, RoomConfigCategory.RESULT, "endViewPosition", "结算视角", "commonConfig.resultConfig.endViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"), "matchEndViewPosition");
 

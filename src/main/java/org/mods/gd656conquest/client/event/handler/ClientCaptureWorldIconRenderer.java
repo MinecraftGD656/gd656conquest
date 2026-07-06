@@ -269,12 +269,20 @@ final class ClientCaptureWorldIconRenderer {
             return null;
         }
         Vec3 worldAnchor = resolveWorldIconAnchor(minecraft, state, entry);
-        ClientWorldHudProjectionSupport.ProjectedPoint projected =
-            ClientWorldHudProjectionSupport.projectToScreen(minecraft, state.worldProjectionMatrix, worldAnchor);
+        double edgePadding = entry.kind().iconRadius() + 2.0D;
+        ClientWorldHudProjectionSupport.ProjectedHudPoint projected =
+            ClientWorldHudProjectionSupport.projectToHud(minecraft, state.worldProjectionMatrix, worldAnchor, edgePadding);
         if (projected == null) {
             return null;
         }
+        if (!projected.insideViewport() && !shouldKeepIconPinnedToScreenEdge(entry)) {
+            return null;
+        }
         return new ScreenProjection(projected.screenX(), projected.screenY());
+    }
+
+    private boolean shouldKeepIconPinnedToScreenEdge(CaptureIconEntry entry) {
+        return entry != null && entry.kind() == ClientCaptureOverlayModel.IconKind.CAPTURE;
     }
 
     private Vec3 resolveWorldIconAnchor(Minecraft minecraft, ClientCaptureOverlayState state, CaptureIconEntry entry) {

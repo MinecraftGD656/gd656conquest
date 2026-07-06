@@ -239,7 +239,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().enableGoatHorn(),
             base.commonConfig().enablePlayerDowned(),
             base.commonConfig().enableBackAgainstWall(),
-            base.commonConfig().enableRandomLoadout()
+            base.commonConfig().enableRandomLoadout(),
+            base.commonConfig().enableRandomAttachments()
         );
         RoomConquestConfig conquestConfig = new RoomConquestConfig(
             base.conquestConfig().equipmentConfig(),
@@ -470,7 +471,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                         normalizedCommon.resolveEnableGoatHorn(false),
                         normalizedCommon.enablePlayerDowned(),
                         normalizedCommon.enableBackAgainstWall(),
-                        normalizedCommon.enableRandomLoadout()
+                        normalizedCommon.enableRandomLoadout(),
+                        normalizedCommon.enableRandomAttachments()
                     ),
                     new RoomConquestConfig(
                         normalizedConquest.equipmentConfig(),
@@ -742,6 +744,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         private boolean enablePlayerDowned;
         private boolean enableBackAgainstWall;
         private boolean enableRandomLoadout;
+        private boolean enableRandomAttachments;
 
         public static CommonConfig from(RoomDefinition definition) {
             CommonConfig config = new CommonConfig();
@@ -774,6 +777,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.enablePlayerDowned = definition.commonConfig().enablePlayerDowned();
             config.enableBackAgainstWall = definition.commonConfig().enableBackAgainstWall();
             config.enableRandomLoadout = definition.commonConfig().enableRandomLoadout();
+            config.enableRandomAttachments = definition.commonConfig().enableRandomAttachments();
             return config;
         }
 
@@ -806,6 +810,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.enablePlayerDowned = false;
             config.enableBackAgainstWall = false;
             config.enableRandomLoadout = false;
+            config.enableRandomAttachments = false;
             return config;
         }
 
@@ -838,6 +843,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             normalized.enablePlayerDowned = enablePlayerDowned;
             normalized.enableBackAgainstWall = enableBackAgainstWall;
             normalized.enableRandomLoadout = enableRandomLoadout;
+            normalized.enableRandomAttachments = enableRandomAttachments;
             return normalized;
         }
 
@@ -959,6 +965,10 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         public boolean enableRandomLoadout() {
             return enableRandomLoadout;
         }
+
+        public boolean enableRandomAttachments() {
+            return enableRandomAttachments;
+        }
     }
 
     private record ProgressSpeedMigrationData(Double commonProgressSpeed, Double legacyCaptureProgressSpeed) {
@@ -1039,7 +1049,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().enableGoatHorn(),
             definition.commonConfig().enablePlayerDowned(),
             definition.commonConfig().enableBackAgainstWall(),
-            definition.commonConfig().enableRandomLoadout()
+            definition.commonConfig().enableRandomLoadout(),
+            definition.commonConfig().enableRandomAttachments()
         );
         return new RoomDefinition(
             definition.roomId(),
@@ -1086,7 +1097,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().enableGoatHorn(),
             definition.commonConfig().enablePlayerDowned(),
             definition.commonConfig().enableBackAgainstWall(),
-            definition.commonConfig().enableRandomLoadout()
+            definition.commonConfig().enableRandomLoadout(),
+            definition.commonConfig().enableRandomAttachments()
         );
         return new RoomDefinition(
             definition.roomId(),

@@ -144,7 +144,8 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.enableGoatHorn(),
             sourceCommon.enablePlayerDowned(),
             sourceCommon.enableBackAgainstWall(),
-            sourceCommon.enableRandomLoadout()
+            sourceCommon.enableRandomLoadout(),
+            sourceCommon.enableRandomAttachments()
         );
         return new RoomDefinition(
             target.roomId(),

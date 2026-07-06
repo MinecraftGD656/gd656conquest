@@ -974,6 +974,10 @@ public final class LoadoutUiService {
             sendError(player, "当前房间已启用随机配备，武器配件不会按个人配置发放");
             return false;
         }
+        if (isRandomAttachmentEnabledInCurrentRoom(player)) {
+            sendError(player, "当前房间已启用房间随机配件，武器配件将由服务器随机发放");
+            return false;
+        }
         CustomLoadoutSlot slot = CustomLoadoutSlot.fromIndex(slotIndex);
         if (!WeaponAttachmentService.supportsSlot(slot)) {
             sendError(player, "当前槽位不支持配件配置");
@@ -1082,16 +1086,25 @@ public final class LoadoutUiService {
     }
 
     private static boolean isRandomLoadoutEnabledInCurrentRoom(ServerPlayer player) {
+        RoomDefinition room = resolveCurrentRoom(player);
+        return room != null && room.commonConfig().enableRandomLoadout();
+    }
+
+    private static boolean isRandomAttachmentEnabledInCurrentRoom(ServerPlayer player) {
+        RoomDefinition room = resolveCurrentRoom(player);
+        return room != null && room.commonConfig().enableRandomAttachments();
+    }
+
+    private static RoomDefinition resolveCurrentRoom(ServerPlayer player) {
         if (player == null || player.server == null) {
-            return false;
+            return null;
         }
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(player.server);
         String roomId = manager.findPlayerRoomId(player.getUUID()).orElse(null);
         if (roomId == null || roomId.isBlank()) {
-            return false;
+            return null;
         }
-        RoomDefinition room = manager.findRoom(roomId).orElse(null);
-        return room != null && room.commonConfig().enableRandomLoadout();
+        return manager.findRoom(roomId).orElse(null);
     }
 
     private static boolean refreshRangeLoadoutIfNeeded(ServerPlayer player) {

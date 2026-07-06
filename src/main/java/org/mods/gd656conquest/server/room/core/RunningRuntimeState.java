@@ -53,6 +53,7 @@ public final class RunningRuntimeState {
     private final Map<UUID, Map<Integer, Long>> loadoutItemLastReplenishTickByPlayerSlot = new LinkedHashMap<>();
     private final Map<UUID, String> randomizedLoadoutClassKeysByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Map<String, String>> randomizedLoadoutSelectionIdsByPlayerSlot = new LinkedHashMap<>();
+    private final Map<UUID, Map<String, Map<String, String>>> randomizedAttachmentSelectionIdsByPlayerLoadoutEntry = new LinkedHashMap<>();
     private long autoTeamBalanceImbalanceSinceTick = -1L;
     private long autoTeamBalanceLastPromptTick = -1L;
     private int autoTeamBalanceLastDelta;
@@ -276,6 +277,10 @@ public final class RunningRuntimeState {
         return randomizedLoadoutSelectionIdsByPlayerSlot;
     }
 
+    public Map<UUID, Map<String, Map<String, String>>> getRandomizedAttachmentSelectionIdsByPlayerLoadoutEntry() {
+        return randomizedAttachmentSelectionIdsByPlayerLoadoutEntry;
+    }
+
     public long getAutoTeamBalanceImbalanceSinceTick() {
         return autoTeamBalanceImbalanceSinceTick;
     }
@@ -413,6 +418,7 @@ public final class RunningRuntimeState {
         killiconMatchStatsByPlayer.clear();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
         rejoinTickets.clear();
+        randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();
         resultAwardedPlayers.clear();
         initialMovementLockedPlayers.clear();
         initialMovementLockLastShownSeconds.clear();
@@ -425,6 +431,7 @@ public final class RunningRuntimeState {
         activeMatchInstanceId = -1L;
         loadoutItemLastReplenishTickByPlayerSlot.clear();
         rejoinTickets.clear();
+        randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();
         resultAwardedPlayers.clear();
         initialMovementLockedPlayers.clear();
         initialMovementLockLastShownSeconds.clear();
@@ -470,6 +477,7 @@ public final class RunningRuntimeState {
         loadoutItemLastReplenishTickByPlayerSlot.remove(playerId);
         randomizedLoadoutClassKeysByPlayer.remove(playerId);
         randomizedLoadoutSelectionIdsByPlayerSlot.remove(playerId);
+        randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.remove(playerId);
         outsideBoundarySinceTicks.remove(playerId);
         boundaryPenaltyLastShownSeconds.remove(playerId);
         boundaryPenaltyVisualApplied.remove(playerId);
@@ -518,6 +526,7 @@ public final class RunningRuntimeState {
         loadoutItemLastReplenishTickByPlayerSlot.clear();
         randomizedLoadoutClassKeysByPlayer.clear();
         randomizedLoadoutSelectionIdsByPlayerSlot.clear();
+        randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();
         autoTeamBalanceImbalanceSinceTick = -1L;
         autoTeamBalanceLastPromptTick = -1L;
         autoTeamBalanceLastDelta = 0;

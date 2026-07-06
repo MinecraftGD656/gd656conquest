@@ -164,6 +164,9 @@ public final class RoomPlayerLoadoutService {
                 attachmentData,
                 playerLevel,
                 attachmentCompatService,
+                roomContext,
+                player,
+                refreshRandomSelection,
                 !selection.randomized()
             );
             ItemStack placedStack = placeLoadoutItem(player, slot, preparedStack.stack());
@@ -276,18 +279,17 @@ public final class RoomPlayerLoadoutService {
         WeaponAttachmentDataModel attachmentData,
         int playerLevel,
         TaczAttachmentCompatService attachmentCompatService,
+        RoomRuntimeContext roomContext,
+        ServerPlayer player,
+        boolean refreshRandomSelection,
         boolean applyStoredAttachments
     ) {
         if (equipmentStack == null || equipmentStack.isEmpty()) {
             return new PreparedLoadoutStack(ItemStack.EMPTY, false);
         }
         ItemStack preparedStack = equipmentStack.copy();
-        if (!applyStoredAttachments) {
-            return new PreparedLoadoutStack(preparedStack, false);
-        }
         if (!WeaponAttachmentService.supportsSlot(slot)
             || entry == null
-            || playerData == null
             || attachmentData == null
             || attachmentCompatService == null
             || !attachmentCompatService.isAvailable()) {
@@ -295,6 +297,24 @@ public final class RoomPlayerLoadoutService {
         }
         String loadoutEntryId = CustomLoadoutService.normalizeEquipmentId(entry.getId());
         if (loadoutEntryId.isBlank()) {
+            return new PreparedLoadoutStack(preparedStack, false);
+        }
+        if (!attachmentCompatService.isTaczGun(preparedStack)) {
+            return new PreparedLoadoutStack(preparedStack, false);
+        }
+        if (isRandomizedAttachmentEnabled(roomContext)) {
+            applyRandomizedWeaponAttachments(
+                roomContext == null ? null : roomContext.state(),
+                player,
+                preparedStack,
+                loadoutEntryId,
+                attachmentData,
+                attachmentCompatService,
+                refreshRandomSelection
+            );
+            return new PreparedLoadoutStack(preparedStack, false);
+        }
+        if (!applyStoredAttachments || playerData == null) {
             return new PreparedLoadoutStack(preparedStack, false);
         }
         boolean playerDataChanged = WeaponAttachmentService.sanitizeSelectionForWeapon(
@@ -305,9 +325,6 @@ public final class RoomPlayerLoadoutService {
             playerLevel,
             attachmentCompatService
         );
-        if (!attachmentCompatService.isTaczGun(preparedStack)) {
-            return new PreparedLoadoutStack(preparedStack, playerDataChanged);
-        }
         applyStoredWeaponAttachments(preparedStack, playerData, loadoutEntryId, attachmentData, attachmentCompatService);
         return new PreparedLoadoutStack(preparedStack, playerDataChanged);
     }
@@ -348,6 +365,141 @@ public final class RoomPlayerLoadoutService {
             }
             attachmentCompatService.installAttachment(gunStack, attachmentStack);
         }
+    }
+
+    private void applyRandomizedWeaponAttachments(
+        RunningRuntimeState state,
+        ServerPlayer player,
+        ItemStack gunStack,
+        String loadoutEntryId,
+        WeaponAttachmentDataModel attachmentData,
+        TaczAttachmentCompatService attachmentCompatService,
+        boolean refreshRandomSelection
+    ) {
+        if (state == null
+            || player == null
+            || gunStack == null
+            || gunStack.isEmpty()
+            || attachmentData == null
+            || attachmentCompatService == null) {
+            return;
+        }
+        String normalizedLoadoutEntryId = CustomLoadoutService.normalizeEquipmentId(loadoutEntryId);
+        if (normalizedLoadoutEntryId.isBlank()) {
+            return;
+        }
+        Map<String, List<WeaponAttachmentDataModel.WeaponAttachmentEntry>> candidatesByType =
+            buildRandomAttachmentCandidatesByType(gunStack.copy(), attachmentData, attachmentCompatService);
+        Map<String, Map<String, String>> byLoadoutEntry = state.getRandomizedAttachmentSelectionIdsByPlayerLoadoutEntry()
+            .computeIfAbsent(player.getUUID(), ignored -> new LinkedHashMap<>());
+        Map<String, String> storedSelection = refreshRandomSelection ? null : byLoadoutEntry.get(normalizedLoadoutEntryId);
+        Map<String, String> resolvedSelection = new LinkedHashMap<>();
+        for (String attachmentType : WeaponAttachmentService.ORDERED_ATTACHMENT_TYPES) {
+            List<WeaponAttachmentDataModel.WeaponAttachmentEntry> candidates = candidatesByType.get(attachmentType);
+            if (candidates == null || candidates.isEmpty()) {
+                continue;
+            }
+            attachmentCompatService.unloadAttachment(gunStack, attachmentType);
+            WeaponAttachmentDataModel.WeaponAttachmentEntry chosen = resolveRandomAttachmentChoice(
+                player,
+                gunStack,
+                candidates,
+                storedSelection == null ? "" : storedSelection.get(attachmentType),
+                attachmentCompatService
+            );
+            if (chosen == null) {
+                continue;
+            }
+            ItemStack attachmentStack = attachmentCompatService.deserializeStack(chosen.getItemSnbt());
+            if (attachmentStack.isEmpty() || !attachmentCompatService.installAttachment(gunStack, attachmentStack)) {
+                continue;
+            }
+            resolvedSelection.put(attachmentType, WeaponAttachmentService.normalizeAttachmentId(chosen.getId()));
+        }
+        if (resolvedSelection.isEmpty()) {
+            byLoadoutEntry.remove(normalizedLoadoutEntryId);
+            if (byLoadoutEntry.isEmpty()) {
+                state.getRandomizedAttachmentSelectionIdsByPlayerLoadoutEntry().remove(player.getUUID());
+            }
+            return;
+        }
+        byLoadoutEntry.put(normalizedLoadoutEntryId, resolvedSelection);
+    }
+
+    private Map<String, List<WeaponAttachmentDataModel.WeaponAttachmentEntry>> buildRandomAttachmentCandidatesByType(
+        ItemStack weaponStack,
+        WeaponAttachmentDataModel attachmentData,
+        TaczAttachmentCompatService attachmentCompatService
+    ) {
+        if (weaponStack == null || weaponStack.isEmpty() || attachmentData == null || attachmentCompatService == null) {
+            return Map.of();
+        }
+        Map<String, List<WeaponAttachmentDataModel.WeaponAttachmentEntry>> candidatesByType = new LinkedHashMap<>();
+        for (String attachmentType : WeaponAttachmentService.ORDERED_ATTACHMENT_TYPES) {
+            if (attachmentCompatService.allowAttachmentType(weaponStack, attachmentType)) {
+                candidatesByType.put(attachmentType, new ArrayList<>());
+            }
+        }
+        if (candidatesByType.isEmpty()) {
+            return Map.of();
+        }
+        for (WeaponAttachmentDataModel.WeaponAttachmentEntry entry : attachmentData.getAttachmentById().values()) {
+            if (entry == null) {
+                continue;
+            }
+            String attachmentType = WeaponAttachmentService.normalizeAttachmentType(entry.getAttachmentType());
+            List<WeaponAttachmentDataModel.WeaponAttachmentEntry> candidates = candidatesByType.get(attachmentType);
+            if (candidates == null) {
+                continue;
+            }
+            ItemStack attachmentStack = attachmentCompatService.deserializeStack(entry.getItemSnbt());
+            if (attachmentStack.isEmpty() || !attachmentCompatService.allowAttachment(weaponStack, attachmentStack)) {
+                continue;
+            }
+            candidates.add(entry);
+        }
+        candidatesByType.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue().isEmpty());
+        return candidatesByType.isEmpty() ? Map.of() : candidatesByType;
+    }
+
+    private WeaponAttachmentDataModel.WeaponAttachmentEntry resolveRandomAttachmentChoice(
+        ServerPlayer player,
+        ItemStack currentGunStack,
+        List<WeaponAttachmentDataModel.WeaponAttachmentEntry> candidates,
+        String storedAttachmentId,
+        TaczAttachmentCompatService attachmentCompatService
+    ) {
+        if (player == null || currentGunStack == null || currentGunStack.isEmpty() || candidates == null || candidates.isEmpty()) {
+            return null;
+        }
+        String normalizedStoredAttachmentId = WeaponAttachmentService.normalizeAttachmentId(storedAttachmentId);
+        if (!normalizedStoredAttachmentId.isBlank()) {
+            for (WeaponAttachmentDataModel.WeaponAttachmentEntry candidate : candidates) {
+                if (candidate == null || !normalizedStoredAttachmentId.equalsIgnoreCase(WeaponAttachmentService.normalizeAttachmentId(candidate.getId()))) {
+                    continue;
+                }
+                ItemStack attachmentStack = attachmentCompatService.deserializeStack(candidate.getItemSnbt());
+                if (!attachmentStack.isEmpty() && attachmentCompatService.allowAttachment(currentGunStack, attachmentStack)) {
+                    return candidate;
+                }
+                break;
+            }
+        }
+        List<WeaponAttachmentDataModel.WeaponAttachmentEntry> runtimeCandidates = new ArrayList<>();
+        for (WeaponAttachmentDataModel.WeaponAttachmentEntry candidate : candidates) {
+            if (candidate == null) {
+                continue;
+            }
+            ItemStack attachmentStack = attachmentCompatService.deserializeStack(candidate.getItemSnbt());
+            if (attachmentStack.isEmpty() || !attachmentCompatService.allowAttachment(currentGunStack, attachmentStack)) {
+                continue;
+            }
+            runtimeCandidates.add(candidate);
+        }
+        if (runtimeCandidates.isEmpty()) {
+            return null;
+        }
+        return runtimeCandidates.get(player.getRandom().nextInt(runtimeCandidates.size()));
     }
 
     public Map<CustomLoadoutSlot, ResolvedLoadoutItem> resolveConfiguredLoadoutItems(ServerPlayer player) {
@@ -835,6 +987,13 @@ public final class RoomPlayerLoadoutService {
             && roomContext.room() != null
             && roomContext.state() != null
             && roomContext.room().commonConfig().enableRandomLoadout();
+    }
+
+    private boolean isRandomizedAttachmentEnabled(RoomRuntimeContext roomContext) {
+        return roomContext != null
+            && roomContext.room() != null
+            && roomContext.state() != null
+            && roomContext.room().commonConfig().enableRandomAttachments();
     }
 
     private int[] buildSlotRange(int startInclusive, int endInclusive) {

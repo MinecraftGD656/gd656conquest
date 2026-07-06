@@ -193,14 +193,15 @@ public final class ClientRoomMarkerState {
             if (remainingTicks <= 0) {
                 continue;
             }
+            boolean isAmmoBoxEmpty = marker.kind() == MarkerKind.AMMO_BOX && isPrimaryWeaponEmpty(minecraft);
             Vec3 anchor = marker.worldAnchor(minecraft, minecraft.getFrameTime());
-            ScreenProjection projection = projectToScreen(minecraft, anchor);
+            ScreenProjection projection = projectToScreen(minecraft, marker, anchor, isAmmoBoxEmpty);
             if (projection == null) {
                 continue;
             }
             double crosshairDistance = resolveCrosshairDistance(gui, projection);
             boolean isHovered = crosshairDistance <= CROSSHAIR_HOVER_RADIUS_PIXELS;
-            if (isHovered && (hovered == null || crosshairDistance < hovered.crosshairDistance())) {
+            if (projection.insideViewport() && isHovered && (hovered == null || crosshairDistance < hovered.crosshairDistance())) {
                 hovered = new HoveredMarker(marker, projection, anchor, crosshairDistance);
             }
             float lifetimeAlpha = Mth.clamp(Math.min(remainingTicks, 20) / 20.0F, 0.0F, 1.0F);
@@ -219,14 +220,6 @@ public final class ClientRoomMarkerState {
                 if (targetPlayer != null) {
                     targetClass = ClientRoomTeamMirror.getPlayerClass(targetPlayer);
                 }
-            }
-
-            boolean isAmmoBoxEmpty = false;
-            if (marker.kind() == MarkerKind.AMMO_BOX) {
-                // Check if primary weapon has no ammo
-                // But wait, the prompt says: "当玩家主武器没有弹药时，会自动给这个子弹图片平滑红色闪烁的着色器色彩效果"
-                // Let's implement this later in the tick logic.
-                isAmmoBoxEmpty = isPrimaryWeaponEmpty(minecraft);
             }
 
             TacticalMarkerRenderer.drawMarker(
@@ -364,9 +357,13 @@ public final class ClientRoomMarkerState {
             if (marker.remainingTicksAt(minecraft.level.getGameTime()) <= 0) {
                 continue;
             }
+            boolean isAmmoBoxEmpty = marker.kind() == MarkerKind.AMMO_BOX && isPrimaryWeaponEmpty(minecraft);
             Vec3 anchor = marker.worldAnchor(minecraft, minecraft.getFrameTime());
-            ScreenProjection projection = projectToScreen(minecraft, anchor);
+            ScreenProjection projection = projectToScreen(minecraft, marker, anchor, isAmmoBoxEmpty);
             if (projection == null) {
+                continue;
+            }
+            if (!projection.insideViewport()) {
                 continue;
             }
             double distance = resolveCrosshairDistance(
@@ -615,16 +612,32 @@ public final class ClientRoomMarkerState {
         return targetPlayerId != null && ClientPlayerAnimatorDebugState.isPreviewActive(targetPlayerId);
     }
 
+    private static ScreenProjection projectToScreen(Minecraft minecraft, ClientMarker marker, Vec3 worldPos, boolean isAmmoBoxEmpty) {
+        if (minecraft.player == null || worldProjectionMatrix == null || worldPos == null || marker == null) {
+            return null;
+        }
+        double edgePadding = resolveMarkerEdgePadding(marker.kind());
+        ClientWorldHudProjectionSupport.ProjectedHudPoint projected =
+            ClientWorldHudProjectionSupport.projectToHud(minecraft, worldProjectionMatrix, worldPos, edgePadding);
+        if (projected == null) {
+            return null;
+        }
+        if (!projected.insideViewport() && !shouldKeepMarkerPinnedToScreenEdge(marker.kind(), isAmmoBoxEmpty)) {
+            return null;
+        }
+        return new ScreenProjection(projected.screenX(), projected.screenY(), projected.insideViewport());
+    }
+
     private static ScreenProjection projectToScreen(Minecraft minecraft, Vec3 worldPos) {
         if (minecraft.player == null || worldProjectionMatrix == null || worldPos == null) {
             return null;
         }
-        ClientWorldHudProjectionSupport.ProjectedPoint projected =
-            ClientWorldHudProjectionSupport.projectToScreen(minecraft, worldProjectionMatrix, worldPos);
-        if (projected == null) {
+        ClientWorldHudProjectionSupport.ProjectedHudPoint projected =
+            ClientWorldHudProjectionSupport.projectToHud(minecraft, worldProjectionMatrix, worldPos, 0.0D);
+        if (projected == null || !projected.insideViewport()) {
             return null;
         }
-        return new ScreenProjection(projected.screenX(), projected.screenY());
+        return new ScreenProjection(projected.screenX(), projected.screenY(), true);
     }
 
     private static double resolveCrosshairDistance(GuiGraphics gui, ScreenProjection projection) {
@@ -869,11 +882,29 @@ public final class ClientRoomMarkerState {
         return squadMate || isViewerAssault();
     }
 
+    private static boolean shouldKeepMarkerPinnedToScreenEdge(MarkerKind kind, boolean isAmmoBoxEmpty) {
+        if (kind == null) {
+            return false;
+        }
+        return kind.isDownedMarker() || (kind == MarkerKind.AMMO_BOX && isAmmoBoxEmpty);
+    }
+
+    private static double resolveMarkerEdgePadding(MarkerKind kind) {
+        if (kind == null) {
+            return 8.0D;
+        }
+        return switch (kind) {
+            case DOWNED_ALLY, DOWNED_SQUAD -> 9.0D;
+            case AMMO_BOX -> 10.0D;
+            default -> 8.0D;
+        };
+    }
+
     private static boolean isViewerAssault() {
         return "assault".equalsIgnoreCase(ClientHudDebugState.getSelfClass());
     }
 
-    private record ScreenProjection(double screenX, double screenY) {
+    private record ScreenProjection(double screenX, double screenY, boolean insideViewport) {
     }
 
     private record HoveredMarker(ClientMarker marker, ScreenProjection projection, Vec3 anchor, double crosshairDistance) {

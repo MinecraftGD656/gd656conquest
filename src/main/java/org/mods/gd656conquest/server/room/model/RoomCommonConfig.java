@@ -24,6 +24,7 @@ public record RoomCommonConfig(
     boolean enablePlayerDowned,
     boolean enableBackAgainstWall,
     boolean enableRandomLoadout,
+    boolean enableRandomAttachments,
     boolean enableParachute
 ) {
     public RoomCommonConfig {
@@ -58,6 +59,7 @@ public record RoomCommonConfig(
             "",
             40.0D,
             RoomResultConfig.defaults(),
+            false,
             false,
             false,
             false,
@@ -128,6 +130,7 @@ public record RoomCommonConfig(
             false,
             false,
             false,
+            false,
             true
         );
     }
@@ -169,6 +172,7 @@ public record RoomCommonConfig(
             disableHunger,
             enableAutoTeamSwitchPrompt,
             disableInventoryChange,
+            false,
             false,
             false,
             false,
@@ -222,6 +226,58 @@ public record RoomCommonConfig(
             enablePlayerDowned,
             enableBackAgainstWall,
             enableRandomLoadout,
+            false,
+            true
+        );
+    }
+
+    public RoomCommonConfig(
+        RoomMatchingConfig matchingConfig,
+        String dimensionId,
+        RoomPosition queueSpawn,
+        int respawnDelaySeconds,
+        RoomVehicleBackend vehicleBackend,
+        RoomPlayerStateConfig playerStateConfig,
+        int outsideBoundaryDeathSeconds,
+        int aircraftOutsideBoundaryCleanupSeconds,
+        String campADisplayName,
+        String campBDisplayName,
+        String campAVoicePack,
+        String campBVoicePack,
+        double progressSpeed,
+        RoomResultConfig resultConfig,
+        boolean disableHunger,
+        boolean enableAutoTeamSwitchPrompt,
+        boolean disableInventoryChange,
+        boolean enableGoatHorn,
+        boolean enablePlayerDowned,
+        boolean enableBackAgainstWall,
+        boolean enableRandomLoadout,
+        boolean enableRandomAttachments
+    ) {
+        this(
+            matchingConfig,
+            dimensionId,
+            queueSpawn,
+            respawnDelaySeconds,
+            vehicleBackend,
+            playerStateConfig,
+            outsideBoundaryDeathSeconds,
+            aircraftOutsideBoundaryCleanupSeconds,
+            campADisplayName,
+            campBDisplayName,
+            campAVoicePack,
+            campBVoicePack,
+            progressSpeed,
+            resultConfig,
+            disableHunger,
+            enableAutoTeamSwitchPrompt,
+            disableInventoryChange,
+            enableGoatHorn,
+            enablePlayerDowned,
+            enableBackAgainstWall,
+            enableRandomLoadout,
+            enableRandomAttachments,
             true
         );
     }
