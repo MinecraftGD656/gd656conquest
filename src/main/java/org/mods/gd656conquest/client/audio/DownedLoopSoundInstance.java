@@ -9,17 +9,22 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 
 public class DownedLoopSoundInstance extends AbstractTickableSoundInstance {
-    private static final ResourceLocation SOUND_ID = new ResourceLocation("gd656conquest", "sfx.downed_loop");
+    private final ResourceLocation soundId;
     private boolean isFadingOut;
     private int fadeTicks;
 
-    public DownedLoopSoundInstance() {
-        super(SoundEvent.createVariableRangeEvent(SOUND_ID), SoundSource.PLAYERS, RandomSource.create());
+    public DownedLoopSoundInstance(ResourceLocation soundId) {
+        super(SoundEvent.createVariableRangeEvent(soundId), SoundSource.PLAYERS, RandomSource.create());
+        this.soundId = soundId;
         this.looping = true;
         this.delay = 0;
         this.volume = 0.01f; // Fade in
         this.relative = true;
         this.pitch = 1.0f;
+    }
+
+    public ResourceLocation soundId() {
+        return soundId;
     }
 
     public void fadeOut() {

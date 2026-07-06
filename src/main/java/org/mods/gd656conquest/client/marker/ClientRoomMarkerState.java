@@ -622,7 +622,7 @@ public final class ClientRoomMarkerState {
         if (projected == null) {
             return null;
         }
-        if (!projected.insideViewport() && !shouldKeepMarkerPinnedToScreenEdge(marker.kind(), isAmmoBoxEmpty)) {
+        if (!projected.insideViewport() && !shouldKeepMarkerPinnedToScreenEdge(marker, isAmmoBoxEmpty)) {
             return null;
         }
         return new ScreenProjection(projected.screenX(), projected.screenY(), projected.insideViewport());
@@ -882,11 +882,21 @@ public final class ClientRoomMarkerState {
         return squadMate || isViewerAssault();
     }
 
-    private static boolean shouldKeepMarkerPinnedToScreenEdge(MarkerKind kind, boolean isAmmoBoxEmpty) {
-        if (kind == null) {
+    private static boolean shouldKeepMarkerPinnedToScreenEdge(ClientMarker marker, boolean isAmmoBoxEmpty) {
+        if (marker == null || marker.kind() == null) {
             return false;
         }
-        return kind.isDownedMarker() || (kind == MarkerKind.AMMO_BOX && isAmmoBoxEmpty);
+        MarkerKind kind = marker.kind();
+        if (kind == MarkerKind.AMMO_BOX) {
+            return isAmmoBoxEmpty;
+        }
+        if (kind == MarkerKind.DOWNED_SQUAD || kind == MarkerKind.SQUAD_PERSISTENT) {
+            return true;
+        }
+        if (kind == MarkerKind.DOWNED_ALLY || kind == MarkerKind.ALLY_PERSISTENT) {
+            return isViewerAssault();
+        }
+        return false;
     }
 
     private static double resolveMarkerEdgePadding(MarkerKind kind) {

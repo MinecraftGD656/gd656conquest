@@ -51,7 +51,9 @@ final class ClientCaptureOverlayController {
         Minecraft minecraft = Minecraft.getInstance();
         ClientCaptureOverlayState state = runtime.state();
         boolean deployPhaseActive = org.mods.gd656conquest.client.room.ClientDeathFlowState.shouldRenderDeployBoundaries();
+        boolean downedActive = org.mods.gd656conquest.client.room.ClientDownedState.isActive();
         if (org.mods.gd656conquest.client.room.ClientDeathFlowState.hasActiveCameraOverride()
+            && !downedActive
             && !deployPhaseActive) {
             runtime.clearDeploySelection();
             runtime.syncOverlayState();

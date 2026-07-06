@@ -4,6 +4,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.sounds.SoundManager;
+import net.minecraft.client.sounds.WeighedSoundEvents;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.util.Mth;
 import org.mods.gd656conquest.client.compat.tacz.TaczClientInputCompat;
@@ -38,6 +41,13 @@ public final class ClientDownedState {
     private static final int TEXT_DISTANCE = 0xFF1F7A38;
     private static final int TEXT_SQUAD = 0xFF6BFF88;
     private static final int TEXT_TEAM = 0xFF4FE7FF;
+    private static final List<ResourceLocation> DOWNED_LOOP_SOUND_IDS_SPLIT = List.of(
+        new ResourceLocation("gd656frontvoice", "downed.loop.bleedout_loop_01_join"),
+        new ResourceLocation("gd656frontvoice", "downed.loop.heartbeats_02")
+    );
+    private static final List<ResourceLocation> DOWNED_LOOP_SOUND_IDS_LEGACY = List.of(
+        new ResourceLocation("gd656frontvoice", "downed.loop")
+    );
 
     private static boolean active;
     private static boolean debugPreview;
@@ -51,7 +61,7 @@ public final class ClientDownedState {
     private static long helpCooldownUntilMs;
     private static float surrenderHoldTicks;
     private static List<RescuerEntry> rescuers = List.of();
-    private static DownedLoopSoundInstance loopSound;
+    private static List<DownedLoopSoundInstance> loopSounds = List.of();
 
     private ClientDownedState() {
     }
@@ -85,10 +95,7 @@ public final class ClientDownedState {
         debugExpireAtMs = 0L;
         rescuers = sanitizeRescuers(rescuerEntries);
         
-        if (loopSound == null || loopSound.isStopped()) {
-            loopSound = new DownedLoopSoundInstance();
-            minecraft.getSoundManager().play(loopSound);
-        }
+        ensureLoopSoundsPlaying(minecraft);
     }
 
     public static void startDebugPreview(int durationMs) {
@@ -110,10 +117,7 @@ public final class ClientDownedState {
         helpCooldownUntilMs = 0L;
         redeployRequestRetryTicksRemaining = 0;
         rescuers = buildLocalPreviewRescuers(player);
-        if (loopSound == null || loopSound.isStopped()) {
-            loopSound = new DownedLoopSoundInstance();
-            minecraft.getSoundManager().play(loopSound);
-        }
+        ensureLoopSoundsPlaying(minecraft);
         ClientDeathFlowState.clear();
     }
 
@@ -131,12 +135,77 @@ public final class ClientDownedState {
         redeployRequestRetryTicksRemaining = 0;
         surrenderHoldTicks = 0.0F;
         rescuers = List.of();
-        if (loopSound != null) {
-            loopSound.fadeOut();
-            loopSound = null;
+        if (!loopSounds.isEmpty()) {
+            for (DownedLoopSoundInstance loopSound : loopSounds) {
+                if (loopSound != null) {
+                    loopSound.fadeOut();
+                }
+            }
+            loopSounds = List.of();
         }
         ClientDeathFlowState.clear();
         ClientDeathFlowState.setDownedBlackoutStrength(0.0F);
+    }
+
+    private static void ensureLoopSoundsPlaying(Minecraft minecraft) {
+        if (minecraft == null || minecraft.getSoundManager() == null) {
+            return;
+        }
+        List<ResourceLocation> targetLoopSoundIds = resolveDownedLoopSoundIds(minecraft.getSoundManager());
+        List<DownedLoopSoundInstance> activeLoopSounds = new ArrayList<>();
+        for (DownedLoopSoundInstance loopSound : loopSounds) {
+            if (loopSound != null && !loopSound.isStopped()) {
+                activeLoopSounds.add(loopSound);
+            }
+        }
+        if (matchesTargetLoopSoundIds(activeLoopSounds, targetLoopSoundIds)) {
+            loopSounds = activeLoopSounds;
+            return;
+        }
+        for (DownedLoopSoundInstance loopSound : activeLoopSounds) {
+            loopSound.fadeOut();
+        }
+        List<DownedLoopSoundInstance> newLoopSounds = new ArrayList<>(targetLoopSoundIds.size());
+        for (ResourceLocation soundId : targetLoopSoundIds) {
+            DownedLoopSoundInstance loopSound = new DownedLoopSoundInstance(soundId);
+            minecraft.getSoundManager().play(loopSound);
+            newLoopSounds.add(loopSound);
+        }
+        loopSounds = List.copyOf(newLoopSounds);
+    }
+
+    private static boolean matchesTargetLoopSoundIds(List<DownedLoopSoundInstance> activeLoopSounds, List<ResourceLocation> targetLoopSoundIds) {
+        if (activeLoopSounds.size() != targetLoopSoundIds.size()) {
+            return false;
+        }
+        for (int i = 0; i < targetLoopSoundIds.size(); i++) {
+            if (!targetLoopSoundIds.get(i).equals(activeLoopSounds.get(i).soundId())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static List<ResourceLocation> resolveDownedLoopSoundIds(SoundManager soundManager) {
+        if (allLoopSoundsResolvable(soundManager, DOWNED_LOOP_SOUND_IDS_SPLIT)) {
+            return DOWNED_LOOP_SOUND_IDS_SPLIT;
+        }
+        return DOWNED_LOOP_SOUND_IDS_LEGACY;
+    }
+
+    private static boolean allLoopSoundsResolvable(SoundManager soundManager, List<ResourceLocation> soundIds) {
+        for (ResourceLocation soundId : soundIds) {
+            if (!isLoopSoundResolvable(soundManager, soundId)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isLoopSoundResolvable(SoundManager soundManager, ResourceLocation soundId) {
+        DownedLoopSoundInstance probe = new DownedLoopSoundInstance(soundId);
+        WeighedSoundEvents soundEvents = probe.resolve(soundManager);
+        return soundEvents != null && soundEvents.getWeight() > 0;
     }
 
     public static boolean isActive() {

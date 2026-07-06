@@ -790,9 +790,11 @@ public final class RoomPlayerRespawnService {
         
         boolean isAssault = resolvePlayerClassType(reviver) == PlayerClassType.ASSAULT;
         if (isAssault) {
+            audioRuntimeService.emitPlayerThirdPersonCue(room, state, reviver, RoomThirdPersonAudioCueRegistry.PLAYER_REVIVING);
             FrontlineVoiceBridge.playCue(reviver, "REVIVE_ASSAULT_START");
             FrontlineVoiceBridge.playCue(reviver, "REVIVE_ASSAULT_CHARGE");
         } else {
+            audioRuntimeService.emitPlayerThirdPersonCue(room, state, reviver, RoomThirdPersonAudioCueRegistry.PLAYER_REVIVING);
             FrontlineVoiceBridge.playCue(reviver, "REVIVE_NORMAL_START");
         }
         
@@ -1529,7 +1531,10 @@ public final class RoomPlayerRespawnService {
         playerStateService.applyRevivedState(room, target, gameTick, revivedByAssault);
         target.setDeltaMovement(0.0D, 0.0D, 0.0D);
         applyReviveBlindEffect(target);
-        NetworkManager.sendToPlayer(target, ClientShortSoundPacket.oneShot("gd656conquest:sfx.revive_first_person", 1.0F, 1.0F));
+        boolean revivedCuePlayed = FrontlineVoiceBridge.playCue(target, "REVIVED");
+        if (!revivedCuePlayed) {
+            NetworkManager.sendToPlayer(target, ClientShortSoundPacket.oneShot("gd656conquest:sfx.revive_first_person", 1.0F, 1.0F));
+        }
         NetworkManager.sendToPlayer(target, RoomDownedStatePacket.clear());
         NetworkManager.sendToPlayer(target, RoomDeathFlowPacket.clear());
         ServerActionBarService.clearSource(target, ACTIONBAR_SOURCE_DOWNED);
@@ -1539,7 +1544,9 @@ public final class RoomPlayerRespawnService {
         } else {
             FrontlineVoiceBridge.playCue(reviver, "REVIVE_NORMAL_FINISH");
         }
-        audioRuntimeService.emitPlayerThirdPersonCue(room, state, target, RoomThirdPersonAudioCueRegistry.PLAYER_REVIVED);
+        if (!revivedCuePlayed) {
+            audioRuntimeService.emitPlayerThirdPersonCue(room, state, target, RoomThirdPersonAudioCueRegistry.PLAYER_REVIVED);
+        }
         broadcastPlayerAnimatorState(state, targetId, 0, false);
         KilliconScoreboardBridge.tryAddReviveStat(reviver, 1);
         KilliconScoreboardBridge.tryAwardConquestBonus(reviver, "REVIVE", 1.0F, "");

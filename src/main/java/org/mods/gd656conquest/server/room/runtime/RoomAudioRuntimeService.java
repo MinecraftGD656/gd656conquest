@@ -46,10 +46,6 @@ public final class RoomAudioRuntimeService {
 
     private void emitResolvedThirdPersonCue(RoomDefinition room, RoomTeamId teamId, ServerPlayer sourcePlayer, String cueId) {
         String normalizedCueId = cueId.trim().toLowerCase(java.util.Locale.ROOT);
-        if (RoomThirdPersonAudioCueRegistry.PLAYER_DOWNED_HELP.equals(normalizedCueId)) {
-            FrontlineVoiceBridge.playCue(sourcePlayer, RoomThirdPersonAudioCueRegistry.PLAYER_DOWNED_HELP);
-            return;
-        }
         if (RoomThirdPersonAudioCueRegistry.PLAYER_REVIVE_ASSAULT_START.equals(normalizedCueId)) {
             FrontlineVoiceBridge.playThirdPersonSound(sourcePlayer, "gd656conquest:sfx.revive_defibrillator_start", 1.0F, 1.0F, 24.0D);
             return;
@@ -58,6 +54,35 @@ public final class RoomAudioRuntimeService {
             FrontlineVoiceBridge.playThirdPersonSound(sourcePlayer, "gd656conquest:sfx.revive_syringe_start", 1.0F, 1.0F, 24.0D);
             return;
         }
-        FrontlineVoiceBridge.playCue(sourcePlayer, normalizedCueId);
+        String frontlineVoiceCueId = resolveFrontlineVoiceCueId(normalizedCueId);
+        if (frontlineVoiceCueId != null) {
+            FrontlineVoiceBridge.playCue(sourcePlayer, frontlineVoiceCueId);
+        }
+    }
+
+    private static String resolveFrontlineVoiceCueId(String cueId) {
+        if (cueId == null || cueId.isBlank()) {
+            return null;
+        }
+        return switch (cueId) {
+            case RoomThirdPersonAudioCueRegistry.PLAYER_DEATH -> "DEATH";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_BURNING -> "BURNING";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_DOWNED_HELP -> "DOWNED_HELP";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_TEAMMATE_DOWNED -> "TEAMMATE_DOWNED";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_REQUEST_AMMO -> "REQUEST_AMMO";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_HEAVY_HURT -> "HEAVY_HURT";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_THROW_MEDKIT -> "THROW_MEDKIT";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_THROW_AMMO -> "THROW_AMMO";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_SPOTTED_ENEMY -> "SPOTTED_ENEMY";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_REVIVED -> "REVIVED";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_GOGOGO -> "GOGOGO";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_NICE_SHOT -> "NICE_SHOT";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_KILL_ENEMY -> "KILL_ENEMY";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_SPOTTED_ENGINEER -> "SPOTTED_ENGINEER";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_SPOTTED_RECON -> "SPOTTED_RECON";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_SPOTTED_SUPPORT -> "SPOTTED_SUPPORT";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_REVIVING -> "REVIVING";
+            default -> cueId;
+        };
     }
 }
