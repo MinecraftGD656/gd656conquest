@@ -16,8 +16,10 @@ import org.joml.Matrix4f;
 import org.mods.gd656conquest.client.animation.ClientPlayerAnimatorDebugState;
 import org.mods.gd656conquest.client.hud.ClientHudDebugState;
 import org.mods.gd656conquest.common.entity.AmmoBoxEntity;
+import org.mods.gd656conquest.common.entity.MedicalBoxEntity;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.client.room.ClientRoomTeamMirror;
+import org.mods.gd656conquest.client.render.ClientCrosshairFadeSupport;
 import org.mods.gd656conquest.client.render.ClientWorldHudProjectionSupport;
 import org.mods.gd656conquest.client.render.CaptureDiamondRenderer;
 import org.mods.gd656conquest.client.room.ClientRoomLockState;
@@ -55,6 +57,10 @@ public final class ClientRoomMarkerState {
     private static final float MARKER_TRIANGLE_OPACITY_CURVE = 1.15F;
     private static final float MARKER_SHAPE_OPACITY = 0.90F;
     private static final float AUTO_ENEMY_SHAPE_OPACITY = 0.60F;
+    private static final float FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR = 1.10F;
+    private static final float FRIENDLY_PERSISTENT_DISTANCE_SCALE_FAR = 0.72F;
+    private static final float FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR_DISTANCE = 3.0F;
+    private static final float FRIENDLY_PERSISTENT_DISTANCE_SCALE_FAR_DISTANCE = 30.0F;
     private static final long DOUBLE_CLICK_WINDOW_MS = 200L;
 
     private static List<ClientMarker> markers = List.of();
@@ -205,7 +211,8 @@ public final class ClientRoomMarkerState {
                 hovered = new HoveredMarker(marker, projection, anchor, crosshairDistance);
             }
             float lifetimeAlpha = Mth.clamp(Math.min(remainingTicks, 20) / 20.0F, 0.0F, 1.0F);
-            float weightedAlpha = resolveCrosshairWeightedIconAlpha(gui, projection) * lifetimeAlpha;
+            double actualDistance = minecraft.player == null ? 0.0D : minecraft.player.position().distanceTo(anchor);
+            float weightedAlpha = resolveMarkerRenderAlpha(gui, marker.kind(), projection) * lifetimeAlpha;
             if (weightedAlpha <= 0.01F) {
                 continue;
             }
@@ -231,7 +238,7 @@ public final class ClientRoomMarkerState {
                 pulse,
                 isHovered,
                 marker.kind().toVisualType(),
-                resolveEntryScale(entryProgress),
+                resolveEntryScale(entryProgress) * resolveMarkerDistanceScale(marker.kind(), actualDistance),
                 resolveHelpPulseProgress(marker),
                 targetClass,
                 isAmmoBoxEmpty
@@ -328,7 +335,7 @@ public final class ClientRoomMarkerState {
             || marker.kind() == MarkerKind.SQUAD_PERSISTENT) {
             return;
         }
-        float weightedAlpha = resolveCrosshairWeightedIconAlpha(gui, hovered.projection());
+        float weightedAlpha = resolveMarkerRenderAlpha(gui, marker.kind(), hovered.projection());
         if (weightedAlpha <= 0.01F) {
             return;
         }
@@ -656,11 +663,23 @@ public final class ClientRoomMarkerState {
         if (ClientDeathFlowState.hasActiveCameraOverride()) {
             return WORLD_ICON_ALPHA_FAR_CROSSHAIR;
         }
-        float distance = (float) resolveCrosshairDistance(gui, projection);
-        float normalizedDistance = Mth.clamp(distance / WORLD_ICON_CROSSHAIR_ALPHA_RADIUS_PIXELS, 0.0F, 1.0F);
-        float proximity = 1.0F - normalizedDistance;
-        float factor = (float) Math.pow(proximity, WORLD_ICON_CROSSHAIR_ALPHA_CURVE);
-        return Mth.lerp(factor, WORLD_ICON_ALPHA_FAR_CROSSHAIR, WORLD_ICON_ALPHA_NEAR_CROSSHAIR);
+        return ClientCrosshairFadeSupport.resolveWeightedAlpha(
+            gui.guiWidth(),
+            gui.guiHeight(),
+            projection.screenX(),
+            projection.screenY(),
+            WORLD_ICON_ALPHA_NEAR_CROSSHAIR,
+            WORLD_ICON_ALPHA_FAR_CROSSHAIR,
+            WORLD_ICON_CROSSHAIR_ALPHA_RADIUS_PIXELS,
+            WORLD_ICON_CROSSHAIR_ALPHA_CURVE
+        );
+    }
+
+    private static float resolveMarkerRenderAlpha(GuiGraphics gui, MarkerKind kind, ScreenProjection projection) {
+        if (kind == MarkerKind.ALLY_PERSISTENT || kind == MarkerKind.SQUAD_PERSISTENT) {
+            return resolveCrosshairWeightedIconAlpha(gui, projection);
+        }
+        return 1.0F;
     }
 
     private static float resolveCrosshairWeightedTriangleOpacity(GuiGraphics gui, ScreenProjection projection) {
@@ -680,6 +699,16 @@ public final class ClientRoomMarkerState {
     private static float resolveEntryScale(float progress) {
         float x = Mth.clamp(progress, 0.0F, 1.0F);
         return 1.0F - (float) Math.pow(1.0F - x, 3.0D);
+    }
+
+    private static float resolveMarkerDistanceScale(MarkerKind kind, double actualDistance) {
+        if (kind != MarkerKind.ALLY_PERSISTENT && kind != MarkerKind.SQUAD_PERSISTENT) {
+            return 1.0F;
+        }
+        float clampedDistance = Mth.clamp((float) actualDistance, FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR_DISTANCE, FRIENDLY_PERSISTENT_DISTANCE_SCALE_FAR_DISTANCE);
+        float t = (clampedDistance - FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR_DISTANCE)
+            / (FRIENDLY_PERSISTENT_DISTANCE_SCALE_FAR_DISTANCE - FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR_DISTANCE);
+        return Mth.lerp(t, FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR, FRIENDLY_PERSISTENT_DISTANCE_SCALE_FAR);
     }
 
     private static float resolveEntryYOffset(float progress) {
@@ -742,7 +771,7 @@ public final class ClientRoomMarkerState {
         
         java.util.Set<UUID> currentFrameEntities = new java.util.HashSet<>();
 
-        // Render ammo boxes
+        // Render support boxes
         for (net.minecraft.world.entity.Entity entity : minecraft.level.entitiesForRendering()) {
             if (entity == null || entity == minecraft.player) continue;
             if (entity instanceof AmmoBoxEntity ammoBox) {
@@ -764,6 +793,25 @@ public final class ClientRoomMarkerState {
                 ));
                 continue;
             }
+            if (entity instanceof MedicalBoxEntity medicalBox) {
+                if (!medicalBox.isAlive() || medicalBox.distanceToSqr(minecraft.player) > 30.0D * 30.0D) {
+                    continue;
+                }
+                currentFrameEntities.add(medicalBox.getUUID());
+                renderMarkers.add(new ClientMarker(
+                    medicalBox.getUUID(),
+                    "医疗箱",
+                    MarkerKind.MEDICAL_BOX,
+                    medicalBox.getX(),
+                    medicalBox.getY(),
+                    medicalBox.getZ(),
+                    null,
+                    Integer.MAX_VALUE,
+                    gameTick,
+                    dynamicEntityFirstSeen.computeIfAbsent(medicalBox.getUUID(), k -> gameTick)
+                ));
+                continue;
+            }
             
             // Check distance (30 blocks)
             if (entity.distanceToSqr(minecraft.player) > 30.0 * 30.0) continue;
@@ -780,6 +828,20 @@ public final class ClientRoomMarkerState {
                     entity.getY(),
                     entity.getZ(),
                     null, // Not tracked on a player
+                    Integer.MAX_VALUE,
+                    gameTick,
+                    dynamicEntityFirstSeen.computeIfAbsent(entity.getUUID(), k -> gameTick)
+                ));
+            } else if ("superbwarfare:medical_box".equals(entityType) || "tacz:medical_box".equals(entityType)) {
+                currentFrameEntities.add(entity.getUUID());
+                renderMarkers.add(new ClientMarker(
+                    entity.getUUID(),
+                    "医疗箱",
+                    MarkerKind.MEDICAL_BOX,
+                    entity.getX(),
+                    entity.getY(),
+                    entity.getZ(),
+                    null,
                     Integer.MAX_VALUE,
                     gameTick,
                     dynamicEntityFirstSeen.computeIfAbsent(entity.getUUID(), k -> gameTick)
@@ -890,6 +952,9 @@ public final class ClientRoomMarkerState {
         if (kind == MarkerKind.AMMO_BOX) {
             return isAmmoBoxEmpty;
         }
+        if (kind == MarkerKind.MEDICAL_BOX) {
+            return false;
+        }
         if (kind == MarkerKind.DOWNED_SQUAD || kind == MarkerKind.SQUAD_PERSISTENT) {
             return true;
         }
@@ -905,7 +970,7 @@ public final class ClientRoomMarkerState {
         }
         return switch (kind) {
             case DOWNED_ALLY, DOWNED_SQUAD -> 9.0D;
-            case AMMO_BOX -> 10.0D;
+            case AMMO_BOX, MEDICAL_BOX -> 10.0D;
             default -> 8.0D;
         };
     }
@@ -959,7 +1024,7 @@ public final class ClientRoomMarkerState {
                     return pos.add(0.0D, heightOffset, 0.0D);
                 }
             }
-            if (kind == MarkerKind.AMMO_BOX) {
+            if (kind == MarkerKind.AMMO_BOX || kind == MarkerKind.MEDICAL_BOX) {
                 return new Vec3(x, y + 0.5D, z);
             }
             return new Vec3((int) x + 0.5D, (int) y + ICON_WORLD_Y_OFFSET, (int) z + 0.5D);
@@ -995,7 +1060,8 @@ public final class ClientRoomMarkerState {
         SQUAD_PERSISTENT,
         DOWNED_ALLY,
         DOWNED_SQUAD,
-        AMMO_BOX;
+        AMMO_BOX,
+        MEDICAL_BOX;
 
         private static MarkerKind from(String value) {
             if (value == null || value.isBlank()) {
@@ -1047,6 +1113,7 @@ public final class ClientRoomMarkerState {
                 case DOWNED_ALLY -> TacticalMarkerRenderer.MarkerVisualType.DOWNED_ALLY;
                 case DOWNED_SQUAD -> TacticalMarkerRenderer.MarkerVisualType.DOWNED_SQUAD;
                 case AMMO_BOX -> TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX;
+                case MEDICAL_BOX -> TacticalMarkerRenderer.MarkerVisualType.MEDICAL_BOX;
             };
         }
     }

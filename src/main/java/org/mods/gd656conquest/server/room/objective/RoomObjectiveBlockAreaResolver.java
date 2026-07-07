@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 public final class RoomObjectiveBlockAreaResolver implements RoomObjectiveAreaResolver {
     @Override
@@ -28,20 +29,22 @@ public final class RoomObjectiveBlockAreaResolver implements RoomObjectiveAreaRe
         return resolveObjectiveCodeInScanBox(player, allowedCodes, player.getBoundingBox().inflate(0.001D));
     }
 
+    public boolean isPlayerInsideOutOfBoundsBlock(ServerPlayer player) {
+        if (player == null || player.serverLevel() == null) {
+            return false;
+        }
+        return isMatchingBlockInScanBox(player, player.getBoundingBox().inflate(0.001D), ConquestBlocks::isOutOfBoundsBlock);
+    }
+
     private String resolveObjectiveCodeInScanBox(ServerPlayer player, Set<String> allowedCodes, AABB box) {
         if (player == null || player.serverLevel() == null || box == null) {
             return null;
         }
-        int minX = Mth.floor(box.minX);
-        int minY = Mth.floor(box.minY);
-        int minZ = Mth.floor(box.minZ);
-        int maxX = Mth.ceil(box.maxX) - 1;
-        int maxY = Mth.ceil(box.maxY) - 1;
-        int maxZ = Mth.ceil(box.maxZ) - 1;
+        BlockScanBounds scanBounds = scanBounds(box);
         Map<String, Double> overlapByCode = new HashMap<>();
-        for (int x = minX; x <= maxX; x++) {
-            for (int y = minY; y <= maxY; y++) {
-                for (int z = minZ; z <= maxZ; z++) {
+        for (int x = scanBounds.minX(); x <= scanBounds.maxX(); x++) {
+            for (int y = scanBounds.minY(); y <= scanBounds.maxY(); y++) {
+                for (int z = scanBounds.minZ(); z <= scanBounds.maxZ(); z++) {
                     var state = player.serverLevel().getBlockState(new net.minecraft.core.BlockPos(x, y, z));
                     if (!ConquestBlocks.isCapturePoint(state)) {
                         continue;
@@ -75,5 +78,41 @@ public final class RoomObjectiveBlockAreaResolver implements RoomObjectiveAreaRe
             }
         }
         return bestCode;
+    }
+
+    private boolean isMatchingBlockInScanBox(ServerPlayer player, AABB box, Predicate<net.minecraft.world.level.block.state.BlockState> matcher) {
+        if (player == null || player.serverLevel() == null || box == null || matcher == null) {
+            return false;
+        }
+        BlockScanBounds scanBounds = scanBounds(box);
+        for (int x = scanBounds.minX(); x <= scanBounds.maxX(); x++) {
+            for (int y = scanBounds.minY(); y <= scanBounds.maxY(); y++) {
+                for (int z = scanBounds.minZ(); z <= scanBounds.maxZ(); z++) {
+                    var state = player.serverLevel().getBlockState(new net.minecraft.core.BlockPos(x, y, z));
+                    if (!matcher.test(state)) {
+                        continue;
+                    }
+                    AABB blockBox = new AABB(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D);
+                    if (blockBox.intersects(box)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private BlockScanBounds scanBounds(AABB box) {
+        return new BlockScanBounds(
+            Mth.floor(box.minX),
+            Mth.floor(box.minY),
+            Mth.floor(box.minZ),
+            Mth.ceil(box.maxX) - 1,
+            Mth.ceil(box.maxY) - 1,
+            Mth.ceil(box.maxZ) - 1
+        );
+    }
+
+    private record BlockScanBounds(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
     }
 }

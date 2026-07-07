@@ -4,6 +4,7 @@ import net.minecraft.server.MinecraftServer;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayEntryManager;
 import org.mods.gd656conquest.server.room.matching.RoomMatchingCoordinator;
 import org.mods.gd656conquest.server.room.runtime.RoomAudioRuntimeService;
+import org.mods.gd656conquest.server.room.runtime.RoomDeathSupportDropService;
 import org.mods.gd656conquest.server.room.runtime.RoomDeploySelectionService;
 import org.mods.gd656conquest.server.room.runtime.RoomHudSyncService;
 import org.mods.gd656conquest.server.room.runtime.RoomItemReplenishService;
@@ -40,6 +41,7 @@ public record RoomCoreComponents(
     RoomPlayerRespawnService playerRespawnService,
     RoomPlayerLoadoutService playerLoadoutService,
     RoomItemReplenishService itemReplenishService,
+    RoomDeathSupportDropService deathSupportDropService,
     RoomSupportBoxService supportBoxService,
     RoomMarkerRuntimeService markerRuntimeService,
     RoomHudSyncService hudSyncService,
@@ -70,6 +72,7 @@ public record RoomCoreComponents(
         Objects.requireNonNull(playerRespawnService, "playerRespawnService");
         Objects.requireNonNull(playerLoadoutService, "playerLoadoutService");
         Objects.requireNonNull(itemReplenishService, "itemReplenishService");
+        Objects.requireNonNull(deathSupportDropService, "deathSupportDropService");
         Objects.requireNonNull(supportBoxService, "supportBoxService");
         Objects.requireNonNull(markerRuntimeService, "markerRuntimeService");
         Objects.requireNonNull(hudSyncService, "hudSyncService");

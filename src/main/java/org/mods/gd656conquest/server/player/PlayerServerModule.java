@@ -12,6 +12,7 @@ import org.mods.gd656conquest.server.core.bootstrap.ServerModule;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.facility.parkour.ParkourRuntimeManager;
 import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
+import org.mods.gd656conquest.server.player.identity.PlayerIdentityService;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.player.lock.ServerPlayerLockService;
 import org.mods.gd656conquest.server.player.regen.PassiveRegenService;
@@ -37,6 +38,7 @@ public final class PlayerServerModule implements ServerModule {
         PassiveRegenService.clearAll();
         FireExtinguishService.clearAll();
         ServerPlayerLockService.clearAll(server);
+        PlayerIdentityService.forget(server);
     }
 
     @Override
@@ -71,6 +73,7 @@ public final class PlayerServerModule implements ServerModule {
     public void onPlayerLogin(ServerPlayer player) {
         PassiveRegenService.resetPlayer(player);
         PlayerLevelService.clampPlayerLevel(player);
+        PlayerIdentityService.of(player.server).onPlayerLogin(player);
         forcePlayerIntoHubOnLogin(player);
         PlayerSessionStateService.onPlayerLogin(player);
         StandalonePlayerStateService.enforceStandaloneWorldPolicy(player);

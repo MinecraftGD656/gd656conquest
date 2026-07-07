@@ -35,7 +35,8 @@ public record RoomBreakthroughConfig(
     int stageDurationMinutes,
     int defenderRetreatSeconds,
     int troopGainPerDefenderKill,
-    int maxAttackTroopsAt12Players
+    int maxAttackTroopsAt12Players,
+    RoomTroopBalanceReference troopBalanceReference
 ) {
     public RoomBreakthroughConfig {
         Objects.requireNonNull(points, "points");
@@ -60,6 +61,7 @@ public record RoomBreakthroughConfig(
         defenderRetreatSeconds = Math.max(0, defenderRetreatSeconds);
         troopGainPerDefenderKill = Math.max(0, troopGainPerDefenderKill);
         maxAttackTroopsAt12Players = Math.max(0, maxAttackTroopsAt12Players);
+        troopBalanceReference = troopBalanceReference == null ? RoomTroopBalanceReference.defaultValue() : troopBalanceReference;
     }
 
     public static RoomBreakthroughConfig defaults() {
@@ -90,7 +92,8 @@ public record RoomBreakthroughConfig(
             0,
             0,
             0,
-            0
+            0,
+            RoomTroopBalanceReference.defaultValue()
         );
     }
 

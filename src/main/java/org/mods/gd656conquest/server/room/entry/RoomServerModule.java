@@ -83,6 +83,9 @@ public final class RoomServerModule implements ServerModule {
         }
         ServerPlayer killer = RoomDamageSourceResolver.resolveAttackingPlayer(event.getSource());
         RoomCoreRuntimeManager.of(player.server).handleMarkedPlayerDeath(player, killer, player.server.getTickCount());
+        if (killer != null && killer != player) {
+            RoomCoreRuntimeManager.of(player.server).handlePlayerKillSupportDrop(player, killer);
+        }
         boolean downedHandled = RoomCoreRuntimeManager.of(player.server).handlePlayerDeathEvent(
             player,
             new RoomPosition(player.getBlockX(), player.getY(), player.getBlockZ()),

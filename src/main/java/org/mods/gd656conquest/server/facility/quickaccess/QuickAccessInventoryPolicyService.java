@@ -5,7 +5,6 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.mods.gd656conquest.common.item.ConquestItems;
-import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.facility.parkour.ParkourRuntimeManager;
 import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
 import org.mods.gd656conquest.server.player.state.HubDimensionService;
@@ -13,7 +12,7 @@ import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.shared.inventory.PlayerInventorySanitizer;
-import org.mods.gd656conquest.server.social.party.PlayerPartyManager;
+import org.mods.gd656conquest.server.social.party.presentation.PartyUiFacade;
 
 import java.util.Optional;
 
@@ -74,11 +73,11 @@ public final class QuickAccessInventoryPolicyService {
             && (matchesRegistryItem(item, ConquestItems.QUICK_JOIN_ITEM)
             || matchesRegistryItem(item, ConquestItems.ROOM_LIST_ITEM)
             || matchesRegistryItem(item, ConquestItems.PARTY_GUIDE_ITEM)
+            || matchesRegistryItem(item, ConquestItems.LEAVE_PARTY_ITEM)
             || matchesRegistryItem(item, ConquestItems.MY_TITLE_ITEM)
             || matchesRegistryItem(item, ConquestItems.LOADOUT_GUIDE_ITEM)
             || matchesRegistryItem(item, ConquestItems.ENTER_RANGE_ITEM)
-            || matchesRegistryItem(item, ConquestItems.LEAVE_ITEM)
-            || matchesRegistryItem(item, ConquestItems.LEAVE_PARTY_ITEM));
+            || matchesRegistryItem(item, ConquestItems.LEAVE_ITEM));
     }
 
     private static boolean shouldEnforceLobbyInventory(ServerPlayer player) {
@@ -103,12 +102,15 @@ public final class QuickAccessInventoryPolicyService {
             return;
         }
         boolean changed = false;
-        PlayerPartyManager partyManager = PlayerPartyManager.of(player.server);
         changed |= setHotbarSlotIfNeeded(player, HOTBAR_QUICK_JOIN, ConquestItems.QUICK_JOIN_ITEM.get());
         changed |= setHotbarSlotIfNeeded(player, HOTBAR_ROOM_LIST, ConquestItems.ROOM_LIST_ITEM.get());
-        changed |= setHotbarSlotIfNeeded(player, HOTBAR_TEAM, partyManager.isInParty(player.getUUID())
-            ? ConquestItems.LEAVE_PARTY_ITEM.get()
-            : ConquestItems.PARTY_GUIDE_ITEM.get());
+        changed |= setHotbarSlotIfNeeded(
+            player,
+            HOTBAR_TEAM,
+            PartyUiFacade.of(player.server).findCurrentParty(player).isPresent()
+                ? ConquestItems.LEAVE_PARTY_ITEM.get()
+                : ConquestItems.PARTY_GUIDE_ITEM.get()
+        );
         changed |= clearHotbarSlot(player, 3);
         changed |= clearHotbarSlot(player, 4);
         changed |= clearHotbarSlot(player, 5);

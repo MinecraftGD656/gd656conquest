@@ -1,7 +1,5 @@
 package org.mods.gd656conquest.server.room.model;
 
-import java.util.Objects;
-
 public record RoomCommonConfig(
     RoomMatchingConfig matchingConfig,
     String dimensionId,
@@ -11,6 +9,8 @@ public record RoomCommonConfig(
     RoomPlayerStateConfig playerStateConfig,
     int outsideBoundaryDeathSeconds,
     int aircraftOutsideBoundaryCleanupSeconds,
+    int playerMaxY,
+    int aircraftPassengerMaxY,
     String campADisplayName,
     String campBDisplayName,
     String campAVoicePack,
@@ -25,7 +25,8 @@ public record RoomCommonConfig(
     boolean enableBackAgainstWall,
     boolean enableRandomLoadout,
     boolean enableRandomAttachments,
-    boolean enableParachute
+    boolean enableParachute,
+    boolean enableDeathSupportDrop
 ) {
     public RoomCommonConfig {
         matchingConfig = matchingConfig == null ? RoomMatchingConfig.defaults() : matchingConfig;
@@ -36,6 +37,8 @@ public record RoomCommonConfig(
         respawnDelaySeconds = Math.max(0, respawnDelaySeconds);
         outsideBoundaryDeathSeconds = Math.max(0, outsideBoundaryDeathSeconds);
         aircraftOutsideBoundaryCleanupSeconds = Math.max(0, aircraftOutsideBoundaryCleanupSeconds);
+        playerMaxY = Math.max(0, playerMaxY);
+        aircraftPassengerMaxY = Math.max(0, aircraftPassengerMaxY);
         campADisplayName = normalizeDisplayName(campADisplayName, "CampA");
         campBDisplayName = normalizeDisplayName(campBDisplayName, "CampB");
         campAVoicePack = normalizeVoicePack(campAVoicePack);
@@ -53,6 +56,8 @@ public record RoomCommonConfig(
             RoomPlayerStateConfig.defaults(),
             0,
             0,
+            0,
+            0,
             "CampA",
             "CampB",
             "",
@@ -67,6 +72,7 @@ public record RoomCommonConfig(
             false,
             false,
             false,
+            true,
             true
         );
     }
@@ -98,6 +104,8 @@ public record RoomCommonConfig(
         RoomPlayerStateConfig playerStateConfig,
         int outsideBoundaryDeathSeconds,
         int aircraftOutsideBoundaryCleanupSeconds,
+        int playerMaxY,
+        int aircraftPassengerMaxY,
         String campADisplayName,
         String campBDisplayName,
         String campAVoicePack,
@@ -117,6 +125,8 @@ public record RoomCommonConfig(
             playerStateConfig,
             outsideBoundaryDeathSeconds,
             aircraftOutsideBoundaryCleanupSeconds,
+            playerMaxY,
+            aircraftPassengerMaxY,
             campADisplayName,
             campBDisplayName,
             campAVoicePack,
@@ -131,6 +141,7 @@ public record RoomCommonConfig(
             false,
             false,
             false,
+            true,
             true
         );
     }
@@ -144,6 +155,8 @@ public record RoomCommonConfig(
         RoomPlayerStateConfig playerStateConfig,
         int outsideBoundaryDeathSeconds,
         int aircraftOutsideBoundaryCleanupSeconds,
+        int playerMaxY,
+        int aircraftPassengerMaxY,
         String campADisplayName,
         String campBDisplayName,
         String campAVoicePack,
@@ -163,6 +176,8 @@ public record RoomCommonConfig(
             playerStateConfig,
             outsideBoundaryDeathSeconds,
             aircraftOutsideBoundaryCleanupSeconds,
+            playerMaxY,
+            aircraftPassengerMaxY,
             campADisplayName,
             campBDisplayName,
             campAVoicePack,
@@ -177,6 +192,7 @@ public record RoomCommonConfig(
             false,
             false,
             false,
+            true,
             true
         );
     }
@@ -190,6 +206,8 @@ public record RoomCommonConfig(
         RoomPlayerStateConfig playerStateConfig,
         int outsideBoundaryDeathSeconds,
         int aircraftOutsideBoundaryCleanupSeconds,
+        int playerMaxY,
+        int aircraftPassengerMaxY,
         String campADisplayName,
         String campBDisplayName,
         String campAVoicePack,
@@ -213,6 +231,8 @@ public record RoomCommonConfig(
             playerStateConfig,
             outsideBoundaryDeathSeconds,
             aircraftOutsideBoundaryCleanupSeconds,
+            playerMaxY,
+            aircraftPassengerMaxY,
             campADisplayName,
             campBDisplayName,
             campAVoicePack,
@@ -227,6 +247,7 @@ public record RoomCommonConfig(
             enableBackAgainstWall,
             enableRandomLoadout,
             false,
+            true,
             true
         );
     }
@@ -240,6 +261,8 @@ public record RoomCommonConfig(
         RoomPlayerStateConfig playerStateConfig,
         int outsideBoundaryDeathSeconds,
         int aircraftOutsideBoundaryCleanupSeconds,
+        int playerMaxY,
+        int aircraftPassengerMaxY,
         String campADisplayName,
         String campBDisplayName,
         String campAVoicePack,
@@ -264,6 +287,8 @@ public record RoomCommonConfig(
             playerStateConfig,
             outsideBoundaryDeathSeconds,
             aircraftOutsideBoundaryCleanupSeconds,
+            playerMaxY,
+            aircraftPassengerMaxY,
             campADisplayName,
             campBDisplayName,
             campAVoicePack,
@@ -278,6 +303,64 @@ public record RoomCommonConfig(
             enableBackAgainstWall,
             enableRandomLoadout,
             enableRandomAttachments,
+            true,
+            true
+        );
+    }
+
+    public RoomCommonConfig(
+        RoomMatchingConfig matchingConfig,
+        String dimensionId,
+        RoomPosition queueSpawn,
+        int respawnDelaySeconds,
+        RoomVehicleBackend vehicleBackend,
+        RoomPlayerStateConfig playerStateConfig,
+        int outsideBoundaryDeathSeconds,
+        int aircraftOutsideBoundaryCleanupSeconds,
+        int playerMaxY,
+        int aircraftPassengerMaxY,
+        String campADisplayName,
+        String campBDisplayName,
+        String campAVoicePack,
+        String campBVoicePack,
+        double progressSpeed,
+        RoomResultConfig resultConfig,
+        boolean disableHunger,
+        boolean enableAutoTeamSwitchPrompt,
+        boolean disableInventoryChange,
+        boolean enableGoatHorn,
+        boolean enablePlayerDowned,
+        boolean enableBackAgainstWall,
+        boolean enableRandomLoadout,
+        boolean enableRandomAttachments,
+        boolean enableParachute
+    ) {
+        this(
+            matchingConfig,
+            dimensionId,
+            queueSpawn,
+            respawnDelaySeconds,
+            vehicleBackend,
+            playerStateConfig,
+            outsideBoundaryDeathSeconds,
+            aircraftOutsideBoundaryCleanupSeconds,
+            playerMaxY,
+            aircraftPassengerMaxY,
+            campADisplayName,
+            campBDisplayName,
+            campAVoicePack,
+            campBVoicePack,
+            progressSpeed,
+            resultConfig,
+            disableHunger,
+            enableAutoTeamSwitchPrompt,
+            disableInventoryChange,
+            enableGoatHorn,
+            enablePlayerDowned,
+            enableBackAgainstWall,
+            enableRandomLoadout,
+            enableRandomAttachments,
+            enableParachute,
             true
         );
     }

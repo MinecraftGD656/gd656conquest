@@ -60,10 +60,6 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         return Math.max(0, get().getPassiveRegenStartDelaySeconds() == null ? 6 : get().getPassiveRegenStartDelaySeconds());
     }
 
-    public synchronized int getPartyMaxMembers() {
-        return Math.max(1, get().getPartyMaxMembers() == null ? 4 : get().getPartyMaxMembers());
-    }
-
     public synchronized double getMaxScopePistol() {
         return sanitizeScopeLimit(get().getMaxScopePistol(), 2.0D);
     }
@@ -95,6 +91,10 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
     public synchronized RoomVehicleBackend getVehicleBackend() {
         RoomVehicleBackend configured = get().getVehicleBackend();
         return configured == null ? RoomVehicleBackend.defaultValue() : configured;
+    }
+
+    public synchronized boolean isPackValidationEnabled() {
+        return Boolean.TRUE.equals(get().getEnablePackValidation());
     }
 
     public synchronized RoomPosition getOverworldSpawnFallbackShared() {
@@ -162,9 +162,6 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         if (model.getPassiveRegenStartDelaySeconds() == null || model.getPassiveRegenStartDelaySeconds() < 0) {
             model.setPassiveRegenStartDelaySeconds(6);
         }
-        if (model.getPartyMaxMembers() == null || model.getPartyMaxMembers() <= 0) {
-            model.setPartyMaxMembers(4);
-        }
         model.setMaxScopePistol(sanitizeScopeLimit(model.getMaxScopePistol(), 2.0D));
         model.setMaxScopeSniper(sanitizeScopeLimit(model.getMaxScopeSniper(), 12.0D));
         model.setMaxScopeRifle(sanitizeScopeLimit(model.getMaxScopeRifle(), 6.0D));
@@ -174,6 +171,9 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         model.setMaxScopeMg(sanitizeScopeLimit(model.getMaxScopeMg(), 4.0D));
         if (model.getVehicleBackend() == null) {
             model.setVehicleBackend(RoomVehicleBackend.defaultValue());
+        }
+        if (model.getEnablePackValidation() == null) {
+            model.setEnablePackValidation(false);
         }
         if (model.getOverworldSpawn() == null) {
             BlockPos shared = server.overworld().getSharedSpawnPos();

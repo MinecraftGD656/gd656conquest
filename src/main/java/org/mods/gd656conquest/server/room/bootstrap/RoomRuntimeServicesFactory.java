@@ -8,6 +8,7 @@ import org.mods.gd656conquest.server.room.core.RoomPlayerRejoinService;
 import org.mods.gd656conquest.server.room.core.RoomRuntimeRepository;
 import org.mods.gd656conquest.server.room.core.RoomRuntimeState;
 import org.mods.gd656conquest.server.room.runtime.RoomAudioRuntimeService;
+import org.mods.gd656conquest.server.room.runtime.RoomDeathSupportDropService;
 import org.mods.gd656conquest.server.room.runtime.RoomDeploySelectionService;
 import org.mods.gd656conquest.server.room.runtime.RoomHudSyncService;
 import org.mods.gd656conquest.server.room.runtime.RoomItemReplenishService;
@@ -58,6 +59,7 @@ public final class RoomRuntimeServicesFactory {
         RoomDeploySelectionService deploySelectionService = new RoomDeploySelectionService(server, squadBeaconService, vehicleDeploySelectionService);
         RoomPlayerLoadoutService playerLoadoutService = new RoomPlayerLoadoutService(server);
         RoomItemReplenishService itemReplenishService = new RoomItemReplenishService(server, playerLoadoutService);
+        RoomDeathSupportDropService deathSupportDropService = new RoomDeathSupportDropService(server, runtimeRepository, playerSessionService);
         RoomSupportBoxService supportBoxService = new RoomSupportBoxService(server, runtimeRepository, playerSessionService, playerLoadoutService);
         RoomMarkerRuntimeService markerRuntimeService = new RoomMarkerRuntimeService(server);
         RoomInventorySnapshotService inventorySnapshotService = new RoomInventorySnapshotService();
@@ -99,6 +101,7 @@ public final class RoomRuntimeServicesFactory {
             ),
             playerLoadoutService,
             itemReplenishService,
+            deathSupportDropService,
             supportBoxService,
             markerRuntimeService,
             hudSyncService,

@@ -19,11 +19,11 @@ import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayBoundaryPolicyProvider;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
+import org.mods.gd656conquest.server.room.objective.RoomObjectiveBlockAreaResolver;
 import org.mods.gd656conquest.server.room.vehicle.VehicleBoundaryPenaltyService;
 import org.mods.gd656conquest.server.shared.contract.ClickActionSpec;
 import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
 import org.mods.gd656conquest.server.shared.text.ServerText;
-import org.mods.gd656conquest.server.social.party.PlayerPartyManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,9 +36,11 @@ public final class RoomRuleRuntimeService {
     private static final long HUNGER_REFRESH_INTERVAL_TICKS = 20L;
     private static final long AUTO_TEAM_SWITCH_EVALUATE_INTERVAL_TICKS = 20L;
     private static final long AUTO_TEAM_SWITCH_PROMPT_INTERVAL_TICKS = 30L * 20L;
+    private static final long CLIENT_BOUNDARY_HEIGHT_REPORT_TTL_TICKS = 20L;
     private static final int AUTO_TEAM_SWITCH_MIN_DELTA = 2;
     private final MinecraftServer server;
     private final RoomBoundaryPenaltyHudService boundaryPenaltyHudService = new RoomBoundaryPenaltyHudService();
+    private final RoomObjectiveBlockAreaResolver objectiveBlockAreaResolver = new RoomObjectiveBlockAreaResolver();
     private final VehicleBoundaryPenaltyService vehicleBoundaryPenaltyService;
 
     public RoomRuleRuntimeService(MinecraftServer server, VehicleBoundaryPenaltyService vehicleBoundaryPenaltyService) {
@@ -114,13 +116,12 @@ public final class RoomRuleRuntimeService {
         RoomTeamId largerTeam = delta > 0 ? RoomTeamId.CAMP_A : RoomTeamId.CAMP_B;
         RoomTeamId targetTeam = largerTeam == RoomTeamId.CAMP_A ? RoomTeamId.CAMP_B : RoomTeamId.CAMP_A;
         List<ServerPlayer> candidates = new ArrayList<>();
-        PlayerPartyManager partyManager = PlayerPartyManager.of(server);
         for (UUID playerId : state.getRoomPlayers()) {
             if (state.getRoomTeams().get(playerId) != largerTeam) {
                 continue;
             }
             ServerPlayer candidate = server.getPlayerList().getPlayer(playerId);
-            if (candidate != null && isAutoTeamSwitchPromptEligible(state, partyManager, candidate)) {
+            if (candidate != null && isAutoTeamSwitchPromptEligible(state, candidate)) {
                 candidates.add(candidate);
             }
         }
@@ -138,7 +139,7 @@ public final class RoomRuleRuntimeService {
         ServerMessageSender.rawSystem(selected, prompt);
     }
 
-    private boolean isAutoTeamSwitchPromptEligible(RunningRuntimeState state, PlayerPartyManager partyManager, ServerPlayer candidate) {
+    private boolean isAutoTeamSwitchPromptEligible(RunningRuntimeState state, ServerPlayer candidate) {
         if (state == null || candidate == null) {
             return false;
         }
@@ -146,7 +147,7 @@ public final class RoomRuleRuntimeService {
         if (state.getPendingTeamChanges().containsKey(playerId) || state.getAutoTeamSwitchOfferTargetTeams().containsKey(playerId)) {
             return false;
         }
-        return partyManager == null || partyManager.operationDeniedMessageForNonLeader(playerId).isBlank();
+        return true;
     }
 
     private void processBoundaryRule(RoomDefinition room, RunningRuntimeState state, long gameTick) {
@@ -187,14 +188,19 @@ public final class RoomRuleRuntimeService {
             boolean outsideAllowedBoundary = boundaryPolicyProvider == null
                 ? RoomBoundaryRuleEvaluator.isOutsideAllBoundaries(player, resolveConquestAllowedBoundaries(room, teamId))
                 : boundaryPolicyProvider.isOutsideAllowedBoundary(room, state, player, teamId);
-            vehicleBoundaryPenaltyService.updateAircraftBoundaryState(room, state, player, teamId, outsideAllowedBoundary, gameTick);
-            if (!outsideAllowedBoundary) {
+            boolean aircraftVehicle = VehicleCompatFacade.isManagedVehicleEntity(player.getVehicle())
+                && VehicleCompatFacade.isAircraftEntity(player.getVehicle());
+            boolean insideOutOfBoundsBlock = objectiveBlockAreaResolver.isPlayerInsideOutOfBoundsBlock(player);
+            boolean aboveConfiguredHeight = isAboveConfiguredBoundaryHeight(room, state, player, aircraftVehicle, gameTick);
+            boolean forcePlayerBoundaryPenalty = insideOutOfBoundsBlock || aboveConfiguredHeight;
+            boolean trackedAircraftBoundary = outsideAllowedBoundary && !forcePlayerBoundaryPenalty;
+            vehicleBoundaryPenaltyService.updateAircraftBoundaryState(room, state, player, teamId, trackedAircraftBoundary, gameTick);
+            boolean aircraftBoundaryPenalty = aircraftVehicle && trackedAircraftBoundary;
+            boolean playerBoundaryPenalty = (!aircraftVehicle && outsideAllowedBoundary) || forcePlayerBoundaryPenalty;
+            if (!playerBoundaryPenalty && !aircraftBoundaryPenalty) {
                 clearBoundaryPenalty(player, state, playerId);
                 continue;
             }
-            Entity vehicle = player.getVehicle();
-            boolean aircraftBoundaryPenalty = VehicleCompatFacade.isManagedVehicleEntity(vehicle)
-                && VehicleCompatFacade.isAircraftEntity(vehicle);
             int effectiveCountdownSeconds = aircraftBoundaryPenalty
                 ? room.gameplayAircraftBoundaryCleanupSeconds()
                 : countdownSeconds;
@@ -203,16 +209,16 @@ public final class RoomRuleRuntimeService {
                 continue;
             }
             long outsideSince;
-            if (aircraftBoundaryPenalty && vehicle != null) {
+            if (aircraftBoundaryPenalty && player.getVehicle() != null) {
                 state.getOutsideBoundarySinceTicks().remove(playerId);
-                outsideSince = state.getAircraftOutsideBoundarySinceTicks().getOrDefault(vehicle.getUUID(), gameTick);
+                outsideSince = state.getAircraftOutsideBoundarySinceTicks().getOrDefault(player.getVehicle().getUUID(), gameTick);
             } else {
                 outsideSince = state.getOutsideBoundarySinceTicks().computeIfAbsent(playerId, ignored -> gameTick);
             }
             boolean enteringPenalty = state.getBoundaryPenaltyVisualApplied().add(playerId);
             if (enteringPenalty) {
                 NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setBoundaryPenalty(true));
-                boundaryPenaltyHudService.sendBoundaryTitle(player, effectiveCountdownSeconds, true);
+                boundaryPenaltyHudService.sendBoundaryTitle(player, effectiveCountdownSeconds, true, aircraftBoundaryPenalty);
                 state.getBoundaryPenaltyLastShownSeconds().put(playerId, effectiveCountdownSeconds);
             }
             long outsideTicks = gameTick - outsideSince;
@@ -230,7 +236,7 @@ public final class RoomRuleRuntimeService {
             int remainingSeconds = Math.max(1, effectiveCountdownSeconds - (int) (outsideTicks / 20L));
             int lastShownSeconds = state.getBoundaryPenaltyLastShownSeconds().getOrDefault(playerId, -1);
             if (remainingSeconds != lastShownSeconds) {
-                boundaryPenaltyHudService.sendBoundaryTitle(player, remainingSeconds, enteringPenalty);
+                boundaryPenaltyHudService.sendBoundaryTitle(player, remainingSeconds, enteringPenalty, aircraftBoundaryPenalty);
                 state.getBoundaryPenaltyLastShownSeconds().put(playerId, remainingSeconds);
             }
         }
@@ -266,6 +272,37 @@ public final class RoomRuleRuntimeService {
         return player != null
             && player.hasPermissions(2)
             && player.gameMode.getGameModeForPlayer() == GameType.CREATIVE;
+    }
+
+    private boolean isAboveConfiguredBoundaryHeight(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player,
+        boolean aircraftVehicle,
+        long gameTick
+    ) {
+        if (room == null || state == null || player == null) {
+            return false;
+        }
+        UUID playerId = player.getUUID();
+        Long lastReportTick = state.getBoundaryHeightReportTicks().get(playerId);
+        if (lastReportTick == null || gameTick - lastReportTick > CLIENT_BOUNDARY_HEIGHT_REPORT_TTL_TICKS) {
+            state.getBoundaryPlayerMaxYReportedPlayers().remove(playerId);
+            state.getBoundaryAircraftMaxYReportedPlayers().remove(playerId);
+            return false;
+        }
+        Entity vehicle = player.getVehicle();
+        double confirmedY = aircraftVehicle && vehicle != null ? Math.max(player.getY(), vehicle.getY()) : player.getY();
+        if (aircraftVehicle) {
+            int maxAircraftPassengerY = room.commonConfig().aircraftPassengerMaxY();
+            return maxAircraftPassengerY > 0
+                && state.getBoundaryAircraftMaxYReportedPlayers().contains(playerId)
+                && confirmedY > maxAircraftPassengerY;
+        }
+        int maxPlayerY = room.commonConfig().playerMaxY();
+        return maxPlayerY > 0
+            && state.getBoundaryPlayerMaxYReportedPlayers().contains(playerId)
+            && confirmedY > maxPlayerY;
     }
 
     private void clearBoundaryPenalty(ServerPlayer player, RunningRuntimeState state, UUID playerId) {

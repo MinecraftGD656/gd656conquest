@@ -22,6 +22,7 @@ public final class TacticalMarkerRenderer {
     private static final ResourceLocation TEX_SUPPORT_TEAM = ResourceLocation.parse("gd656conquest:textures/gui/marker_class_support_team.png");
     private static final ResourceLocation TEX_SUPPORT_SQUAD = ResourceLocation.parse("gd656conquest:textures/gui/marker_class_support_squad.png");
     private static final ResourceLocation TEX_AMMO_BOX = ResourceLocation.parse("gd656conquest:textures/gui/marker_ammo_box.png");
+    private static final ResourceLocation TEX_MEDICAL_BOX = ResourceLocation.parse("gd656conquest:textures/gui/marker_med_box.png");
 
     private static final float MAX_MARKER_VISUAL_OPACITY = 1.0F;
     private static final float TRIANGLE_BASE_Y = 4F;
@@ -111,6 +112,10 @@ public final class TacticalMarkerRenderer {
                 b = flash;
             }
             drawTextureMarker(gui, matrix, TEX_AMMO_BOX, scale, r, g, b, alpha, 256.0f);
+            return;
+        }
+        if (visual.shape() == MarkerShape.MEDICAL_BOX) {
+            drawTextureMarker(gui, matrix, TEX_MEDICAL_BOX, scale, 1.0f, 1.0f, 1.0f, alpha, 256.0f);
             return;
         }
         
@@ -253,14 +258,16 @@ public final class TacticalMarkerRenderer {
         SQUAD_PERSISTENT,
         DOWNED_ALLY,
         DOWNED_SQUAD,
-        AMMO_BOX
+        AMMO_BOX,
+        MEDICAL_BOX
     }
 
     private enum MarkerShape {
         DIAMOND,
         TRIANGLE,
         CIRCLE,
-        AMMO_BOX
+        AMMO_BOX,
+        MEDICAL_BOX
     }
 
     private record MarkerVisual(
@@ -285,6 +292,7 @@ public final class TacticalMarkerRenderer {
                 case DOWNED_ALLY -> new MarkerVisual(MarkerShape.CIRCLE, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.85F, DOWNED_RADIUS, true, 1.95F, true, false);
                 case DOWNED_SQUAD -> new MarkerVisual(MarkerShape.CIRCLE, SQUAD_GREEN_RED, SQUAD_GREEN_GREEN, SQUAD_GREEN_BLUE, 0.85F, DOWNED_RADIUS, true, 1.95F, true, true);
                 case AMMO_BOX -> new MarkerVisual(MarkerShape.AMMO_BOX, 1.0F, 1.0F, 1.0F, 0.85F, ALLY_DOT_RADIUS, false, 0.0F, false, false);
+                case MEDICAL_BOX -> new MarkerVisual(MarkerShape.MEDICAL_BOX, 1.0F, 1.0F, 1.0F, 0.85F, ALLY_DOT_RADIUS, false, 0.0F, false, false);
                 case NORMAL -> new MarkerVisual(MarkerShape.DIAMOND, 0.95F, 0.82F, 0.20F, 0.90F, DIAMOND_HALF_DIAGONAL, false, 0.0F, false, false);
             };
         }

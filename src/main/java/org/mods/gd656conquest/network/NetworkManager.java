@@ -40,15 +40,18 @@ import org.mods.gd656conquest.network.packet.AdminDebugOverlayPacket;
 import org.mods.gd656conquest.network.packet.HudDebugPreviewPacket;
 import org.mods.gd656conquest.network.packet.MarkerDebugPreviewPacket;
 import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
+import org.mods.gd656conquest.network.packet.ClientboundPackAuditRequestPacket;
 import org.mods.gd656conquest.network.packet.ClientboundScreenshotRequestPacket;
 import org.mods.gd656conquest.network.packet.ServerboundScreenshotChunkPacket;
 import org.mods.gd656conquest.network.packet.ServerboundScreenshotStatusPacket;
 import org.mods.gd656conquest.network.packet.ServerboundAmmoBoxInteractPacket;
+import org.mods.gd656conquest.network.packet.ServerboundPackAuditReportPacket;
+import org.mods.gd656conquest.network.packet.ServerboundBoundaryHeightStatePacket;
 import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "078";
+    private static final String PROTOCOL_VERSION = "081";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -308,10 +311,24 @@ public final class NetworkManager {
         );
         CHANNEL.registerMessage(
                 packetId++,
+                ClientboundPackAuditRequestPacket.class,
+                ClientboundPackAuditRequestPacket::encode,
+                ClientboundPackAuditRequestPacket::decode,
+                ClientboundPackAuditRequestPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
                 ClientboundScreenshotRequestPacket.class,
                 ClientboundScreenshotRequestPacket::encode,
                 ClientboundScreenshotRequestPacket::decode,
                 ClientboundScreenshotRequestPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                ServerboundPackAuditReportPacket.class,
+                ServerboundPackAuditReportPacket::encode,
+                ServerboundPackAuditReportPacket::decode,
+                ServerboundPackAuditReportPacket::handle
         );
         CHANNEL.registerMessage(
                 packetId++,
@@ -333,6 +350,13 @@ public final class NetworkManager {
                 ServerboundAmmoBoxInteractPacket::encode,
                 ServerboundAmmoBoxInteractPacket::decode,
                 ServerboundAmmoBoxInteractPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                ServerboundBoundaryHeightStatePacket.class,
+                ServerboundBoundaryHeightStatePacket::encode,
+                ServerboundBoundaryHeightStatePacket::decode,
+                ServerboundBoundaryHeightStatePacket::handle
         );
     }
 

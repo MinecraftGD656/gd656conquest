@@ -10,7 +10,6 @@ import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.shared.contract.ClickActionSpec;
 import org.mods.gd656conquest.server.shared.text.ServerText;
-import org.mods.gd656conquest.server.social.party.PlayerPartyManager;
 
 public final class RoomListPresentationService {
     private RoomListPresentationService() {
@@ -49,10 +48,6 @@ public final class RoomListPresentationService {
 
     public static boolean isJoinableForPlayer(RoomDefinition room, ServerPlayer player, RoomCoreRuntimeManager coreManager) {
         if (room == null || player == null || coreManager == null || player.server == null) {
-            return false;
-        }
-        PlayerPartyManager partyManager = PlayerPartyManager.of(player.server);
-        if (!partyManager.operationDeniedMessageForNonLeader(player.getUUID()).isBlank()) {
             return false;
         }
         if (coreManager.findPlayerRoomId(player.getUUID()).isPresent()) {

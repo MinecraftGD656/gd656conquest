@@ -185,22 +185,13 @@ public final class SignPlaceholderService {
             ServerMessageSender.system(player, "告示牌", result.deniedMessage(), ChatFormatting.RED);
             return;
         }
-        if (result.groupAction()) {
-            String message = result.success()
-                ? (room != null && room.lifecycleState() == RoomLifecycleState.MAINTENANCE
-                    ? "已由队长通过告示牌发起整队进入维护房间: " + roomId + " | 生效人数: " + result.handledCount()
-                    : "已由队长通过告示牌发起整队加入房间: " + roomId + " | 生效人数: " + result.handledCount())
-                : (room != null && room.lifecycleState() == RoomLifecycleState.MAINTENANCE
-                    ? "整队进入维护房间失败: " + roomId
-                    : "整队加入房间失败: " + roomId);
-            ServerMessageSender.system(player, "告示牌", message, result.success() ? ChatFormatting.AQUA : ChatFormatting.RED);
-            return;
-        }
         boolean joined = result.success();
         String message = joined
             ? (room != null && room.lifecycleState() == RoomLifecycleState.MAINTENANCE
                 ? "已进入维护房间: " + roomId
-                : describeJoinMessage(roomId, result.operatorJoinResult()))
+                : (result.groupAction() && result.operatorMessage() != null && !result.operatorMessage().isBlank()
+                    ? result.operatorMessage()
+                    : describeJoinMessage(roomId, result.operatorJoinResult())))
             : "加入房间失败: " + roomId;
         ServerMessageSender.system(player, "告示牌", message, joined ? ChatFormatting.AQUA : ChatFormatting.RED);
     }

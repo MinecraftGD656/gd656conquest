@@ -89,6 +89,8 @@ public final class StandardRoomRunningHudRenderer implements RoomRunningHudRende
             hudState.campAGoal(),
             hudState.campBGoal(),
             hudState.remainSeconds(),
+            room.commonConfig().playerMaxY(),
+            room.commonConfig().aircraftPassengerMaxY(),
             hudState.topStatus(),
             captureIcons,
             hudState.eventText(),

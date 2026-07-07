@@ -187,7 +187,8 @@ public final class CapturePointBlock extends Block {
             config.stageDurationMinutes(),
             config.defenderRetreatSeconds(),
             config.troopGainPerDefenderKill(),
-            config.maxAttackTroopsAt12Players()
+            config.maxAttackTroopsAt12Players(),
+            config.troopBalanceReference()
         );
         return new RoomDefinition(
             room.roomId(),

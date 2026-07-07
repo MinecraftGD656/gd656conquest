@@ -18,6 +18,14 @@ public final class ServerDataPaths {
         return getModRoot(server).resolve("serverconfig.json");
     }
 
+    public static Path getPackWhitelistFile(MinecraftServer server) {
+        return getModRoot(server).resolve("packwhitelist.json");
+    }
+
+    public static Path getPackLogFile(MinecraftServer server) {
+        return getModRoot(server).resolve("packlog.json");
+    }
+
     public static Path getPlayerDataDirectory(MinecraftServer server) {
         return getModRoot(server).resolve("playerdata");
     }

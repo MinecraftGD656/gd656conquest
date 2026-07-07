@@ -6,7 +6,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.mojang.authlib.GameProfile;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
@@ -18,6 +17,7 @@ import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.data.ServerDataPaths;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataModel;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
+import org.mods.gd656conquest.server.player.identity.PlayerIdentityService;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.shared.contract.ClickActionSpec;
 import org.mods.gd656conquest.server.shared.text.CommandFeedbacks;
@@ -54,10 +54,12 @@ public final class PlayerTitleService {
 
     private final MinecraftServer server;
     private final PlayerTitleRegistryStore registryStore;
+    private final PlayerIdentityService playerIdentityService;
 
     private PlayerTitleService(MinecraftServer server) {
         this.server = Objects.requireNonNull(server, "server");
         this.registryStore = ConquestDataManager.of(server).playerTitles();
+        this.playerIdentityService = PlayerIdentityService.of(server);
         ensureDefaultDefinitionRegistered();
     }
 
@@ -116,18 +118,7 @@ public final class PlayerTitleService {
     }
 
     public List<String> suggestKnownPlayerNames() {
-        Set<String> names = new LinkedHashSet<>();
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (player != null && player.getScoreboardName() != null && !player.getScoreboardName().isBlank()) {
-                names.add(player.getScoreboardName());
-            }
-        }
-        for (PlayerDataSnapshot snapshot : readAllPlayerSnapshots()) {
-            if (snapshot.lastKnownPlayerName != null && !snapshot.lastKnownPlayerName.isBlank()) {
-                names.add(snapshot.lastKnownPlayerName);
-            }
-        }
-        return names.stream().sorted(String.CASE_INSENSITIVE_ORDER).toList();
+        return playerIdentityService.suggestKnownPlayerNames();
     }
 
     public List<String> suggestImportFileNames() {
@@ -511,9 +502,8 @@ public final class PlayerTitleService {
         PlayerDataStore store = ConquestDataManager.of(server).playerData();
         PlayerDataModel data = store.getPlayerData(playerId);
         boolean changed = false;
-        if (preferredName != null && !preferredName.isBlank() && !preferredName.equals(data.getLastKnownPlayerName())) {
-            data.setLastKnownPlayerName(preferredName);
-            changed = true;
+        if (preferredName != null && !preferredName.isBlank()) {
+            playerIdentityService.rememberPlayerName(playerId, preferredName);
         }
         if (!data.getOwnedTitleIds().contains(DEFAULT_TITLE_ID)) {
             data.getOwnedTitleIds().add(DEFAULT_TITLE_ID);
@@ -595,7 +585,6 @@ public final class PlayerTitleService {
             UUID playerId = UUID.fromString(uuidText);
             return new PlayerDataSnapshot(
                 playerId,
-                data.getLastKnownPlayerName(),
                 normalizeOwnedTitles(data.getOwnedTitleIds()),
                 normalizeTitleId(data.getEquippedTitleId())
             );
@@ -619,56 +608,12 @@ public final class PlayerTitleService {
     }
 
     private ResolvedPlayer resolvePlayer(String playerNameOrUuid) {
-        if (playerNameOrUuid == null || playerNameOrUuid.isBlank()) {
-            return null;
-        }
-        String normalizedInput = playerNameOrUuid.trim();
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (player.getScoreboardName().equalsIgnoreCase(normalizedInput)) {
-                return new ResolvedPlayer(player.getUUID(), player.getScoreboardName());
-            }
-        }
-        try {
-            UUID uuid = UUID.fromString(normalizedInput);
-            return new ResolvedPlayer(uuid, resolvePlayerName(uuid).orElse(uuid.toString()));
-        } catch (Exception ignored) {
-        }
-        try {
-            Optional<GameProfile> cachedProfile = server.getProfileCache().get(normalizedInput);
-            if (cachedProfile.isPresent() && cachedProfile.get().getId() != null) {
-                return new ResolvedPlayer(cachedProfile.get().getId(), cachedProfile.get().getName());
-            }
-        } catch (Exception ignored) {
-        }
-        for (PlayerDataSnapshot snapshot : readAllPlayerSnapshots()) {
-            if (snapshot.lastKnownPlayerName != null && snapshot.lastKnownPlayerName.equalsIgnoreCase(normalizedInput)) {
-                return new ResolvedPlayer(snapshot.playerId, snapshot.lastKnownPlayerName);
-            }
-        }
-        return null;
+        PlayerIdentityService.ResolvedPlayer resolved = playerIdentityService.resolvePlayer(playerNameOrUuid);
+        return resolved == null ? null : new ResolvedPlayer(resolved.playerId(), resolved.playerName());
     }
 
     private Optional<String> resolvePlayerName(UUID playerId) {
-        if (playerId == null) {
-            return Optional.empty();
-        }
-        ServerPlayer online = server.getPlayerList().getPlayer(playerId);
-        if (online != null && online.getScoreboardName() != null && !online.getScoreboardName().isBlank()) {
-            return Optional.of(online.getScoreboardName());
-        }
-        try {
-            Optional<GameProfile> profile = server.getProfileCache().get(playerId);
-            if (profile.isPresent() && profile.get().getName() != null && !profile.get().getName().isBlank()) {
-                return Optional.of(profile.get().getName());
-            }
-        } catch (Exception ignored) {
-        }
-        for (PlayerDataSnapshot snapshot : readAllPlayerSnapshots()) {
-            if (playerId.equals(snapshot.playerId) && snapshot.lastKnownPlayerName != null && !snapshot.lastKnownPlayerName.isBlank()) {
-                return Optional.of(snapshot.lastKnownPlayerName);
-            }
-        }
-        return Optional.empty();
+        return playerIdentityService.resolvePlayerName(playerId);
     }
 
     private List<String> readImportPlayerNames(Path file) {
@@ -988,7 +933,7 @@ public final class PlayerTitleService {
     private record ResolvedPlayer(UUID playerId, String playerName) {
     }
 
-    private record PlayerDataSnapshot(UUID playerId, String lastKnownPlayerName, Set<String> ownedTitleIds, String equippedTitleId) {
+    private record PlayerDataSnapshot(UUID playerId, Set<String> ownedTitleIds, String equippedTitleId) {
     }
 
     private record ExamplePayload(String generatedAt, List<String> playerNames) {

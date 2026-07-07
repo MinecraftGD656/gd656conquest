@@ -17,7 +17,6 @@ import org.mods.gd656conquest.server.room.runtime.RoomPlayerLoadoutService;
 import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
 
 public final class PlayerItemInteractionService {
-    private static final String DEATH_AMMO_DROP_BLOCK_PICKUP_UUID = "gd656_death_ammo_drop_block_pickup_uuid";
     private static final int PICKUP_USE_MEDICAL_DURATION_TICKS = 3 * 20;
     private static final int PICKUP_USE_MEDICAL_AMPLIFIER = 2;
     private static final int PICKUP_USE_AMMO_AMOUNT = 10;
@@ -72,7 +71,7 @@ public final class PlayerItemInteractionService {
         if (stack.isEmpty()) {
             return;
         }
-        if (isBlockedDeathAmmoPickup(player, itemEntity)) {
+        if (RoomCoreRuntimeManager.of(player.server).isDeathSupportDropPickupBlocked(player, itemEntity)) {
             event.setCanceled(true);
             return;
         }
@@ -130,16 +129,6 @@ public final class PlayerItemInteractionService {
             || item == ConquestItems.AMMO_BOX.get()
             || item == ConquestItems.MED_BOX.get()
             || item == ConquestItems.RADIO_BEACON.get();
-    }
-
-    private static boolean isBlockedDeathAmmoPickup(ServerPlayer player, ItemEntity itemEntity) {
-        if (player == null || itemEntity == null) {
-            return false;
-        }
-        if (!itemEntity.getPersistentData().hasUUID(DEATH_AMMO_DROP_BLOCK_PICKUP_UUID)) {
-            return false;
-        }
-        return player.getUUID().equals(itemEntity.getPersistentData().getUUID(DEATH_AMMO_DROP_BLOCK_PICKUP_UUID));
     }
 
     private static void cleanupPickedItemEntity(ItemEntity itemEntity) {

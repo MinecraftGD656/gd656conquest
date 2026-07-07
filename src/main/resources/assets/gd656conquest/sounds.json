@@ -188,6 +188,20 @@
       }
     ]
   },
+  "sfx.marker_spot_fail": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/marker_spot_fail"
+      }
+    ]
+  },
+  "sfx.marker_spot_success": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/marker_spot_success"
+      }
+    ]
+  },
   "sfx.revive_first_person": {
     "sounds": [
       {

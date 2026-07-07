@@ -13,6 +13,8 @@ public final class ClientHudDebugState {
     private static int campAGoal;
     private static int campBGoal;
     private static int remainSeconds;
+    private static int playerMaxY;
+    private static int aircraftPassengerMaxY;
     private static String captureStatus = "-";
     private static String captureIcons = "-";
     private static String captureEvent = "-";
@@ -22,7 +24,7 @@ public final class ClientHudDebugState {
     private ClientHudDebugState() {
     }
 
-    public static void update(String roomIdValue, String roomStateValue, String audioStateValue, String selfTeamValue, String selfClassValue, int campA, int campB, int seconds, String scoreMethodValue, int campAGoalValue, int campBGoalValue, int remainSecondsValue, String captureStatusValue, String captureIconsValue, String captureEventValue, String captureFocusValue) {
+    public static void update(String roomIdValue, String roomStateValue, String audioStateValue, String selfTeamValue, String selfClassValue, int campA, int campB, int seconds, String scoreMethodValue, int campAGoalValue, int campBGoalValue, int remainSecondsValue, int playerMaxYValue, int aircraftPassengerMaxYValue, String captureStatusValue, String captureIconsValue, String captureEventValue, String captureFocusValue) {
         roomId = roomIdValue;
         roomState = roomStateValue;
         audioState = audioStateValue == null || audioStateValue.isBlank() ? "-" : audioStateValue;
@@ -35,6 +37,8 @@ public final class ClientHudDebugState {
         campAGoal = campAGoalValue;
         campBGoal = campBGoalValue;
         remainSeconds = remainSecondsValue;
+        playerMaxY = playerMaxYValue;
+        aircraftPassengerMaxY = aircraftPassengerMaxYValue;
         captureStatus = captureStatusValue;
         captureIcons = captureIconsValue;
         captureEvent = captureEventValue;
@@ -89,6 +93,14 @@ public final class ClientHudDebugState {
         return remainSeconds;
     }
 
+    public static int getPlayerMaxY() {
+        return playerMaxY;
+    }
+
+    public static int getAircraftPassengerMaxY() {
+        return aircraftPassengerMaxY;
+    }
+
     public static String getCaptureStatus() {
         return captureStatus;
     }
@@ -118,7 +130,7 @@ public final class ClientHudDebugState {
     }
 
     public static void reset() {
-        update("-", "未加入房间", "-", "-", "-", 0, 0, 0, "SCORE_TARGET", 0, 0, 0, "-", "-", "-", "-");
+        update("-", "未加入房间", "-", "-", "-", 0, 0, 0, "SCORE_TARGET", 0, 0, 0, 0, 0, "-", "-", "-", "-");
         adminDebugOverlay = "-";
     }
 }

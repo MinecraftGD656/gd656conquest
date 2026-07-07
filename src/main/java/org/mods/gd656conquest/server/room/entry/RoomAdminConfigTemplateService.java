@@ -4,6 +4,7 @@ import net.minecraft.server.MinecraftServer;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.data.vehicledata.VehicleConfigEntry;
 import org.mods.gd656conquest.server.data.vehicledata.VehicleConfigRepository;
+import org.mods.gd656conquest.server.room.model.RoomBreakthroughConfig;
 import org.mods.gd656conquest.server.room.model.RoomCommonConfig;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomGameplayId;
@@ -132,6 +133,8 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.playerStateConfig(),
             sourceCommon.outsideBoundaryDeathSeconds(),
             sourceCommon.aircraftOutsideBoundaryCleanupSeconds(),
+            sourceCommon.playerMaxY(),
+            sourceCommon.aircraftPassengerMaxY(),
             sourceCommon.campADisplayName(),
             sourceCommon.campBDisplayName(),
             sourceCommon.campAVoicePack(),
@@ -145,7 +148,9 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.enablePlayerDowned(),
             sourceCommon.enableBackAgainstWall(),
             sourceCommon.enableRandomLoadout(),
-            sourceCommon.enableRandomAttachments()
+            sourceCommon.enableRandomAttachments(),
+            sourceCommon.enableParachute(),
+            sourceCommon.enableDeathSupportDrop()
         );
         return new RoomDefinition(
             target.roomId(),
@@ -154,7 +159,36 @@ public final class RoomAdminConfigTemplateService {
             target.lifecycleState(),
             copiedCommon,
             template.conquestConfig(),
-            template.breakthroughConfig()
+            new RoomBreakthroughConfig(
+                template.breakthroughConfig().points(),
+                template.breakthroughConfig().mapId(),
+                template.breakthroughConfig().campADisplayName(),
+                template.breakthroughConfig().campBDisplayName(),
+                template.breakthroughConfig().stageCount(),
+                template.breakthroughConfig().campABaseBoundary(),
+                template.breakthroughConfig().campBBaseBoundary(),
+                template.breakthroughConfig().stageABoundary(),
+                template.breakthroughConfig().stageBBoundary(),
+                template.breakthroughConfig().stageCBoundary(),
+                template.breakthroughConfig().stageDBoundary(),
+                template.breakthroughConfig().stageEBoundary(),
+                template.breakthroughConfig().stageFBoundary(),
+                template.breakthroughConfig().campABaseSpawnGroup(),
+                template.breakthroughConfig().campBBaseSpawnGroup(),
+                template.breakthroughConfig().campABaseDeployIconPosition(),
+                template.breakthroughConfig().campBBaseDeployIconPosition(),
+                template.breakthroughConfig().stageADeployViewPosition(),
+                template.breakthroughConfig().stageBDeployViewPosition(),
+                template.breakthroughConfig().stageCDeployViewPosition(),
+                template.breakthroughConfig().stageDDeployViewPosition(),
+                template.breakthroughConfig().stageEDeployViewPosition(),
+                template.breakthroughConfig().stageFDeployViewPosition(),
+                template.breakthroughConfig().stageDurationMinutes(),
+                template.breakthroughConfig().defenderRetreatSeconds(),
+                template.breakthroughConfig().troopGainPerDefenderKill(),
+                template.breakthroughConfig().maxAttackTroopsAt12Players(),
+                template.breakthroughConfig().troopBalanceReference()
+            )
         );
     }
 

@@ -33,6 +33,7 @@ import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
+import org.mods.gd656conquest.server.room.model.RoomTroopBalanceReference;
 import org.mods.gd656conquest.server.room.model.RoomViewPosition;
 import org.mods.gd656conquest.server.room.objective.RoomObjectiveRuntimeProvider;
 import org.mods.gd656conquest.server.room.objective.RoomObjectiveRuntimeView;
@@ -804,14 +805,25 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private AttackTroopBalanceSnapshot resolveAttackTroopBalance(RoomDefinition room) {
-        int attackerCount = countPlayersInTeam(RoomTeamId.CAMP_A);
+        int referencePlayerCount = resolveTroopBalanceReferencePlayerCount(room);
         if (room == null) {
-            return new AttackTroopBalanceSnapshot(attackerCount, 0, 0);
+            return new AttackTroopBalanceSnapshot(referencePlayerCount, 0, 0);
         }
         int configuredTroopCap = room.breakthroughConfig().maxAttackTroopsAt12Players();
-        int troopCap = resolveCeilScaledValue(configuredTroopCap, attackerCount, ATTACK_TROOP_REFERENCE_PLAYERS);
-        int stageReward = resolveCeilScaledValue(configuredTroopCap, attackerCount, ATTACK_TROOP_REFERENCE_PLAYERS * STAGE_REWARD_DIVISOR);
-        return new AttackTroopBalanceSnapshot(attackerCount, troopCap, stageReward);
+        int troopCap = resolveCeilScaledValue(configuredTroopCap, referencePlayerCount, ATTACK_TROOP_REFERENCE_PLAYERS);
+        int stageReward = resolveCeilScaledValue(configuredTroopCap, referencePlayerCount, ATTACK_TROOP_REFERENCE_PLAYERS * STAGE_REWARD_DIVISOR);
+        return new AttackTroopBalanceSnapshot(referencePlayerCount, troopCap, stageReward);
+    }
+
+    private int resolveTroopBalanceReferencePlayerCount(RoomDefinition room) {
+        if (room == null) {
+            return 0;
+        }
+        RoomTroopBalanceReference reference = room.breakthroughConfig().troopBalanceReference();
+        if (reference == RoomTroopBalanceReference.DEFENDER) {
+            return countPlayersInTeam(RoomTeamId.CAMP_B);
+        }
+        return countPlayersInTeam(RoomTeamId.CAMP_A);
     }
 
     private int countPlayersInTeam(RoomTeamId teamId) {

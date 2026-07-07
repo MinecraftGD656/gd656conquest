@@ -19,6 +19,7 @@ import org.mods.gd656conquest.server.data.serverconfig.ServerConfigStore;
 import org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService;
 import org.mods.gd656conquest.server.facility.range.RangeInventorySnapshotCodec;
 import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
+import org.mods.gd656conquest.server.player.identity.PlayerIdentityService;
 import org.mods.gd656conquest.server.player.state.HubDimensionService;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
@@ -407,11 +408,12 @@ public final class ParkourRuntimeManager {
         if (!bestTitleId.isBlank()) {
             UUID championId = sorted.isEmpty() ? null : sorted.get(0).playerId();
             Collection<UUID> knownPlayers = playerDataStore.listKnownPlayerIds();
+            PlayerIdentityService identities = PlayerIdentityService.of(server);
             for (UUID uuid : knownPlayers) {
                 if (uuid == null) {
                     continue;
                 }
-                String preferredName = playerDataStore.getPlayerData(uuid).getLastKnownPlayerName();
+                String preferredName = identities.resolvePlayerName(uuid).orElse(uuid.toString());
                 if (uuid.equals(championId)) {
                     titleService.giveTitleDirect(uuid, preferredName, bestTitleId, "跑酷");
                 } else {
@@ -422,7 +424,7 @@ public final class ParkourRuntimeManager {
     }
 
     public List<String> suggestKnownPlayers() {
-        return PlayerTitleService.of(server).suggestKnownPlayerNames();
+        return PlayerIdentityService.of(server).suggestKnownPlayerNames();
     }
 
     public RemoveRecordResult removeRecord(String playerName) {
@@ -782,24 +784,8 @@ public final class ParkourRuntimeManager {
     }
 
     private ResolvedPlayer resolvePlayerByName(String playerName) {
-        if (playerName == null || playerName.isBlank()) {
-            return null;
-        }
-        String normalized = playerName.trim();
-        ServerPlayer online = server.getPlayerList().getPlayerByName(normalized);
-        if (online != null) {
-            return new ResolvedPlayer(online.getUUID(), online.getScoreboardName());
-        }
-        for (UUID uuid : ConquestDataManager.of(server).playerData().listKnownPlayerIds()) {
-            if (uuid == null) {
-                continue;
-            }
-            String knownName = ConquestDataManager.of(server).playerData().getPlayerData(uuid).getLastKnownPlayerName();
-            if (knownName != null && knownName.equalsIgnoreCase(normalized)) {
-                return new ResolvedPlayer(uuid, knownName);
-            }
-        }
-        return null;
+        PlayerIdentityService.ResolvedPlayer resolved = PlayerIdentityService.of(server).resolvePlayer(playerName);
+        return resolved == null ? null : new ResolvedPlayer(resolved.playerId(), resolved.playerName());
     }
 
     private record RecordRow(UUID playerId, String playerName, long bestTimeMillis, long bestUpdatedAtEpochMs) {

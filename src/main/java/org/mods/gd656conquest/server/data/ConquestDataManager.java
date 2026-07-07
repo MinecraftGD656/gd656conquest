@@ -2,6 +2,8 @@ package org.mods.gd656conquest.server.data;
 
 import net.minecraft.server.MinecraftServer;
 import org.mods.gd656conquest.server.data.parkour.ParkourDataStore;
+import org.mods.gd656conquest.server.data.pack.PackAuditLogStore;
+import org.mods.gd656conquest.server.data.pack.PackWhitelistStore;
 import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataStore;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataStore;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
@@ -27,6 +29,8 @@ public final class ConquestDataManager {
     private final WeaponAttachmentDataStore weaponAttachmentDataStore;
     private final VehicleConfigRepository vehicleConfigRepository;
     private final ParkourDataStore parkourDataStore;
+    private final PackWhitelistStore packWhitelistStore;
+    private final PackAuditLogStore packAuditLogStore;
     private final DelayedJsonWriteService delayedJsonWriteService;
     private boolean initialized;
 
@@ -41,6 +45,8 @@ public final class ConquestDataManager {
         this.weaponAttachmentDataStore = new WeaponAttachmentDataStore(server, delayedJsonWriteService);
         this.vehicleConfigRepository = new VehicleConfigRepository(server, delayedJsonWriteService);
         this.parkourDataStore = new ParkourDataStore(server, delayedJsonWriteService);
+        this.packWhitelistStore = new PackWhitelistStore(server, delayedJsonWriteService);
+        this.packAuditLogStore = new PackAuditLogStore(server, delayedJsonWriteService);
     }
 
     public static ConquestDataManager of(MinecraftServer server) {
@@ -70,6 +76,8 @@ public final class ConquestDataManager {
         weaponAttachmentDataStore.initialize();
         vehicleConfigRepository.initialize();
         parkourDataStore.initialize();
+        packWhitelistStore.initialize();
+        packAuditLogStore.initialize();
         initialized = true;
     }
 
@@ -124,5 +132,15 @@ public final class ConquestDataManager {
     public ParkourDataStore parkourData() {
         initialize();
         return parkourDataStore;
+    }
+
+    public PackWhitelistStore packWhitelist() {
+        initialize();
+        return packWhitelistStore;
+    }
+
+    public PackAuditLogStore packAuditLog() {
+        initialize();
+        return packAuditLogStore;
     }
 }

@@ -9,7 +9,6 @@ public final class ServerConfigDataModel {
     private Boolean boolNaturalRegeneration = false;
     private Integer passiveRegenIntervalTicks = 3;
     private Integer passiveRegenStartDelaySeconds = 6;
-    private Integer partyMaxMembers = 4;
     private Double maxScopePistol = 2.0;
     private Double maxScopeSniper = 12.0;
     private Double maxScopeRifle = 6.0;
@@ -25,6 +24,7 @@ public final class ServerConfigDataModel {
     private String parkourCompletionTitleId = "";
     private String parkourBestTitleId = "";
     private RoomVehicleBackend vehicleBackend = RoomVehicleBackend.defaultValue();
+    private Boolean enablePackValidation = false;
 
     public Boolean getBoolOverworldInvulnerable() {
         return boolOverworldInvulnerable;
@@ -64,14 +64,6 @@ public final class ServerConfigDataModel {
 
     public void setPassiveRegenStartDelaySeconds(Integer passiveRegenStartDelaySeconds) {
         this.passiveRegenStartDelaySeconds = passiveRegenStartDelaySeconds;
-    }
-
-    public Integer getPartyMaxMembers() {
-        return partyMaxMembers;
-    }
-
-    public void setPartyMaxMembers(Integer partyMaxMembers) {
-        this.partyMaxMembers = partyMaxMembers;
     }
 
     public Double getMaxScopePistol() {
@@ -192,5 +184,13 @@ public final class ServerConfigDataModel {
 
     public void setVehicleBackend(RoomVehicleBackend vehicleBackend) {
         this.vehicleBackend = vehicleBackend;
+    }
+
+    public Boolean getEnablePackValidation() {
+        return enablePackValidation;
+    }
+
+    public void setEnablePackValidation(Boolean enablePackValidation) {
+        this.enablePackValidation = enablePackValidation;
     }
 }

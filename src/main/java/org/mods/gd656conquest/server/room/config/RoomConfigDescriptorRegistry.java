@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.room.config;
 
 import org.mods.gd656conquest.common.block.ConquestBlocks;
+import org.mods.gd656conquest.server.room.model.RoomTroopBalanceReference;
 import org.mods.gd656conquest.server.room.model.RoomVoicePack;
 
 import java.util.ArrayList;
@@ -82,6 +83,7 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "enableRandomLoadout", "启用随机配备", "commonConfig.enableRandomLoadout", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomLoadout");
         common(descriptors, RoomConfigCategory.RULES, "enableRandomAttachments", "启用房间随机配件", "commonConfig.enableRandomAttachments", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomAttachments");
         common(descriptors, RoomConfigCategory.RULES, "enableParachute", "启用对局降落伞", "commonConfig.enableParachute", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableParachute");
+        common(descriptors, RoomConfigCategory.RULES, "enableDeathSupportDrop", "启用死亡掉落补给包", "commonConfig.enableDeathSupportDrop", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
         common(descriptors, RoomConfigCategory.RESULT, "endViewPosition", "结算视角", "commonConfig.resultConfig.endViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"), "matchEndViewPosition");
 
         common(descriptors, RoomConfigCategory.PLAYER_STATE, "gameMode", "玩家游戏模式", "commonConfig.playerStateConfig.gameMode", RoomConfigValueType.STRING, List.of("SURVIVAL", "ADVENTURE", "CREATIVE", "SPECTATOR"), "playerGameMode");
@@ -108,9 +110,8 @@ public final class RoomConfigDescriptorRegistry {
             "boolDisableInventoryChange",
             "disableInventoryEdit"
         );
-        common(descriptors, RoomConfigCategory.RULES, "outsideBoundaryDeathSeconds", "出界死亡秒数", "commonConfig.outsideBoundaryDeathSeconds", RoomConfigValueType.NUMBER, List.of(), "outOfBoundaryDeathSeconds", "btOutOfBoundaryDeathSeconds");
-        common(descriptors, RoomConfigCategory.RULES, "aircraftOutsideBoundaryCleanupSeconds", "空中载具出界清理秒数", "commonConfig.aircraftOutsideBoundaryCleanupSeconds", RoomConfigValueType.NUMBER, List.of(), "airVehicleOutOfBoundaryCleanupSeconds", "aircraftOutOfBoundaryCleanupSeconds");
-        conquest(descriptors, RoomConfigCategory.TRANSPORT, "deployViewPosition", "部署视角", "conquestConfig.deployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"), "deployPagePosition");
+        common(descriptors, RoomConfigCategory.RULES, "playerMaxY", "玩家最大Y轴", "commonConfig.playerMaxY", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "aircraftPassengerMaxY", "空中载具乘员最大Y轴", "commonConfig.aircraftPassengerMaxY", RoomConfigValueType.NUMBER, List.of());
         conquest(descriptors, RoomConfigCategory.TRANSPORT, "teamDeployIconCampA", "阵营A部署图标", "conquestConfig.teamDeployIcons[CAMP_A]", RoomConfigValueType.POSITION, List.of("here"), "campADeployIconPosition");
         conquest(descriptors, RoomConfigCategory.TRANSPORT, "teamDeployIconCampB", "阵营B部署图标", "conquestConfig.teamDeployIcons[CAMP_B]", RoomConfigValueType.POSITION, List.of("here"), "campBDeployIconPosition");
         conquestGroup(descriptors, RoomConfigCategory.RULES, "sharedBoundary", "公共边界", "conquestConfig.sharedBoundary", RoomConfigValueType.POSITION_GROUP, "gameBoundary");
@@ -157,6 +158,7 @@ public final class RoomConfigDescriptorRegistry {
         breakthrough(descriptors, RoomConfigCategory.RULES, "btDefenderRetreatSeconds", "防守方撤退秒数", "breakthroughConfig.defenderRetreatSeconds", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopGainPerDefenderKill", "守方击杀补充兵力", "breakthroughConfig.troopGainPerDefenderKill", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btMaxAttackTroopsAt12Players", "12人进攻方最大兵力", "breakthroughConfig.maxAttackTroopsAt12Players", RoomConfigValueType.NUMBER, List.of());
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopBalanceReference", "突破兵力计算基准", "breakthroughConfig.troopBalanceReference", RoomConfigValueType.STRING, RoomTroopBalanceReference.suggestions(), "troopBalanceReference");
 
         return List.copyOf(descriptors);
     }

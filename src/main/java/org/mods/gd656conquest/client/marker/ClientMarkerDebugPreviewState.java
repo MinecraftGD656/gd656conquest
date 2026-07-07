@@ -57,7 +57,8 @@ public final class ClientMarkerDebugPreviewState {
             new PreviewEntry("小队永久", TacticalMarkerRenderer.MarkerVisualType.SQUAD_PERSISTENT, false, 1.0F, -1.0F, 1, "engineer"),
             new PreviewEntry("倒地友军", TacticalMarkerRenderer.MarkerVisualType.DOWNED_ALLY, false, 1.0F, helpPulse, 1, "recon"),
             new PreviewEntry("倒地小队", TacticalMarkerRenderer.MarkerVisualType.DOWNED_SQUAD, false, 1.0F, helpPulse, 1, "support"),
-            new PreviewEntry("弹药箱", TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX, false, 1.0F, -1.0F, 2, "")
+            new PreviewEntry("弹药箱", TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX, false, 1.0F, -1.0F, 2, ""),
+            new PreviewEntry("医疗箱", TacticalMarkerRenderer.MarkerVisualType.MEDICAL_BOX, false, 1.0F, -1.0F, 2, "")
         );
         for (int i = 0; i < entries.size(); i++) {
             PreviewEntry entry = entries.get(i);

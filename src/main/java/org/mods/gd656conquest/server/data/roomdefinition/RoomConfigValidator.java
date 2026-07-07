@@ -78,6 +78,12 @@ public final class RoomConfigValidator {
         if (common.aircraftOutsideBoundaryCleanupSeconds() <= 0) {
             result.addMissing("common.aircraftOutsideBoundaryCleanupSeconds", "aircraftOutsideBoundaryCleanupSeconds");
         }
+        if (common.playerMaxY() <= 0) {
+            result.addMissing("common.playerMaxY", "playerMaxY");
+        }
+        if (common.aircraftPassengerMaxY() <= 0) {
+            result.addMissing("common.aircraftPassengerMaxY", "aircraftPassengerMaxY");
+        }
         if (common.campADisplayName() == null || common.campADisplayName().isBlank()) {
             result.addMissing("common.campADisplayName", "campADisplayName");
         }

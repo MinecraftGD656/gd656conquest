@@ -34,7 +34,6 @@ import org.mods.gd656conquest.server.shared.contract.ClickActionSpec;
 import org.mods.gd656conquest.server.shared.text.CommandFeedbacks;
 import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
 import org.mods.gd656conquest.server.shared.text.ServerText;
-import org.mods.gd656conquest.server.social.party.PlayerPartyManager;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -220,11 +219,7 @@ public final class RoomCommands {
             .map(Enum::name)
             .orElse("-");
         String squad = manager.findPlayerSquadLabel(player.getUUID()).orElse("-");
-        PlayerPartyManager partyManager = PlayerPartyManager.of(context.getSource().getServer());
-        String partyInfo = partyManager.getPartyId(player.getUUID())
-            .map(id -> id + (partyManager.isLeader(player.getUUID()) ? " (队长)" : ""))
-            .orElse("-");
-        return CommandFeedbacks.info(context.getSource(), "当前房间: " + roomId + " | 阵营: " + team + " | 小队: " + squad + " | 队伍: " + partyInfo);
+        return CommandFeedbacks.info(context.getSource(), "当前房间: " + roomId + " | 阵营: " + team + " | 小队: " + squad);
     }
 
     private static int executeLeave(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -239,7 +234,7 @@ public final class RoomCommands {
             return replyFailure(context.getSource(), result.deniedMessage());
         }
         if (result.groupAction()) {
-            return replyInfo(context.getSource(), "已由队长发起整队离房，生效人数: " + result.changedCount());
+            return replyInfo(context.getSource(), result.operatorMessage());
         }
         return replyInfo(context.getSource(), result.operatorHadSession() ? "已离开当前房间" : "已离开当前匹配队列");
     }
@@ -291,18 +286,12 @@ public final class RoomCommands {
         if (result.denied()) {
             return replyFailure(source, result.deniedMessage());
         }
-        if (result.groupAction()) {
-            return result.success()
-                ? replyInfo(source, maintenance
-                    ? "已由队长发起整队进入维护房间: " + roomId + " | 生效人数: " + result.handledCount()
-                    : describeGroupJoinMessage(roomId, room, result.handledCount()))
-                : replyFailure(source, maintenance
-                    ? "整队进入维护房间失败: " + roomId
-                    : "整队加入房间失败: " + roomId);
-        }
         boolean joined = result.success();
         if (!joined) {
             return replyFailure(source, maintenance ? "进入维护房间失败: " + roomId : "加入房间失败: " + roomId);
+        }
+        if (result.groupAction() && result.operatorMessage() != null && !result.operatorMessage().isBlank()) {
+            return replyInfo(source, result.operatorMessage());
         }
         if (maintenance) {
             return replyInfo(source, "已进入维护房间: " + roomId);
@@ -331,11 +320,7 @@ public final class RoomCommands {
         for (ServerPlayer target : targets) {
             ServerMessageSender.rawSystem(target, message.copy());
         }
-        PlayerPartyManager partyManager = PlayerPartyManager.of(context.getSource().getServer());
-        String inviterParty = context.getSource().getPlayer() == null
-            ? "-"
-            : partyManager.getPartyId(context.getSource().getPlayer().getUUID()).orElse("-");
-        return CommandFeedbacks.info(context.getSource(), "已发送邀请，人数: " + targets.size() + " | 邀请方队伍: " + inviterParty);
+        return CommandFeedbacks.info(context.getSource(), "已发送邀请，人数: " + targets.size());
     }
 
     private static int executeCurrentCampJoin(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -413,29 +398,9 @@ public final class RoomCommands {
         if (!manager.isInitialized()) {
             return replyFailure(source, ROOM_SERVICE_NOT_INITIALIZED);
         }
-        PlayerPartyManager partyManager = PlayerPartyManager.of(source.getServer());
-        String denied = partyManager.operationDeniedMessageForNonLeader(player.getUUID());
-        if (!denied.isBlank()) {
-            return replyFailure(source, denied);
-        }
         String roomId = manager.findPlayerRoomId(player.getUUID()).orElse(null);
         if (roomId == null) {
             return replyFailure(source, "你当前不在任何房间中");
-        }
-        if (partyManager.isLeader(player.getUUID())) {
-            int accepted = 0;
-            for (java.util.UUID memberId : partyManager.getPartyMembers(player.getUUID())) {
-                ServerPlayer member = source.getServer().getPlayerList().getPlayer(memberId);
-                if (member == null) {
-                    continue;
-                }
-                if (manager.findPlayerRoomId(memberId).filter(roomId::equalsIgnoreCase).isEmpty()) {
-                    continue;
-                }
-                manager.acceptAutoTeamSwitch(roomId, memberId, source.getServer().getTickCount());
-                accepted++;
-            }
-            return replyInfo(source, "已为队伍处理换边确认，尝试人数: " + accepted);
         }
         String result = manager.acceptAutoTeamSwitch(roomId, player.getUUID(), source.getServer().getTickCount());
         return replyInfo(source, result);
@@ -447,27 +412,7 @@ public final class RoomCommands {
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
         }
-        PlayerPartyManager partyManager = PlayerPartyManager.of(context.getSource().getServer());
-        String denied = partyManager.operationDeniedMessageForNonLeader(player.getUUID());
-        if (!denied.isBlank()) {
-            return replyFailure(context.getSource(), denied);
-        }
         String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
-        if (partyManager.isLeader(player.getUUID())) {
-            int accepted = 0;
-            for (java.util.UUID memberId : partyManager.getPartyMembers(player.getUUID())) {
-                ServerPlayer member = context.getSource().getServer().getPlayerList().getPlayer(memberId);
-                if (member == null) {
-                    continue;
-                }
-                if (manager.findPlayerRoomId(memberId).filter(roomId::equalsIgnoreCase).isEmpty()) {
-                    continue;
-                }
-                manager.acceptAutoTeamSwitch(roomId, memberId, context.getSource().getServer().getTickCount());
-                accepted++;
-            }
-            return replyInfo(context.getSource(), "已为队伍处理换边确认，尝试人数: " + accepted);
-        }
         String result = manager.acceptAutoTeamSwitch(roomId, player.getUUID(), context.getSource().getServer().getTickCount());
         return replyInfo(context.getSource(), result);
     }
@@ -806,11 +751,7 @@ public final class RoomCommands {
             .map(Enum::name)
             .orElse("-");
         String squad = manager.findPlayerSquadLabel(player.getUUID()).orElse("-");
-        PlayerPartyManager partyManager = PlayerPartyManager.of(source.getServer());
-        String partyInfo = partyManager.getPartyId(player.getUUID())
-            .map(id -> id + (partyManager.isLeader(player.getUUID()) ? " (队长)" : ""))
-            .orElse("-");
-        return CommandFeedbacks.info(source, "房间 " + roomId + " | 阵营: " + team + " | 小队: " + squad + " | 队伍: " + partyInfo);
+        return CommandFeedbacks.info(source, "房间 " + roomId + " | 阵营: " + team + " | 小队: " + squad);
     }
 
     private static RoomTeamId parseTeamId(String raw) throws CommandSyntaxException {
@@ -938,16 +879,6 @@ public final class RoomCommands {
 
     private static int replyFailure(CommandSourceStack source, String message) {
         return CommandFeedbacks.failure(source, message);
-    }
-
-    private static String describeGroupJoinMessage(String roomId, RoomDefinition room, int joinedCount) {
-        if (room != null && room.lifecycleState() == RoomLifecycleState.RUNNING) {
-            return "已由队长发起整队加入进行中的对局: " + roomId + " | 生效人数: " + joinedCount;
-        }
-        if (room != null && room.lifecycleState() == RoomLifecycleState.ENDING) {
-            return "已由队长发起整队重连当前对局结算: " + roomId + " | 生效人数: " + joinedCount;
-        }
-        return "已由队长发起整队加入房间匹配: " + roomId + " | 生效人数: " + joinedCount;
     }
 
     private static String describeSingleJoinMessage(

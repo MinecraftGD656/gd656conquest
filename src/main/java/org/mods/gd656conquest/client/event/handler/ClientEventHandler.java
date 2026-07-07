@@ -27,7 +27,9 @@ import org.mods.gd656conquest.client.marker.ClientMarkerDebugPreviewState;
 import org.mods.gd656conquest.client.marker.ClientRoomMarkerState;
 import org.mods.gd656conquest.client.parkour.ClientParkourLeaderboardState;
 import org.mods.gd656conquest.client.parkour.ClientParkourRuntimeState;
+import org.mods.gd656conquest.client.pack.ClientPackAuditService;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
+import org.mods.gd656conquest.client.room.ClientBoundaryHeightReportService;
 import org.mods.gd656conquest.client.room.ClientDownedState;
 import org.mods.gd656conquest.client.room.ClientReviveState;
 import org.mods.gd656conquest.client.room.ClientRoomLockState;
@@ -81,6 +83,8 @@ public final class ClientEventHandler {
         ClientRoomMarkerState.tick();
         ClientParkourRuntimeState.tick(minecraft);
         ClientDeathFlowState.tick();
+        ClientPackAuditService.tick(minecraft);
+        ClientBoundaryHeightReportService.tick(minecraft);
         ClientDownedState.tick();
         ClientReviveState.tick();
         ClientMatchResultOverlayState.tick();
@@ -192,6 +196,8 @@ public final class ClientEventHandler {
         ClientParkourLeaderboardState.clear();
         ClientMatchResultOverlayState.clear();
         ClientDeathFlowState.clear();
+        ClientPackAuditService.clear();
+        ClientBoundaryHeightReportService.clear();
         ClientDownedState.clear();
         ClientReviveState.reset();
         ClientRoomLockState.reset();

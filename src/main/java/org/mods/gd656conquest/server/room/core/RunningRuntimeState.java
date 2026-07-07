@@ -62,6 +62,9 @@ public final class RunningRuntimeState {
     private final Map<UUID, Integer> boundaryPenaltyLastShownSeconds = new LinkedHashMap<>();
     private final Set<UUID> boundaryPenaltyVisualApplied = new LinkedHashSet<>();
     private final Set<UUID> boundaryDeathPendingPlayers = new LinkedHashSet<>();
+    private final Map<UUID, Long> boundaryHeightReportTicks = new LinkedHashMap<>();
+    private final Set<UUID> boundaryPlayerMaxYReportedPlayers = new LinkedHashSet<>();
+    private final Set<UUID> boundaryAircraftMaxYReportedPlayers = new LinkedHashSet<>();
     private final Map<UUID, TacticalMarker> tacticalMarkersByOwner = new LinkedHashMap<>();
     private final Map<UUID, TacticalMarker> autoTacticalMarkersByOwner = new LinkedHashMap<>();
     private final Map<String, TeamScopedTacticalMarker> gameplayTacticalMarkersByKey = new LinkedHashMap<>();
@@ -325,6 +328,18 @@ public final class RunningRuntimeState {
         return boundaryDeathPendingPlayers;
     }
 
+    public Map<UUID, Long> getBoundaryHeightReportTicks() {
+        return boundaryHeightReportTicks;
+    }
+
+    public Set<UUID> getBoundaryPlayerMaxYReportedPlayers() {
+        return boundaryPlayerMaxYReportedPlayers;
+    }
+
+    public Set<UUID> getBoundaryAircraftMaxYReportedPlayers() {
+        return boundaryAircraftMaxYReportedPlayers;
+    }
+
     public Map<UUID, TacticalMarker> getTacticalMarkersByOwner() {
         return tacticalMarkersByOwner;
     }
@@ -482,6 +497,9 @@ public final class RunningRuntimeState {
         boundaryPenaltyLastShownSeconds.remove(playerId);
         boundaryPenaltyVisualApplied.remove(playerId);
         boundaryDeathPendingPlayers.remove(playerId);
+        boundaryHeightReportTicks.remove(playerId);
+        boundaryPlayerMaxYReportedPlayers.remove(playerId);
+        boundaryAircraftMaxYReportedPlayers.remove(playerId);
         tacticalMarkersByOwner.remove(playerId);
         autoTacticalMarkersByOwner.remove(playerId);
         gameplayTacticalMarkersByKey.entrySet().removeIf(entry -> {
@@ -535,6 +553,9 @@ public final class RunningRuntimeState {
         boundaryPenaltyVisualApplied.clear();
         boundaryDeathPendingPlayers.clear();
         aircraftOutsideBoundarySinceTicks.clear();
+        boundaryHeightReportTicks.clear();
+        boundaryPlayerMaxYReportedPlayers.clear();
+        boundaryAircraftMaxYReportedPlayers.clear();
         tacticalMarkersByOwner.clear();
         autoTacticalMarkersByOwner.clear();
         gameplayTacticalMarkersByKey.clear();

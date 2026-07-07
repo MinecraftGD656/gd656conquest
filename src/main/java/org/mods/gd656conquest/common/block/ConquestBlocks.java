@@ -22,6 +22,7 @@ import java.util.Optional;
 public final class ConquestBlocks {
     private static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, Gd656conquest.MODID);
     private static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, Gd656conquest.MODID);
+    private static final String OOB_BLOCK_ID = "oob_block";
     private static final String[] CAPTURE_CODES = new String[]{
             "A", "A1", "A2", "A3",
             "B", "B1", "B2", "B3",
@@ -32,6 +33,9 @@ public final class ConquestBlocks {
     };
     private static final Map<String, RegistryObject<Block>> CAPTURE_BLOCKS = new LinkedHashMap<>();
     private static final Map<String, RegistryObject<Item>> CAPTURE_BLOCK_ITEMS = new LinkedHashMap<>();
+    private static final RegistryObject<Block> OOB_BLOCK = BLOCKS.register(OOB_BLOCK_ID, () ->
+            new CapturePointBlock(BlockBehaviour.Properties.of().noCollission().noLootTable().noOcclusion().strength(-1.0F, 3600000.0F)));
+    private static final RegistryObject<Item> OOB_BLOCK_ITEM = ITEMS.register(OOB_BLOCK_ID, () -> new BlockItem(OOB_BLOCK.get(), new Item.Properties()));
     private static final RegistryObject<Block> CAPTURE_CENTER_VISUAL = BLOCKS.register("capture_point_center_visual", () ->
             new Block(BlockBehaviour.Properties.of().noCollission().noLootTable().noOcclusion().strength(-1.0F, 3600000.0F)));
 
@@ -65,6 +69,10 @@ public final class ConquestBlocks {
             }
         }
         return false;
+    }
+
+    public static boolean isOutOfBoundsBlock(BlockState state) {
+        return state != null && state.is(OOB_BLOCK.get());
     }
 
     public static Optional<String> resolveCaptureCode(BlockState state) {

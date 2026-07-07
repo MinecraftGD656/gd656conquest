@@ -13,7 +13,8 @@ import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.runtime.RoomListPresentationService;
 import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
-import org.mods.gd656conquest.server.social.party.PlayerPartyManager;
+import org.mods.gd656conquest.server.social.party.presentation.PartyActionController;
+import org.mods.gd656conquest.server.social.party.presentation.PartyUiFacade;
 import org.mods.gd656conquest.server.title.PlayerTitleService;
 
 import java.util.Comparator;
@@ -36,7 +37,7 @@ public final class QuickAccessItemService {
     public enum Action {
         QUICK_JOIN,
         ROOM_LIST,
-        PARTY_GUIDE,
+        PARTY_HELP,
         MY_TITLE,
         LOADOUT_GUIDE,
         ENTER_RANGE,
@@ -59,7 +60,7 @@ public final class QuickAccessItemService {
         boolean success = switch (action) {
             case QUICK_JOIN -> quickJoin(player);
             case ROOM_LIST -> showRoomList(player);
-            case PARTY_GUIDE -> showPartyGuide(player);
+            case PARTY_HELP -> showPartyHelp(player);
             case MY_TITLE -> showMyTitles(player);
             case LOADOUT_GUIDE -> showLoadoutGuide(player);
             case ENTER_RANGE -> enterRange(player);
@@ -108,15 +109,13 @@ public final class QuickAccessItemService {
             sendError(player, result.deniedMessage());
             return false;
         }
-        if (result.groupAction()) {
-            sendInfo(player, "已由队长发起组队快速加入，生效人数: " + result.handledCount());
-            return result.success();
-        }
         boolean joined = result.success();
         String message = joined
             ? (target.lifecycleState() == RoomLifecycleState.MAINTENANCE
                 ? "已进入维护房间: " + target.displayName()
-                : describeJoinSuccess(target, result.operatorJoinResult()))
+                : (result.groupAction() && result.operatorMessage() != null && !result.operatorMessage().isBlank()
+                    ? result.operatorMessage()
+                    : describeJoinSuccess(target, result.operatorJoinResult())))
             : "加入房间失败: " + target.displayName();
         sendSystem(player, message, joined ? ChatFormatting.AQUA : ChatFormatting.RED);
         return joined;
@@ -142,24 +141,13 @@ public final class QuickAccessItemService {
         return true;
     }
 
-    private static boolean showPartyGuide(ServerPlayer player) {
-        PlayerPartyManager partyManager = PlayerPartyManager.of(player.server);
-        List<String> lines = partyManager.isInParty(player.getUUID())
-            ? partyManager.describeCurrentParty(player)
-            : partyManager.describeAllParties();
-        player.sendSystemMessage(Component.literal("========== 组队信息 ==========").withStyle(ChatFormatting.GOLD));
-        for (String line : lines) {
-            player.sendSystemMessage(Component.literal(line).withStyle(ChatFormatting.AQUA));
-        }
-        if (!partyManager.isInParty(player.getUUID())) {
-            player.sendSystemMessage(Component.literal("可使用 /gdc party create 或 /gdc party teamlist").withStyle(ChatFormatting.GRAY));
-        }
-        return true;
-    }
-
     private static boolean showMyTitles(ServerPlayer player) {
         PlayerTitleService.of(player.server).sendMyTitleList(player);
         return true;
+    }
+
+    private static boolean showPartyHelp(ServerPlayer player) {
+        return PartyActionController.openHelp(player);
     }
 
     private static boolean showLoadoutGuide(ServerPlayer player) {
@@ -188,10 +176,6 @@ public final class QuickAccessItemService {
             sendError(player, result.deniedMessage());
             return false;
         }
-        if (result.groupAction()) {
-            sendInfo(player, "已由队长发起组队离房，生效人数: " + result.changedCount());
-            return result.success();
-        }
         if (!result.success()) {
             sendError(player, "当前不在对局、靶场或跑酷中，无法离开");
             return false;
@@ -201,14 +185,7 @@ public final class QuickAccessItemService {
     }
 
     private static boolean leaveParty(ServerPlayer player) {
-        PlayerPartyManager partyManager = PlayerPartyManager.of(player.server);
-        if (!partyManager.isInParty(player.getUUID())) {
-            sendError(player, "你当前不在任何队伍中");
-            return false;
-        }
-        String result = partyManager.leave(player);
-        sendInfo(player, result);
-        return true;
+        return PartyActionController.leaveFromQuickItem(player);
     }
 
     private static void sendInfo(ServerPlayer player, String message) {
@@ -229,8 +206,8 @@ public final class QuickAccessItemService {
 
     private static boolean shouldRefreshAfterUse(Action action) {
         return action == Action.ROOM_LIST
-            || action == Action.PARTY_GUIDE
-            || action == Action.LOADOUT_GUIDE;
+            || action == Action.LOADOUT_GUIDE
+            || action == Action.LEAVE_PARTY;
     }
 
     private static RoomDefinition selectQuickJoinTarget(List<RoomDefinition> joinables, RoomCoreRuntimeManager coreManager, java.util.UUID playerId) {

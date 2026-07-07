@@ -9,6 +9,7 @@ import org.mods.gd656conquest.server.room.model.RoomMatchingConfig;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
+import org.mods.gd656conquest.server.room.model.RoomTroopBalanceReference;
 import org.mods.gd656conquest.server.room.model.RoomViewPosition;
 import org.mods.gd656conquest.server.room.model.RoomVoicePack;
 
@@ -205,7 +206,8 @@ public final class RoomDefinitionScalarConfigEditor {
 
     private static boolean requiresPositiveInt(String configId) {
         return switch (configId) {
-            case "minstartplayers", "queuemaxplayers", "outsideboundarydeathseconds", "btoutsideboundarydeathseconds", "aircraftoutsideboundarycleanupseconds" -> true;
+            case "minstartplayers", "queuemaxplayers", "outsideboundarydeathseconds", "btoutsideboundarydeathseconds",
+                "aircraftoutsideboundarycleanupseconds", "playermaxy", "aircraftpassengermaxy" -> true;
             default -> false;
         };
     }
@@ -215,6 +217,7 @@ public final class RoomDefinitionScalarConfigEditor {
             case "gameplayid" -> parseGameplayId(rawValue);
             case "gamemode" -> parseGameMode(rawValue);
             case "campavoicepack", "campbvoicepack" -> RoomVoicePack.normalizeOrThrow(rawValue);
+            case "troopbalancereference" -> RoomTroopBalanceReference.of(rawValue);
             case "scoremethod" -> parseScoreMethod(rawValue);
             case "initialcaptureownership" -> parseInitialCaptureOwnership(rawValue);
             default -> parseQuotedString(rawValue);

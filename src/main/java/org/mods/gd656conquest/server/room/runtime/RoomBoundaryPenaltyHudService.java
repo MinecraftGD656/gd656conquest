@@ -7,7 +7,6 @@ import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.level.ServerPlayer;
-import org.mods.gd656conquest.server.compat.vehicle.VehicleCompatFacade;
 import org.mods.gd656conquest.server.social.chat.ServerActionBarService;
 
 public final class RoomBoundaryPenaltyHudService {
@@ -26,11 +25,11 @@ public final class RoomBoundaryPenaltyHudService {
     private static final int BOUNDARY_COUNTDOWN_ORANGE_COLOR = 0xFF9900;
     private static final int BOUNDARY_COUNTDOWN_RED_COLOR = 0xFF5555;
 
-    public void sendBoundaryTitle(ServerPlayer player, int remainingSeconds, boolean refreshAnimation) {
+    public void sendBoundaryTitle(ServerPlayer player, int remainingSeconds, boolean refreshAnimation, boolean aircraftStyle) {
         if (player == null || player.connection == null) {
             return;
         }
-        if (VehicleCompatFacade.isAircraftEntity(player.getVehicle())) {
+        if (aircraftStyle) {
             ServerActionBarService.showBuilder(
                 player,
                 ACTIONBAR_SOURCE_BOUNDARY_AIRCRAFT,

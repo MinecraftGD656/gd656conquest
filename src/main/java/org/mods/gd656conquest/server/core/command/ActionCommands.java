@@ -10,7 +10,7 @@ import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.room.entry.RoomCommands;
 import org.mods.gd656conquest.server.shared.text.CommandFeedbacks;
 import org.mods.gd656conquest.server.social.chat.ChatChannelNoticeService;
-import org.mods.gd656conquest.server.social.party.PlayerPartyManager;
+import org.mods.gd656conquest.server.social.party.presentation.PartyActionController;
 import org.mods.gd656conquest.server.title.PlayerTitleService;
 
 public final class ActionCommands {
@@ -24,15 +24,13 @@ public final class ActionCommands {
             .then(Commands.literal("joinroom")
                 .then(Commands.argument("roomId", StringArgumentType.word())
                     .executes(ActionCommands::executeJoinRoom)))
-            .then(Commands.literal("joinparty")
-                .then(Commands.argument("id", StringArgumentType.word())
-                    .executes(ActionCommands::executeJoinParty)))
-            .then(Commands.literal("acceptparty")
-                .then(Commands.argument("player", StringArgumentType.word())
-                    .executes(ActionCommands::executeAcceptParty)))
-            .then(Commands.literal("refuseparty")
-                .then(Commands.argument("player", StringArgumentType.word())
-                    .executes(ActionCommands::executeRefuseParty)))
+            .then(Commands.literal("party")
+                .then(Commands.literal("accept")
+                    .then(Commands.argument("requestId", StringArgumentType.word())
+                        .executes(context -> PartyActionController.executeAccept(context, StringArgumentType.getString(context, "requestId")))))
+                .then(Commands.literal("refuse")
+                    .then(Commands.argument("requestId", StringArgumentType.word())
+                        .executes(context -> PartyActionController.executeRefuse(context, StringArgumentType.getString(context, "requestId"))))))
             .then(Commands.literal("weartitle")
                 .then(Commands.argument("titleId", StringArgumentType.word())
                     .executes(ActionCommands::executeWearTitle)))
@@ -51,30 +49,6 @@ public final class ActionCommands {
 
     private static int executeJoinRoom(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         return RoomCommands.executeJoinById(context.getSource(), StringArgumentType.getString(context, "roomId"));
-    }
-
-    private static int executeJoinParty(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ServerPlayer player = context.getSource().getPlayerOrException();
-        return CommandFeedbacks.info(
-            context.getSource(),
-            PlayerPartyManager.of(context.getSource().getServer()).requestJoin(player, StringArgumentType.getString(context, "id"))
-        );
-    }
-
-    private static int executeAcceptParty(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ServerPlayer player = context.getSource().getPlayerOrException();
-        return CommandFeedbacks.info(
-            context.getSource(),
-            PlayerPartyManager.of(context.getSource().getServer()).accept(player, StringArgumentType.getString(context, "player"))
-        );
-    }
-
-    private static int executeRefuseParty(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ServerPlayer player = context.getSource().getPlayerOrException();
-        return CommandFeedbacks.info(
-            context.getSource(),
-            PlayerPartyManager.of(context.getSource().getServer()).refuse(player, StringArgumentType.getString(context, "player"), 0)
-        );
     }
 
     private static int executeWearTitle(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

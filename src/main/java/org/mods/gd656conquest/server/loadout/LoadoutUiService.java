@@ -1077,9 +1077,7 @@ public final class LoadoutUiService {
                 sendError(player, result.deniedMessage());
                 return;
             }
-            sendInfo(player, result.groupAction()
-                ? "已由队长发起整队返回大厅，生效人数: " + result.changedCount()
-                : result.operatorMessage());
+            sendInfo(player, result.operatorMessage());
             return;
         }
         sendError(player, "当前不在房间或靶场中");

@@ -49,6 +49,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public final class LoadoutCommands {
+    private static final int EQUIPMENT_UNLOCK_LEVEL_MAX = 1000;
     private static final DynamicCommandExceptionType INVALID_SLOT = new DynamicCommandExceptionType(
         value -> Component.literal("非法槽位: " + value)
     );
@@ -62,7 +63,9 @@ public final class LoadoutCommands {
         value -> Component.literal("非法阵营: " + value + "，仅支持 campA/campB")
     );
     private static final SimpleCommandExceptionType EMPTY_HAND = new SimpleCommandExceptionType(Component.literal("请先手持一个物品再执行 additem"));
-    private static final SimpleCommandExceptionType INVALID_LEVEL = new SimpleCommandExceptionType(Component.literal("level 仅支持 0~100"));
+    private static final SimpleCommandExceptionType INVALID_LEVEL = new SimpleCommandExceptionType(
+        Component.literal("level 仅支持 0~" + EQUIPMENT_UNLOCK_LEVEL_MAX)
+    );
     private static final SimpleCommandExceptionType INVALID_EXTRA_SPECIAL_GUN = new SimpleCommandExceptionType(Component.literal("当前手持 TACZ 或 SBW 枪械时，extraData 必须为正整数"));
     private static final SimpleCommandExceptionType INVALID_AVAILABLE_CLASSES = new SimpleCommandExceptionType(Component.literal("availableClasses 至少包含 1~4 中的一个数字"));
 
@@ -211,7 +214,7 @@ public final class LoadoutCommands {
             .suggests(LoadoutCommands::suggestAddItemSlotValues)
             .then(Commands.argument("id", StringArgumentType.string())
                 .then(Commands.argument("extradata", IntegerArgumentType.integer(0))
-                    .then(Commands.argument("level", IntegerArgumentType.integer(0, 100))
+                    .then(Commands.argument("level", IntegerArgumentType.integer(0, EQUIPMENT_UNLOCK_LEVEL_MAX))
                         .then(Commands.argument("availableclasses", IntegerArgumentType.integer(1))
                             .executes(LoadoutCommands::executeAddItem)
                             .then(Commands.argument("replenishseconds", IntegerArgumentType.integer(0))
@@ -316,7 +319,7 @@ public final class LoadoutCommands {
             ammoBoxRefillEnabled = BoolArgumentType.getBool(context, "ammoboxrefillenabled");
         } catch (IllegalArgumentException ignored) {
         }
-        if (level < 0 || level > 100) {
+        if (level < 0 || level > EQUIPMENT_UNLOCK_LEVEL_MAX) {
             throw INVALID_LEVEL.create();
         }
         if (PlayerClassType.parseAvailableDigits(availableClasses).isEmpty()) {

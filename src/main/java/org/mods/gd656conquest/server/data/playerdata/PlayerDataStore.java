@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Optional;
 
 public final class PlayerDataStore extends JsonDataStoreSupport {
     private final MinecraftServer server;
@@ -114,6 +115,39 @@ public final class PlayerDataStore extends JsonDataStoreSupport {
         PlayerDataModel resolved = data == null ? new PlayerDataModel() : data;
         cache.put(uuid, resolved);
         delayedJsonWriteService.schedule(ServerDataPaths.getPlayerDataFile(server, uuid.toString()), resolved, server.getTickCount());
+    }
+
+    public synchronized Optional<String> findLastKnownPlayerName(UUID uuid) {
+        if (uuid == null) {
+            return Optional.empty();
+        }
+        PlayerDataModel cached = cache.get(uuid);
+        if (cached != null) {
+            String cachedName = cached.getLastKnownPlayerName().trim();
+            return cachedName.isBlank() ? Optional.empty() : Optional.of(cachedName);
+        }
+        Path file = ServerDataPaths.getPlayerDataFile(server, uuid.toString());
+        if (!Files.isRegularFile(file)) {
+            return Optional.empty();
+        }
+        String lastKnownPlayerName = getPlayerData(uuid).getLastKnownPlayerName().trim();
+        return lastKnownPlayerName.isBlank() ? Optional.empty() : Optional.of(lastKnownPlayerName);
+    }
+
+    public synchronized void updateLastKnownPlayerName(UUID uuid, String playerName) {
+        if (uuid == null) {
+            return;
+        }
+        String normalizedName = playerName == null ? "" : playerName.trim();
+        if (normalizedName.isBlank()) {
+            return;
+        }
+        PlayerDataModel data = getPlayerData(uuid);
+        if (normalizedName.equals(data.getLastKnownPlayerName())) {
+            return;
+        }
+        data.setLastKnownPlayerName(normalizedName);
+        savePlayerData(uuid, data);
     }
 
     public synchronized List<UUID> listKnownPlayerIds() {

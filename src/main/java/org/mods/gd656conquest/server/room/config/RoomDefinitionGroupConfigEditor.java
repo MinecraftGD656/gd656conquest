@@ -203,7 +203,8 @@ public final class RoomDefinitionGroupConfigEditor {
                 breakthrough.stageDurationMinutes(),
                 breakthrough.defenderRetreatSeconds(),
                 breakthrough.troopGainPerDefenderKill(),
-                breakthrough.maxAttackTroopsAt12Players()
+                breakthrough.maxAttackTroopsAt12Players(),
+                breakthrough.troopBalanceReference()
             ));
         }
         if ("btcampbbasespawngroup".equals(canonical)) {
@@ -235,7 +236,8 @@ public final class RoomDefinitionGroupConfigEditor {
                 breakthrough.stageDurationMinutes(),
                 breakthrough.defenderRetreatSeconds(),
                 breakthrough.troopGainPerDefenderKill(),
-                breakthrough.maxAttackTroopsAt12Players()
+                breakthrough.maxAttackTroopsAt12Players(),
+                breakthrough.troopBalanceReference()
             ));
         }
         if (canonical.startsWith("captureinnerspawngroup_")) {
@@ -344,7 +346,8 @@ public final class RoomDefinitionGroupConfigEditor {
             breakthrough.stageDurationMinutes(),
             breakthrough.defenderRetreatSeconds(),
             breakthrough.troopGainPerDefenderKill(),
-            breakthrough.maxAttackTroopsAt12Players()
+            breakthrough.maxAttackTroopsAt12Players(),
+            breakthrough.troopBalanceReference()
         ));
     }
 
@@ -464,7 +467,8 @@ public final class RoomDefinitionGroupConfigEditor {
             breakthrough.stageDurationMinutes(),
             breakthrough.defenderRetreatSeconds(),
             breakthrough.troopGainPerDefenderKill(),
-            breakthrough.maxAttackTroopsAt12Players()
+            breakthrough.maxAttackTroopsAt12Players(),
+            breakthrough.troopBalanceReference()
         ));
     }
 

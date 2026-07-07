@@ -49,6 +49,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 public final class RoomPlayerLoadoutService {
+    private static final String RANDOM_ATTACHMENT_NONE_SELECTION_ID = "__none__";
+    private static final int RANDOM_ATTACHMENT_WITH_ITEM_WEIGHT = 3;
+    private static final int RANDOM_ATTACHMENT_NONE_WEIGHT = 1;
     private static final int PRIMARY_WEAPON_HOTBAR_SLOT = 0;
     private static final int SECONDARY_WEAPON_HOTBAR_SLOT = 1;
     private static final int MELEE_HOTBAR_SLOT = 2;
@@ -84,7 +87,7 @@ public final class RoomPlayerLoadoutService {
         if (state == null || player == null || player.server == null) {
             return;
         }
-        applyLoadout(resolvePlayerRoom(player), state, state.getRoomTeams().get(player.getUUID()), player, true, true, true);
+        applyLoadout(resolvePlayerRoom(player), state, state.getRoomTeams().get(player.getUUID()), player, true, true, true, true);
         initializeConsumableReplenishBaseline(state, player, server.getTickCount());
     }
 
@@ -92,17 +95,17 @@ public final class RoomPlayerLoadoutService {
         if (player == null || player.server == null) {
             return;
         }
-        applyLoadout(null, null, null, player, grantTaczAmmo, false, false);
+        applyLoadout(null, null, null, player, grantTaczAmmo, false, false, true);
     }
 
     public boolean tryRefillLoadoutByAmmoBox(RoomTeamId teamId, ServerPlayer player) {
         if (teamId == null || player == null || player.server == null) {
             return false;
         }
-        Map<Integer, ItemStack> blockedSnapshots = snapshotAmmoBoxBlockedSlots(player);
+        AmmoBoxBlockedState blockedState = snapshotAmmoBoxBlockedState(player);
         RoomRuntimeContext roomContext = resolveRoomRuntimeContext(player);
-        applyLoadout(roomContext.room(), roomContext.state(), teamId, player, true, true, false);
-        restoreBlockedSlots(player, blockedSnapshots);
+        applyLoadout(roomContext.room(), roomContext.state(), teamId, player, true, true, false, !blockedState.blockTotemOffhandAutoMove());
+        restoreBlockedState(player, blockedState);
         return true;
     }
 
@@ -113,7 +116,8 @@ public final class RoomPlayerLoadoutService {
         ServerPlayer player,
         boolean grantTaczAmmo,
         boolean grantArmor,
-        boolean refreshRandomSelection
+        boolean refreshRandomSelection,
+        boolean moveTotemToOffhand
     ) {
         if (player == null || player.server == null) {
             return;
@@ -181,7 +185,9 @@ public final class RoomPlayerLoadoutService {
         if (grantArmor && teamId != null) {
             applyArmorLoadout(player, equipmentData, classType, teamId);
         }
-        moveConfiguredTotemToOffhand(player);
+        if (moveTotemToOffhand) {
+            moveConfiguredTotemToOffhand(player);
+        }
         applyOptionalRoomGoatHorn(player);
         applyOptionalParachute(roomContext, player);
         if (selection.playerDataChanged()) {
@@ -191,14 +197,14 @@ public final class RoomPlayerLoadoutService {
         player.containerMenu.broadcastChanges();
     }
 
-    private Map<Integer, ItemStack> snapshotAmmoBoxBlockedSlots(ServerPlayer player) {
+    private AmmoBoxBlockedState snapshotAmmoBoxBlockedState(ServerPlayer player) {
         if (player == null || player.server == null) {
-            return Map.of();
+            return AmmoBoxBlockedState.empty();
         }
         ConquestDataManager dataManager = ConquestDataManager.of(server);
         EquipmentDataModel equipmentData = dataManager.equipmentData().getData();
         if (equipmentData == null) {
-            return Map.of();
+            return AmmoBoxBlockedState.empty();
         }
         if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false)) {
             equipmentData = dataManager.equipmentData().getData();
@@ -215,6 +221,7 @@ public final class RoomPlayerLoadoutService {
             false
         );
         Map<Integer, ItemStack> snapshots = new HashMap<>();
+        boolean blockTotemOffhandAutoMove = false;
         for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
             EquipmentDataModel.EquipmentEntry selectedEntry = selection.entriesBySlot().get(slot);
             if (selectedEntry == null || selectedEntry.isAmmoBoxRefillEnabled()) {
@@ -225,21 +232,30 @@ public final class RoomPlayerLoadoutService {
                 continue;
             }
             snapshots.put(hotbarSlot, player.getInventory().getItem(hotbarSlot).copy());
+            ItemStack configuredStack = deserializeEquipmentItem(selectedEntry.getItemSnbt());
+            if (!configuredStack.isEmpty() && configuredStack.is(Items.TOTEM_OF_UNDYING)) {
+                blockTotemOffhandAutoMove = true;
+            }
         }
-        return snapshots;
+        ItemStack offhandSnapshot = blockTotemOffhandAutoMove ? player.getOffhandItem().copy() : ItemStack.EMPTY;
+        return new AmmoBoxBlockedState(Map.copyOf(snapshots), offhandSnapshot, blockTotemOffhandAutoMove);
     }
 
-    private void restoreBlockedSlots(ServerPlayer player, Map<Integer, ItemStack> snapshots) {
-        if (player == null || snapshots == null || snapshots.isEmpty()) {
+    private void restoreBlockedState(ServerPlayer player, AmmoBoxBlockedState blockedState) {
+        if (player == null || blockedState == null) {
             return;
         }
-        for (Map.Entry<Integer, ItemStack> entry : snapshots.entrySet()) {
+        for (Map.Entry<Integer, ItemStack> entry : blockedState.slotSnapshots().entrySet()) {
             Integer slot = entry.getKey();
             if (slot == null || slot < 0 || slot >= player.getInventory().items.size()) {
                 continue;
             }
             ItemStack restore = entry.getValue();
             player.getInventory().setItem(slot, restore == null ? ItemStack.EMPTY : restore.copy());
+        }
+        if (blockedState.blockTotemOffhandAutoMove()) {
+            ItemStack offhandSnapshot = blockedState.offhandSnapshot();
+            player.setItemSlot(EquipmentSlot.OFFHAND, offhandSnapshot == null ? ItemStack.EMPTY : offhandSnapshot.copy());
         }
         player.getInventory().setChanged();
         player.containerMenu.broadcastChanges();
@@ -400,7 +416,7 @@ public final class RoomPlayerLoadoutService {
                 continue;
             }
             attachmentCompatService.unloadAttachment(gunStack, attachmentType);
-            WeaponAttachmentDataModel.WeaponAttachmentEntry chosen = resolveRandomAttachmentChoice(
+            RandomAttachmentChoice chosen = resolveRandomAttachmentChoice(
                 player,
                 gunStack,
                 candidates,
@@ -410,11 +426,19 @@ public final class RoomPlayerLoadoutService {
             if (chosen == null) {
                 continue;
             }
-            ItemStack attachmentStack = attachmentCompatService.deserializeStack(chosen.getItemSnbt());
+            if (chosen.explicitNone()) {
+                resolvedSelection.put(attachmentType, RANDOM_ATTACHMENT_NONE_SELECTION_ID);
+                continue;
+            }
+            WeaponAttachmentDataModel.WeaponAttachmentEntry chosenEntry = chosen.entry();
+            if (chosenEntry == null) {
+                continue;
+            }
+            ItemStack attachmentStack = attachmentCompatService.deserializeStack(chosenEntry.getItemSnbt());
             if (attachmentStack.isEmpty() || !attachmentCompatService.installAttachment(gunStack, attachmentStack)) {
                 continue;
             }
-            resolvedSelection.put(attachmentType, WeaponAttachmentService.normalizeAttachmentId(chosen.getId()));
+            resolvedSelection.put(attachmentType, chosen.selectionId());
         }
         if (resolvedSelection.isEmpty()) {
             byLoadoutEntry.remove(normalizedLoadoutEntryId);
@@ -462,7 +486,7 @@ public final class RoomPlayerLoadoutService {
         return candidatesByType.isEmpty() ? Map.of() : candidatesByType;
     }
 
-    private WeaponAttachmentDataModel.WeaponAttachmentEntry resolveRandomAttachmentChoice(
+    private RandomAttachmentChoice resolveRandomAttachmentChoice(
         ServerPlayer player,
         ItemStack currentGunStack,
         List<WeaponAttachmentDataModel.WeaponAttachmentEntry> candidates,
@@ -472,6 +496,9 @@ public final class RoomPlayerLoadoutService {
         if (player == null || currentGunStack == null || currentGunStack.isEmpty() || candidates == null || candidates.isEmpty()) {
             return null;
         }
+        if (RANDOM_ATTACHMENT_NONE_SELECTION_ID.equalsIgnoreCase(storedAttachmentId == null ? "" : storedAttachmentId.trim())) {
+            return RandomAttachmentChoice.none();
+        }
         String normalizedStoredAttachmentId = WeaponAttachmentService.normalizeAttachmentId(storedAttachmentId);
         if (!normalizedStoredAttachmentId.isBlank()) {
             for (WeaponAttachmentDataModel.WeaponAttachmentEntry candidate : candidates) {
@@ -480,7 +507,7 @@ public final class RoomPlayerLoadoutService {
                 }
                 ItemStack attachmentStack = attachmentCompatService.deserializeStack(candidate.getItemSnbt());
                 if (!attachmentStack.isEmpty() && attachmentCompatService.allowAttachment(currentGunStack, attachmentStack)) {
-                    return candidate;
+                    return RandomAttachmentChoice.withEntry(candidate);
                 }
                 break;
             }
@@ -497,9 +524,31 @@ public final class RoomPlayerLoadoutService {
             runtimeCandidates.add(candidate);
         }
         if (runtimeCandidates.isEmpty()) {
-            return null;
+            return RandomAttachmentChoice.none();
         }
-        return runtimeCandidates.get(player.getRandom().nextInt(runtimeCandidates.size()));
+        int totalWeight = RANDOM_ATTACHMENT_WITH_ITEM_WEIGHT + RANDOM_ATTACHMENT_NONE_WEIGHT;
+        if (player.getRandom().nextInt(totalWeight) < RANDOM_ATTACHMENT_NONE_WEIGHT) {
+            return RandomAttachmentChoice.none();
+        }
+        return RandomAttachmentChoice.withEntry(runtimeCandidates.get(player.getRandom().nextInt(runtimeCandidates.size())));
+    }
+
+    private record RandomAttachmentChoice(
+        String selectionId,
+        WeaponAttachmentDataModel.WeaponAttachmentEntry entry,
+        boolean explicitNone
+    ) {
+        private static RandomAttachmentChoice withEntry(WeaponAttachmentDataModel.WeaponAttachmentEntry entry) {
+            return new RandomAttachmentChoice(
+                entry == null ? "" : WeaponAttachmentService.normalizeAttachmentId(entry.getId()),
+                entry,
+                false
+            );
+        }
+
+        public static RandomAttachmentChoice none() {
+            return new RandomAttachmentChoice(RANDOM_ATTACHMENT_NONE_SELECTION_ID, null, true);
+        }
     }
 
     public Map<CustomLoadoutSlot, ResolvedLoadoutItem> resolveConfiguredLoadoutItems(ServerPlayer player) {
@@ -1246,5 +1295,15 @@ public final class RoomPlayerLoadoutService {
         EquipmentDataModel.EquipmentEntry entry,
         ItemStack configuredStack
     ) {
+    }
+
+    private record AmmoBoxBlockedState(
+        Map<Integer, ItemStack> slotSnapshots,
+        ItemStack offhandSnapshot,
+        boolean blockTotemOffhandAutoMove
+    ) {
+        private static AmmoBoxBlockedState empty() {
+            return new AmmoBoxBlockedState(Map.of(), ItemStack.EMPTY, false);
+        }
     }
 }

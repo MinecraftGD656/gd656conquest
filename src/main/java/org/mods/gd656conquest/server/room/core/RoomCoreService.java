@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
 import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
 import org.mods.gd656conquest.common.log.ClientMessageType;
 import org.mods.gd656conquest.network.NetworkManager;
@@ -13,6 +14,7 @@ import org.mods.gd656conquest.network.packet.RoomDownedStatePacket;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.player.state.HubDimensionService;
 import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
+import org.mods.gd656conquest.server.player.identity.PlayerIdentityService;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
 import org.mods.gd656conquest.server.room.entry.RoomAdminLifecycleService;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
@@ -39,6 +41,7 @@ import org.mods.gd656conquest.server.room.runtime.RoomMarkerRuntimeService;
 import org.mods.gd656conquest.server.room.runtime.RoomNametagVisibilityService;
 import org.mods.gd656conquest.server.room.runtime.RoomMatchingActionBarService;
 import org.mods.gd656conquest.server.room.runtime.RoomAudioRuntimeService;
+import org.mods.gd656conquest.server.room.runtime.RoomDeathSupportDropService;
 import org.mods.gd656conquest.server.room.runtime.RoomDeploySelectionService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerLaunchService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerLoadoutService;
@@ -80,6 +83,7 @@ public final class RoomCoreService {
     private final RoomPlayerRespawnService playerRespawnService;
     private final RoomPlayerLoadoutService playerLoadoutService;
     private final RoomItemReplenishService itemReplenishService;
+    private final RoomDeathSupportDropService deathSupportDropService;
     private final RoomSupportBoxService supportBoxService;
     private final RoomMarkerRuntimeService markerRuntimeService;
     private final RoomHudSyncService hudSyncService;
@@ -112,6 +116,7 @@ public final class RoomCoreService {
         this.playerRespawnService = resolved.playerRespawnService();
         this.playerLoadoutService = resolved.playerLoadoutService();
         this.itemReplenishService = resolved.itemReplenishService();
+        this.deathSupportDropService = resolved.deathSupportDropService();
         this.supportBoxService = resolved.supportBoxService();
         this.markerRuntimeService = resolved.markerRuntimeService();
         this.hudSyncService = resolved.hudSyncService();
@@ -646,6 +651,14 @@ public final class RoomCoreService {
         return handlePlayerFatalState(player, deathPosition, killerEntityId, gameTick);
     }
 
+    public void handlePlayerKillSupportDrop(ServerPlayer victim, ServerPlayer killer) {
+        deathSupportDropService.handlePlayerKillSupportDrop(victim, killer);
+    }
+
+    public boolean isDeathSupportDropPickupBlocked(ServerPlayer player, ItemEntity itemEntity) {
+        return RoomDeathSupportDropService.isPickupBlocked(player, itemEntity);
+    }
+
     private boolean handlePlayerFatalState(
         ServerPlayer player,
         RoomPosition deathPosition,
@@ -768,6 +781,36 @@ public final class RoomCoreService {
                     return markerRuntimeService.placeMarker(slot.room(), runningState, player, markerKind, blockPos, targetPlayerId, gameTick);
                 }
                 return false;
+            })
+            .orElse(false);
+    }
+
+    public boolean handleBoundaryHeightReport(ServerPlayer player, boolean abovePlayerMaxY, boolean aboveAircraftPassengerMaxY, long gameTick) {
+        if (player == null) {
+            return false;
+        }
+        return findRunningSlotByPlayer(player.getUUID())
+            .map(slot -> {
+                RunningRuntimeState runningState = slot.runtime().getRunningState();
+                UUID playerId = player.getUUID();
+                if (!runningState.getRoomPlayers().contains(playerId) || !player.isAlive() || runningState.isInRespawnFlow(playerId)) {
+                    runningState.getBoundaryHeightReportTicks().remove(playerId);
+                    runningState.getBoundaryPlayerMaxYReportedPlayers().remove(playerId);
+                    runningState.getBoundaryAircraftMaxYReportedPlayers().remove(playerId);
+                    return false;
+                }
+                runningState.getBoundaryHeightReportTicks().put(playerId, gameTick);
+                if (abovePlayerMaxY) {
+                    runningState.getBoundaryPlayerMaxYReportedPlayers().add(playerId);
+                } else {
+                    runningState.getBoundaryPlayerMaxYReportedPlayers().remove(playerId);
+                }
+                if (aboveAircraftPassengerMaxY) {
+                    runningState.getBoundaryAircraftMaxYReportedPlayers().add(playerId);
+                } else {
+                    runningState.getBoundaryAircraftMaxYReportedPlayers().remove(playerId);
+                }
+                return true;
             })
             .orElse(false);
     }
@@ -1887,7 +1930,10 @@ public final class RoomCoreService {
         if (player != null) {
             return player.getGameProfile().getName();
         }
-        return playerId == null ? "目标玩家" : playerId.toString();
+        if (playerId == null) {
+            return "目标玩家";
+        }
+        return PlayerIdentityService.of(server).resolvePlayerName(playerId).orElse(playerId.toString());
     }
 
 

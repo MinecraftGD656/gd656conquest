@@ -7,6 +7,7 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.mods.gd656conquest.network.NetworkManager;
+import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.network.packet.RoomMarkerSyncPacket;
 import org.mods.gd656conquest.server.compat.frontlinevoice.FrontlineVoiceBridge;
 import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
@@ -30,6 +31,8 @@ import java.util.UUID;
 import java.nio.charset.StandardCharsets;
 
 public final class RoomMarkerRuntimeService {
+    private static final String MARKER_SPOT_FAIL_SOUND_ID = "gd656conquest:sfx.marker_spot_fail";
+    private static final String MARKER_SPOT_SUCCESS_SOUND_ID = "gd656conquest:sfx.marker_spot_success";
     private static final int MARKER_LIFETIME_TICKS = 30 * 20;
     private static final int DIRECT_SPOT_LIFETIME_TICKS = 5 * 20;
     private static final int AUTO_SPOT_LIFETIME_TICKS = 2 * 20;
@@ -104,8 +107,11 @@ public final class RoomMarkerRuntimeService {
             showMarkerSuccessActionbar(player, normalizedPos, resolvedKind, resolvedTargetPlayerId);
         }
         if (resolvedKind == RunningRuntimeState.MarkerKind.DIRECT_ENEMY) {
+            playMarkerFeedbackSound(player, MARKER_SPOT_SUCCESS_SOUND_ID);
             tryAwardSpottingBonus(player);
             FrontlineVoiceBridge.playCue(player, resolveSpottedEnemyCue(targetPlayerId));
+        } else if (resolvedKind != RunningRuntimeState.MarkerKind.AUTO_ENEMY) {
+            playMarkerFeedbackSound(player, MARKER_SPOT_FAIL_SOUND_ID);
         }
         syncRunningRoom(room, state, gameTick);
         return true;
@@ -414,6 +420,13 @@ public final class RoomMarkerRuntimeService {
         }
         String coords = markerPos.getX() + " " + markerPos.getY() + " " + markerPos.getZ();
         ServerActionBarService.showText(player, ACTIONBAR_SOURCE_MARKER, "§7成功标记坐标 §b" + coords, 35);
+    }
+
+    private void playMarkerFeedbackSound(ServerPlayer player, String soundId) {
+        if (player == null || soundId == null || soundId.isBlank()) {
+            return;
+        }
+        NetworkManager.sendToPlayer(player, ClientShortSoundPacket.oneShot(soundId, 1.0F, 1.0F));
     }
 
     private boolean consumeSpottingBonusWindow(UUID playerId, long nowMs) {

@@ -35,6 +35,7 @@ import org.mods.gd656conquest.server.facility.parkour.ParkourCommands;
 import org.mods.gd656conquest.server.facility.parkour.ParkourRuntimeManager;
 import org.mods.gd656conquest.server.facility.range.RangeCommands;
 import org.mods.gd656conquest.server.loadout.LoadoutCommands;
+import org.mods.gd656conquest.server.pack.PackValidationService;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.player.lock.ServerPlayerLockService;
 import org.mods.gd656conquest.server.player.state.HubDimensionMigrationService;
@@ -46,7 +47,7 @@ import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomVehicleBackend;
 import org.mods.gd656conquest.server.shared.text.CommandFeedbacks;
 import org.mods.gd656conquest.server.shared.text.ServerText;
-import org.mods.gd656conquest.server.social.party.PartyCommands;
+import org.mods.gd656conquest.server.social.party.presentation.PartyCommands;
 import org.mods.gd656conquest.server.title.PlayerTitleCommands;
 
 import java.util.Collection;
@@ -69,7 +70,6 @@ public final class ConquestServerCommands {
         "boolNaturalRegeneration",
         "passiveRegenIntervalTicks",
         "passiveRegenStartDelaySeconds",
-        "partyMaxMembers",
         "MaxScopePistol",
         "MaxScopeSniper",
         "MaxScopeRifle",
@@ -84,7 +84,8 @@ public final class ConquestServerCommands {
         "parkourStartPos",
         "parkourEndPos",
         "parkourCompletionTitleId",
-        "parkourBestTitleId"
+        "parkourBestTitleId",
+        "enablePackValidation"
     );
 
     private ConquestServerCommands() {
@@ -102,11 +103,12 @@ public final class ConquestServerCommands {
         root.then(RangeCommands.buildTree());
         root.then(RoomCommands.buildTree());
         root.then(LoadoutCommands.buildTree());
-        root.then(PartyCommands.buildTree());
         root.then(PlayerTitleCommands.buildTree());
+        root.then(PartyCommands.buildTree());
         root.then(ActionCommands.buildTree());
 
         root.then(buildConfigAliasTree());
+        root.then(buildPackAliasTree());
         root.then(buildDebugAliasTree());
         root.then(buildHubAliasTree());
         root.then(buildLevelAliasTree());
@@ -135,6 +137,19 @@ public final class ConquestServerCommands {
                     .then(Commands.argument("value", StringArgumentType.string())
                         .suggests(ConquestServerCommands::suggestServerConfigValues)
                         .executes(ConquestServerCommands::executeConfigSet))));
+    }
+
+    private static ArgumentBuilder<CommandSourceStack, ?> buildPackAliasTree() {
+        return Commands.literal("pack")
+            .requires(source -> source.hasPermission(2))
+            .then(Commands.literal("update")
+                .executes(ConquestServerCommands::executePackUpdate))
+            .then(Commands.literal("list")
+                .executes(ConquestServerCommands::executePackList))
+            .then(Commands.literal("del")
+                .then(Commands.argument("fileName", StringArgumentType.string())
+                    .suggests(ConquestServerCommands::suggestPackWhitelistFileNames)
+                    .executes(ConquestServerCommands::executePackDelete)));
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildDebugAliasTree() {
@@ -221,9 +236,6 @@ public final class ConquestServerCommands {
             .returnToHub(player);
         if (result.denied()) {
             return CommandFeedbacks.info(context.getSource(), result.deniedMessage());
-        }
-        if (result.groupAction()) {
-            return CommandFeedbacks.info(context.getSource(), "已作为队长带领队伍返回大厅，生效人数: " + result.changedCount());
         }
         return CommandFeedbacks.info(context.getSource(), result.operatorMessage());
     }
@@ -414,7 +426,6 @@ public final class ConquestServerCommands {
         CommandFeedbacks.line(context.getSource(), ServerText.colored("boolNaturalRegeneration=" + store.isNaturalRegenerationEnabled(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("passiveRegenIntervalTicks=" + store.getPassiveRegenIntervalTicks(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("passiveRegenStartDelaySeconds=" + store.getPassiveRegenStartDelaySeconds(), net.minecraft.ChatFormatting.AQUA));
-        CommandFeedbacks.line(context.getSource(), ServerText.colored("partyMaxMembers=" + store.getPartyMaxMembers(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("MaxScopePistol=" + formatDecimal(store.getMaxScopePistol()), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("MaxScopeSniper=" + formatDecimal(store.getMaxScopeSniper()), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("MaxScopeRifle=" + formatDecimal(store.getMaxScopeRifle()), net.minecraft.ChatFormatting.AQUA));
@@ -430,6 +441,7 @@ public final class ConquestServerCommands {
         CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourEndPos=" + formatPosition(config.getParkourEndPos()), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourCompletionTitleId=" + store.getParkourCompletionTitleId(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourBestTitleId=" + store.getParkourBestTitleId(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("enablePackValidation=" + store.isPackValidationEnabled(), net.minecraft.ChatFormatting.AQUA));
         return 1;
     }
 
@@ -450,7 +462,6 @@ public final class ConquestServerCommands {
             case "boolNaturalRegeneration" -> config.setBoolNaturalRegeneration(parseBooleanStrict(rawValue));
             case "passiveRegenIntervalTicks" -> config.setPassiveRegenIntervalTicks(parsePositiveInt(rawValue));
             case "passiveRegenStartDelaySeconds" -> config.setPassiveRegenStartDelaySeconds(parseNonNegativeInt(rawValue));
-            case "partyMaxMembers" -> config.setPartyMaxMembers(parsePositiveInt(rawValue));
             case "MaxScopePistol" -> config.setMaxScopePistol(parseNonNegativeDouble(rawValue));
             case "MaxScopeSniper" -> config.setMaxScopeSniper(parseNonNegativeDouble(rawValue));
             case "MaxScopeRifle" -> config.setMaxScopeRifle(parseNonNegativeDouble(rawValue));
@@ -466,6 +477,7 @@ public final class ConquestServerCommands {
             case "parkourEndPos" -> config.setParkourEndPos(parseConfigPosition(context, rawValue));
             case "parkourCompletionTitleId" -> config.setParkourCompletionTitleId(rawValue);
             case "parkourBestTitleId" -> config.setParkourBestTitleId(rawValue);
+            case "enablePackValidation" -> config.setEnablePackValidation(parseBooleanStrict(rawValue));
             default -> throw new SimpleCommandExceptionType(Component.literal("未知配置项: " + configId)).create();
         }
         store.save(config);
@@ -488,14 +500,12 @@ public final class ConquestServerCommands {
             return builder.buildFuture();
         }
         return switch (normalized) {
-            case "boolOverworldInvulnerable", "boolRestrictConquestDimension", "boolNaturalRegeneration" ->
+            case "boolOverworldInvulnerable", "boolRestrictConquestDimension", "boolNaturalRegeneration", "enablePackValidation" ->
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
             case "passiveRegenIntervalTicks" ->
                 SharedSuggestionProvider.suggest(List.of("3", "5", "10"), builder);
             case "passiveRegenStartDelaySeconds" ->
                 SharedSuggestionProvider.suggest(List.of("6", "8", "10"), builder);
-            case "partyMaxMembers" ->
-                SharedSuggestionProvider.suggest(List.of("4", "5", "6", "8"), builder);
             case "MaxScopePistol" ->
                 SharedSuggestionProvider.suggest(List.of("1.5", "2.0", "3.0"), builder);
             case "MaxScopeSniper" ->
@@ -538,7 +548,6 @@ public final class ConquestServerCommands {
             case "boolnaturalregeneration", "naturalregeneration", "naturalregen", "vanillaregeneration" -> "boolNaturalRegeneration";
             case "passiveregenintervalticks", "breathregenintervalticks", "breathregeninterval" -> "passiveRegenIntervalTicks";
             case "passiveregenstartdelayseconds", "breathregenstartdelayseconds", "breathregenstartseconds" -> "passiveRegenStartDelaySeconds";
-            case "partymaxmembers", "partymax", "squadmaxmembers", "squadmax" -> "partyMaxMembers";
             case "maxscopepistol", "scopepistol", "pistolscope" -> "MaxScopePistol";
             case "maxscopesniper", "scopesniper", "sniperscope" -> "MaxScopeSniper";
             case "maxscoperifle", "scoperifle", "riflescope" -> "MaxScopeRifle";
@@ -554,6 +563,7 @@ public final class ConquestServerCommands {
             case "parkourendpos", "parkourend", "parkourfinish" -> "parkourEndPos";
             case "parkourcompletiontitleid", "parkourtitle", "parkourcompletiontitle" -> "parkourCompletionTitleId";
             case "parkourbesttitleid", "parkourfirsttitle", "parkourrecordtitle" -> "parkourBestTitleId";
+            case "enablepackvalidation", "packvalidation", "checkpacks", "packcheck" -> "enablePackValidation";
             default -> null;
         };
     }
@@ -566,7 +576,6 @@ public final class ConquestServerCommands {
             case "boolNaturalRegeneration" -> String.valueOf(store.isNaturalRegenerationEnabled());
             case "passiveRegenIntervalTicks" -> String.valueOf(store.getPassiveRegenIntervalTicks());
             case "passiveRegenStartDelaySeconds" -> String.valueOf(store.getPassiveRegenStartDelaySeconds());
-            case "partyMaxMembers" -> String.valueOf(store.getPartyMaxMembers());
             case "MaxScopePistol" -> formatDecimal(store.getMaxScopePistol());
             case "MaxScopeSniper" -> formatDecimal(store.getMaxScopeSniper());
             case "MaxScopeRifle" -> formatDecimal(store.getMaxScopeRifle());
@@ -582,8 +591,30 @@ public final class ConquestServerCommands {
             case "parkourEndPos" -> formatPosition(config.getParkourEndPos());
             case "parkourCompletionTitleId" -> store.getParkourCompletionTitleId();
             case "parkourBestTitleId" -> store.getParkourBestTitleId();
+            case "enablePackValidation" -> String.valueOf(store.isPackValidationEnabled());
             default -> "-";
         };
+    }
+
+    private static int executePackUpdate(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        return PackValidationService.of(context.getSource().getServer()).requestManualWhitelistUpdate(context.getSource(), player);
+    }
+
+    private static int executePackList(CommandContext<CommandSourceStack> context) {
+        return PackValidationService.of(context.getSource().getServer()).listWhitelist(context.getSource());
+    }
+
+    private static int executePackDelete(CommandContext<CommandSourceStack> context) {
+        String fileName = StringArgumentType.getString(context, "fileName");
+        return PackValidationService.of(context.getSource().getServer()).deleteWhitelistEntry(context.getSource(), fileName);
+    }
+
+    private static CompletableFuture<Suggestions> suggestPackWhitelistFileNames(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return SharedSuggestionProvider.suggest(
+            PackValidationService.of(context.getSource().getServer()).suggestWhitelistFileNames(),
+            builder
+        );
     }
 
     private static String formatPosition(RoomPosition position) {

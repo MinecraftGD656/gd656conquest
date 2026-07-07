@@ -187,11 +187,7 @@ public final class RoomSquadAssignmentService {
     }
 
     private int resolveSquadSize() {
-        try {
-            return Math.max(1, ConquestDataManager.of(server).serverConfig().getPartyMaxMembers());
-        } catch (Exception ignored) {
-            return 4;
-        }
+        return 4;
     }
 
     private String toSquadLabel(int index) {
@@ -202,4 +198,3 @@ public final class RoomSquadAssignmentService {
         return String.valueOf(normalized + 1);
     }
 }
-

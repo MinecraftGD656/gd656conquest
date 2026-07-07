@@ -44,7 +44,9 @@ public final class ConquestItems {
     public static final RegistryObject<Item> ROOM_LIST_ITEM = ITEMS.register("room_list", () ->
             new UtilityActionItem(new Item.Properties().stacksTo(1), org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.ROOM_LIST));
     public static final RegistryObject<Item> PARTY_GUIDE_ITEM = ITEMS.register("party_guide", () ->
-            new UtilityActionItem(new Item.Properties().stacksTo(1), org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.PARTY_GUIDE));
+            new UtilityActionItem(new Item.Properties().stacksTo(1), org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.PARTY_HELP));
+    public static final RegistryObject<Item> LEAVE_PARTY_ITEM = ITEMS.register("leave_party", () ->
+            new UtilityActionItem(new Item.Properties().stacksTo(1), org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.LEAVE_PARTY));
     public static final RegistryObject<Item> MY_TITLE_ITEM = ITEMS.register("my_title", () ->
             new UtilityActionItem(new Item.Properties().stacksTo(1), org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.MY_TITLE));
     public static final RegistryObject<Item> LOADOUT_GUIDE_ITEM = ITEMS.register("loadout_guide", () ->
@@ -53,8 +55,6 @@ public final class ConquestItems {
             new UtilityActionItem(new Item.Properties().stacksTo(1), org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.ENTER_RANGE));
     public static final RegistryObject<Item> LEAVE_ITEM = ITEMS.register("leave_session", () ->
             new UtilityActionItem(new Item.Properties().stacksTo(1), org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.LEAVE_SESSION));
-    public static final RegistryObject<Item> LEAVE_PARTY_ITEM = ITEMS.register("leave_party", () ->
-            new UtilityActionItem(new Item.Properties().stacksTo(1), org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.LEAVE_PARTY));
 
     private ConquestItems() {
     }
@@ -81,11 +81,11 @@ public final class ConquestItems {
             acceptIfPresent(event, QUICK_JOIN_ITEM);
             acceptIfPresent(event, ROOM_LIST_ITEM);
             acceptIfPresent(event, PARTY_GUIDE_ITEM);
+            acceptIfPresent(event, LEAVE_PARTY_ITEM);
             acceptIfPresent(event, MY_TITLE_ITEM);
             acceptIfPresent(event, LOADOUT_GUIDE_ITEM);
             acceptIfPresent(event, ENTER_RANGE_ITEM);
             acceptIfPresent(event, LEAVE_ITEM);
-            acceptIfPresent(event, LEAVE_PARTY_ITEM);
         }
     }
 

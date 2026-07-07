@@ -228,6 +228,8 @@ public final class LegacyRoomDefinitionsUpdateService {
                 normalizedPlayerState.toModel(),
                 Math.max(0, normalizedRules.outsideBoundaryDeathSeconds),
                 0,
+                0,
+                0,
                 normalizedCapture.campADisplayName,
                 normalizedCapture.campBDisplayName,
                 "",
@@ -240,7 +242,9 @@ public final class LegacyRoomDefinitionsUpdateService {
                 false,
                 false,
                 false,
-                false
+                false,
+                true,
+                true
             );
             RoomConquestConfig conquestConfig = new RoomConquestConfig(
                 normalizedEquipment.toModel(),

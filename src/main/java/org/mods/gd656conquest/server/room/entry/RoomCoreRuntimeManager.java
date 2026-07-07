@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.AdminDebugOverlayPacket;
 import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
@@ -384,11 +385,32 @@ public final class RoomCoreRuntimeManager {
         return coreService.handleMarkerAction(player, action, kind, blockPos, targetPlayerId, gameTick);
     }
 
+    public boolean handleBoundaryHeightReport(ServerPlayer player, boolean abovePlayerMaxY, boolean aboveAircraftPassengerMaxY, long gameTick) {
+        if (coreService == null) {
+            return false;
+        }
+        return coreService.handleBoundaryHeightReport(player, abovePlayerMaxY, aboveAircraftPassengerMaxY, gameTick);
+    }
+
     public void handleMarkedPlayerDeath(ServerPlayer victim, ServerPlayer killer, long gameTick) {
         if (coreService == null) {
             return;
         }
         coreService.handleMarkedPlayerDeath(victim, killer, gameTick);
+    }
+
+    public void handlePlayerKillSupportDrop(ServerPlayer victim, ServerPlayer killer) {
+        if (coreService == null) {
+            return;
+        }
+        coreService.handlePlayerKillSupportDrop(victim, killer);
+    }
+
+    public boolean isDeathSupportDropPickupBlocked(ServerPlayer player, ItemEntity itemEntity) {
+        if (coreService == null) {
+            return false;
+        }
+        return coreService.isDeathSupportDropPickupBlocked(player, itemEntity);
     }
 
     public boolean isPlayerDowned(UUID playerId) {

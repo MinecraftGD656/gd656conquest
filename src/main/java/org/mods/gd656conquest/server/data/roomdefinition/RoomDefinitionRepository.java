@@ -22,6 +22,7 @@ import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomResultConfig;
 import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
+import org.mods.gd656conquest.server.room.model.RoomTroopBalanceReference;
 import org.mods.gd656conquest.server.room.model.RoomVehicleBackend;
 import org.mods.gd656conquest.server.room.model.RoomViewPosition;
 
@@ -40,7 +41,7 @@ import java.util.Optional;
 
 public final class RoomDefinitionRepository extends JsonDataStoreSupport {
     private static final int DEFAULT_ROOM_COUNT = 16;
-    private static final int STORAGE_VERSION = 11;
+    private static final int STORAGE_VERSION = 13;
 
     private final MinecraftServer server;
     private final DelayedJsonWriteService delayedJsonWriteService;
@@ -227,6 +228,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().playerStateConfig(),
             base.commonConfig().outsideBoundaryDeathSeconds(),
             base.commonConfig().aircraftOutsideBoundaryCleanupSeconds(),
+            base.commonConfig().playerMaxY(),
+            base.commonConfig().aircraftPassengerMaxY(),
             base.commonConfig().campADisplayName(),
             base.commonConfig().campBDisplayName(),
             base.commonConfig().campAVoicePack(),
@@ -240,7 +243,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().enablePlayerDowned(),
             base.commonConfig().enableBackAgainstWall(),
             base.commonConfig().enableRandomLoadout(),
-            base.commonConfig().enableRandomAttachments()
+            base.commonConfig().enableRandomAttachments(),
+            base.commonConfig().enableParachute(),
+            base.commonConfig().enableDeathSupportDrop()
         );
         RoomConquestConfig conquestConfig = new RoomConquestConfig(
             base.conquestConfig().equipmentConfig(),
@@ -313,6 +318,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             RoomPlayerStateConfig.defaults(),
             0,
             0,
+            0,
+            0,
             "CampA",
             "CampB",
             "",
@@ -325,7 +332,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             false,
             false,
             false,
-            false
+            true,
+            true
         );
         RoomConquestConfig conquestConfig = RoomConquestConfig.defaults();
         RoomDefinition base = new RoomDefinition(
@@ -459,6 +467,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                         normalizedCommon.resolvePlayerStateConfig(normalizedConquest.playerStateConfig()),
                         normalizedCommon.resolveOutsideBoundaryDeathSeconds(normalizedConquest.outsideBoundaryDeathSeconds()),
                         normalizedCommon.resolveAircraftOutsideBoundaryCleanupSeconds(),
+                        normalizedCommon.resolvePlayerMaxY(),
+                        normalizedCommon.resolveAircraftPassengerMaxY(),
                         normalizedCommon.resolveCampADisplayName(normalizedConquest.captureConfig()),
                         normalizedCommon.resolveCampBDisplayName(normalizedConquest.captureConfig()),
                         normalizedCommon.resolveCampAVoicePack(),
@@ -472,7 +482,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                         normalizedCommon.enablePlayerDowned(),
                         normalizedCommon.enableBackAgainstWall(),
                         normalizedCommon.enableRandomLoadout(),
-                        normalizedCommon.enableRandomAttachments()
+                        normalizedCommon.enableRandomAttachments(),
+                        normalizedCommon.enableParachute(),
+                        normalizedCommon.enableDeathSupportDrop()
                     ),
                     new RoomConquestConfig(
                         normalizedConquest.equipmentConfig(),
@@ -525,6 +537,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 gameplayConfig == null ? RoomPlayerStateConfig.defaults() : gameplayConfig.toPlayerStateConfig(),
                 0,
                 0,
+                0,
+                0,
                 gameplayConfig == null ? "CampA" : gameplayConfig.resolveCampADisplayName(),
                 gameplayConfig == null ? "CampB" : gameplayConfig.resolveCampBDisplayName(),
                 "",
@@ -537,7 +551,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 false,
                 false,
                 false,
-                false
+                false,
+                true,
+                true
             );
             RoomConquestConfig conquestConfig = new RoomConquestConfig(
                 RoomEquipmentConfig.defaults(),
@@ -730,6 +746,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         private RoomPlayerStateConfig playerStateConfig;
         private Integer outsideBoundaryDeathSeconds;
         private Integer aircraftOutsideBoundaryCleanupSeconds;
+        private Integer playerMaxY;
+        private Integer aircraftPassengerMaxY;
         private String campADisplayName;
         private String campBDisplayName;
         private String campAVoicePack;
@@ -745,6 +763,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         private boolean enableBackAgainstWall;
         private boolean enableRandomLoadout;
         private boolean enableRandomAttachments;
+        private Boolean enableParachute;
+        private Boolean enableDeathSupportDrop;
 
         public static CommonConfig from(RoomDefinition definition) {
             CommonConfig config = new CommonConfig();
@@ -763,6 +783,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.playerStateConfig = definition.commonConfig().playerStateConfig();
             config.outsideBoundaryDeathSeconds = definition.commonConfig().outsideBoundaryDeathSeconds();
             config.aircraftOutsideBoundaryCleanupSeconds = definition.commonConfig().aircraftOutsideBoundaryCleanupSeconds();
+            config.playerMaxY = definition.commonConfig().playerMaxY();
+            config.aircraftPassengerMaxY = definition.commonConfig().aircraftPassengerMaxY();
             config.campADisplayName = definition.commonConfig().campADisplayName();
             config.campBDisplayName = definition.commonConfig().campBDisplayName();
             config.campAVoicePack = definition.commonConfig().campAVoicePack();
@@ -778,6 +800,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.enableBackAgainstWall = definition.commonConfig().enableBackAgainstWall();
             config.enableRandomLoadout = definition.commonConfig().enableRandomLoadout();
             config.enableRandomAttachments = definition.commonConfig().enableRandomAttachments();
+            config.enableParachute = definition.commonConfig().enableParachute();
+            config.enableDeathSupportDrop = definition.commonConfig().enableDeathSupportDrop();
             return config;
         }
 
@@ -796,6 +820,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.playerStateConfig = RoomPlayerStateConfig.defaults();
             config.outsideBoundaryDeathSeconds = 0;
             config.aircraftOutsideBoundaryCleanupSeconds = 0;
+            config.playerMaxY = 0;
+            config.aircraftPassengerMaxY = 0;
             config.campADisplayName = "CampA";
             config.campBDisplayName = "CampB";
             config.campAVoicePack = "";
@@ -811,6 +837,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.enableBackAgainstWall = false;
             config.enableRandomLoadout = false;
             config.enableRandomAttachments = false;
+            config.enableParachute = true;
+            config.enableDeathSupportDrop = true;
             return config;
         }
 
@@ -829,6 +857,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             normalized.playerStateConfig = playerStateConfig;
             normalized.outsideBoundaryDeathSeconds = outsideBoundaryDeathSeconds == null ? null : Math.max(0, outsideBoundaryDeathSeconds);
             normalized.aircraftOutsideBoundaryCleanupSeconds = aircraftOutsideBoundaryCleanupSeconds == null ? null : Math.max(0, aircraftOutsideBoundaryCleanupSeconds);
+            normalized.playerMaxY = playerMaxY == null ? null : Math.max(0, playerMaxY);
+            normalized.aircraftPassengerMaxY = aircraftPassengerMaxY == null ? null : Math.max(0, aircraftPassengerMaxY);
             normalized.campADisplayName = campADisplayName == null ? null : campADisplayName.trim();
             normalized.campBDisplayName = campBDisplayName == null ? null : campBDisplayName.trim();
             normalized.campAVoicePack = campAVoicePack == null ? "" : campAVoicePack.trim();
@@ -844,6 +874,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             normalized.enableBackAgainstWall = enableBackAgainstWall;
             normalized.enableRandomLoadout = enableRandomLoadout;
             normalized.enableRandomAttachments = enableRandomAttachments;
+            normalized.enableParachute = enableParachute == null ? defaults.enableParachute : enableParachute;
+            normalized.enableDeathSupportDrop = enableDeathSupportDrop == null ? defaults.enableDeathSupportDrop : enableDeathSupportDrop;
             return normalized;
         }
 
@@ -900,6 +932,14 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
 
         public int resolveAircraftOutsideBoundaryCleanupSeconds() {
             return aircraftOutsideBoundaryCleanupSeconds == null ? 0 : aircraftOutsideBoundaryCleanupSeconds;
+        }
+
+        public int resolvePlayerMaxY() {
+            return playerMaxY == null ? 0 : playerMaxY;
+        }
+
+        public int resolveAircraftPassengerMaxY() {
+            return aircraftPassengerMaxY == null ? 0 : aircraftPassengerMaxY;
         }
 
         public String resolveCampAVoicePack() {
@@ -969,6 +1009,15 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         public boolean enableRandomAttachments() {
             return enableRandomAttachments;
         }
+
+        public boolean enableParachute() {
+            return enableParachute == null || enableParachute;
+        }
+
+        public boolean enableDeathSupportDrop() {
+            return enableDeathSupportDrop == null || enableDeathSupportDrop;
+        }
+
     }
 
     private record ProgressSpeedMigrationData(Double commonProgressSpeed, Double legacyCaptureProgressSpeed) {
@@ -1037,6 +1086,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().playerStateConfig(),
             definition.commonConfig().outsideBoundaryDeathSeconds(),
             definition.commonConfig().aircraftOutsideBoundaryCleanupSeconds(),
+            definition.commonConfig().playerMaxY(),
+            definition.commonConfig().aircraftPassengerMaxY(),
             definition.commonConfig().campADisplayName(),
             definition.commonConfig().campBDisplayName(),
             definition.commonConfig().campAVoicePack(),
@@ -1050,7 +1101,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().enablePlayerDowned(),
             definition.commonConfig().enableBackAgainstWall(),
             definition.commonConfig().enableRandomLoadout(),
-            definition.commonConfig().enableRandomAttachments()
+            definition.commonConfig().enableRandomAttachments(),
+            definition.commonConfig().enableParachute(),
+            definition.commonConfig().enableDeathSupportDrop()
         );
         return new RoomDefinition(
             definition.roomId(),
@@ -1085,6 +1138,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             upgradedPlayerStateConfig,
             definition.commonConfig().outsideBoundaryDeathSeconds(),
             definition.commonConfig().aircraftOutsideBoundaryCleanupSeconds(),
+            definition.commonConfig().playerMaxY(),
+            definition.commonConfig().aircraftPassengerMaxY(),
             definition.commonConfig().campADisplayName(),
             definition.commonConfig().campBDisplayName(),
             definition.commonConfig().campAVoicePack(),
@@ -1098,7 +1153,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().enablePlayerDowned(),
             definition.commonConfig().enableBackAgainstWall(),
             definition.commonConfig().enableRandomLoadout(),
-            definition.commonConfig().enableRandomAttachments()
+            definition.commonConfig().enableRandomAttachments(),
+            definition.commonConfig().enableParachute(),
+            definition.commonConfig().enableDeathSupportDrop()
         );
         return new RoomDefinition(
             definition.roomId(),

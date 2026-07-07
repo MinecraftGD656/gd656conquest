@@ -8,7 +8,7 @@ import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
-import org.mods.gd656conquest.server.social.party.PlayerPartyManager;
+import org.mods.gd656conquest.server.social.party.presentation.PartyUiFacade;
 import org.mods.gd656conquest.server.title.PlayerTitleService;
 
 import java.util.Collection;
@@ -31,7 +31,7 @@ public final class ServerChatFormatService {
         }
         if (startsWithToken(input, "@t")) {
             String content = input.length() <= 2 ? "" : input.substring(2).trim();
-            PlayerPartyManager.of(sender.server).sendPartyChat(sender, content);
+            PartyUiFacade.of(sender.server).sendPartyChat(sender, content);
             return;
         }
         RoomCoreRuntimeManager coreManager = RoomCoreRuntimeManager.of(sender.server);
@@ -55,24 +55,37 @@ public final class ServerChatFormatService {
         }
     }
 
-    public static void broadcastPartyFormatted(ServerPlayer sender, String message, Collection<ServerPlayer> viewers) {
+    public static void broadcastPartyFormatted(ServerPlayer sender, String rawText, Collection<ServerPlayer> viewers) {
         if (sender == null || sender.server == null || viewers == null || viewers.isEmpty()) {
             return;
         }
-        String body = message == null ? "" : message.trim();
-        if (body.isBlank()) {
+        String messageBody = rawText == null ? "" : rawText.trim();
+        if (messageBody.isBlank()) {
             return;
         }
         RoomCoreRuntimeManager coreManager = RoomCoreRuntimeManager.of(sender.server);
         String roomId = resolveSenderRoomId(sender, coreManager);
         String senderTeamKey = resolvePlayerTeamKey(sender, coreManager);
-        logChatMessage(sender, coreManager, roomId, senderTeamKey, ChatChannel.PARTY, body);
         for (ServerPlayer viewer : viewers) {
             if (viewer == null) {
                 continue;
             }
-            viewer.sendSystemMessage(buildFormattedLine(sender, viewer, coreManager, roomId, senderTeamKey, ChatChannel.PARTY, body));
+            viewer.sendSystemMessage(buildFormattedLine(sender, viewer, coreManager, roomId, senderTeamKey, ChatChannel.PARTY, messageBody));
         }
+    }
+
+    public static MutableComponent buildPartyFormattedLine(ServerPlayer sender, ServerPlayer viewer, String rawText) {
+        if (sender == null || sender.server == null) {
+            return Component.empty();
+        }
+        String messageBody = rawText == null ? "" : rawText.trim();
+        if (messageBody.isBlank()) {
+            return Component.empty();
+        }
+        RoomCoreRuntimeManager coreManager = RoomCoreRuntimeManager.of(sender.server);
+        String roomId = resolveSenderRoomId(sender, coreManager);
+        String senderTeamKey = resolvePlayerTeamKey(sender, coreManager);
+        return buildFormattedLine(sender, viewer, coreManager, roomId, senderTeamKey, ChatChannel.PARTY, messageBody);
     }
 
     private static String resolveSenderRoomId(ServerPlayer sender, RoomCoreRuntimeManager coreManager) {
@@ -138,9 +151,6 @@ public final class ServerChatFormatService {
             String senderTeamKey
     ) {
         if (scope == ChatScope.GLOBAL) {
-            return true;
-        }
-        if (scope == ChatScope.PARTY) {
             return true;
         }
         String viewerRoom = coreManager.findPlayerRoomId(viewer.getUUID()).orElse("");
@@ -255,20 +265,20 @@ public final class ServerChatFormatService {
     }
 
     private enum ChatScope {
+        PARTY,
         TEAM,
         ROOM,
-        GLOBAL,
-        PARTY
+        GLOBAL
     }
 
     private record ParsedChatMessage(ChatChannel channel, String messageBody) {
     }
 
     private enum ChatChannel {
+        PARTY(ChatScope.PARTY, "队伍频道", ChatFormatting.LIGHT_PURPLE),
         GLOBAL(ChatScope.GLOBAL, "全服频道", ChatFormatting.GRAY),
         ROOM(ChatScope.ROOM, "房间频道", ChatFormatting.YELLOW),
-        TEAM(ChatScope.TEAM, "阵营频道", ChatFormatting.GREEN),
-        PARTY(ChatScope.PARTY, "组队", ChatFormatting.AQUA);
+        TEAM(ChatScope.TEAM, "阵营频道", ChatFormatting.GREEN);
 
         private final ChatScope scope;
         private final String label;

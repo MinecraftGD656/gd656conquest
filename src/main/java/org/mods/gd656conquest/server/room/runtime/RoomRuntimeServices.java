@@ -13,6 +13,7 @@ public record RoomRuntimeServices(
     RoomPlayerRespawnService playerRespawnService,
     RoomPlayerLoadoutService playerLoadoutService,
     RoomItemReplenishService itemReplenishService,
+    RoomDeathSupportDropService deathSupportDropService,
     RoomSupportBoxService supportBoxService,
     RoomMarkerRuntimeService markerRuntimeService,
     RoomHudSyncService hudSyncService,
@@ -38,6 +39,7 @@ public record RoomRuntimeServices(
         Objects.requireNonNull(playerRespawnService, "playerRespawnService");
         Objects.requireNonNull(playerLoadoutService, "playerLoadoutService");
         Objects.requireNonNull(itemReplenishService, "itemReplenishService");
+        Objects.requireNonNull(deathSupportDropService, "deathSupportDropService");
         Objects.requireNonNull(supportBoxService, "supportBoxService");
         Objects.requireNonNull(markerRuntimeService, "markerRuntimeService");
         Objects.requireNonNull(hudSyncService, "hudSyncService");

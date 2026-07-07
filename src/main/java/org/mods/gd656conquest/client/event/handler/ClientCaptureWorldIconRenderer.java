@@ -15,6 +15,7 @@ import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.Scr
 import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.TeamToken;
 import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.TeammateIconScreenState;
 import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.VehicleHudState;
+import org.mods.gd656conquest.client.render.ClientCrosshairFadeSupport;
 import org.mods.gd656conquest.client.render.ClientWorldHudProjectionSupport;
 import org.mods.gd656conquest.client.render.CaptureDiamondRenderer;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
@@ -690,13 +691,16 @@ final class ClientCaptureWorldIconRenderer {
         if (ClientDeathFlowState.hasActiveCameraOverride()) {
             return ClientCaptureOverlayModel.WORLD_ICON_ALPHA_FAR_CROSSHAIR;
         }
-        float crosshairX = gui.guiWidth() * 0.5F;
-        float crosshairY = gui.guiHeight() * 0.5F;
-        float distance = Mth.sqrt((float) (Math.pow(projection.screenX() - crosshairX, 2) + Math.pow(projection.screenY() - crosshairY, 2)));
-        float normalizedDistance = Mth.clamp(distance / ClientCaptureOverlayModel.WORLD_ICON_CROSSHAIR_ALPHA_RADIUS_PIXELS, 0.0F, 1.0F);
-        float proximity = 1.0F - normalizedDistance;
-        float factor = (float) Math.pow(proximity, ClientCaptureOverlayModel.WORLD_ICON_CROSSHAIR_ALPHA_CURVE);
-        return Mth.lerp(factor, ClientCaptureOverlayModel.WORLD_ICON_ALPHA_FAR_CROSSHAIR, ClientCaptureOverlayModel.WORLD_ICON_ALPHA_NEAR_CROSSHAIR);
+        return ClientCrosshairFadeSupport.resolveWeightedAlpha(
+            gui.guiWidth(),
+            gui.guiHeight(),
+            projection.screenX(),
+            projection.screenY(),
+            ClientCaptureOverlayModel.WORLD_ICON_ALPHA_NEAR_CROSSHAIR,
+            ClientCaptureOverlayModel.WORLD_ICON_ALPHA_FAR_CROSSHAIR,
+            ClientCaptureOverlayModel.WORLD_ICON_CROSSHAIR_ALPHA_RADIUS_PIXELS,
+            ClientCaptureOverlayModel.WORLD_ICON_CROSSHAIR_ALPHA_CURVE
+        );
     }
 
     private String toPerspectiveToken(TeamToken token, TeamToken selfTeam) {
