@@ -130,18 +130,15 @@ public final class PackValidationService {
         if (player == null) {
             return;
         }
-        if (shouldBypassValidation(player)) {
-            pendingLoginDeadlines.remove(player.getUUID());
-            if (requestId != null && !requestId.isBlank()) {
-                pendingManualUpdateRequests.remove(requestId);
-            }
-            return;
-        }
         PendingManualUpdateRequest manualRequest = requestId == null || requestId.isBlank()
             ? null
             : pendingManualUpdateRequests.remove(requestId);
         if (manualRequest != null) {
             handleManualUpdateReport(player, manualRequest, success, message, entries);
+            return;
+        }
+        if (shouldBypassValidation(player)) {
+            pendingLoginDeadlines.remove(player.getUUID());
             return;
         }
 
@@ -289,6 +286,7 @@ public final class PackValidationService {
         logEntry.setPlayerName(playerName);
         logEntry.setPlayerUuid(player.getUUID().toString());
         logEntry.setKickTime(kickTime);
+        logEntry.setViolationTimes(List.of(kickTime));
         logEntry.setTrigger(trigger);
         logEntry.setReason(reason);
         logEntry.setDisconnectMessage(PackAuditConstants.DISCONNECT_MESSAGE);

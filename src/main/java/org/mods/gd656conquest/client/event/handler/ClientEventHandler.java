@@ -38,6 +38,10 @@ import org.mods.gd656conquest.common.audio.AudioManager;
 import org.mods.gd656conquest.common.block.ConquestBlocks;
 import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
 
+import java.util.Optional;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.state.BlockState;
+
 public final class ClientEventHandler {
     private static final ClientEventHandler INSTANCE = new ClientEventHandler();
 
@@ -131,14 +135,26 @@ public final class ClientEventHandler {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null) {
+        if (minecraft.level == null || minecraft.player == null) {
             return;
         }
-        if (ConquestBlocks.isCapturePoint(minecraft.level.getBlockState(event.getTarget().getBlockPos()))) {
-            boolean holdingCapturePoint = minecraft.player != null
-                && (ConquestBlocks.isCapturePointItem(minecraft.player.getMainHandItem().getItem())
-                || ConquestBlocks.isCapturePointItem(minecraft.player.getOffhandItem().getItem()));
-            if (!holdingCapturePoint) {
+        BlockState targetState = minecraft.level.getBlockState(event.getTarget().getBlockPos());
+        if (ConquestBlocks.isCapturePoint(targetState) || ConquestBlocks.isOutOfBoundsBlock(targetState)) {
+            boolean holdingMatching = false;
+            if (ConquestBlocks.isOutOfBoundsBlock(targetState)) {
+                holdingMatching = ConquestBlocks.isOutOfBoundsBlockItem(minecraft.player.getMainHandItem().getItem()) ||
+                                  ConquestBlocks.isOutOfBoundsBlockItem(minecraft.player.getOffhandItem().getItem());
+            } else {
+                Optional<String> code = ConquestBlocks.resolveCaptureCode(targetState);
+                if (code.isPresent()) {
+                    Item matchItem = ConquestBlocks.getCaptureBlockItem(code.get());
+                    if (matchItem != null) {
+                        holdingMatching = minecraft.player.getMainHandItem().is(matchItem) ||
+                                          minecraft.player.getOffhandItem().is(matchItem);
+                    }
+                }
+            }
+            if (!holdingMatching) {
                 event.setCanceled(true);
             }
         }

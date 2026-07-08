@@ -35,6 +35,9 @@ public final class RoomLobbyTransferService {
         player.setRespawnPosition(hubLevel.dimension(), spawn, player.getYRot(), true, false);
         applyLobbyGameMode(player);
         player.setInvulnerable(ConquestDataManager.of(server).serverConfig().isOverworldInvulnerableEnabled());
+        // Re-apply standalone hub presentation immediately after any room exit path.
+        // Relying only on later dimension/session hooks can miss the lobby no-collision team.
+        PlayerSessionStateService.onStandaloneTransition(player);
         PlayerSessionStateService.maintainLobbyHealth(player);
         QuickAccessInventoryPolicyService.sanitizeLobbyInventory(player);
         player.setDeltaMovement(0.0D, 0.0D, 0.0D);

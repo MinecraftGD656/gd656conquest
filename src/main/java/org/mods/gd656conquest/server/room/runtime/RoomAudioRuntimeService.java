@@ -82,6 +82,7 @@ public final class RoomAudioRuntimeService {
             case RoomThirdPersonAudioCueRegistry.PLAYER_SPOTTED_RECON -> "SPOTTED_RECON";
             case RoomThirdPersonAudioCueRegistry.PLAYER_SPOTTED_SUPPORT -> "SPOTTED_SUPPORT";
             case RoomThirdPersonAudioCueRegistry.PLAYER_REVIVING -> "REVIVING";
+            case RoomThirdPersonAudioCueRegistry.PLAYER_THANKS -> "THANKS";
             default -> cueId;
         };
     }

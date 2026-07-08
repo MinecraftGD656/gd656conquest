@@ -71,6 +71,10 @@ public final class ConquestBlocks {
         return false;
     }
 
+    public static boolean isOutOfBoundsBlockItem(Item item) {
+        return item != null && item == OOB_BLOCK_ITEM.get();
+    }
+
     public static boolean isOutOfBoundsBlock(BlockState state) {
         return state != null && state.is(OOB_BLOCK.get());
     }
@@ -93,7 +97,22 @@ public final class ConquestBlocks {
         return Optional.empty();
     }
 
+    public static Item getCaptureBlockItem(String code) {
+        RegistryObject<Item> item = CAPTURE_BLOCK_ITEMS.get(code);
+        return item != null ? item.get() : null;
+    }
+
     public static boolean isMatchingCapturePointItem(BlockState state, CollisionContext context) {
+        return isMatchingOutlineItem(state, context);
+    }
+
+    public static boolean isMatchingOutlineItem(BlockState state, CollisionContext context) {
+        if (state == null || context == null) {
+            return false;
+        }
+        if (isOutOfBoundsBlock(state)) {
+            return context.isHoldingItem(OOB_BLOCK_ITEM.get());
+        }
         Optional<String> code = resolveCaptureCode(state);
         if (code.isEmpty()) {
             return false;

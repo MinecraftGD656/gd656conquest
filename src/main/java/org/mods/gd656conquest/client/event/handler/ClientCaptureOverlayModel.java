@@ -12,10 +12,10 @@ final class ClientCaptureOverlayModel {
     static final String BEACON_ICON_GLYPH = "\u25CF";
     static final float HUD_QUEUE_ICON_RADIUS = 5.8F;
     static final float HUD_FOCUS_ICON_RADIUS = 11.6F;
-    static final float WORLD_ICON_ALPHA_NEAR_CROSSHAIR = 0.01F;
-    static final float WORLD_ICON_ALPHA_FAR_CROSSHAIR = 0.80F;
+    static final float WORLD_ICON_ALPHA_NEAR_CROSSHAIR = 0.05F;
+    static final float WORLD_ICON_ALPHA_FAR_CROSSHAIR = 0.40F;
     static final float WORLD_ICON_CROSSHAIR_ALPHA_RADIUS_PIXELS = 300.0F;
-    static final float WORLD_ICON_CROSSHAIR_ALPHA_CURVE = 1.35F;
+    static final float WORLD_ICON_CROSSHAIR_ALPHA_CURVE = 1.20F;
     static final float HUD_QUEUE_ICON_ALPHA = 0.9F;
     static final float HUD_FOCUS_ICON_ALPHA = 0.95F;
     static final float WORLD_LABEL_SCALE = 0.68F;

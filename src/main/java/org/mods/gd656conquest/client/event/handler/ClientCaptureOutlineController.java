@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.Optional;
 
 final class ClientCaptureOutlineController {
     private static final int CAPTURE_SCAN_INTERVAL_TICKS = 4;
@@ -159,7 +160,8 @@ final class ClientCaptureOutlineController {
         Set<BlockPos> blocks = new HashSet<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
         for (BlockPos seed : centerSeeds) {
-            if (!ConquestBlocks.isCapturePoint(level.getBlockState(seed))) {
+            BlockState state = level.getBlockState(seed);
+            if (!ConquestBlocks.isCapturePoint(state) && !ConquestBlocks.isOutOfBoundsBlock(state)) {
                 continue;
             }
             BlockPos immutable = seed.immutable();
@@ -171,7 +173,11 @@ final class ClientCaptureOutlineController {
         while (!queue.isEmpty() && blocks.size() < maxNodes) {
             BlockPos current = queue.poll();
             for (BlockPos next : new BlockPos[]{current.north(), current.south(), current.west(), current.east(), current.above(), current.below()}) {
-                if (blocks.contains(next) || !ConquestBlocks.isCapturePoint(level.getBlockState(next))) {
+                if (blocks.contains(next)) {
+                    continue;
+                }
+                BlockState state = level.getBlockState(next);
+                if (!ConquestBlocks.isCapturePoint(state) && !ConquestBlocks.isOutOfBoundsBlock(state)) {
                     continue;
                 }
                 BlockPos immutable = next.immutable();
@@ -201,7 +207,8 @@ final class ClientCaptureOutlineController {
                 }
                 for (int y = minY; y <= maxY; y++) {
                     BlockPos pos = new BlockPos(x, y, z);
-                    if (ConquestBlocks.isCapturePoint(level.getBlockState(pos))) {
+                    BlockState state = level.getBlockState(pos);
+                    if (ConquestBlocks.isCapturePoint(state) || ConquestBlocks.isOutOfBoundsBlock(state)) {
                         blocks.add(pos.immutable());
                     }
                 }
@@ -237,6 +244,9 @@ final class ClientCaptureOutlineController {
         }
         Map<Long, BlockPos> lowestByColumn = new HashMap<>();
         for (BlockPos pos : captureBlocks) {
+            if (ConquestBlocks.isOutOfBoundsBlock(level.getBlockState(pos))) {
+                continue;
+            }
             long key = packColumnKey(pos.getX(), pos.getZ());
             BlockPos existing = lowestByColumn.get(key);
             if (existing == null || pos.getY() < existing.getY()) {
@@ -369,7 +379,28 @@ final class ClientCaptureOutlineController {
 
     private void spawnBarrierMarkerParticle(Level level, BlockPos pos) {
         BlockState captureState = level.getBlockState(pos);
-        if (!ConquestBlocks.isCapturePoint(captureState)) {
+        if (!ConquestBlocks.isCapturePoint(captureState) && !ConquestBlocks.isOutOfBoundsBlock(captureState)) {
+            return;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) {
+            return;
+        }
+        boolean holdingMatching = false;
+        if (ConquestBlocks.isOutOfBoundsBlock(captureState)) {
+            holdingMatching = ConquestBlocks.isOutOfBoundsBlockItem(minecraft.player.getMainHandItem().getItem()) ||
+                              ConquestBlocks.isOutOfBoundsBlockItem(minecraft.player.getOffhandItem().getItem());
+        } else {
+            Optional<String> code = ConquestBlocks.resolveCaptureCode(captureState);
+            if (code.isPresent()) {
+                Item matchItem = ConquestBlocks.getCaptureBlockItem(code.get());
+                if (matchItem != null) {
+                    holdingMatching = minecraft.player.getMainHandItem().is(matchItem) ||
+                                      minecraft.player.getOffhandItem().is(matchItem);
+                }
+            }
+        }
+        if (!holdingMatching) {
             return;
         }
         spawnAlwaysVisible(level, new BlockParticleOption(ParticleTypes.BLOCK_MARKER, ConquestBlocks.resolveCaptureMarkerState(captureState)), pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D);
@@ -380,11 +411,11 @@ final class ClientCaptureOutlineController {
             return null;
         }
         Item main = minecraft.player.getMainHandItem().getItem();
-        if (ConquestBlocks.isCapturePointItem(main)) {
+        if (ConquestBlocks.isCapturePointItem(main) || ConquestBlocks.isOutOfBoundsBlockItem(main)) {
             return main;
         }
         Item off = minecraft.player.getOffhandItem().getItem();
-        if (ConquestBlocks.isCapturePointItem(off)) {
+        if (ConquestBlocks.isCapturePointItem(off) || ConquestBlocks.isOutOfBoundsBlockItem(off)) {
             return off;
         }
         return null;

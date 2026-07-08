@@ -55,7 +55,7 @@ public final class TacticalMarkerRenderer {
         float entryScale,
         float helpPulseProgress,
         String targetClass,
-        boolean isAmmoBoxEmpty
+        boolean supportBoxAlert
     ) {
         float clampedAlpha = Math.max(0.0F, Math.min(1.0F, alpha)) * MAX_MARKER_VISUAL_OPACITY;
         float clampedShapeOpacity = Math.max(0.0F, Math.min(1.0F, shapeOpacity));
@@ -80,7 +80,7 @@ public final class TacticalMarkerRenderer {
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableCull();
         if (finalAlpha > 0.01F) {
-            drawShape(gui, matrix, visual, scale, red, green, blue, finalAlpha, targetClass, isAmmoBoxEmpty);
+            drawShape(gui, matrix, visual, scale, red, green, blue, finalAlpha, targetClass, supportBoxAlert);
             if (visual.hasCenterCross()) {
                 drawCenterCross(matrix, visual.crossRadius() * scale, 0.72F + (hovered ? 0.08F : 0.0F), 1.0F, 1.0F, 1.0F, Math.min(1.0F, finalAlpha * 0.97F));
             }
@@ -89,23 +89,23 @@ public final class TacticalMarkerRenderer {
             float pulseFade = 1.0F - helpPulseProgress;
             float pulseScale = 1.0F + helpPulseProgress * 2.55F;
             float pulseAlpha = pulseFade * Math.max(0.40F, visual.opacityMultiplier()) * clampedAlpha;
-            drawShape(gui, matrix, visual, scale * pulseScale, red, green, blue, pulseAlpha, targetClass, isAmmoBoxEmpty);
+            drawShape(gui, matrix, visual, scale * pulseScale, red, green, blue, pulseAlpha, targetClass, supportBoxAlert);
             if (visual.hasCenterCross()) {
                 drawCenterCross(matrix, visual.crossRadius() * scale * pulseScale, 0.84F, 1.0F, 1.0F, 1.0F, Math.min(1.0F, pulseAlpha));
             }
             float outerPulseScale = 1.28F + helpPulseProgress * 3.15F;
             float outerPulseAlpha = pulseFade * pulseFade * Math.max(0.20F, visual.opacityMultiplier() * 0.52F) * clampedAlpha;
-            drawShape(gui, matrix, visual, scale * outerPulseScale, red, green, blue, outerPulseAlpha, targetClass, isAmmoBoxEmpty);
+            drawShape(gui, matrix, visual, scale * outerPulseScale, red, green, blue, outerPulseAlpha, targetClass, supportBoxAlert);
         }
         RenderSystem.enableCull();
         RenderSystem.enableDepthTest();
         gui.pose().popPose();
     }
 
-    private static void drawShape(GuiGraphics gui, Matrix4f matrix, MarkerVisual visual, float scale, float red, float green, float blue, float alpha, String targetClass, boolean isAmmoBoxEmpty) {
+    private static void drawShape(GuiGraphics gui, Matrix4f matrix, MarkerVisual visual, float scale, float red, float green, float blue, float alpha, String targetClass, boolean supportBoxAlert) {
         if (visual.shape() == MarkerShape.AMMO_BOX) {
             float r = 1.0f, g = 1.0f, b = 1.0f;
-            if (isAmmoBoxEmpty) {
+            if (supportBoxAlert) {
                 long time = System.currentTimeMillis();
                 float flash = (float) (Math.sin(time / 150.0) * 0.5 + 0.5); // 0.0 to 1.0 smooth
                 g = flash;
@@ -115,7 +115,14 @@ public final class TacticalMarkerRenderer {
             return;
         }
         if (visual.shape() == MarkerShape.MEDICAL_BOX) {
-            drawTextureMarker(gui, matrix, TEX_MEDICAL_BOX, scale, 1.0f, 1.0f, 1.0f, alpha, 256.0f);
+            float r = 1.0f, g = 1.0f, b = 1.0f;
+            if (supportBoxAlert) {
+                long time = System.currentTimeMillis();
+                float flash = (float) (Math.sin(time / 150.0) * 0.5 + 0.5);
+                g = flash;
+                b = flash;
+            }
+            drawTextureMarker(gui, matrix, TEX_MEDICAL_BOX, scale, r, g, b, alpha, 256.0f);
             return;
         }
         

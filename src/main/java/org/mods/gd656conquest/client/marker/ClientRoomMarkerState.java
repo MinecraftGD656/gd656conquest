@@ -48,9 +48,9 @@ public final class ClientRoomMarkerState {
     private static final float ICON_ENTRY_DURATION_TICKS = 14.0F;
     private static final long HELP_PULSE_DURATION_MS = 520L;
     private static final float WORLD_ICON_ALPHA_NEAR_CROSSHAIR = 0.05F;
-    private static final float WORLD_ICON_ALPHA_FAR_CROSSHAIR = 0.80F;
+    private static final float WORLD_ICON_ALPHA_FAR_CROSSHAIR = 0.40F;
     private static final float WORLD_ICON_CROSSHAIR_ALPHA_RADIUS_PIXELS = 300.0F;
-    private static final float WORLD_ICON_CROSSHAIR_ALPHA_CURVE = 1.35F;
+    private static final float WORLD_ICON_CROSSHAIR_ALPHA_CURVE = 1.20F;
     private static final float MARKER_TRIANGLE_OPACITY_NEAR_CROSSHAIR = 0.30F;
     private static final float MARKER_TRIANGLE_OPACITY_FAR_CROSSHAIR = 0.80F;
     private static final float MARKER_TRIANGLE_OPACITY_RADIUS_PIXELS = 140.0F;
@@ -199,9 +199,9 @@ public final class ClientRoomMarkerState {
             if (remainingTicks <= 0) {
                 continue;
             }
-            boolean isAmmoBoxEmpty = marker.kind() == MarkerKind.AMMO_BOX && isPrimaryWeaponEmpty(minecraft);
+            boolean supportBoxAlert = shouldAlertSupportBox(marker.kind(), minecraft);
             Vec3 anchor = marker.worldAnchor(minecraft, minecraft.getFrameTime());
-            ScreenProjection projection = projectToScreen(minecraft, marker, anchor, isAmmoBoxEmpty);
+            ScreenProjection projection = projectToScreen(minecraft, marker, anchor, supportBoxAlert);
             if (projection == null) {
                 continue;
             }
@@ -241,7 +241,7 @@ public final class ClientRoomMarkerState {
                 resolveEntryScale(entryProgress) * resolveMarkerDistanceScale(marker.kind(), actualDistance),
                 resolveHelpPulseProgress(marker),
                 targetClass,
-                isAmmoBoxEmpty
+                supportBoxAlert
             );
         }
         if (hovered != null && hovered.crosshairDistance() <= CROSSHAIR_LABEL_RADIUS_PIXELS) {
@@ -364,9 +364,9 @@ public final class ClientRoomMarkerState {
             if (marker.remainingTicksAt(minecraft.level.getGameTime()) <= 0) {
                 continue;
             }
-            boolean isAmmoBoxEmpty = marker.kind() == MarkerKind.AMMO_BOX && isPrimaryWeaponEmpty(minecraft);
+            boolean supportBoxAlert = shouldAlertSupportBox(marker.kind(), minecraft);
             Vec3 anchor = marker.worldAnchor(minecraft, minecraft.getFrameTime());
-            ScreenProjection projection = projectToScreen(minecraft, marker, anchor, isAmmoBoxEmpty);
+            ScreenProjection projection = projectToScreen(minecraft, marker, anchor, supportBoxAlert);
             if (projection == null) {
                 continue;
             }
@@ -619,7 +619,7 @@ public final class ClientRoomMarkerState {
         return targetPlayerId != null && ClientPlayerAnimatorDebugState.isPreviewActive(targetPlayerId);
     }
 
-    private static ScreenProjection projectToScreen(Minecraft minecraft, ClientMarker marker, Vec3 worldPos, boolean isAmmoBoxEmpty) {
+    private static ScreenProjection projectToScreen(Minecraft minecraft, ClientMarker marker, Vec3 worldPos, boolean supportBoxAlert) {
         if (minecraft.player == null || worldProjectionMatrix == null || worldPos == null || marker == null) {
             return null;
         }
@@ -629,7 +629,7 @@ public final class ClientRoomMarkerState {
         if (projected == null) {
             return null;
         }
-        if (!projected.insideViewport() && !shouldKeepMarkerPinnedToScreenEdge(marker, isAmmoBoxEmpty)) {
+        if (!projected.insideViewport() && !shouldKeepMarkerPinnedToScreenEdge(marker, supportBoxAlert)) {
             return null;
         }
         return new ScreenProjection(projected.screenX(), projected.screenY(), projected.insideViewport());
@@ -944,16 +944,13 @@ public final class ClientRoomMarkerState {
         return squadMate || isViewerAssault();
     }
 
-    private static boolean shouldKeepMarkerPinnedToScreenEdge(ClientMarker marker, boolean isAmmoBoxEmpty) {
+    private static boolean shouldKeepMarkerPinnedToScreenEdge(ClientMarker marker, boolean supportBoxAlert) {
         if (marker == null || marker.kind() == null) {
             return false;
         }
         MarkerKind kind = marker.kind();
-        if (kind == MarkerKind.AMMO_BOX) {
-            return isAmmoBoxEmpty;
-        }
-        if (kind == MarkerKind.MEDICAL_BOX) {
-            return false;
+        if (kind == MarkerKind.AMMO_BOX || kind == MarkerKind.MEDICAL_BOX) {
+            return supportBoxAlert;
         }
         if (kind == MarkerKind.DOWNED_SQUAD || kind == MarkerKind.SQUAD_PERSISTENT) {
             return true;
@@ -973,6 +970,23 @@ public final class ClientRoomMarkerState {
             case AMMO_BOX, MEDICAL_BOX -> 10.0D;
             default -> 8.0D;
         };
+    }
+
+    private static boolean shouldAlertSupportBox(MarkerKind kind, Minecraft minecraft) {
+        if (kind == MarkerKind.AMMO_BOX) {
+            return isPrimaryWeaponEmpty(minecraft);
+        }
+        if (kind == MarkerKind.MEDICAL_BOX) {
+            return isMedicalBoxNeeded(minecraft);
+        }
+        return false;
+    }
+
+    private static boolean isMedicalBoxNeeded(Minecraft minecraft) {
+        return minecraft != null
+            && minecraft.player != null
+            && minecraft.player.isAlive()
+            && minecraft.player.getHealth() < 4.0F;
     }
 
     private static boolean isViewerAssault() {

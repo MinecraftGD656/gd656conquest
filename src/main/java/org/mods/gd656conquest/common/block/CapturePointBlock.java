@@ -45,7 +45,7 @@ public final class CapturePointBlock extends Block {
 
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        if (ConquestBlocks.isMatchingCapturePointItem(state, context)) {
+        if (ConquestBlocks.isMatchingOutlineItem(state, context)) {
             return OUTLINE_SHAPE;
         }
         return Shapes.empty();
@@ -63,7 +63,7 @@ public final class CapturePointBlock extends Block {
 
     @Override
     public VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        if (ConquestBlocks.isMatchingCapturePointItem(state, context)) {
+        if (ConquestBlocks.isMatchingOutlineItem(state, context)) {
             return OUTLINE_SHAPE;
         }
         return Shapes.empty();

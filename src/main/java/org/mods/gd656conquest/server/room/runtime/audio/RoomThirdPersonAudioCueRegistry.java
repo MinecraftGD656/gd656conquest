@@ -20,6 +20,7 @@ public final class RoomThirdPersonAudioCueRegistry {
     public static final String PLAYER_SPOTTED_RECON = "player_spotted_recon";
     public static final String PLAYER_SPOTTED_SUPPORT = "player_spotted_support";
     public static final String PLAYER_REVIVING = "player_reviving";
+    public static final String PLAYER_THANKS = "player_thanks";
 
     private RoomThirdPersonAudioCueRegistry() {
     }

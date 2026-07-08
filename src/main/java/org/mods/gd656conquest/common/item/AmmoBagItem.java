@@ -84,6 +84,7 @@ public class AmmoBagItem extends ConquestGeoItem {
         receiver.displayClientMessage(buildReceiverMessage(giver, supplyResult), true);
         giver.displayClientMessage(buildGiverMessage(receiver, supplyResult), true);
         FrontlineVoiceBridge.playCue(giver, RoomThirdPersonAudioCueRegistry.PLAYER_THROW_AMMO);
+        FrontlineVoiceBridge.playCue(receiver, RoomThirdPersonAudioCueRegistry.PLAYER_THANKS);
         KilliconScoreboardBridge.tryAwardConquestBonus(giver, "AMMO_SUPPLY", 1.0F, "");
         return InteractionResult.SUCCESS;
     }

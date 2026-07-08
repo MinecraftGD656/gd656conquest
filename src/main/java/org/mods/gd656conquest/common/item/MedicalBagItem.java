@@ -17,9 +17,12 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import org.mods.gd656conquest.server.compat.frontlinevoice.FrontlineVoiceBridge;
+import org.mods.gd656conquest.server.compat.frontlinevoice.FrontlineVoiceGdcqCompatApi;
 import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.runtime.audio.RoomThirdPersonAudioCueRegistry;
+
+import java.util.Locale;
 
 public class MedicalBagItem extends ConquestGeoItem {
     private static final int ITEM_COOLDOWN_TICKS = 5 * 20;
@@ -98,13 +101,25 @@ public class MedicalBagItem extends ConquestGeoItem {
                         .append(Component.literal(" 一个医疗包").withStyle(ChatFormatting.GREEN)),
                 true
         );
-        FrontlineVoiceBridge.playCue(giver, RoomThirdPersonAudioCueRegistry.PLAYER_THROW_MEDKIT);
+        if (!playGiveMedkitVoice(giver)) {
+            FrontlineVoiceBridge.playCue(giver, RoomThirdPersonAudioCueRegistry.PLAYER_THROW_MEDKIT);
+        }
+        FrontlineVoiceBridge.playCue(receiver, RoomThirdPersonAudioCueRegistry.PLAYER_THANKS);
         KilliconScoreboardBridge.tryAwardConquestBonus(giver, "HEALING", 1.0F, "");
         return InteractionResult.SUCCESS;
     }
 
     private static void applyHealEffect(ServerPlayer player) {
         player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, EFFECT_DURATION_TICKS, EFFECT_AMPLIFIER, false, true, true));
+    }
+
+    private static boolean playGiveMedkitVoice(ServerPlayer giver) {
+        String voicePack = FrontlineVoiceGdcqCompatApi.resolveVoicePack(giver);
+        if (voicePack == null || voicePack.isBlank()) {
+            return false;
+        }
+        String soundId = "tp." + voicePack.toLowerCase(Locale.ROOT) + ".throw_medkit";
+        return FrontlineVoiceBridge.playThirdPersonSound(giver, soundId, 1.0F, 1.0F, 24.0D);
     }
 
     private static boolean isSameCampPlayer(ServerPlayer giver, ServerPlayer receiver) {

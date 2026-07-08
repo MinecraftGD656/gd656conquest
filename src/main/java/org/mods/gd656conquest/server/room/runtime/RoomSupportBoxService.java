@@ -250,7 +250,12 @@ public final class RoomSupportBoxService {
         level.addFreshEntity(medicalBox);
         activeMedicalBoxIds.add(medicalBox.getUUID());
         ownerActiveMedicalBoxId.put(ownerId, medicalBox.getUUID());
-        emitSupportBoxVoice(ownerId, null, medicalBox.position(), RoomThirdPersonAudioCueRegistry.PLAYER_THROW_MEDKIT);
+        ServerPlayer owner = server.getPlayerList().getPlayer(ownerId);
+        if (owner != null) {
+            FrontlineVoiceBridge.playCue(owner, RoomThirdPersonAudioCueRegistry.PLAYER_THROW_MEDKIT);
+        } else {
+            emitSupportBoxVoice(ownerId, null, medicalBox.position(), RoomThirdPersonAudioCueRegistry.PLAYER_THROW_MEDKIT);
+        }
         itemEntity.discard();
     }
 

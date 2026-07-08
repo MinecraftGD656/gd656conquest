@@ -73,7 +73,8 @@ final class ClientCaptureWorldIconRenderer {
             renderState.screenX = projection.screenX();
             renderState.screenY = projection.screenY();
             renderState.seenThisFrame = true;
-            float weightedAlpha = resolveCrosshairWeightedIconAlpha(gui, projection) * deployIconAlpha;
+            float crosshairWeightedAlpha = deployPhaseActive ? 1.0F : resolveCrosshairWeightedIconAlpha(gui, projection);
+            float weightedAlpha = crosshairWeightedAlpha * deployIconAlpha;
             renderState.alpha = approachAlpha(renderState.alpha, weightedAlpha, deltaSeconds);
             if (renderState.alpha <= 0.01F) {
                 continue;

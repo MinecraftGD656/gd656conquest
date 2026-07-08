@@ -66,7 +66,10 @@ public final class ClientMarkerDebugPreviewState {
             int row = entry.row();
             float centerX = startX + spacing * column;
             float centerY = baseY + rowSpacing * row;
-            boolean isAmmoBoxEmpty = entry.visualType() == TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX && (elapsedTicks % 40) > 20;
+            boolean supportBoxAlert =
+                (entry.visualType() == TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX
+                    || entry.visualType() == TacticalMarkerRenderer.MarkerVisualType.MEDICAL_BOX)
+                    && (elapsedTicks % 40) > 20;
             TacticalMarkerRenderer.drawMarker(
                 gui,
                 centerX,
@@ -79,7 +82,7 @@ public final class ClientMarkerDebugPreviewState {
                 resolveEntryScale(entryProgress),
                 entry.helpPulseProgress(),
                 entry.targetClass(),
-                isAmmoBoxEmpty
+                supportBoxAlert
             );
             int textRgb = switch (entry.visualType()) {
                 case ENEMY_GROUND, ENEMY_TRACKED, AUTO_ENEMY -> 0x00F1C1C1;

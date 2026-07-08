@@ -191,7 +191,8 @@ public final class CaptureDiamondRenderer {
     }
 
     public static void drawIconLabelInWorld(Font font, PoseStack poseStack, MultiBufferSource.BufferSource bufferSource, String text, float alpha) {
-        int alphaByte = ((int) (Mth.clamp(alpha, 0.0F, 1.0F) * 255.0F)) << 24;
+        float textAlpha = alpha <= 0.01F ? 0.0F : Math.max(0.11F, alpha);
+        int alphaByte = ((int) (Mth.clamp(textAlpha, 0.0F, 1.0F) * 255.0F)) << 24;
         int color = alphaByte | 0x00FFFFFF;
         float textWidth = font.width(text);
         poseStack.pushPose();
@@ -215,7 +216,8 @@ public final class CaptureDiamondRenderer {
 
     public static void drawIconLabelInHud(GuiGraphics gui, Font font, String text, float centerX, float centerY, float alpha, float labelScale, float labelXOffset) {
         MultiBufferSource.BufferSource bufferSource = Minecraft.getInstance().renderBuffers().bufferSource();
-        int alphaByte = ((int) (Mth.clamp(alpha, 0.0F, 1.0F) * 255.0F)) << 24;
+        float textAlpha = alpha <= 0.01F ? 0.0F : Math.max(0.11F, alpha);
+        int alphaByte = ((int) (Mth.clamp(textAlpha, 0.0F, 1.0F) * 255.0F)) << 24;
         int color = alphaByte | 0x00FFFFFF;
         float textWidth = font.width(text);
         float usingScale = Math.max(0.1F, labelScale);
@@ -250,7 +252,8 @@ public final class CaptureDiamondRenderer {
         float scale,
         MultiBufferSource.BufferSource bufferSource
     ) {
-        int alphaByte = ((int) (Mth.clamp(alpha, 0.0F, 1.0F) * 255.0F)) << 24;
+        float textAlpha = alpha <= 0.01F ? 0.0F : Math.max(0.11F, alpha);
+        int alphaByte = ((int) (Mth.clamp(textAlpha, 0.0F, 1.0F) * 255.0F)) << 24;
         int color = alphaByte | (rgb & 0x00FFFFFF);
         float usingScale = Math.max(0.1F, scale);
         gui.pose().pushPose();
@@ -333,7 +336,8 @@ public final class CaptureDiamondRenderer {
         int rgb,
         MultiBufferSource.BufferSource bufferSource
     ) {
-        int alphaByte = ((int) (Mth.clamp(alpha, 0.0F, 1.0F) * 255.0F)) << 24;
+        float textAlpha = alpha <= 0.01F ? 0.0F : Math.max(0.11F, alpha);
+        int alphaByte = ((int) (Mth.clamp(textAlpha, 0.0F, 1.0F) * 255.0F)) << 24;
         int color = alphaByte | (rgb & 0x00FFFFFF);
         float usingScale = Math.max(0.1F, labelScale);
         gui.pose().pushPose();

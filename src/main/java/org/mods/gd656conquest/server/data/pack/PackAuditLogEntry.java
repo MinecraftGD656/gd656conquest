@@ -9,6 +9,7 @@ public final class PackAuditLogEntry {
     private String playerName = "";
     private String playerUuid = "";
     private String kickTime = "";
+    private List<String> violationTimes = new ArrayList<>();
     private String trigger = "";
     private String reason = "";
     private String disconnectMessage = "";
@@ -37,6 +38,14 @@ public final class PackAuditLogEntry {
 
     public void setKickTime(String kickTime) {
         this.kickTime = kickTime == null ? "" : kickTime;
+    }
+
+    public List<String> getViolationTimes() {
+        return violationTimes;
+    }
+
+    public void setViolationTimes(List<String> violationTimes) {
+        this.violationTimes = violationTimes == null ? new ArrayList<>() : new ArrayList<>(violationTimes);
     }
 
     public String getTrigger() {
