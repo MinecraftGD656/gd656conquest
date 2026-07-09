@@ -45,13 +45,17 @@ import org.mods.gd656conquest.network.packet.ClientboundScreenshotRequestPacket;
 import org.mods.gd656conquest.network.packet.ServerboundScreenshotChunkPacket;
 import org.mods.gd656conquest.network.packet.ServerboundScreenshotStatusPacket;
 import org.mods.gd656conquest.network.packet.ServerboundAmmoBoxInteractPacket;
+import org.mods.gd656conquest.network.packet.SupportUiActionPacket;
+import org.mods.gd656conquest.network.packet.SupportUiOpenPacket;
+import org.mods.gd656conquest.network.packet.SupportUiRequestPacket;
+import org.mods.gd656conquest.network.packet.SupportUiSnapshotPacket;
 import org.mods.gd656conquest.network.packet.ServerboundPackAuditReportPacket;
 import org.mods.gd656conquest.network.packet.ServerboundBoundaryHeightStatePacket;
 import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "081";
+    private static final String PROTOCOL_VERSION = "083";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -217,6 +221,34 @@ public final class NetworkManager {
                 LoadoutUiActionPacket::encode,
                 LoadoutUiActionPacket::decode,
                 LoadoutUiActionPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                SupportUiOpenPacket.class,
+                SupportUiOpenPacket::encode,
+                SupportUiOpenPacket::decode,
+                SupportUiOpenPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                SupportUiRequestPacket.class,
+                SupportUiRequestPacket::encode,
+                SupportUiRequestPacket::decode,
+                SupportUiRequestPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                SupportUiSnapshotPacket.class,
+                SupportUiSnapshotPacket::encode,
+                SupportUiSnapshotPacket::decode,
+                SupportUiSnapshotPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                SupportUiActionPacket.class,
+                SupportUiActionPacket::encode,
+                SupportUiActionPacket::decode,
+                SupportUiActionPacket::handle
         );
         CHANNEL.registerMessage(
                 packetId++,

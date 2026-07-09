@@ -1,5 +1,6 @@
 package org.mods.gd656conquest.server.player.state;
 
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -129,6 +130,7 @@ public final class PlayerSessionStateService {
             lobbyTeam.setCollisionRule(Team.CollisionRule.NEVER);
             lobbyTeam.setNameTagVisibility(Team.Visibility.ALWAYS);
         }
+        lobbyTeam.setDisplayName(Component.literal("主大厅"));
         if (scoreboard.getPlayersTeam(player.getScoreboardName()) != lobbyTeam) {
             scoreboard.addPlayerToTeam(player.getScoreboardName(), lobbyTeam);
         }

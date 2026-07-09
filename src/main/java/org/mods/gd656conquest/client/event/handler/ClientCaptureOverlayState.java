@@ -32,6 +32,8 @@ final class ClientCaptureOverlayState {
     String selectedDeployIconId = "";
     String lastClickedDeployIconId = "";
     long lastHandledMousePressMillis = -1L;
+    String lastKeyboardSelectedDeployIconId = "";
+    long lastHandledKeyboardPressMillis = -1L;
     float mouseCrossGapPixels;
     float mouseCrossFeatherPixels;
 
@@ -58,6 +60,8 @@ final class ClientCaptureOverlayState {
         selectedDeployIconId = "";
         lastClickedDeployIconId = "";
         lastHandledMousePressMillis = -1L;
+        lastKeyboardSelectedDeployIconId = "";
+        lastHandledKeyboardPressMillis = -1L;
         mouseCrossGapPixels = 0.0F;
         mouseCrossFeatherPixels = 0.0F;
         clearProjectionState();
@@ -67,6 +71,8 @@ final class ClientCaptureOverlayState {
         hoveredDeployIcon = null;
         selectedDeployIconId = "";
         lastClickedDeployIconId = "";
+        lastKeyboardSelectedDeployIconId = "";
+        lastHandledKeyboardPressMillis = -1L;
         renderedDeployIcons.clear();
     }
 

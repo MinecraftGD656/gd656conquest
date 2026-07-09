@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.core.bootstrap;
 
 import org.mods.gd656conquest.server.core.command.ConquestCommandModule;
+import org.mods.gd656conquest.server.compat.tacz.TaczShellingServerModule;
 import org.mods.gd656conquest.server.core.lifecycle.ServerLifecycleCoordinator;
 import org.mods.gd656conquest.server.data.DataServerModule;
 import org.mods.gd656conquest.server.facility.parkour.ParkourServerModule;
@@ -27,6 +28,7 @@ public final class ServerFrameworkBootstrap {
             new ServerModuleRegistry(List.of(
                 new DataServerModule(),
                 new ConquestCommandModule(),
+                new TaczShellingServerModule(),
                 new PackValidationServerModule(),
                 new TitleServerModule(),
                 new PartyServerModule(),

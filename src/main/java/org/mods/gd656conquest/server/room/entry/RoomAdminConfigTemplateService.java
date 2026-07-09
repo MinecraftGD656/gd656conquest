@@ -150,7 +150,9 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.enableRandomLoadout(),
             sourceCommon.enableRandomAttachments(),
             sourceCommon.enableParachute(),
-            sourceCommon.enableDeathSupportDrop()
+            sourceCommon.enableDeathSupportDrop(),
+            sourceCommon.supportCampAHeroKits(),
+            sourceCommon.supportCampBHeroKits()
         );
         return new RoomDefinition(
             target.roomId(),

@@ -202,6 +202,13 @@
       }
     ]
   },
+  "sfx.deploy_select_ready": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/deploy_select_ready"
+      }
+    ]
+  },
   "sfx.revive_first_person": {
     "sounds": [
       {
@@ -346,6 +353,41 @@
     "sounds": [
       {
         "name": "gd656conquest:voice/capture/objective_taken_f"
+      }
+    ]
+  },
+  "voice.support.herokit_available_antivehicle": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/support/herokit_available_antivehicle"
+      }
+    ]
+  },
+  "voice.support.herokit_available_flametrooper": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/support/herokit_available_flametrooper"
+      }
+    ]
+  },
+  "voice.support.herokit_available_runner": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/support/herokit_available_runner"
+      }
+    ]
+  },
+  "voice.support.herokit_available_sentry": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/support/herokit_available_sentry"
+      }
+    ]
+  },
+  "voice.support.herokit_available_trenchraider": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/support/herokit_available_trenchraider"
       }
     ]
   }

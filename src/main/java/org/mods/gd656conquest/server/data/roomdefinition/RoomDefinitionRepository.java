@@ -245,7 +245,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().enableRandomLoadout(),
             base.commonConfig().enableRandomAttachments(),
             base.commonConfig().enableParachute(),
-            base.commonConfig().enableDeathSupportDrop()
+            base.commonConfig().enableDeathSupportDrop(),
+            base.commonConfig().supportCampAHeroKits(),
+            base.commonConfig().supportCampBHeroKits()
         );
         RoomConquestConfig conquestConfig = new RoomConquestConfig(
             base.conquestConfig().equipmentConfig(),
@@ -332,8 +334,12 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             false,
             false,
             false,
+            false,
+            false,
             true,
-            true
+            true,
+            List.of(),
+            List.of()
         );
         RoomConquestConfig conquestConfig = RoomConquestConfig.defaults();
         RoomDefinition base = new RoomDefinition(
@@ -484,7 +490,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                         normalizedCommon.enableRandomLoadout(),
                         normalizedCommon.enableRandomAttachments(),
                         normalizedCommon.enableParachute(),
-                        normalizedCommon.enableDeathSupportDrop()
+                        normalizedCommon.enableDeathSupportDrop(),
+                        normalizedCommon.supportCampAHeroKits(),
+                        normalizedCommon.supportCampBHeroKits()
                     ),
                     new RoomConquestConfig(
                         normalizedConquest.equipmentConfig(),
@@ -552,8 +560,11 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 false,
                 false,
                 false,
+                false,
+                false,
                 true,
-                true
+                List.of(),
+                List.of()
             );
             RoomConquestConfig conquestConfig = new RoomConquestConfig(
                 RoomEquipmentConfig.defaults(),
@@ -765,6 +776,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         private boolean enableRandomAttachments;
         private Boolean enableParachute;
         private Boolean enableDeathSupportDrop;
+        private List<String> supportCampAHeroKits;
+        private List<String> supportCampBHeroKits;
 
         public static CommonConfig from(RoomDefinition definition) {
             CommonConfig config = new CommonConfig();
@@ -802,6 +815,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.enableRandomAttachments = definition.commonConfig().enableRandomAttachments();
             config.enableParachute = definition.commonConfig().enableParachute();
             config.enableDeathSupportDrop = definition.commonConfig().enableDeathSupportDrop();
+            config.supportCampAHeroKits = definition.commonConfig().supportCampAHeroKits();
+            config.supportCampBHeroKits = definition.commonConfig().supportCampBHeroKits();
             return config;
         }
 
@@ -839,6 +854,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.enableRandomAttachments = false;
             config.enableParachute = true;
             config.enableDeathSupportDrop = true;
+            config.supportCampAHeroKits = List.of();
+            config.supportCampBHeroKits = List.of();
             return config;
         }
 
@@ -876,6 +893,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             normalized.enableRandomAttachments = enableRandomAttachments;
             normalized.enableParachute = enableParachute == null ? defaults.enableParachute : enableParachute;
             normalized.enableDeathSupportDrop = enableDeathSupportDrop == null ? defaults.enableDeathSupportDrop : enableDeathSupportDrop;
+            normalized.supportCampAHeroKits = supportCampAHeroKits == null ? List.of() : List.copyOf(supportCampAHeroKits);
+            normalized.supportCampBHeroKits = supportCampBHeroKits == null ? List.of() : List.copyOf(supportCampBHeroKits);
             return normalized;
         }
 
@@ -1018,6 +1037,14 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             return enableDeathSupportDrop == null || enableDeathSupportDrop;
         }
 
+        public List<String> supportCampAHeroKits() {
+            return supportCampAHeroKits == null ? List.of() : List.copyOf(supportCampAHeroKits);
+        }
+
+        public List<String> supportCampBHeroKits() {
+            return supportCampBHeroKits == null ? List.of() : List.copyOf(supportCampBHeroKits);
+        }
+
     }
 
     private record ProgressSpeedMigrationData(Double commonProgressSpeed, Double legacyCaptureProgressSpeed) {
@@ -1103,7 +1130,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().enableRandomLoadout(),
             definition.commonConfig().enableRandomAttachments(),
             definition.commonConfig().enableParachute(),
-            definition.commonConfig().enableDeathSupportDrop()
+            definition.commonConfig().enableDeathSupportDrop(),
+            definition.commonConfig().supportCampAHeroKits(),
+            definition.commonConfig().supportCampBHeroKits()
         );
         return new RoomDefinition(
             definition.roomId(),
@@ -1155,7 +1184,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().enableRandomLoadout(),
             definition.commonConfig().enableRandomAttachments(),
             definition.commonConfig().enableParachute(),
-            definition.commonConfig().enableDeathSupportDrop()
+            definition.commonConfig().enableDeathSupportDrop(),
+            definition.commonConfig().supportCampAHeroKits(),
+            definition.commonConfig().supportCampBHeroKits()
         );
         return new RoomDefinition(
             definition.roomId(),

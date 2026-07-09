@@ -50,6 +50,9 @@ public final class RunningRuntimeState {
     private final Map<UUID, RoomTeamId> autoTeamSwitchOfferTargetTeams = new LinkedHashMap<>();
     private final Map<UUID, Long> autoTeamSwitchOfferExpireTicks = new LinkedHashMap<>();
     private final Map<UUID, KilliconMatchStats> killiconMatchStatsByPlayer = new LinkedHashMap<>();
+    private final Map<UUID, Integer> supportSpentScoreByPlayer = new LinkedHashMap<>();
+    private final Map<UUID, String> activeHeroKitIdsByPlayer = new LinkedHashMap<>();
+    private final Map<UUID, String> activeHeroKitTypesByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Map<Integer, Long>> loadoutItemLastReplenishTickByPlayerSlot = new LinkedHashMap<>();
     private final Map<UUID, String> randomizedLoadoutClassKeysByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Map<String, String>> randomizedLoadoutSelectionIdsByPlayerSlot = new LinkedHashMap<>();
@@ -268,6 +271,18 @@ public final class RunningRuntimeState {
         return killiconMatchStatsByPlayer;
     }
 
+    public Map<UUID, Integer> getSupportSpentScoreByPlayer() {
+        return supportSpentScoreByPlayer;
+    }
+
+    public Map<UUID, String> getActiveHeroKitIdsByPlayer() {
+        return activeHeroKitIdsByPlayer;
+    }
+
+    public Map<UUID, String> getActiveHeroKitTypesByPlayer() {
+        return activeHeroKitTypesByPlayer;
+    }
+
     public Map<UUID, Map<Integer, Long>> getLoadoutItemLastReplenishTickByPlayerSlot() {
         return loadoutItemLastReplenishTickByPlayerSlot;
     }
@@ -431,6 +446,9 @@ public final class RunningRuntimeState {
         }
         activeMatchInstanceId = candidate;
         killiconMatchStatsByPlayer.clear();
+        supportSpentScoreByPlayer.clear();
+        activeHeroKitIdsByPlayer.clear();
+        activeHeroKitTypesByPlayer.clear();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
         rejoinTickets.clear();
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();
@@ -444,6 +462,9 @@ public final class RunningRuntimeState {
 
     public void clearActiveMatchInstance() {
         activeMatchInstanceId = -1L;
+        supportSpentScoreByPlayer.clear();
+        activeHeroKitIdsByPlayer.clear();
+        activeHeroKitTypesByPlayer.clear();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
         rejoinTickets.clear();
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();
@@ -489,6 +510,8 @@ public final class RunningRuntimeState {
         pendingTeamChanges.remove(playerId);
         autoTeamSwitchOfferTargetTeams.remove(playerId);
         autoTeamSwitchOfferExpireTicks.remove(playerId);
+        activeHeroKitIdsByPlayer.remove(playerId);
+        activeHeroKitTypesByPlayer.remove(playerId);
         loadoutItemLastReplenishTickByPlayerSlot.remove(playerId);
         randomizedLoadoutClassKeysByPlayer.remove(playerId);
         randomizedLoadoutSelectionIdsByPlayerSlot.remove(playerId);
@@ -541,6 +564,9 @@ public final class RunningRuntimeState {
         autoTeamSwitchOfferTargetTeams.clear();
         autoTeamSwitchOfferExpireTicks.clear();
         killiconMatchStatsByPlayer.clear();
+        supportSpentScoreByPlayer.clear();
+        activeHeroKitIdsByPlayer.clear();
+        activeHeroKitTypesByPlayer.clear();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
         randomizedLoadoutClassKeysByPlayer.clear();
         randomizedLoadoutSelectionIdsByPlayerSlot.clear();

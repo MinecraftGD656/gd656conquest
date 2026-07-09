@@ -238,13 +238,7 @@ public final class LegacyRoomDefinitionsUpdateService {
                 new RoomResultConfig(normalizedResult.endViewPosition),
                 normalizedRules.disableHunger,
                 normalizedRules.enableAutoTeamSwitchPrompt,
-                normalizedRules.disableInventoryChange,
-                false,
-                false,
-                false,
-                false,
-                true,
-                true
+                normalizedRules.disableInventoryChange
             );
             RoomConquestConfig conquestConfig = new RoomConquestConfig(
                 normalizedEquipment.toModel(),

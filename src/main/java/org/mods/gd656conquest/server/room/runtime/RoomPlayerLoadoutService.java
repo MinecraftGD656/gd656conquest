@@ -18,6 +18,7 @@ import net.minecraft.world.item.Instruments;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.registries.ForgeRegistries;
+import org.mods.gd656conquest.common.item.ConquestItems;
 import org.mods.gd656conquest.server.compat.superbwarfare.SuperbWarfareCompatBridge;
 import org.mods.gd656conquest.server.compat.curios.CuriosCompatBridge;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
@@ -58,7 +59,8 @@ public final class RoomPlayerLoadoutService {
     private static final int GADGET_1_HOTBAR_SLOT = 3;
     private static final int GADGET_2_HOTBAR_SLOT = 4;
     private static final int THROWABLE_HOTBAR_SLOT = 5;
-    private static final int GOAT_HORN_HOTBAR_SLOT = 8;
+    private static final int GOAT_HORN_HOTBAR_SLOT = 7;
+    private static final int SUPPORT_HOTBAR_SLOT = 8;
     private static final int PRIMARY_AMMO_ROW_START = 18;
     private static final int PRIMARY_AMMO_ROW_END = 26;
     private static final int SECONDARY_AMMO_ROW_START = 29;
@@ -189,6 +191,7 @@ public final class RoomPlayerLoadoutService {
             moveConfiguredTotemToOffhand(player);
         }
         applyOptionalRoomGoatHorn(player);
+        applyOptionalRoomSupportItem(roomContext, player);
         applyOptionalParachute(roomContext, player);
         if (selection.playerDataChanged()) {
             playerDataHandler.savePlayerData(player.getUUID(), playerData);
@@ -1211,6 +1214,16 @@ public final class RoomPlayerLoadoutService {
             return;
         }
         CuriosCompatBridge.setCurio(player, "back", 0, new ItemStack(parachuteItem));
+    }
+
+    private void applyOptionalRoomSupportItem(RoomRuntimeContext roomContext, ServerPlayer player) {
+        if (player == null || roomContext == null || roomContext.room() == null) {
+            return;
+        }
+        if (SUPPORT_HOTBAR_SLOT < 0 || SUPPORT_HOTBAR_SLOT >= player.getInventory().items.size()) {
+            return;
+        }
+        player.getInventory().setItem(SUPPORT_HOTBAR_SLOT, new ItemStack(ConquestItems.SUPPORT_ITEM.get()));
     }
 
     private RoomDefinition resolvePlayerRoom(ServerPlayer player) {

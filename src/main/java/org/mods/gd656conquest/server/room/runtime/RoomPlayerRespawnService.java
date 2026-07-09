@@ -24,6 +24,7 @@ import net.minecraftforge.registries.ForgeRegistries;
 import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
 import org.mods.gd656conquest.server.compat.frontlinevoice.FrontlineVoiceBridge;
 import org.mods.gd656conquest.server.compat.tacz.TaczServerPoseCompat;
+import org.mods.gd656conquest.server.facility.support.HeroKitSupportService;
 import org.mods.gd656conquest.network.packet.PlayerAnimatorDebugPacket;
 import org.mods.gd656conquest.network.packet.RoomDownedStatePacket;
 import org.mods.gd656conquest.network.NetworkManager;
@@ -943,6 +944,7 @@ public final class RoomPlayerRespawnService {
         state.getRespawnFinalizeTicks().remove(playerId);
         state.getRespawnTargetPositions().put(playerId, spawn);
         playerLaunchService.teleportToRoomPosition(player, room, spawn);
+        HeroKitSupportService.clearHeroKitStateOnRespawn(state, playerId);
         loadoutService.applySpawnLoadout(state, player);
         markInitialMovementLocked(state, playerId);
         playerStateService.applyRespawnState(room, playerId, gameTick);
@@ -1614,6 +1616,7 @@ public final class RoomPlayerRespawnService {
         player.setXRot(0.0F);
         playerLaunchService.teleportToRoomPosition(player, room, spawn);
         clearVanillaPotionEffects(player);
+        HeroKitSupportService.clearHeroKitStateOnRespawn(state, playerId);
         loadoutService.applySpawnLoadout(state, player);
         if (pendingVehicleDeploy != null) {
             playerStateService.applyRespawnState(room, playerId, gameTick);

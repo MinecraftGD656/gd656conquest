@@ -5,6 +5,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.facility.parkour.ParkourRuntimeManager;
 import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
+import org.mods.gd656conquest.server.facility.support.SupportUiService;
 import org.mods.gd656conquest.server.loadout.LoadoutUiService;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.entry.RoomSessionTransitionService;
@@ -40,6 +41,7 @@ public final class QuickAccessItemService {
         PARTY_HELP,
         MY_TITLE,
         LOADOUT_GUIDE,
+        SUPPORT,
         ENTER_RANGE,
         LEAVE_SESSION,
         LEAVE_PARTY
@@ -63,6 +65,7 @@ public final class QuickAccessItemService {
             case PARTY_HELP -> showPartyHelp(player);
             case MY_TITLE -> showMyTitles(player);
             case LOADOUT_GUIDE -> showLoadoutGuide(player);
+            case SUPPORT -> openSupportUi(player);
             case ENTER_RANGE -> enterRange(player);
             case LEAVE_SESSION -> leaveSession(player);
             case LEAVE_PARTY -> leaveParty(player);
@@ -152,6 +155,11 @@ public final class QuickAccessItemService {
 
     private static boolean showLoadoutGuide(ServerPlayer player) {
         LoadoutUiService.sendSnapshot(player, true);
+        return true;
+    }
+
+    private static boolean openSupportUi(ServerPlayer player) {
+        SupportUiService.open(player);
         return true;
     }
 
@@ -261,6 +269,7 @@ public final class QuickAccessItemService {
         return QuickAccessInventoryPolicyService.isQuickAccessItem(item)
             || item == org.mods.gd656conquest.common.item.ConquestItems.MEDIC_BAG.get()
             || item == org.mods.gd656conquest.common.item.ConquestItems.AMMO_BAG.get()
-            || item == org.mods.gd656conquest.common.item.ConquestItems.RADIO_BEACON.get();
+            || item == org.mods.gd656conquest.common.item.ConquestItems.RADIO_BEACON.get()
+            || item == org.mods.gd656conquest.common.item.ConquestItems.SUPPORT_ITEM.get();
     }
 }

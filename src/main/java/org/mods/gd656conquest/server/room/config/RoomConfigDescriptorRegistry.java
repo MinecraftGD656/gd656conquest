@@ -84,6 +84,8 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "enableRandomAttachments", "启用房间随机配件", "commonConfig.enableRandomAttachments", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomAttachments");
         common(descriptors, RoomConfigCategory.RULES, "enableParachute", "启用对局降落伞", "commonConfig.enableParachute", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableParachute");
         common(descriptors, RoomConfigCategory.RULES, "enableDeathSupportDrop", "启用死亡掉落补给包", "commonConfig.enableDeathSupportDrop", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
+        commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampAHeroKits", "阵地支援-campA可用精英兵", "commonConfig.supportCampAHeroKits", RoomConfigValueType.DATA_GROUP);
+        commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampBHeroKits", "阵地支援-campB可用精英兵", "commonConfig.supportCampBHeroKits", RoomConfigValueType.DATA_GROUP);
         common(descriptors, RoomConfigCategory.RESULT, "endViewPosition", "结算视角", "commonConfig.resultConfig.endViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"), "matchEndViewPosition");
 
         common(descriptors, RoomConfigCategory.PLAYER_STATE, "gameMode", "玩家游戏模式", "commonConfig.playerStateConfig.gameMode", RoomConfigValueType.STRING, List.of("SURVIVAL", "ADVENTURE", "CREATIVE", "SPECTATOR"), "playerGameMode");
@@ -165,6 +167,10 @@ public final class RoomConfigDescriptorRegistry {
 
     private static void common(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, List<String> suggestions, String... aliases) {
         out.add(descriptor(RoomConfigScope.COMMON, category, id, name, path, type, suggestions, true, RoomConfigGroupOperationMode.NONE, null, aliases));
+    }
+
+    private static void commonGroup(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, String... aliases) {
+        out.add(descriptor(RoomConfigScope.COMMON, category, id, name, path, type, List.of(), true, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, aliases));
     }
 
     private static void conquest(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, List<String> suggestions, String... aliases) {

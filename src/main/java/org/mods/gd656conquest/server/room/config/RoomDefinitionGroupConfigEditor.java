@@ -25,6 +25,9 @@ public final class RoomDefinitionGroupConfigEditor {
     public static RoomDefinition add(RoomDefinition definition, String configId, String rawValue, ServerPlayer editor) {
         Objects.requireNonNull(definition, "definition");
         String canonical = normalizeConfigId(configId);
+        if (isCommonStringGroup(canonical)) {
+            return replaceCommonStringGroup(definition, canonical, addCommonGroupValue(resolveCommonStringGroup(definition, canonical), rawValue));
+        }
         if (isBoundaryGroup(canonical)) {
             RoomPosition point = parseBoundaryPosition(rawValue, editor);
             return replaceBoundary(definition, canonical, point, false, false);
@@ -41,6 +44,12 @@ public final class RoomDefinitionGroupConfigEditor {
         Objects.requireNonNull(definition, "definition");
         String canonical = normalizeConfigId(configId);
         boolean clearAll = "all".equalsIgnoreCase(rawValue == null ? "" : rawValue.trim());
+        if (isCommonStringGroup(canonical)) {
+            List<String> updatedValues = clearAll
+                ? List.of()
+                : removeCommonGroupValue(resolveCommonStringGroup(definition, canonical), rawValue);
+            return replaceCommonStringGroup(definition, canonical, updatedValues);
+        }
         if (isBoundaryGroup(canonical)) {
             return clearAll
                 ? replaceBoundary(definition, canonical, null, true, false)
@@ -60,6 +69,9 @@ public final class RoomDefinitionGroupConfigEditor {
     public static List<String> list(RoomDefinition definition, String configId) {
         Objects.requireNonNull(definition, "definition");
         String canonical = normalizeConfigId(configId);
+        if (isCommonStringGroup(canonical)) {
+            return resolveCommonStringGroup(definition, canonical);
+        }
         if (isBoundaryGroup(canonical)) {
             List<RoomPosition> boundary = switch (canonical) {
                 case "sharedboundary" -> definition.conquestConfig().sharedBoundary();
@@ -122,6 +134,84 @@ public final class RoomDefinitionGroupConfigEditor {
             definition.conquestConfig().captureConfig()
         );
         return rebuild(definition, definition.commonConfig(), conquest);
+    }
+
+    private static RoomDefinition replaceCommonStringGroup(RoomDefinition definition, String canonical, List<String> updatedValues) {
+        RoomCommonConfig common = definition.commonConfig();
+        RoomCommonConfig updatedCommon = new RoomCommonConfig(
+            common.matchingConfig(),
+            common.dimensionId(),
+            common.queueSpawn(),
+            common.respawnDelaySeconds(),
+            common.vehicleBackend(),
+            common.playerStateConfig(),
+            common.outsideBoundaryDeathSeconds(),
+            common.aircraftOutsideBoundaryCleanupSeconds(),
+            common.playerMaxY(),
+            common.aircraftPassengerMaxY(),
+            common.campADisplayName(),
+            common.campBDisplayName(),
+            common.campAVoicePack(),
+            common.campBVoicePack(),
+            common.progressSpeed(),
+            common.resultConfig(),
+            common.disableHunger(),
+            common.enableAutoTeamSwitchPrompt(),
+            common.disableInventoryChange(),
+            common.enableGoatHorn(),
+            common.enablePlayerDowned(),
+            common.enableBackAgainstWall(),
+            common.enableRandomLoadout(),
+            common.enableRandomAttachments(),
+            common.enableParachute(),
+            common.enableDeathSupportDrop(),
+            "supportcampaherokits".equals(canonical) ? updatedValues : common.supportCampAHeroKits(),
+            "supportcampbherokits".equals(canonical) ? updatedValues : common.supportCampBHeroKits()
+        );
+        return rebuild(definition, updatedCommon, definition.conquestConfig());
+    }
+
+    private static List<String> resolveCommonStringGroup(RoomDefinition definition, String canonical) {
+        RoomCommonConfig common = definition.commonConfig();
+        if ("supportcampaherokits".equals(canonical)) {
+            return new ArrayList<>(common.supportCampAHeroKits());
+        }
+        if ("supportcampbherokits".equals(canonical)) {
+            return new ArrayList<>(common.supportCampBHeroKits());
+        }
+        throw new IllegalArgumentException("未知 common 组配置: " + canonical);
+    }
+
+    private static List<String> addCommonGroupValue(List<String> currentValues, String rawValue) {
+        String normalized = normalizeCommonGroupValue(rawValue);
+        List<String> updated = new ArrayList<>(currentValues == null ? List.of() : currentValues);
+        if (updated.stream().noneMatch(normalized::equals)) {
+            updated.add(normalized);
+        }
+        return updated;
+    }
+
+    private static List<String> removeCommonGroupValue(List<String> currentValues, String rawValue) {
+        String normalized = normalizeCommonGroupValue(rawValue);
+        List<String> updated = new ArrayList<>(currentValues == null ? List.of() : currentValues);
+        updated.removeIf(normalized::equals);
+        return updated;
+    }
+
+    private static String normalizeCommonGroupValue(String rawValue) {
+        String normalized = rawValue == null ? "" : rawValue.trim();
+        if (normalized.length() >= 2) {
+            boolean asciiQuoted = normalized.startsWith("\"") && normalized.endsWith("\"");
+            boolean cnQuoted = normalized.startsWith("“") && normalized.endsWith("”");
+            if (asciiQuoted || cnQuoted) {
+                normalized = normalized.substring(1, normalized.length() - 1);
+            }
+        }
+        normalized = normalized.trim();
+        if (normalized.isBlank()) {
+            throw new IllegalArgumentException("组配置值不能为空");
+        }
+        return normalized;
     }
 
     private static RoomSpawnGroupConfig addSpawn(RoomSpawnGroupConfig group, RoomPosition position) {
@@ -512,6 +602,10 @@ public final class RoomDefinitionGroupConfigEditor {
 
     private static boolean isBoundaryGroup(String canonical) {
         return "sharedboundary".equals(canonical) || "campaboundary".equals(canonical) || "campbboundary".equals(canonical);
+    }
+
+    private static boolean isCommonStringGroup(String canonical) {
+        return "supportcampaherokits".equals(canonical) || "supportcampbherokits".equals(canonical);
     }
 
     private static boolean isBreakthroughBoundaryGroup(String canonical) {

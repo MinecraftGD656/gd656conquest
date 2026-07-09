@@ -14,6 +14,8 @@ import org.mods.gd656conquest.network.packet.RoomDownedStatePacket;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.player.state.HubDimensionService;
 import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
+import org.mods.gd656conquest.server.facility.support.HeroKitSupportService;
+import org.mods.gd656conquest.server.facility.support.SupportScoreService;
 import org.mods.gd656conquest.server.player.identity.PlayerIdentityService;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
 import org.mods.gd656conquest.server.room.entry.RoomAdminLifecycleService;
@@ -984,6 +986,7 @@ public final class RoomCoreService {
         return findRunningSlotByPlayer(player.getUUID())
             .filter(slot -> slot.runtime().getRunningState().getRoomPlayers().contains(player.getUUID()))
             .map(slot -> {
+                HeroKitSupportService.clearHeroKitStateOnRespawn(slot.runtime().getRunningState(), player.getUUID());
                 playerLoadoutService.applySpawnLoadout(slot.runtime().getRunningState(), player);
                 return true;
             })
@@ -1373,6 +1376,41 @@ public final class RoomCoreService {
         return true;
     }
 
+    public int getPlayerSupportSpentScore(UUID playerId) {
+        if (playerId == null) {
+            return 0;
+        }
+        return findRunningSlotByPlayer(playerId)
+            .map(slot -> SupportScoreService.getSpentScore(slot.runtime().getRunningState(), playerId))
+            .orElse(0);
+    }
+
+    public int getPlayerRemainingSupportScore(UUID playerId) {
+        if (playerId == null) {
+            return 0;
+        }
+        return findRunningSlotByPlayer(playerId)
+            .map(slot -> SupportScoreService.getRemainingScore(slot.runtime().getRunningState(), playerId))
+            .orElse(0);
+    }
+
+    public SupportScoreService.ConsumptionResult tryConsumePlayerSupportScore(UUID playerId, int cost) {
+        if (playerId == null) {
+            return new SupportScoreService.ConsumptionResult(false, 0, 0, Math.max(0, cost));
+        }
+        return findRunningSlotByPlayer(playerId)
+            .map(slot -> SupportScoreService.tryConsumeScore(slot.runtime().getRunningState(), playerId, cost))
+            .orElse(new SupportScoreService.ConsumptionResult(false, 0, 0, Math.max(0, cost)));
+    }
+
+    public void clearPlayerSupportScore(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
+        findRunningSlotByPlayer(playerId)
+            .ifPresent(slot -> SupportScoreService.clearPlayer(slot.runtime().getRunningState(), playerId));
+    }
+
     public Optional<String> buildAdminDebugOverlayPayload(ServerPlayer player) {
         return adminDebugOverlayService.buildPayloadForPlayer(player);
     }
@@ -1532,6 +1570,9 @@ public final class RoomCoreService {
             inventorySnapshotService.restore(player, slot.runtime());
             clearTransientRoomClientState(player);
         }
+        if (shouldTransferLobby) {
+            SupportScoreService.clearPlayer(runningState, playerId);
+        }
         nametagVisibilityService.clearPlayer(player);
         ruleRuntimeService.clearPlayer(playerId);
         resultRuntimeService.clearPlayer(player);
@@ -1574,6 +1615,7 @@ public final class RoomCoreService {
             inventorySnapshotService.restore(player, slot.runtime());
             clearTransientRoomClientState(player);
         }
+        SupportScoreService.clearPlayer(runningState, playerId);
         nametagVisibilityService.clearPlayer(player);
         ruleRuntimeService.clearPlayer(playerId);
         resultRuntimeService.clearPlayer(player);

@@ -51,6 +51,8 @@ public final class ConquestItems {
             new UtilityActionItem(new Item.Properties().stacksTo(1), org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.MY_TITLE));
     public static final RegistryObject<Item> LOADOUT_GUIDE_ITEM = ITEMS.register("loadout_guide", () ->
             new UtilityActionItem(new Item.Properties().stacksTo(1), org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.LOADOUT_GUIDE));
+    public static final RegistryObject<Item> SUPPORT_ITEM = ITEMS.register("support", () ->
+            new UtilityActionItem(new Item.Properties().stacksTo(1), org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.SUPPORT));
     public static final RegistryObject<Item> ENTER_RANGE_ITEM = ITEMS.register("enter_range", () ->
             new UtilityActionItem(new Item.Properties().stacksTo(1), org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.ENTER_RANGE));
     public static final RegistryObject<Item> LEAVE_ITEM = ITEMS.register("leave_session", () ->
@@ -84,6 +86,7 @@ public final class ConquestItems {
             acceptIfPresent(event, LEAVE_PARTY_ITEM);
             acceptIfPresent(event, MY_TITLE_ITEM);
             acceptIfPresent(event, LOADOUT_GUIDE_ITEM);
+            acceptIfPresent(event, SUPPORT_ITEM);
             acceptIfPresent(event, ENTER_RANGE_ITEM);
             acceptIfPresent(event, LEAVE_ITEM);
         }

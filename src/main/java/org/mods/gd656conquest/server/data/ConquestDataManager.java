@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.data;
 
 import net.minecraft.server.MinecraftServer;
+import org.mods.gd656conquest.server.data.herokit.HeroKitDataStore;
 import org.mods.gd656conquest.server.data.parkour.ParkourDataStore;
 import org.mods.gd656conquest.server.data.pack.PackAuditLogStore;
 import org.mods.gd656conquest.server.data.pack.PackWhitelistStore;
@@ -26,6 +27,7 @@ public final class ConquestDataManager {
     private final RoomDefinitionRepository roomDefinitionRepository;
     private final RoomTemplateRepository roomTemplateRepository;
     private final EquipmentDataStore equipmentDataStore;
+    private final HeroKitDataStore heroKitDataStore;
     private final WeaponAttachmentDataStore weaponAttachmentDataStore;
     private final VehicleConfigRepository vehicleConfigRepository;
     private final ParkourDataStore parkourDataStore;
@@ -42,6 +44,7 @@ public final class ConquestDataManager {
         this.roomDefinitionRepository = new RoomDefinitionRepository(server, delayedJsonWriteService);
         this.roomTemplateRepository = new RoomTemplateRepository(server);
         this.equipmentDataStore = new EquipmentDataStore(server, delayedJsonWriteService);
+        this.heroKitDataStore = new HeroKitDataStore(server, delayedJsonWriteService);
         this.weaponAttachmentDataStore = new WeaponAttachmentDataStore(server, delayedJsonWriteService);
         this.vehicleConfigRepository = new VehicleConfigRepository(server, delayedJsonWriteService);
         this.parkourDataStore = new ParkourDataStore(server, delayedJsonWriteService);
@@ -73,6 +76,7 @@ public final class ConquestDataManager {
         playerTitleRegistryStore.initialize();
         roomDefinitionRepository.initialize();
         equipmentDataStore.initialize();
+        heroKitDataStore.initialize();
         weaponAttachmentDataStore.initialize();
         vehicleConfigRepository.initialize();
         parkourDataStore.initialize();
@@ -112,6 +116,11 @@ public final class ConquestDataManager {
     public EquipmentDataStore equipmentData() {
         initialize();
         return equipmentDataStore;
+    }
+
+    public HeroKitDataStore heroKits() {
+        initialize();
+        return heroKitDataStore;
     }
 
     public WeaponAttachmentDataStore weaponAttachments() {

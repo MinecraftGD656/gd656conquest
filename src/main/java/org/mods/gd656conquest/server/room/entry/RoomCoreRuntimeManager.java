@@ -7,6 +7,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.AdminDebugOverlayPacket;
+import org.mods.gd656conquest.server.facility.support.SupportScoreService;
 import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
 import org.mods.gd656conquest.server.social.chat.ServerActionBarService;
@@ -551,6 +552,34 @@ public final class RoomCoreRuntimeManager {
             return false;
         }
         return coreService.recordKilliconMatchDelta(playerId, scoreDelta, killDelta, deathDelta, assistDelta, reviveDelta);
+    }
+
+    public int getPlayerSupportSpentScore(UUID playerId) {
+        if (coreService == null) {
+            return 0;
+        }
+        return coreService.getPlayerSupportSpentScore(playerId);
+    }
+
+    public int getPlayerRemainingSupportScore(UUID playerId) {
+        if (coreService == null) {
+            return 0;
+        }
+        return coreService.getPlayerRemainingSupportScore(playerId);
+    }
+
+    public SupportScoreService.ConsumptionResult tryConsumePlayerSupportScore(UUID playerId, int cost) {
+        if (coreService == null) {
+            return new SupportScoreService.ConsumptionResult(false, 0, 0, Math.max(0, cost));
+        }
+        return coreService.tryConsumePlayerSupportScore(playerId, cost);
+    }
+
+    public void clearPlayerSupportScore(UUID playerId) {
+        if (coreService == null) {
+            return;
+        }
+        coreService.clearPlayerSupportScore(playerId);
     }
 
     public void onServerTick(long gameTick) {

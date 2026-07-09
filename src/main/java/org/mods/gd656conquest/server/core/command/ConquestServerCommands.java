@@ -2,6 +2,7 @@ package org.mods.gd656conquest.server.core.command;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -18,6 +19,7 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameRules;
+import net.minecraft.world.phys.Vec3;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.AdminDebugOverlayPacket;
 import org.mods.gd656conquest.network.packet.HudDebugPreviewPacket;
@@ -30,10 +32,12 @@ import org.mods.gd656conquest.server.data.playerdata.LegacySurvivalDataExportSer
 import org.mods.gd656conquest.server.data.roomdefinition.LegacyRoomDefinitionsUpdateService;
 import org.mods.gd656conquest.server.data.serverconfig.ServerConfigDataModel;
 import org.mods.gd656conquest.server.data.serverconfig.ServerConfigStore;
+import org.mods.gd656conquest.server.compat.tacz.TaczShellingTestService;
 import org.mods.gd656conquest.server.core.command.debug.VehicleDebugCommands;
 import org.mods.gd656conquest.server.facility.parkour.ParkourCommands;
 import org.mods.gd656conquest.server.facility.parkour.ParkourRuntimeManager;
 import org.mods.gd656conquest.server.facility.range.RangeCommands;
+import org.mods.gd656conquest.server.facility.support.HeroKitCommands;
 import org.mods.gd656conquest.server.loadout.LoadoutCommands;
 import org.mods.gd656conquest.server.pack.PackValidationService;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
@@ -103,6 +107,7 @@ public final class ConquestServerCommands {
         root.then(RangeCommands.buildTree());
         root.then(RoomCommands.buildTree());
         root.then(LoadoutCommands.buildTree());
+        root.then(HeroKitCommands.buildTree());
         root.then(PlayerTitleCommands.buildTree());
         root.then(PartyCommands.buildTree());
         root.then(ActionCommands.buildTree());
@@ -160,6 +165,7 @@ public final class ConquestServerCommands {
             .then(buildDebugPlayerTree())
             .then(buildDebugRoomTree())
             .then(buildDebugDataTree())
+            .then(buildDebugShellingTree())
             .then(buildDebugToolsTree())
             .then(VehicleDebugCommands.buildTree());
     }
@@ -201,6 +207,19 @@ public final class ConquestServerCommands {
     private static ArgumentBuilder<CommandSourceStack, ?> buildDebugDataTree() {
         return Commands.literal("data")
             .then(Commands.literal("exportLegacySurvivalData").executes(ConquestServerCommands::executeDebugExportLegacySurvivalData));
+    }
+
+    private static ArgumentBuilder<CommandSourceStack, ?> buildDebugShellingTree() {
+        return Commands.literal("shellingtest")
+            .then(Commands.argument("durationSeconds", DoubleArgumentType.doubleArg(0.05D))
+                .then(Commands.argument("intervalSeconds", DoubleArgumentType.doubleArg(0.05D))
+                    .then(Commands.argument("radius", DoubleArgumentType.doubleArg(0.0D))
+                        .then(Commands.argument("shellHeight", DoubleArgumentType.doubleArg(0.0D))
+                            .then(Commands.argument("centerX", DoubleArgumentType.doubleArg())
+                                .then(Commands.argument("centerZ", DoubleArgumentType.doubleArg())
+                                    .executes(ConquestServerCommands::executeDebugShellingTest)))
+                            .then(Commands.literal("here")
+                                .executes(ConquestServerCommands::executeDebugShellingTest))))));
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildDebugToolsTree() {
@@ -387,6 +406,30 @@ public final class ConquestServerCommands {
             context.getSource(),
             "已导出旧生存服数据名单，命中玩家数: " + result.matchedPlayerCount()
         );
+    }
+
+    private static int executeDebugShellingTest(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        double durationSeconds = DoubleArgumentType.getDouble(context, "durationSeconds");
+        double intervalSeconds = DoubleArgumentType.getDouble(context, "intervalSeconds");
+        double radius = DoubleArgumentType.getDouble(context, "radius");
+        double shellHeight = DoubleArgumentType.getDouble(context, "shellHeight");
+        Vec3 center = resolveShellingCenter(player, context);
+        float pitch = player.getXRot();
+        float yaw = player.getYRot();
+        TaczShellingTestService.StartResult result = TaczShellingTestService.of(context.getSource().getServer()).startDebugShelling(
+            player,
+            durationSeconds,
+            intervalSeconds,
+            radius,
+            shellHeight,
+            center,
+            pitch,
+            yaw
+        );
+        return result.success()
+            ? CommandFeedbacks.info(context.getSource(), result.message())
+            : CommandFeedbacks.failure(context.getSource(), result.message());
     }
 
     private static int executePlaceholder(CommandContext<CommandSourceStack> context, String message) {
@@ -694,6 +737,19 @@ public final class ConquestServerCommands {
             return new RoomPosition(x, y, z);
         } catch (NumberFormatException exception) {
             throw new SimpleCommandExceptionType(Component.literal("坐标格式应为 x,y,z 或 here")).create();
+        }
+    }
+
+    private static Vec3 resolveShellingCenter(ServerPlayer player, CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        if (player == null) {
+            throw new SimpleCommandExceptionType(Component.literal("只有玩家可以执行炮击测试")).create();
+        }
+        try {
+            double centerX = DoubleArgumentType.getDouble(context, "centerX");
+            double centerZ = DoubleArgumentType.getDouble(context, "centerZ");
+            return new Vec3(centerX, player.getY(), centerZ);
+        } catch (IllegalArgumentException ignored) {
+            return player.position();
         }
     }
 

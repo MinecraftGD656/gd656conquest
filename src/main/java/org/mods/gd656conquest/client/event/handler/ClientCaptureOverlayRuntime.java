@@ -90,6 +90,10 @@ final class ClientCaptureOverlayRuntime {
         deployInput.handleMouseInput(state, event, resolveSelfTeamToken());
     }
 
+    boolean handleKeyInput(InputEvent.Key event) {
+        return deployInput.handleKeyInput(state, event, resolveSelfTeamToken());
+    }
+
     ClientCaptureOverlayModel.TeamToken resolveSelfTeamToken() {
         return codec.resolveSelfTeamToken();
     }

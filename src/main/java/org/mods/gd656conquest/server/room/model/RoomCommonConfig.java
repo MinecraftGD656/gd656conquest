@@ -1,5 +1,9 @@
 package org.mods.gd656conquest.server.room.model;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+
 public record RoomCommonConfig(
     RoomMatchingConfig matchingConfig,
     String dimensionId,
@@ -26,7 +30,9 @@ public record RoomCommonConfig(
     boolean enableRandomLoadout,
     boolean enableRandomAttachments,
     boolean enableParachute,
-    boolean enableDeathSupportDrop
+    boolean enableDeathSupportDrop,
+    List<String> supportCampAHeroKits,
+    List<String> supportCampBHeroKits
 ) {
     public RoomCommonConfig {
         matchingConfig = matchingConfig == null ? RoomMatchingConfig.defaults() : matchingConfig;
@@ -44,6 +50,8 @@ public record RoomCommonConfig(
         campAVoicePack = normalizeVoicePack(campAVoicePack);
         campBVoicePack = normalizeVoicePack(campBVoicePack);
         progressSpeed = Double.isFinite(progressSpeed) && progressSpeed > 0.0D ? progressSpeed : 40.0D;
+        supportCampAHeroKits = normalizeHeroKitIds(supportCampAHeroKits);
+        supportCampBHeroKits = normalizeHeroKitIds(supportCampBHeroKits);
     }
 
     public static RoomCommonConfig defaults() {
@@ -73,7 +81,9 @@ public record RoomCommonConfig(
             false,
             false,
             true,
-            true
+            true,
+            List.of(),
+            List.of()
         );
     }
 
@@ -142,7 +152,9 @@ public record RoomCommonConfig(
             false,
             false,
             true,
-            true
+            true,
+            List.of(),
+            List.of()
         );
     }
 
@@ -193,7 +205,9 @@ public record RoomCommonConfig(
             false,
             false,
             true,
-            true
+            true,
+            List.of(),
+            List.of()
         );
     }
 
@@ -248,7 +262,9 @@ public record RoomCommonConfig(
             enableRandomLoadout,
             false,
             true,
-            true
+            true,
+            List.of(),
+            List.of()
         );
     }
 
@@ -304,7 +320,9 @@ public record RoomCommonConfig(
             enableRandomLoadout,
             enableRandomAttachments,
             true,
-            true
+            true,
+            List.of(),
+            List.of()
         );
     }
 
@@ -361,7 +379,29 @@ public record RoomCommonConfig(
             enableRandomLoadout,
             enableRandomAttachments,
             enableParachute,
-            true
+            true,
+            List.of(),
+            List.of()
         );
+    }
+
+    private static List<String> normalizeHeroKitIds(List<String> rawValues) {
+        if (rawValues == null || rawValues.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> normalized = new LinkedHashSet<>();
+        for (String rawValue : rawValues) {
+            if (rawValue == null) {
+                continue;
+            }
+            String trimmed = rawValue.trim();
+            if (!trimmed.isEmpty()) {
+                normalized.add(trimmed);
+            }
+        }
+        if (normalized.isEmpty()) {
+            return List.of();
+        }
+        return List.copyOf(new ArrayList<>(normalized));
     }
 }

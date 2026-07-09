@@ -153,9 +153,15 @@ public final class RoomCommands {
         return Commands.literal("common")
             .then(Commands.argument("configId", StringArgumentType.word())
                 .suggests(RoomCommands::suggestCommonConfigIds)
-                .then(Commands.argument("value", StringArgumentType.greedyString())
-                    .suggests(RoomCommands::suggestCommonConfigValues)
-                    .executes(RoomCommands::executeConfigCommonSet)));
+                .then(Commands.argument("actionOrValue", StringArgumentType.word())
+                    .suggests(RoomCommands::suggestCommonActionOrValue)
+                    .then(Commands.argument("value", StringArgumentType.greedyString())
+                        .suggests(RoomCommands::suggestCommonActionValue)
+                        .executes(RoomCommands::executeConfigCommonActionWithValue))
+                    .executes(RoomCommands::executeConfigCommonActionOrValue))
+                .then(Commands.argument("actionOrValue", StringArgumentType.greedyString())
+                    .suggests(RoomCommands::suggestCommonActionOrValue)
+                    .executes(RoomCommands::executeConfigCommonActionOrValue)));
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildConfigConquestBranch(String literalName) {
@@ -532,9 +538,38 @@ public final class RoomCommands {
         return executeConfigSetById(
             context,
             StringArgumentType.getString(context, "configId"),
-            StringArgumentType.getString(context, "value"),
+            StringArgumentType.getString(context, "actionOrValue"),
             RoomConfigScope.COMMON
         );
+    }
+
+    private static int executeConfigCommonActionOrValue(CommandContext<CommandSourceStack> context) {
+        String configId = StringArgumentType.getString(context, "configId");
+        String actionOrValue = StringArgumentType.getString(context, "actionOrValue");
+        RoomConfigDescriptor descriptor = resolveDescriptor(configId);
+        if (descriptor == null) {
+            return replyFailure(context.getSource(), "未找到配置项: " + configId);
+        }
+        if (descriptor.supportsGroupOperations()) {
+            String action = actionOrValue == null ? "" : actionOrValue.trim().toLowerCase(Locale.ROOT);
+            if ("list".equals(action)) {
+                return executeConfigGroupListById(context, configId, RoomConfigScope.COMMON);
+            }
+            return replyFailure(context.getSource(), "组配置仅支持 list / add / del");
+        }
+        return executeConfigSetById(context, configId, actionOrValue, RoomConfigScope.COMMON);
+    }
+
+    private static int executeConfigCommonActionWithValue(CommandContext<CommandSourceStack> context) {
+        String configId = StringArgumentType.getString(context, "configId");
+        String action = StringArgumentType.getString(context, "actionOrValue");
+        String value = StringArgumentType.getString(context, "value");
+        String normalized = action == null ? "" : action.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "add" -> executeConfigGroupMutation(context, configId, value, true, RoomConfigScope.COMMON);
+            case "del" -> executeConfigGroupMutation(context, configId, value, false, RoomConfigScope.COMMON);
+            default -> executeConfigSetById(context, configId, value, RoomConfigScope.COMMON);
+        };
     }
 
     private static int executeConfigCommonAlias(CommandContext<CommandSourceStack> context, String configId) {
@@ -789,6 +824,36 @@ public final class RoomCommands {
         return suggestDescriptorValues(context.getSource(), descriptor, builder);
     }
 
+    private static CompletableFuture<Suggestions> suggestCommonActionOrValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        RoomConfigDescriptor descriptor = resolveDescriptor(StringArgumentType.getString(context, "configId"));
+        if (descriptor == null) {
+            return builder.buildFuture();
+        }
+        if (descriptor.supportsGroupOperations()) {
+            return SharedSuggestionProvider.suggest(List.of("list", "add", "del"), builder);
+        }
+        return suggestDescriptorValues(context.getSource(), descriptor, builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestCommonActionValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        RoomConfigDescriptor descriptor = resolveDescriptor(StringArgumentType.getString(context, "configId"));
+        if (descriptor == null) {
+            return builder.buildFuture();
+        }
+        String action = StringArgumentType.getString(context, "actionOrValue");
+        String normalized = action == null ? "" : action.trim().toLowerCase(Locale.ROOT);
+        if (!descriptor.supportsGroupOperations()) {
+            return suggestDescriptorValues(context.getSource(), descriptor, builder);
+        }
+        if ("del".equals(normalized)) {
+            return suggestConfigGroupDeleteValues(context, builder);
+        }
+        if ("add".equals(normalized)) {
+            return suggestConfigGroupAddValues(context, builder);
+        }
+        return builder.buildFuture();
+    }
+
     private static CompletableFuture<Suggestions> suggestPrivateConfigIds(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         return SharedSuggestionProvider.suggest(RoomConfigDescriptorRegistry.legacyConquestCommandIds(), builder);
     }
@@ -839,6 +904,11 @@ public final class RoomCommands {
         RoomConfigDescriptor descriptor = resolveGroupCommandDescriptor(StringArgumentType.getString(context, "configId"));
         if (descriptor == null) {
             return builder.buildFuture();
+        }
+        if (supportsHeroKitSuggestions(descriptor)) {
+            List<String> heroKitIds = new ArrayList<>(ConquestDataManager.of(context.getSource().getServer()).heroKits().get().getHeroKitsById().keySet());
+            heroKitIds.sort(String.CASE_INSENSITIVE_ORDER);
+            return SharedSuggestionProvider.suggest(heroKitIds, builder);
         }
         List<String> suggestions = RoomConfigDescriptorRegistry.suggestionValues(descriptor.configId());
         if (!suggestions.isEmpty()) {
@@ -940,6 +1010,11 @@ public final class RoomCommands {
                 return SharedSuggestionProvider.suggest(templates, builder);
             }
         }
+        if (supportsHeroKitSuggestions(descriptor)) {
+            List<String> heroKitIds = new ArrayList<>(ConquestDataManager.of(source.getServer()).heroKits().get().getHeroKitsById().keySet());
+            heroKitIds.sort(String.CASE_INSENSITIVE_ORDER);
+            return SharedSuggestionProvider.suggest(heroKitIds, builder);
+        }
         return SharedSuggestionProvider.suggest(RoomConfigDescriptorRegistry.suggestionValues(descriptor.configId()), builder);
     }
 
@@ -950,6 +1025,15 @@ public final class RoomCommands {
         return "mapId".equalsIgnoreCase(descriptor.configId())
             || "btMapID".equalsIgnoreCase(descriptor.configId())
             || descriptor.newPath().endsWith(".mapId");
+    }
+
+    private static boolean supportsHeroKitSuggestions(RoomConfigDescriptor descriptor) {
+        if (descriptor == null) {
+            return false;
+        }
+        String configId = descriptor.configId();
+        return "supportCampAHeroKits".equalsIgnoreCase(configId)
+            || "supportCampBHeroKits".equalsIgnoreCase(configId);
     }
 
     private static String stringifyConfigValue(Object value) {

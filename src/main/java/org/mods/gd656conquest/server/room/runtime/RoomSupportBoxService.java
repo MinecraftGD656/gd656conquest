@@ -23,6 +23,7 @@ import org.mods.gd656conquest.common.entity.ConquestEntities;
 import org.mods.gd656conquest.common.entity.MedicalBoxEntity;
 import org.mods.gd656conquest.common.item.ConquestItems;
 import org.mods.gd656conquest.server.compat.frontlinevoice.FrontlineVoiceBridge;
+import org.mods.gd656conquest.server.facility.support.HeroKitSupportService;
 import org.mods.gd656conquest.server.room.core.RoomPlayerSessionService;
 import org.mods.gd656conquest.server.room.core.RoomRuntimeRepository;
 import org.mods.gd656conquest.server.room.core.RoomRuntimeState;
@@ -382,6 +383,10 @@ public final class RoomSupportBoxService {
         long untilTick = cooldownUntilTick.getOrDefault(playerId, 0L);
         if (untilTick > gameTick) {
             showAmmoBoxActionbarForPlayer(ammoBox, player, gameTick);
+            return false;
+        }
+        if (!HeroKitSupportService.canRefillFromAmmoBox(context.state(), playerId)) {
+            ServerActionBarService.showText(player, ACTIONBAR_SOURCE_AMMO_BOX_INTERACT, "精英兵暂时无法进行补给", 30);
             return false;
         }
         if (!playerLoadoutService.tryRefillLoadoutByAmmoBox(context.teamId(), player)) {

@@ -7,10 +7,12 @@ import net.minecraftforge.network.NetworkEvent;
 import org.mods.gd656conquest.client.config.ClientPacketBypassConfig;
 import org.mods.gd656conquest.client.audio.ClientMusicTriggerService;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
+import org.mods.gd656conquest.common.audio.AudioManager;
 
 import java.util.function.Supplier;
 
 public final class RoomDeathFlowPacket {
+    private static final String SOUND_DEPLOY_SELECT_READY = "gd656conquest:sfx.deploy_select_ready";
     private static final int ACTION_START_DEATH = 0;
     private static final int ACTION_OPEN_DEPLOY = 1;
     private static final int ACTION_START_RESPAWN = 2;
@@ -140,6 +142,7 @@ public final class RoomDeathFlowPacket {
                 return;
             }
             if (message.action == ACTION_START_RESPAWN) {
+                AudioManager.getInstance().playSound(SOUND_DEPLOY_SELECT_READY, 1.0F, 1.0F);
                 ClientMusicTriggerService.onRespawnTransitionStarted();
                 ClientDeathFlowState.startRespawnTransition(message.targetX, message.targetY, message.targetZ, message.targetYaw, message.targetPitch, message.transitionTicks);
                 return;

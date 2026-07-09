@@ -235,6 +235,9 @@ public final class ClientEventHandler {
     }
 
     public void handleClientKeyInput(InputEvent.Key event) {
+        if (captureOverlayController.handleKeyInput(event)) {
+            return;
+        }
         roomSessionController.handleKeyInput(event);
     }
 
