@@ -59,6 +59,7 @@ public final class RoomShellingRuntimeService {
     private static final long MISSILE_WARNING_DURATION_TICKS = 30L * 20L;
     private static final long MISSILE_APPROACH_START_TICKS = 28L * 20L;
     private static final long MISSILE_ALARM_INTERVAL_TICKS = 10L * 20L;
+    private static final long CONFIRMED_SLOT_RESTORE_DELAY_TICKS = 5L * 20L;
     private static final int MISSILE_COUNTDOWN_INTERVAL_SECONDS = 5;
     private static final int MISSILE_ALARM_COUNT = 3;
     private static final double MISSILE_INCOMING_RADIUS = 100.0D;
@@ -69,6 +70,7 @@ public final class RoomShellingRuntimeService {
     private final RoomAudioRuntimeService audioRuntimeService;
     private final RoomDistanceAudioService distanceAudioService;
     private final LinkedHashMap<UUID, ActiveShellingSequence> activeSequences = new LinkedHashMap<>();
+    private final LinkedHashMap<UUID, PendingSlotRestore> pendingSlotRestores = new LinkedHashMap<>();
 
     public RoomShellingRuntimeService(MinecraftServer server) {
         this.server = Objects.requireNonNull(server, "server");
@@ -106,6 +108,7 @@ public final class RoomShellingRuntimeService {
         if (existing != null) {
             return StartRequestResult.failure(StartFailureReason.ALREADY_ACTIVE, existing, existing.playerId());
         }
+        pendingSlotRestores.remove(playerId);
         UUID occupiedBy = state.getActiveShellingPlayerByTeam().get(teamId);
         if (occupiedBy != null && !occupiedBy.equals(playerId)) {
             RunningRuntimeState.ShellingRequestState occupiedRequest = state.getActiveShellingRequest(occupiedBy);
@@ -207,7 +210,7 @@ public final class RoomShellingRuntimeService {
             );
         }
         ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_SHELLING_COUNTDOWN);
-        restoreSupportSlot(player, existing);
+        scheduleSupportSlotRestore(existing, gameTick + CONFIRMED_SLOT_RESTORE_DELAY_TICKS);
         state.clearShellingRequest(existing.playerId());
         ServerActionBarService.showBuilder(
             player,
@@ -260,7 +263,7 @@ public final class RoomShellingRuntimeService {
             );
         }
         ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_SHELLING_COUNTDOWN);
-        restoreSupportSlot(player, state.getActiveShellingRequest(player.getUUID()));
+        scheduleSupportSlotRestore(state.getActiveShellingRequest(player.getUUID()), gameTick + CONFIRMED_SLOT_RESTORE_DELAY_TICKS);
         state.clearShellingRequest(player.getUUID());
         ServerActionBarService.showBuilder(
             player,
@@ -404,10 +407,14 @@ public final class RoomShellingRuntimeService {
     }
 
     public void restoreSupportSlot(ServerPlayer player, RunningRuntimeState.ShellingRequestState request) {
+        restoreSupportSlot(player, request == null ? "" : request.originalSlot9ItemSnbt());
+    }
+
+    private void restoreSupportSlot(ServerPlayer player, String originalSlot9ItemSnbt) {
         if (player == null) {
             return;
         }
-        ItemStack restoreStack = ItemStackSnbtCodec.deserialize(request == null ? "" : request.originalSlot9ItemSnbt());
+        ItemStack restoreStack = ItemStackSnbtCodec.deserialize(originalSlot9ItemSnbt == null ? "" : originalSlot9ItemSnbt);
         if (restoreStack.isEmpty() && ConquestItems.SUPPORT_ITEM.isPresent()) {
             restoreStack = new ItemStack(ConquestItems.SUPPORT_ITEM.get());
         }
@@ -421,6 +428,7 @@ public final class RoomShellingRuntimeService {
         if (room == null || state == null) {
             return;
         }
+        tickPendingSlotRestores(room, gameTick);
         for (RunningRuntimeState.ShellingRequestState request : List.copyOf(state.getActiveShellingsByPlayer().values())) {
             if (request == null || request.playerId() == null) {
                 continue;
@@ -666,6 +674,7 @@ public final class RoomShellingRuntimeService {
         if (state == null || request == null || request.playerId() == null) {
             return;
         }
+        pendingSlotRestores.remove(request.playerId());
         clearShellingActionBar(request.playerId());
         if (refundScore && request.reservedCost() > 0) {
             int currentSpent = SupportScoreService.getSpentScore(state, request.playerId());
@@ -675,6 +684,47 @@ public final class RoomShellingRuntimeService {
             restoreSupportSlot(player, request);
         }
         state.clearShellingRequest(request.playerId());
+    }
+
+    private void scheduleSupportSlotRestore(RunningRuntimeState.ShellingRequestState request, long dueTick) {
+        if (request == null || request.playerId() == null) {
+            return;
+        }
+        pendingSlotRestores.put(
+            request.playerId(),
+            new PendingSlotRestore(
+                request.playerId(),
+                request.roomId(),
+                request.originalSlot9ItemSnbt(),
+                Math.max(0L, dueTick)
+            )
+        );
+    }
+
+    private void tickPendingSlotRestores(RoomDefinition room, long gameTick) {
+        if (room == null || pendingSlotRestores.isEmpty()) {
+            return;
+        }
+        Iterator<PendingSlotRestore> iterator = pendingSlotRestores.values().iterator();
+        while (iterator.hasNext()) {
+            PendingSlotRestore pending = iterator.next();
+            if (pending == null || pending.playerId() == null) {
+                iterator.remove();
+                continue;
+            }
+            if (!room.roomId().equals(pending.roomId())) {
+                continue;
+            }
+            if (gameTick < pending.dueTick()) {
+                continue;
+            }
+            ServerPlayer player = server.getPlayerList().getPlayer(pending.playerId());
+            if (player == null) {
+                continue;
+            }
+            restoreSupportSlot(player, pending.originalSlot9ItemSnbt());
+            iterator.remove();
+        }
     }
 
     public void showIndicatorOpenPrompt(ServerPlayer player) {
@@ -919,5 +969,13 @@ public final class RoomShellingRuntimeService {
     }
 
     private record TrackedProjectile(ResourceKey<Level> dimension, UUID projectileId) {
+    }
+
+    private record PendingSlotRestore(
+        UUID playerId,
+        String roomId,
+        String originalSlot9ItemSnbt,
+        long dueTick
+    ) {
     }
 }

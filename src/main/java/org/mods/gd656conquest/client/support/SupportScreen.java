@@ -36,6 +36,7 @@ public final class SupportScreen extends Screen {
     private static final int MIN_ENTRY_TEXT_WIDTH = 120;
     private static final int PREFERRED_LIST_WIDTH = 300;
     private static final long REQUEST_INTERVAL_MS = 1000L;
+    private static final int CLOSE_DELAY_TICKS = 4;
 
     private final Screen parent;
     private final GDScrollState listScrollState = new GDScrollState();
@@ -44,6 +45,7 @@ public final class SupportScreen extends Screen {
     private GDButton refreshButton;
     private GDButton closeButton;
     private long lastRequestAt;
+    private int pendingCloseTicks = -1;
 
     public SupportScreen(Screen parent) {
         super(Component.translatable("gd656conquest.client.gui.support.title"));
@@ -62,6 +64,13 @@ public final class SupportScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+        if (pendingCloseTicks >= 0) {
+            pendingCloseTicks--;
+            if (pendingCloseTicks <= 0) {
+                closeNow();
+                return;
+            }
+        }
         requestSnapshot(false);
         syncEntryButtons();
     }
@@ -153,6 +162,17 @@ public final class SupportScreen extends Screen {
 
     @Override
     public void onClose() {
+        scheduleClose();
+    }
+
+    private void scheduleClose() {
+        if (pendingCloseTicks >= 0) {
+            return;
+        }
+        pendingCloseTicks = CLOSE_DELAY_TICKS;
+    }
+
+    private void closeNow() {
         if (minecraft != null) {
             minecraft.setScreen(parent);
         }
@@ -341,7 +361,7 @@ public final class SupportScreen extends Screen {
     }
 
     private void requestSnapshot(boolean force) {
-        if (minecraft == null || minecraft.player == null) {
+        if (pendingCloseTicks >= 0 || minecraft == null || minecraft.player == null) {
             return;
         }
         long now = System.currentTimeMillis();
@@ -353,7 +373,7 @@ public final class SupportScreen extends Screen {
     }
 
     private void handleEntryClick(SupportEntryView entry) {
-        if (entry == null || !entry.available() || minecraft == null || minecraft.player == null) {
+        if (pendingCloseTicks >= 0 || entry == null || !entry.available() || minecraft == null || minecraft.player == null) {
             return;
         }
         if (entry.isShelling()) {
@@ -361,7 +381,7 @@ public final class SupportScreen extends Screen {
         } else {
             NetworkManager.getChannel().sendToServer(SupportUiActionPacket.deployHeroKit(entry.id()));
         }
-        onClose();
+        scheduleClose();
     }
 
     private boolean isMouseOverList(double mouseX, double mouseY) {
