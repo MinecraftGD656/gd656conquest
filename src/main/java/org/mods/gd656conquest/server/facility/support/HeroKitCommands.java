@@ -13,7 +13,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -24,6 +23,7 @@ import org.mods.gd656conquest.server.data.herokit.HeroKitDataStore;
 import org.mods.gd656conquest.server.loadout.application.CustomLoadoutService;
 import org.mods.gd656conquest.server.shared.text.CommandFeedbacks;
 import org.mods.gd656conquest.server.shared.text.ServerText;
+import org.mods.gd656conquest.server.shared.util.ItemStackSnbtCodec;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -220,12 +220,12 @@ public final class HeroKitCommands {
         entry.setType(type);
         entry.setHotbarBySlot(captureHotbar(player));
         entry.setInventoryBySlot(captureInventory(player));
-        entry.setOffhandItemSnbt(serializeStack(player == null ? ItemStack.EMPTY : player.getOffhandItem()));
+        entry.setOffhandItemSnbt(ItemStackSnbtCodec.serialize(player == null ? ItemStack.EMPTY : player.getOffhandItem()));
         HeroKitDataModel.ArmorLoadout armor = new HeroKitDataModel.ArmorLoadout();
-        armor.setHeadItemSnbt(serializeStack(player == null ? ItemStack.EMPTY : player.getItemBySlot(EquipmentSlot.HEAD)));
-        armor.setChestItemSnbt(serializeStack(player == null ? ItemStack.EMPTY : player.getItemBySlot(EquipmentSlot.CHEST)));
-        armor.setLegsItemSnbt(serializeStack(player == null ? ItemStack.EMPTY : player.getItemBySlot(EquipmentSlot.LEGS)));
-        armor.setFeetItemSnbt(serializeStack(player == null ? ItemStack.EMPTY : player.getItemBySlot(EquipmentSlot.FEET)));
+        armor.setHeadItemSnbt(ItemStackSnbtCodec.serialize(player == null ? ItemStack.EMPTY : player.getItemBySlot(EquipmentSlot.HEAD)));
+        armor.setChestItemSnbt(ItemStackSnbtCodec.serialize(player == null ? ItemStack.EMPTY : player.getItemBySlot(EquipmentSlot.CHEST)));
+        armor.setLegsItemSnbt(ItemStackSnbtCodec.serialize(player == null ? ItemStack.EMPTY : player.getItemBySlot(EquipmentSlot.LEGS)));
+        armor.setFeetItemSnbt(ItemStackSnbtCodec.serialize(player == null ? ItemStack.EMPTY : player.getItemBySlot(EquipmentSlot.FEET)));
         entry.setArmor(armor);
         return entry;
     }
@@ -236,7 +236,7 @@ public final class HeroKitCommands {
             return result;
         }
         for (int slot = 0; slot < 9; slot++) {
-            result.put(String.valueOf(slot), serializeStack(player.getInventory().items.get(slot)));
+            result.put(String.valueOf(slot), ItemStackSnbtCodec.serialize(player.getInventory().items.get(slot)));
         }
         return result;
     }
@@ -247,18 +247,9 @@ public final class HeroKitCommands {
             return result;
         }
         for (int slot = 9; slot < 36; slot++) {
-            result.put(String.valueOf(slot - 9), serializeStack(player.getInventory().items.get(slot)));
+            result.put(String.valueOf(slot - 9), ItemStackSnbtCodec.serialize(player.getInventory().items.get(slot)));
         }
         return result;
-    }
-
-    private static String serializeStack(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return "";
-        }
-        CompoundTag tag = new CompoundTag();
-        stack.save(tag);
-        return tag.toString();
     }
 
     private static void persistHeroKits(

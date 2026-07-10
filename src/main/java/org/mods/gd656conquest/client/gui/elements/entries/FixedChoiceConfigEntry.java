@@ -159,7 +159,19 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
                 if (this.onValueChange != null) {
                     this.onValueChange.accept(getCurrentValue());
                 }
-            }, null, this.extraActionVisiblePredicate, this.onExtraAction, this.extraActionText, this.extraActionColor, this.extraActionWidth, this.directActionPredicate, this.onDirectAction);
+            },
+                null,
+                this.extraActionVisiblePredicate,
+                this.onExtraAction,
+                this.extraActionText,
+                this.extraActionColor,
+                this.extraActionWidth,
+                this.directActionPredicate,
+                this.onDirectAction,
+                null,
+                null,
+                null
+            );
         }
     }
 

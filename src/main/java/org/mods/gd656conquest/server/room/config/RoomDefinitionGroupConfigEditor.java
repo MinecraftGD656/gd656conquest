@@ -158,6 +158,7 @@ public final class RoomDefinitionGroupConfigEditor {
             common.disableHunger(),
             common.enableAutoTeamSwitchPrompt(),
             common.disableInventoryChange(),
+            common.enableKnifeDuel(),
             common.enableGoatHorn(),
             common.enablePlayerDowned(),
             common.enableBackAgainstWall(),
@@ -166,7 +167,9 @@ public final class RoomDefinitionGroupConfigEditor {
             common.enableParachute(),
             common.enableDeathSupportDrop(),
             "supportcampaherokits".equals(canonical) ? updatedValues : common.supportCampAHeroKits(),
-            "supportcampbherokits".equals(canonical) ? updatedValues : common.supportCampBHeroKits()
+            "supportcampbherokits".equals(canonical) ? updatedValues : common.supportCampBHeroKits(),
+            "supportcampashellings".equals(canonical) ? updatedValues : common.supportCampAShellings(),
+            "supportcampbshellings".equals(canonical) ? updatedValues : common.supportCampBShellings()
         );
         return rebuild(definition, updatedCommon, definition.conquestConfig());
     }
@@ -178,6 +181,12 @@ public final class RoomDefinitionGroupConfigEditor {
         }
         if ("supportcampbherokits".equals(canonical)) {
             return new ArrayList<>(common.supportCampBHeroKits());
+        }
+        if ("supportcampashellings".equals(canonical)) {
+            return new ArrayList<>(common.supportCampAShellings());
+        }
+        if ("supportcampbshellings".equals(canonical)) {
+            return new ArrayList<>(common.supportCampBShellings());
         }
         throw new IllegalArgumentException("未知 common 组配置: " + canonical);
     }
@@ -605,7 +614,10 @@ public final class RoomDefinitionGroupConfigEditor {
     }
 
     private static boolean isCommonStringGroup(String canonical) {
-        return "supportcampaherokits".equals(canonical) || "supportcampbherokits".equals(canonical);
+        return "supportcampaherokits".equals(canonical)
+            || "supportcampbherokits".equals(canonical)
+            || "supportcampashellings".equals(canonical)
+            || "supportcampbshellings".equals(canonical);
     }
 
     private static boolean isBreakthroughBoundaryGroup(String canonical) {

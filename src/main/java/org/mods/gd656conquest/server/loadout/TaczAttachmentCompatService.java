@@ -29,6 +29,7 @@ public final class TaczAttachmentCompatService {
     private Method unloadAttachmentMethod;
     private Method fillItemCategoryMethod;
     private Method getGunIdMethod;
+    private Method getGunDisplayIdMethod;
     private Method timelessGetCommonGunIndexMethod;
     private Method commonGunIndexGetTypeMethod;
     private Method timelessGetClientAttachmentIndexMethod;
@@ -166,6 +167,40 @@ public final class TaczAttachmentCompatService {
             return gunType == null ? "" : gunType.toString().trim().toLowerCase(Locale.ROOT);
         } catch (Exception ignored) {
             return "";
+        }
+    }
+
+    public ResourceLocation resolveGunId(ItemStack gunStack) {
+        ensureResolved();
+        if (!available || gunStack == null || gunStack.isEmpty() || getGunIdMethod == null) {
+            return null;
+        }
+        Object iGun = getGunOperator(gunStack);
+        if (iGun == null) {
+            return null;
+        }
+        try {
+            Object gunId = getGunIdMethod.invoke(iGun, gunStack);
+            return gunId instanceof ResourceLocation resourceLocation ? resourceLocation : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    public ResourceLocation resolveGunDisplayId(ItemStack gunStack) {
+        ensureResolved();
+        if (!available || gunStack == null || gunStack.isEmpty() || getGunDisplayIdMethod == null) {
+            return null;
+        }
+        Object iGun = getGunOperator(gunStack);
+        if (iGun == null) {
+            return null;
+        }
+        try {
+            Object gunDisplayId = getGunDisplayIdMethod.invoke(iGun, gunStack);
+            return gunDisplayId instanceof ResourceLocation resourceLocation ? resourceLocation : null;
+        } catch (Exception ignored) {
+            return null;
         }
     }
 
@@ -328,6 +363,7 @@ public final class TaczAttachmentCompatService {
             getTypeMethod = iAttachmentClass.getMethod("getType", ItemStack.class);
             getAttachmentIdMethod = iAttachmentClass.getMethod("getAttachmentId", ItemStack.class);
             getGunIdMethod = iGunClass.getMethod("getGunId", ItemStack.class);
+            getGunDisplayIdMethod = iGunClass.getMethod("getGunDisplayId", ItemStack.class);
             allowAttachmentTypeMethod = iGunClass.getMethod("allowAttachmentType", ItemStack.class, attachmentTypeClass);
             allowAttachmentMethod = iGunClass.getMethod("allowAttachment", ItemStack.class, ItemStack.class);
             installAttachmentMethod = iGunClass.getMethod("installAttachment", ItemStack.class, ItemStack.class);

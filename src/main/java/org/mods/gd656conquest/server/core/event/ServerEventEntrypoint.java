@@ -6,6 +6,7 @@ import net.minecraftforge.event.entity.EntityMountEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.event.entity.ProjectileImpactEvent;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -15,7 +16,9 @@ import net.minecraftforge.event.level.ChunkEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.common.MinecraftForge;
 import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
+import org.mods.gd656conquest.server.compat.tacz.TaczShellingImpactEventEntrypoint;
 import org.mods.gd656conquest.server.compat.ywzjvehicle.YwzjVehicleDeployMountGuard;
 import org.mods.gd656conquest.server.core.lifecycle.ServerLifecycleCoordinator;
 
@@ -26,6 +29,7 @@ public final class ServerEventEntrypoint {
 
     public ServerEventEntrypoint(ServerLifecycleCoordinator lifecycleCoordinator) {
         this.lifecycleCoordinator = Objects.requireNonNull(lifecycleCoordinator, "lifecycleCoordinator");
+        MinecraftForge.EVENT_BUS.register(new TaczShellingImpactEventEntrypoint());
     }
 
     @SubscribeEvent
@@ -135,6 +139,11 @@ public final class ServerEventEntrypoint {
     @SubscribeEvent
     public void onLivingDeath(LivingDeathEvent event) {
         lifecycleCoordinator.onLivingDeath(event);
+    }
+
+    @SubscribeEvent
+    public void onProjectileImpact(ProjectileImpactEvent event) {
+        lifecycleCoordinator.onProjectileImpact(event);
     }
 
     @SubscribeEvent

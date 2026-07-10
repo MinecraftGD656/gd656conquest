@@ -66,6 +66,7 @@ public final class RoomPlayerRespawnService {
     private static final int DOWNED_PREVIEW_TICKS = 8 + 4 + 8 + (2 * 20);
     private static final int DEPLOY_HOLDING_HOTBAR_SLOT = 6;
     private static final int POST_DEPLOY_INFANTRY_HOTBAR_SLOT = 0;
+    private static final int POST_DEPLOY_KNIFE_DUEL_HOTBAR_SLOT = 2;
     private static final int POST_DEPLOY_VEHICLE_HOTBAR_SLOT = 6;
     private static final int DOWNED_DURATION_TICKS = 30 * 20;
     private static final int DOWNED_SYNC_INTERVAL_TICKS = 10;
@@ -948,7 +949,7 @@ public final class RoomPlayerRespawnService {
         loadoutService.applySpawnLoadout(state, player);
         markInitialMovementLocked(state, playerId);
         playerStateService.applyRespawnState(room, playerId, gameTick);
-        applyPostDeploySelectedHotbarSlot(player, false);
+        applyPostDeploySelectedHotbarSlot(room, player, false);
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
         return true;
     }
@@ -1628,7 +1629,7 @@ public final class RoomPlayerRespawnService {
             if (!executionResult.success()) {
                 return returnPlayerToDeployAfterVehicleFailure(room, state, player, gameTick, executionResult.message());
             }
-            applyPostDeploySelectedHotbarSlot(player, true);
+            applyPostDeploySelectedHotbarSlot(room, player, true);
             if (state.getInitialMovementUnlockTick() > gameTick) {
                 markInitialMovementLocked(state, playerId);
                 NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
@@ -1638,7 +1639,7 @@ public final class RoomPlayerRespawnService {
             return true;
         }
         playerStateService.applyRespawnState(room, playerId, gameTick);
-        applyPostDeploySelectedHotbarSlot(player, false);
+        applyPostDeploySelectedHotbarSlot(room, player, false);
         if (state.getInitialMovementUnlockTick() > gameTick) {
             markInitialMovementLocked(state, playerId);
             NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
@@ -1723,15 +1724,24 @@ public final class RoomPlayerRespawnService {
         state.getInitialMovementLockLastShownSeconds().remove(playerId);
     }
 
-    private void applyPostDeploySelectedHotbarSlot(ServerPlayer player, boolean vehicleDeploy) {
+    private void applyPostDeploySelectedHotbarSlot(RoomDefinition room, ServerPlayer player, boolean vehicleDeploy) {
         if (player == null) {
             return;
         }
-        int selectedSlot = vehicleDeploy ? POST_DEPLOY_VEHICLE_HOTBAR_SLOT : POST_DEPLOY_INFANTRY_HOTBAR_SLOT;
+        int selectedSlot = vehicleDeploy
+            ? POST_DEPLOY_VEHICLE_HOTBAR_SLOT
+            : resolvePostDeployInfantryHotbarSlot(room);
         player.getInventory().selected = selectedSlot;
         if (player.connection != null) {
             player.connection.send(new ClientboundSetCarriedItemPacket(selectedSlot));
         }
+    }
+
+    private int resolvePostDeployInfantryHotbarSlot(RoomDefinition room) {
+        if (room != null && room.commonConfig().enableKnifeDuel()) {
+            return POST_DEPLOY_KNIFE_DUEL_HOTBAR_SLOT;
+        }
+        return POST_DEPLOY_INFANTRY_HOTBAR_SLOT;
     }
 
     private void applyDeployHoldingSelectedHotbarSlot(ServerPlayer player) {

@@ -258,6 +258,8 @@ public final class TacticalMarkerRenderer {
 
     public enum MarkerVisualType {
         NORMAL,
+        OBSERVE_GROUND,
+        REQUEST_STRIKE,
         ENEMY_GROUND,
         ENEMY_TRACKED,
         AUTO_ENEMY,
@@ -291,6 +293,8 @@ public final class TacticalMarkerRenderer {
     ) {
         private static MarkerVisual resolve(MarkerVisualType type) {
             return switch (type) {
+                case OBSERVE_GROUND -> new MarkerVisual(MarkerShape.TRIANGLE, 0.96F, 0.54F, 0.12F, 0.90F, TRIANGLE_HALF_WIDTH, false, 0.0F, false, false);
+                case REQUEST_STRIKE -> new MarkerVisual(MarkerShape.DIAMOND, 0.96F, 0.54F, 0.12F, 0.95F, DIAMOND_HALF_DIAGONAL, false, 0.0F, false, false);
                 case ENEMY_GROUND -> new MarkerVisual(MarkerShape.DIAMOND, 0.84F, 0.20F, 0.20F, 0.90F, DIAMOND_HALF_DIAGONAL, false, 0.0F, false, false);
                 case ENEMY_TRACKED -> new MarkerVisual(MarkerShape.TRIANGLE, 0.84F, 0.20F, 0.20F, 0.90F, TRIANGLE_HALF_WIDTH, false, 0.0F, false, false);
                 case AUTO_ENEMY -> new MarkerVisual(MarkerShape.TRIANGLE, 0.84F, 0.20F, 0.20F, 0.60F, TRIANGLE_HALF_WIDTH, false, 0.0F, false, false);

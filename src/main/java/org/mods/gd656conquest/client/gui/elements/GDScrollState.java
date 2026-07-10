@@ -4,9 +4,11 @@ import net.minecraft.client.gui.GuiGraphics;
 import org.mods.gd656conquest.client.gui.GuiConstants;
 
 public final class GDScrollState {
+    private static final int SCROLLBAR_TRACK_WIDTH = 3;
     private double scrollY;
     private double targetScrollY;
     private boolean dragging;
+    private boolean draggingScrollbar;
     private double lastMouseY;
     private long lastFrameNanos = System.nanoTime();
 
@@ -14,6 +16,7 @@ public final class GDScrollState {
         scrollY = 0.0D;
         targetScrollY = 0.0D;
         dragging = false;
+        draggingScrollbar = false;
         lastMouseY = 0.0D;
         lastFrameNanos = System.nanoTime();
     }
@@ -30,7 +33,7 @@ public final class GDScrollState {
         lastFrameNanos = now;
         if (dragging) {
             double diff = mouseY - lastMouseY;
-            targetScrollY += diff;
+            targetScrollY += draggingScrollbar ? diff : -diff;
             lastMouseY = mouseY;
         }
         targetScrollY = clamp(targetScrollY, viewportHeight, contentHeight);
@@ -52,13 +55,15 @@ public final class GDScrollState {
         return true;
     }
 
-    public void startDragging(double mouseY) {
+    public void startDragging(double mouseX, double mouseY, int x1, int y1, int x2, int y2, int contentHeight) {
         dragging = true;
+        draggingScrollbar = isMouseOverScrollbar(mouseX, mouseY, x1, y1, x2, y2, contentHeight);
         lastMouseY = mouseY;
     }
 
     public void stopDragging() {
         dragging = false;
+        draggingScrollbar = false;
     }
 
     public double scrollY() {
@@ -69,13 +74,24 @@ public final class GDScrollState {
         return Math.max(0.0D, contentHeight - Math.max(1, viewportHeight));
     }
 
+    public boolean isMouseOverScrollbar(double mouseX, double mouseY, int x1, int y1, int x2, int y2, int contentHeight) {
+        int viewportHeight = Math.max(0, y2 - y1);
+        double maxScroll = getMaxScroll(viewportHeight, contentHeight);
+        if (viewportHeight <= 0 || maxScroll <= 0.0D) {
+            return false;
+        }
+        int trackLeft = x2 - SCROLLBAR_TRACK_WIDTH;
+        int trackRight = x2 - 1;
+        return mouseX >= trackLeft && mouseX <= trackRight && mouseY >= y1 && mouseY <= y2;
+    }
+
     public void renderScrollbar(GuiGraphics guiGraphics, int x1, int y1, int x2, int y2, int contentHeight) {
         int viewportHeight = Math.max(0, y2 - y1);
         double maxScroll = getMaxScroll(viewportHeight, contentHeight);
         if (viewportHeight <= 0 || maxScroll <= 0.0D) {
             return;
         }
-        int trackLeft = x2 - 3;
+        int trackLeft = x2 - SCROLLBAR_TRACK_WIDTH;
         int trackRight = x2 - 1;
         guiGraphics.fill(trackLeft, y1, trackRight, y2, 0x44333B42);
         int thumbHeight = Math.max(18, (int) Math.round(viewportHeight * (viewportHeight / (double) contentHeight)));

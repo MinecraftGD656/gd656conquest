@@ -86,6 +86,8 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "enableDeathSupportDrop", "启用死亡掉落补给包", "commonConfig.enableDeathSupportDrop", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
         commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampAHeroKits", "阵地支援-campA可用精英兵", "commonConfig.supportCampAHeroKits", RoomConfigValueType.DATA_GROUP);
         commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampBHeroKits", "阵地支援-campB可用精英兵", "commonConfig.supportCampBHeroKits", RoomConfigValueType.DATA_GROUP);
+        commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampAShellings", "阵地支援-campA可用炮击", "commonConfig.supportCampAShellings", RoomConfigValueType.DATA_GROUP);
+        commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampBShellings", "阵地支援-campB可用炮击", "commonConfig.supportCampBShellings", RoomConfigValueType.DATA_GROUP);
         common(descriptors, RoomConfigCategory.RESULT, "endViewPosition", "结算视角", "commonConfig.resultConfig.endViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"), "matchEndViewPosition");
 
         common(descriptors, RoomConfigCategory.PLAYER_STATE, "gameMode", "玩家游戏模式", "commonConfig.playerStateConfig.gameMode", RoomConfigValueType.STRING, List.of("SURVIVAL", "ADVENTURE", "CREATIVE", "SPECTATOR"), "playerGameMode");
@@ -112,6 +114,7 @@ public final class RoomConfigDescriptorRegistry {
             "boolDisableInventoryChange",
             "disableInventoryEdit"
         );
+        common(descriptors, RoomConfigCategory.RULES, "enableKnifeDuel", "是否启用刀战", "commonConfig.enableKnifeDuel", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableKnifeDuel");
         common(descriptors, RoomConfigCategory.RULES, "playerMaxY", "玩家最大Y轴", "commonConfig.playerMaxY", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "aircraftPassengerMaxY", "空中载具乘员最大Y轴", "commonConfig.aircraftPassengerMaxY", RoomConfigValueType.NUMBER, List.of());
         conquest(descriptors, RoomConfigCategory.TRANSPORT, "teamDeployIconCampA", "阵营A部署图标", "conquestConfig.teamDeployIcons[CAMP_A]", RoomConfigValueType.POSITION, List.of("here"), "campADeployIconPosition");

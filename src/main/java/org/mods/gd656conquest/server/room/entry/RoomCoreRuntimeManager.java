@@ -16,6 +16,7 @@ import org.mods.gd656conquest.server.room.core.RoomJoinResult;
 import org.mods.gd656conquest.server.room.core.RoomCoreService;
 import org.mods.gd656conquest.server.room.core.RoomGroupPlacementPlan;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
+import org.mods.gd656conquest.server.room.runtime.RoomShellingRuntimeService;
 import org.mods.gd656conquest.server.room.matching.MatchingRuntimeState;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
@@ -582,6 +583,41 @@ public final class RoomCoreRuntimeManager {
         coreService.clearPlayerSupportScore(playerId);
     }
 
+    public int refundPlayerSupportScore(UUID playerId, int refundAmount) {
+        if (coreService == null) {
+            return 0;
+        }
+        return coreService.refundPlayerSupportScore(playerId, refundAmount);
+    }
+
+    public RoomShellingRuntimeService.StartRequestResult startShellingRequest(
+        ServerPlayer player,
+        String shellingId,
+        int reservedCost,
+        String originalSlot9ItemSnbt,
+        long gameTick
+    ) {
+        if (coreService == null) {
+            return RoomShellingRuntimeService.StartRequestResult.failure(
+                RoomShellingRuntimeService.StartFailureReason.INVALID_CONTEXT,
+                null,
+                null
+            );
+        }
+        return coreService.startShellingRequest(player, shellingId, reservedCost, originalSlot9ItemSnbt, gameTick);
+    }
+
+    public RoomShellingRuntimeService shellingRuntimeService() {
+        return coreService == null ? null : coreService.shellingRuntimeService();
+    }
+
+    public boolean updateShellingTarget(ServerPlayer player, BlockPos targetBlockPos) {
+        if (coreService == null) {
+            return false;
+        }
+        return coreService.updateShellingTarget(player, targetBlockPos);
+    }
+
     public void onServerTick(long gameTick) {
         if (coreService == null) {
             return;
@@ -623,6 +659,9 @@ public final class RoomCoreRuntimeManager {
 
     public void shutdown() {
         debugOverlayEnabledPlayers.clear();
+        if (coreService != null) {
+            coreService.shutdown();
+        }
         coreService = null;
         ServerActionBarService.shutdown();
         synchronized (INSTANCES) {

@@ -50,6 +50,10 @@ public final class ServerDataPaths {
         return getModRoot(server).resolve("herokits.json");
     }
 
+    public static Path getShellingDataFile(MinecraftServer server) {
+        return getModRoot(server).resolve("shellings.json");
+    }
+
     public static Path getWeaponAttachmentDataFile(MinecraftServer server) {
         return getModRoot(server).resolve("weaponAttachmentData.json");
     }

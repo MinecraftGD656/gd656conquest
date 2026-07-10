@@ -1,8 +1,6 @@
 package org.mods.gd656conquest.server.facility.support;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.TagParser;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -18,6 +16,7 @@ import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.shared.inventory.PlayerInventorySanitizer;
 import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
+import org.mods.gd656conquest.server.shared.util.ItemStackSnbtCodec;
 
 import java.util.Comparator;
 import java.util.List;
@@ -33,13 +32,8 @@ public final class HeroKitSupportService {
     private HeroKitSupportService() {
     }
 
-    public static void handleAction(ServerPlayer player, String action, String heroKitId) {
+    public static void handleDeployRequest(ServerPlayer player, String heroKitId) {
         if (player == null || player.server == null) {
-            return;
-        }
-        String normalizedAction = action == null ? "" : action.trim().toLowerCase(Locale.ROOT);
-        if (!"deploy_hero_kit".equals(normalizedAction)) {
-            SupportUiService.sendSnapshot(player);
             return;
         }
         executeDeploy(player, heroKitId);
@@ -82,6 +76,11 @@ public final class HeroKitSupportService {
             SupportUiService.sendSnapshot(player);
             return;
         }
+        if (state.getActiveHeroKitIdsByPlayer().containsKey(player.getUUID())) {
+            ServerMessageSender.system(player, "阵地支援", "您当前已经是精英兵状态，无法再次购买", ChatFormatting.RED);
+            SupportUiService.sendSnapshot(player);
+            return;
+        }
         String heroKitId = normalizeHeroKitId(rawHeroKitId);
         if (heroKitId.isBlank()) {
             ServerMessageSender.system(player, "阵地支援", "无效的精英兵 ID", ChatFormatting.RED);
@@ -113,6 +112,7 @@ public final class HeroKitSupportService {
         applyHeroKitInventory(player, entry);
         state.getActiveHeroKitIdsByPlayer().put(player.getUUID(), entry.getId());
         state.getActiveHeroKitTypesByPlayer().put(player.getUUID(), entry.getType());
+        SupportHudSubtitleService.broadcastHeroKitDeployed(state, teamId, player, resolveDisplayName(entry));
         playDeployVoice(player, entry.getType());
         ServerMessageSender.system(
             player,
@@ -166,11 +166,11 @@ public final class HeroKitSupportService {
         restoreHotbarSlot(player, RESERVED_HOTBAR_SLOT_8, reservedSlot8);
         restoreHotbarSlot(player, RESERVED_HOTBAR_SLOT_9, reservedSlot9);
         HeroKitDataModel.ArmorLoadout armor = entry.getArmor();
-        player.setItemSlot(EquipmentSlot.HEAD, deserializeStack(armor == null ? "" : armor.getHeadItemSnbt()));
-        player.setItemSlot(EquipmentSlot.CHEST, deserializeStack(armor == null ? "" : armor.getChestItemSnbt()));
-        player.setItemSlot(EquipmentSlot.LEGS, deserializeStack(armor == null ? "" : armor.getLegsItemSnbt()));
-        player.setItemSlot(EquipmentSlot.FEET, deserializeStack(armor == null ? "" : armor.getFeetItemSnbt()));
-        player.setItemSlot(EquipmentSlot.OFFHAND, deserializeStack(entry.getOffhandItemSnbt()));
+        player.setItemSlot(EquipmentSlot.HEAD, ItemStackSnbtCodec.deserialize(armor == null ? "" : armor.getHeadItemSnbt()));
+        player.setItemSlot(EquipmentSlot.CHEST, ItemStackSnbtCodec.deserialize(armor == null ? "" : armor.getChestItemSnbt()));
+        player.setItemSlot(EquipmentSlot.LEGS, ItemStackSnbtCodec.deserialize(armor == null ? "" : armor.getLegsItemSnbt()));
+        player.setItemSlot(EquipmentSlot.FEET, ItemStackSnbtCodec.deserialize(armor == null ? "" : armor.getFeetItemSnbt()));
+        player.setItemSlot(EquipmentSlot.OFFHAND, ItemStackSnbtCodec.deserialize(entry.getOffhandItemSnbt()));
         player.getInventory().selected = 0;
         PlayerInventorySanitizer.flush(player);
     }
@@ -205,19 +205,7 @@ public final class HeroKitSupportService {
             if (actualSlot < 0 || actualSlot >= player.getInventory().items.size()) {
                 continue;
             }
-            player.getInventory().setItem(actualSlot, deserializeStack(entry.getValue()));
-        }
-    }
-
-    private static ItemStack deserializeStack(String snbt) {
-        if (snbt == null || snbt.isBlank()) {
-            return ItemStack.EMPTY;
-        }
-        try {
-            CompoundTag tag = TagParser.parseTag(snbt);
-            return ItemStack.of(tag);
-        } catch (Exception ignored) {
-            return ItemStack.EMPTY;
+            player.getInventory().setItem(actualSlot, ItemStackSnbtCodec.deserialize(entry.getValue()));
         }
     }
 

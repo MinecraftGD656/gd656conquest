@@ -17,22 +17,28 @@ public final class ClientSupportUiState {
         if (packet == null) {
             return;
         }
-        List<HeroKitEntryState> heroKits = new ArrayList<>();
-        for (SupportUiSnapshotPacket.HeroKitPayload payload : packet.heroKits()) {
+        List<SupportEntryState> entries = new ArrayList<>();
+        for (SupportUiSnapshotPacket.SupportEntryPayload payload : packet.entries()) {
             if (payload == null) {
                 continue;
             }
-            heroKits.add(new HeroKitEntryState(
+            entries.add(new SupportEntryState(
+                payload.kind() == null ? "" : payload.kind(),
                 payload.id() == null ? "" : payload.id(),
                 payload.displayName() == null ? "" : payload.displayName(),
-                payload.type() == null ? "" : payload.type(),
+                payload.typeKey() == null ? "" : payload.typeKey(),
+                payload.subtitleText() == null ? "" : payload.subtitleText(),
+                payload.detailText() == null ? "" : payload.detailText(),
+                payload.buttonText() == null ? "" : payload.buttonText(),
                 Math.max(0, payload.cost()),
-                payload.unlocked()
+                payload.available()
             ));
         }
-        heroKits.sort(Comparator
-            .comparingInt(HeroKitEntryState::cost)
-            .thenComparing(HeroKitEntryState::id, String.CASE_INSENSITIVE_ORDER));
+        entries.sort(Comparator
+            .comparing(ClientSupportUiState.SupportEntryState::available, Comparator.reverseOrder())
+            .thenComparingInt(SupportEntryState::cost)
+            .thenComparing(SupportEntryState::kind, String.CASE_INSENSITIVE_ORDER)
+            .thenComparing(SupportEntryState::id, String.CASE_INSENSITIVE_ORDER));
         snapshot = new Snapshot(
             packet.roomId() == null ? "" : packet.roomId(),
             packet.roomDisplayName() == null ? "" : packet.roomDisplayName(),
@@ -41,7 +47,7 @@ public final class ClientSupportUiState {
             Math.max(0, packet.spentScore()),
             Math.max(0, packet.remainingScore()),
             packet.statusText() == null ? "" : packet.statusText(),
-            List.copyOf(heroKits)
+            List.copyOf(entries)
         );
         snapshotUpdatedAtMs = System.currentTimeMillis();
     }
@@ -67,16 +73,20 @@ public final class ClientSupportUiState {
         int spentScore,
         int remainingScore,
         String statusText,
-        List<HeroKitEntryState> heroKits
+        List<SupportEntryState> entries
     ) {
     }
 
-    public record HeroKitEntryState(
+    public record SupportEntryState(
+        String kind,
         String id,
         String displayName,
-        String type,
+        String typeKey,
+        String subtitleText,
+        String detailText,
+        String buttonText,
         int cost,
-        boolean unlocked
+        boolean available
     ) {
     }
 }

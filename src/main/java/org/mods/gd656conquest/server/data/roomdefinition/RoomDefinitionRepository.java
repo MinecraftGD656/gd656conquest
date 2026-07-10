@@ -41,7 +41,7 @@ import java.util.Optional;
 
 public final class RoomDefinitionRepository extends JsonDataStoreSupport {
     private static final int DEFAULT_ROOM_COUNT = 16;
-    private static final int STORAGE_VERSION = 13;
+    private static final int STORAGE_VERSION = 14;
 
     private final MinecraftServer server;
     private final DelayedJsonWriteService delayedJsonWriteService;
@@ -239,6 +239,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().disableHunger(),
             base.commonConfig().enableAutoTeamSwitchPrompt(),
             base.commonConfig().disableInventoryChange(),
+            base.commonConfig().enableKnifeDuel(),
             base.commonConfig().enableGoatHorn(),
             base.commonConfig().enablePlayerDowned(),
             base.commonConfig().enableBackAgainstWall(),
@@ -247,7 +248,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().enableParachute(),
             base.commonConfig().enableDeathSupportDrop(),
             base.commonConfig().supportCampAHeroKits(),
-            base.commonConfig().supportCampBHeroKits()
+            base.commonConfig().supportCampBHeroKits(),
+            base.commonConfig().supportCampAShellings(),
+            base.commonConfig().supportCampBShellings()
         );
         RoomConquestConfig conquestConfig = new RoomConquestConfig(
             base.conquestConfig().equipmentConfig(),
@@ -336,8 +339,11 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             false,
             false,
             false,
+            false,
             true,
             true,
+            List.of(),
+            List.of(),
             List.of(),
             List.of()
         );
@@ -484,6 +490,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                         normalizedCommon.resolveDisableHunger(normalizedConquest.disableHunger()),
                         normalizedCommon.resolveEnableAutoTeamSwitchPrompt(normalizedConquest.enableAutoTeamSwitchPrompt()),
                         normalizedCommon.resolveDisableInventoryChange(normalizedConquest.disableInventoryChange()),
+                        normalizedCommon.enableKnifeDuel(),
                         normalizedCommon.resolveEnableGoatHorn(false),
                         normalizedCommon.enablePlayerDowned(),
                         normalizedCommon.enableBackAgainstWall(),
@@ -492,7 +499,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                         normalizedCommon.enableParachute(),
                         normalizedCommon.enableDeathSupportDrop(),
                         normalizedCommon.supportCampAHeroKits(),
-                        normalizedCommon.supportCampBHeroKits()
+                        normalizedCommon.supportCampBHeroKits(),
+                        normalizedCommon.supportCampAShellings(),
+                        normalizedCommon.supportCampBShellings()
                     ),
                     new RoomConquestConfig(
                         normalizedConquest.equipmentConfig(),
@@ -562,7 +571,10 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 false,
                 false,
                 false,
+                false,
                 true,
+                List.of(),
+                List.of(),
                 List.of(),
                 List.of()
             );
@@ -769,6 +781,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         private Boolean disableHunger;
         private Boolean enableAutoTeamSwitchPrompt;
         private Boolean disableInventoryChange;
+        private Boolean enableKnifeDuel;
         private Boolean enableGoatHorn;
         private boolean enablePlayerDowned;
         private boolean enableBackAgainstWall;
@@ -778,6 +791,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         private Boolean enableDeathSupportDrop;
         private List<String> supportCampAHeroKits;
         private List<String> supportCampBHeroKits;
+        private List<String> supportCampAShellings;
+        private List<String> supportCampBShellings;
 
         public static CommonConfig from(RoomDefinition definition) {
             CommonConfig config = new CommonConfig();
@@ -808,6 +823,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.disableHunger = definition.commonConfig().disableHunger();
             config.enableAutoTeamSwitchPrompt = definition.commonConfig().enableAutoTeamSwitchPrompt();
             config.disableInventoryChange = definition.commonConfig().disableInventoryChange();
+            config.enableKnifeDuel = definition.commonConfig().enableKnifeDuel();
             config.enableGoatHorn = definition.commonConfig().enableGoatHorn();
             config.enablePlayerDowned = definition.commonConfig().enablePlayerDowned();
             config.enableBackAgainstWall = definition.commonConfig().enableBackAgainstWall();
@@ -817,6 +833,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.enableDeathSupportDrop = definition.commonConfig().enableDeathSupportDrop();
             config.supportCampAHeroKits = definition.commonConfig().supportCampAHeroKits();
             config.supportCampBHeroKits = definition.commonConfig().supportCampBHeroKits();
+            config.supportCampAShellings = definition.commonConfig().supportCampAShellings();
+            config.supportCampBShellings = definition.commonConfig().supportCampBShellings();
             return config;
         }
 
@@ -847,6 +865,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.disableHunger = false;
             config.enableAutoTeamSwitchPrompt = false;
             config.disableInventoryChange = false;
+            config.enableKnifeDuel = false;
             config.enableGoatHorn = false;
             config.enablePlayerDowned = false;
             config.enableBackAgainstWall = false;
@@ -856,6 +875,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.enableDeathSupportDrop = true;
             config.supportCampAHeroKits = List.of();
             config.supportCampBHeroKits = List.of();
+            config.supportCampAShellings = List.of();
+            config.supportCampBShellings = List.of();
             return config;
         }
 
@@ -886,6 +907,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             normalized.disableHunger = disableHunger;
             normalized.enableAutoTeamSwitchPrompt = enableAutoTeamSwitchPrompt;
             normalized.disableInventoryChange = disableInventoryChange;
+            normalized.enableKnifeDuel = enableKnifeDuel == null ? defaults.enableKnifeDuel : enableKnifeDuel;
             normalized.enableGoatHorn = enableGoatHorn;
             normalized.enablePlayerDowned = enablePlayerDowned;
             normalized.enableBackAgainstWall = enableBackAgainstWall;
@@ -895,6 +917,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             normalized.enableDeathSupportDrop = enableDeathSupportDrop == null ? defaults.enableDeathSupportDrop : enableDeathSupportDrop;
             normalized.supportCampAHeroKits = supportCampAHeroKits == null ? List.of() : List.copyOf(supportCampAHeroKits);
             normalized.supportCampBHeroKits = supportCampBHeroKits == null ? List.of() : List.copyOf(supportCampBHeroKits);
+            normalized.supportCampAShellings = supportCampAShellings == null ? List.of() : List.copyOf(supportCampAShellings);
+            normalized.supportCampBShellings = supportCampBShellings == null ? List.of() : List.copyOf(supportCampBShellings);
             return normalized;
         }
 
@@ -1001,9 +1025,14 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             return disableInventoryChange == null ? legacyFallback : disableInventoryChange;
         }
 
+        public boolean enableKnifeDuel() {
+            return enableKnifeDuel != null && enableKnifeDuel;
+        }
+
         public boolean resolveEnableGoatHorn(boolean legacyFallback) {
             return enableGoatHorn == null ? legacyFallback : enableGoatHorn;
         }
+
 
         public double progressSpeed() {
             return progressSpeed;
@@ -1043,6 +1072,14 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
 
         public List<String> supportCampBHeroKits() {
             return supportCampBHeroKits == null ? List.of() : List.copyOf(supportCampBHeroKits);
+        }
+
+        public List<String> supportCampAShellings() {
+            return supportCampAShellings == null ? List.of() : List.copyOf(supportCampAShellings);
+        }
+
+        public List<String> supportCampBShellings() {
+            return supportCampBShellings == null ? List.of() : List.copyOf(supportCampBShellings);
         }
 
     }
@@ -1124,6 +1161,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().disableHunger(),
             definition.commonConfig().enableAutoTeamSwitchPrompt(),
             definition.commonConfig().disableInventoryChange(),
+            definition.commonConfig().enableKnifeDuel(),
             definition.commonConfig().enableGoatHorn(),
             definition.commonConfig().enablePlayerDowned(),
             definition.commonConfig().enableBackAgainstWall(),
@@ -1132,7 +1170,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().enableParachute(),
             definition.commonConfig().enableDeathSupportDrop(),
             definition.commonConfig().supportCampAHeroKits(),
-            definition.commonConfig().supportCampBHeroKits()
+            definition.commonConfig().supportCampBHeroKits(),
+            definition.commonConfig().supportCampAShellings(),
+            definition.commonConfig().supportCampBShellings()
         );
         return new RoomDefinition(
             definition.roomId(),
@@ -1178,6 +1218,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().disableHunger(),
             definition.commonConfig().enableAutoTeamSwitchPrompt(),
             definition.commonConfig().disableInventoryChange(),
+            definition.commonConfig().enableKnifeDuel(),
             definition.commonConfig().enableGoatHorn(),
             definition.commonConfig().enablePlayerDowned(),
             definition.commonConfig().enableBackAgainstWall(),
@@ -1186,7 +1227,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().enableParachute(),
             definition.commonConfig().enableDeathSupportDrop(),
             definition.commonConfig().supportCampAHeroKits(),
-            definition.commonConfig().supportCampBHeroKits()
+            definition.commonConfig().supportCampBHeroKits(),
+            definition.commonConfig().supportCampAShellings(),
+            definition.commonConfig().supportCampBShellings()
         );
         return new RoomDefinition(
             definition.roomId(),

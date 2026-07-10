@@ -19,8 +19,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class ChoiceListDialog {
-    // Current loadout selectors apply immediately on row selection, so the confirm button stays hidden.
-    private static final boolean SHOW_CONFIRM_BUTTON = false;
     private static final int ROW_HEIGHT = GuiConstants.ROW_HEADER_HEIGHT + 2;
     private static final int ROW_GAP = 1;
     private static final int LIST_WIDTH = 140 + 15;
@@ -39,7 +37,6 @@ public class ChoiceListDialog {
     private Runnable onCancel;
 
     private boolean visible = false;
-    private String title = "";
     private String filterText = "";
     private int cursorPosition = 0;
     private int selectionAnchor = -1;
@@ -70,7 +67,6 @@ public class ChoiceListDialog {
     private float inputHoverProgress = 0.0f;
     private long lastFrameTime;
 
-    private GDButton confirmButton;
     private GDButton cancelButton;
     private GDTextRenderer titleRenderer;
 
@@ -105,98 +101,21 @@ public class ChoiceListDialog {
     }
 
     public void show(String initialValue, String title, List<FixedChoiceConfigEntry.Choice> options, Consumer<String> onConfirm, Runnable onCancel) {
-        show(initialValue, title, options, onConfirm, onCancel, null, null, "", GuiConstants.COLOR_RED, GuiConstants.ROW_HEADER_HEIGHT, null, null);
-    }
-
-    public void show(
-        String initialValue,
-        String title,
-        List<FixedChoiceConfigEntry.Choice> options,
-        Consumer<String> onConfirm,
-        Runnable onCancel,
-        Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate,
-        Consumer<FixedChoiceConfigEntry.Choice> onExtraAction,
-        String extraActionText,
-        int extraActionColor,
-        int extraActionWidth
-    ) {
         show(
             initialValue,
             title,
             options,
             onConfirm,
             onCancel,
-            extraActionVisiblePredicate,
-            onExtraAction,
-            extraActionText,
-            extraActionColor,
-            extraActionWidth,
             null,
-            null
-        );
-    }
-
-    public void show(
-        String initialValue,
-        String title,
-        List<FixedChoiceConfigEntry.Choice> options,
-        Consumer<String> onConfirm,
-        Runnable onCancel,
-        Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate,
-        Consumer<FixedChoiceConfigEntry.Choice> onExtraAction,
-        String extraActionText,
-        int extraActionColor,
-        int extraActionWidth,
-        Predicate<FixedChoiceConfigEntry.Choice> directActionPredicate,
-        Consumer<FixedChoiceConfigEntry.Choice> onDirectAction
-    ) {
-        show(
-            initialValue,
-            title,
-            options,
-            onConfirm,
-            onCancel,
-            extraActionVisiblePredicate,
-            onExtraAction,
-            extraActionText,
-            extraActionColor,
-            extraActionWidth,
-            directActionPredicate,
-            onDirectAction,
             null,
-            null
-        );
-    }
-
-    public void show(
-        String initialValue,
-        String title,
-        List<FixedChoiceConfigEntry.Choice> options,
-        Consumer<String> onConfirm,
-        Runnable onCancel,
-        Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate,
-        Consumer<FixedChoiceConfigEntry.Choice> onExtraAction,
-        String extraActionText,
-        int extraActionColor,
-        int extraActionWidth,
-        Predicate<FixedChoiceConfigEntry.Choice> directActionPredicate,
-        Consumer<FixedChoiceConfigEntry.Choice> onDirectAction,
-        Predicate<FixedChoiceConfigEntry.Choice> selectablePredicate
-    ) {
-        show(
-            initialValue,
-            title,
-            options,
-            onConfirm,
-            onCancel,
-            extraActionVisiblePredicate,
-            onExtraAction,
-            extraActionText,
-            extraActionColor,
-            extraActionWidth,
-            directActionPredicate,
-            onDirectAction,
-            selectablePredicate,
+            "",
+            GuiConstants.COLOR_RED,
+            GuiConstants.ROW_HEADER_HEIGHT,
+            null,
+            null,
+            null,
+            null,
             null
         );
     }
@@ -253,7 +172,6 @@ public class ChoiceListDialog {
         Function<FixedChoiceConfigEntry.Choice, RowIcon> iconProvider,
         Consumer<FixedChoiceConfigEntry.Choice> onHoverChoice
     ) {
-        this.title = title;
         this.onConfirm = onConfirm;
         this.onCancel = onCancel;
         this.extraActionVisiblePredicate = extraActionVisiblePredicate;
@@ -288,10 +206,7 @@ public class ChoiceListDialog {
         this.selectedValue = resolveValue(initialValue);
         applyFilter();
 
-        int w1 = (PANEL_WIDTH - 1) / 2;
-        int w2 = PANEL_WIDTH - 1 - w1;
-        this.confirmButton = new GDButton(0, 0, w2, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal(I18n.get("gd656conquest.client.gui.config.confirm")), btn -> confirm());
-        this.cancelButton = new GDButton(0, 0, SHOW_CONFIRM_BUTTON ? w1 : PANEL_WIDTH, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal("关闭"), btn -> cancel());
+        this.cancelButton = new GDButton(0, 0, PANEL_WIDTH, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal("关闭"), btn -> cancel());
 
         if (this.titleRenderer == null) {
             this.titleRenderer = new GDTextRenderer(title, 0, 0, 0, 0, 1.0f, GuiConstants.COLOR_GOLD, false);
@@ -389,19 +304,11 @@ public class ChoiceListDialog {
         renderHoverTrail(guiGraphics, inputX, inputY, PANEL_WIDTH, INPUT_HEIGHT, inputHoverProgress);
         renderInputText(guiGraphics, inputX, inputY, PANEL_WIDTH, INPUT_HEIGHT);
 
-        int btnLeftX = centerX;
-        int btnRightX = centerX + (PANEL_WIDTH - 1) / 2 + 1;
         if (cancelButton != null) {
-            cancelButton.setWidth(SHOW_CONFIRM_BUTTON ? (PANEL_WIDTH - 1) / 2 : PANEL_WIDTH);
-            cancelButton.setX(btnLeftX);
+            cancelButton.setWidth(PANEL_WIDTH);
+            cancelButton.setX(centerX);
             cancelButton.setY(buttonsY);
             cancelButton.render(guiGraphics, mouseX, mouseY, partialTick);
-        }
-        // Keep confirm button logic available for keyboard/manual fallback, but hide it in the current UI flow.
-        if (SHOW_CONFIRM_BUTTON && confirmButton != null) {
-            confirmButton.setX(btnRightX);
-            confirmButton.setY(buttonsY);
-            confirmButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
 
         guiGraphics.pose().popPose();
@@ -410,9 +317,6 @@ public class ChoiceListDialog {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!visible) {
             return false;
-        }
-        if (SHOW_CONFIRM_BUTTON && confirmButton != null && confirmButton.mouseClicked(mouseX, mouseY, button)) {
-            return true;
         }
         if (cancelButton != null && cancelButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
@@ -612,7 +516,7 @@ public class ChoiceListDialog {
             return true;
         }
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-            confirm();
+            submitSelectionAndClose();
             return true;
         }
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
@@ -991,7 +895,7 @@ public class ChoiceListDialog {
         return choice != null && (selectablePredicate == null || selectablePredicate.test(choice));
     }
 
-    private void confirm() {
+    private void submitSelectionAndClose() {
         if (onConfirm != null) {
             String result = selectedValue;
             if ((result == null || result.isEmpty()) && !choices.isEmpty()) {

@@ -50,6 +50,7 @@ public final class ClientMarkerDebugPreviewState {
         float rowSpacing = 88.0F;
         List<PreviewEntry> entries = List.of(
             new PreviewEntry("普通标记", TacticalMarkerRenderer.MarkerVisualType.NORMAL, false, MARKER_SHAPE_OPACITY, -1.0F, 0, ""),
+            new PreviewEntry("观察地标", TacticalMarkerRenderer.MarkerVisualType.OBSERVE_GROUND, false, MARKER_SHAPE_OPACITY, -1.0F, 0, ""),
             new PreviewEntry("敌军地面", TacticalMarkerRenderer.MarkerVisualType.ENEMY_GROUND, false, MARKER_SHAPE_OPACITY, -1.0F, 0, ""),
             new PreviewEntry("敌军实体", TacticalMarkerRenderer.MarkerVisualType.ENEMY_TRACKED, true, MARKER_SHAPE_OPACITY, -1.0F, 0, ""),
             new PreviewEntry("自动敌军", TacticalMarkerRenderer.MarkerVisualType.AUTO_ENEMY, false, AUTO_ENEMY_SHAPE_OPACITY, -1.0F, 0, ""),
@@ -86,6 +87,7 @@ public final class ClientMarkerDebugPreviewState {
             );
             int textRgb = switch (entry.visualType()) {
                 case ENEMY_GROUND, ENEMY_TRACKED, AUTO_ENEMY -> 0x00F1C1C1;
+                case OBSERVE_GROUND -> 0x00F2C28D;
                 case ALLY_PERSISTENT, DOWNED_ALLY -> 0x0057F2FF;
                 case SQUAD_PERSISTENT, DOWNED_SQUAD -> 0x0079FFAF;
                 default -> 0x00E6EEF8;

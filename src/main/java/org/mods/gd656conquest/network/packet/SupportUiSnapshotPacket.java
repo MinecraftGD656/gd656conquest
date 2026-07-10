@@ -20,14 +20,14 @@ public record SupportUiSnapshotPacket(
     int spentScore,
     int remainingScore,
     String statusText,
-    List<HeroKitPayload> heroKits
+    List<SupportEntryPayload> entries
 ) {
     public SupportUiSnapshotPacket {
         roomId = roomId == null ? "" : roomId;
         roomDisplayName = roomDisplayName == null ? "" : roomDisplayName;
         teamDisplayName = teamDisplayName == null ? "" : teamDisplayName;
         statusText = statusText == null ? "" : statusText;
-        heroKits = heroKits == null ? List.of() : List.copyOf(heroKits);
+        entries = entries == null ? List.of() : List.copyOf(entries);
         currentScore = Math.max(0, currentScore);
         spentScore = Math.max(0, spentScore);
         remainingScore = Math.max(0, remainingScore);
@@ -41,13 +41,17 @@ public record SupportUiSnapshotPacket(
         buffer.writeInt(packet.spentScore);
         buffer.writeInt(packet.remainingScore);
         buffer.writeUtf(packet.statusText);
-        buffer.writeInt(packet.heroKits.size());
-        for (HeroKitPayload heroKit : packet.heroKits) {
-            buffer.writeUtf(heroKit.id());
-            buffer.writeUtf(heroKit.displayName());
-            buffer.writeUtf(heroKit.type());
-            buffer.writeInt(heroKit.cost());
-            buffer.writeBoolean(heroKit.unlocked());
+        buffer.writeInt(packet.entries.size());
+        for (SupportEntryPayload entry : packet.entries) {
+            buffer.writeUtf(entry.kind());
+            buffer.writeUtf(entry.id());
+            buffer.writeUtf(entry.displayName());
+            buffer.writeUtf(entry.typeKey());
+            buffer.writeUtf(entry.subtitleText());
+            buffer.writeUtf(entry.detailText());
+            buffer.writeUtf(entry.buttonText());
+            buffer.writeInt(entry.cost());
+            buffer.writeBoolean(entry.available());
         }
     }
 
@@ -60,9 +64,13 @@ public record SupportUiSnapshotPacket(
         int remainingScore = buffer.readInt();
         String statusText = buffer.readUtf();
         int count = Math.max(0, buffer.readInt());
-        List<HeroKitPayload> heroKits = new ArrayList<>();
+        List<SupportEntryPayload> entries = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            heroKits.add(new HeroKitPayload(
+            entries.add(new SupportEntryPayload(
+                buffer.readUtf(),
+                buffer.readUtf(),
+                buffer.readUtf(),
+                buffer.readUtf(),
                 buffer.readUtf(),
                 buffer.readUtf(),
                 buffer.readUtf(),
@@ -78,7 +86,7 @@ public record SupportUiSnapshotPacket(
             spentScore,
             remainingScore,
             statusText,
-            heroKits
+            entries
         );
     }
 
@@ -94,12 +102,26 @@ public record SupportUiSnapshotPacket(
         context.setPacketHandled(true);
     }
 
-    public record HeroKitPayload(
+    public record SupportEntryPayload(
+        String kind,
         String id,
         String displayName,
-        String type,
+        String typeKey,
+        String subtitleText,
+        String detailText,
+        String buttonText,
         int cost,
-        boolean unlocked
+        boolean available
     ) {
+        public SupportEntryPayload {
+            kind = kind == null ? "" : kind;
+            id = id == null ? "" : id;
+            displayName = displayName == null ? "" : displayName;
+            typeKey = typeKey == null ? "" : typeKey;
+            subtitleText = subtitleText == null ? "" : subtitleText;
+            detailText = detailText == null ? "" : detailText;
+            buttonText = buttonText == null ? "" : buttonText;
+            cost = Math.max(0, cost);
+        }
     }
 }

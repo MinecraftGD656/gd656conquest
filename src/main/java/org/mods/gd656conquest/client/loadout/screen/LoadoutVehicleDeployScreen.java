@@ -157,7 +157,7 @@ public final class LoadoutVehicleDeployScreen extends Screen {
                 }
             }
             if (mouseX >= LEFT && mouseX <= this.width - 18 && mouseY >= TOP && mouseY <= this.height - 36) {
-                listScrollState.startDragging(mouseY);
+                listScrollState.startDragging(mouseX, mouseY, LEFT, TOP, this.width - 18, this.height - 36, sortedEntries().size() * (ROW_HEIGHT + ROW_GAP));
                 return true;
             }
         }

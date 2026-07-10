@@ -15,6 +15,7 @@ import net.minecraftforge.client.event.ViewportEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityEvent;
 import org.mods.gd656conquest.client.compat.tacz.TaczClientInputCompat;
+import org.mods.gd656conquest.client.compat.superbwarfare.ClientSuperbWarfareShellingHook;
 import org.mods.gd656conquest.client.animation.ClientPlayerAnimatorDebugState;
 import org.mods.gd656conquest.client.audio.ClientMusicTriggerService;
 import org.mods.gd656conquest.client.hud.ClientHudDebugPreviewState;
@@ -50,6 +51,7 @@ public final class ClientEventHandler {
     private final ClientCaptureOverlayController captureOverlayController = new ClientCaptureOverlayController();
     private final ClientCaptureOutlineController captureOutlineController = new ClientCaptureOutlineController();
     private final ClientRoomSessionController roomSessionController = new ClientRoomSessionController(loadoutUiController);
+    private final ClientSuperbWarfareShellingHook superbWarfareShellingHook = new ClientSuperbWarfareShellingHook();
 
     public static ClientEventHandler getInstance() {
         return INSTANCE;
@@ -92,6 +94,7 @@ public final class ClientEventHandler {
         ClientDownedState.tick();
         ClientReviveState.tick();
         ClientMatchResultOverlayState.tick();
+        superbWarfareShellingHook.tick(minecraft);
         String roomId = ClientHudDebugState.getRoomId();
         String roomState = ClientHudDebugState.getRoomState();
         boolean inRoom = roomId != null && !roomId.isBlank() && !"-".equals(roomId) && (roomState == null || !roomState.contains("未加入"));
@@ -222,6 +225,7 @@ public final class ClientEventHandler {
         ClientHudDebugPreviewState.reset();
         ClientPlayerAnimatorDebugState.reset();
         TaczClientInputCompat.resetSuppression();
+        superbWarfareShellingHook.reset();
         roomSessionController.handleLogout();
         captureOverlayController.handleClientLogout();
         captureOutlineController.clear();
@@ -231,6 +235,10 @@ public final class ClientEventHandler {
     }
 
     public void handleScreenOpening(ScreenEvent.Opening event) {
+        superbWarfareShellingHook.handleScreenOpening(Minecraft.getInstance(), event);
+        if (event != null && event.isCanceled()) {
+            return;
+        }
         roomSessionController.handleScreenOpening(event, captureOverlayController);
     }
 

@@ -890,6 +890,8 @@ public final class ClientRoomMarkerState {
 
     private static String resolveMarkerLabelSuffix(MarkerKind kind) {
         return switch (kind) {
+            case OBSERVE_GROUND -> " 地面标记";
+            case REQUEST_STRIKE -> " 请求打击";
             case ENEMY, DIRECT_ENEMY, AUTO_ENEMY -> " 敌军标记";
             case ALLY_PERSISTENT -> " 友军";
             case SQUAD_PERSISTENT -> " 小队队友";
@@ -901,6 +903,7 @@ public final class ClientRoomMarkerState {
 
     private static int resolveMarkerLabelColor(MarkerKind kind) {
         return switch (kind) {
+            case OBSERVE_GROUND, REQUEST_STRIKE -> 0x00F28A1A;
             case ENEMY, DIRECT_ENEMY, AUTO_ENEMY -> 0x00A61E1E;
             case ALLY_PERSISTENT, DOWNED_ALLY -> 0x002ADFFF;
             case SQUAD_PERSISTENT, DOWNED_SQUAD -> 0x0061FF94;
@@ -1067,6 +1070,8 @@ public final class ClientRoomMarkerState {
 
     public enum MarkerKind {
         NORMAL,
+        OBSERVE_GROUND,
+        REQUEST_STRIKE,
         ENEMY,
         DIRECT_ENEMY,
         AUTO_ENEMY,
@@ -1093,7 +1098,7 @@ public final class ClientRoomMarkerState {
         }
 
         private boolean usesTriangleShape() {
-            return this == DIRECT_ENEMY || this == AUTO_ENEMY;
+            return this == OBSERVE_GROUND || this == DIRECT_ENEMY || this == AUTO_ENEMY;
         }
 
         private boolean isTrackedPlayerMarker() {
@@ -1119,6 +1124,8 @@ public final class ClientRoomMarkerState {
         private TacticalMarkerRenderer.MarkerVisualType toVisualType() {
             return switch (this) {
                 case NORMAL -> TacticalMarkerRenderer.MarkerVisualType.NORMAL;
+                case OBSERVE_GROUND -> TacticalMarkerRenderer.MarkerVisualType.OBSERVE_GROUND;
+                case REQUEST_STRIKE -> TacticalMarkerRenderer.MarkerVisualType.REQUEST_STRIKE;
                 case ENEMY -> TacticalMarkerRenderer.MarkerVisualType.ENEMY_GROUND;
                 case DIRECT_ENEMY -> TacticalMarkerRenderer.MarkerVisualType.ENEMY_TRACKED;
                 case AUTO_ENEMY -> TacticalMarkerRenderer.MarkerVisualType.AUTO_ENEMY;

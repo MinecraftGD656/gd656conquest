@@ -39,8 +39,14 @@ public final class ClientShortSoundPacket {
 
     public static void handle(ClientShortSoundPacket packet, Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context context = contextSupplier.get();
-        context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-            ClientAudioManager.getInstance().enqueuePlaySound(packet.soundId, packet.volume, packet.pitch)));
+        context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
+            String cleanSoundId = packet.soundId;
+            if (!cleanSoundId.contains(":")) {
+                cleanSoundId = "gd656conquest:" + cleanSoundId;
+            }
+            ClientAudioManager.getInstance().enqueuePlaySound(cleanSoundId, packet.volume, packet.pitch);
+            org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Queued short sound packet: " + cleanSoundId + ", vol: " + packet.volume + ", pitch: " + packet.pitch);
+        }));
         context.setPacketHandled(true);
     }
 }

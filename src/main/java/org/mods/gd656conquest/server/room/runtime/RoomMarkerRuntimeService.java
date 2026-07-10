@@ -34,6 +34,7 @@ public final class RoomMarkerRuntimeService {
     private static final String MARKER_SPOT_FAIL_SOUND_ID = "gd656conquest:sfx.marker_spot_fail";
     private static final String MARKER_SPOT_SUCCESS_SOUND_ID = "gd656conquest:sfx.marker_spot_success";
     private static final int MARKER_LIFETIME_TICKS = 30 * 20;
+    private static final int OBSERVE_GROUND_LIFETIME_TICKS = 2 * 20;
     private static final int DIRECT_SPOT_LIFETIME_TICKS = 5 * 20;
     private static final int AUTO_SPOT_LIFETIME_TICKS = 2 * 20;
     private static final int MARKER_SYNC_INTERVAL_TICKS = 5;
@@ -474,6 +475,9 @@ public final class RoomMarkerRuntimeService {
     }
 
     private int resolveLifetimeTicks(RunningRuntimeState.MarkerKind kind) {
+        if (kind == RunningRuntimeState.MarkerKind.OBSERVE_GROUND) {
+            return OBSERVE_GROUND_LIFETIME_TICKS;
+        }
         if (kind == RunningRuntimeState.MarkerKind.DIRECT_ENEMY) {
             return DIRECT_SPOT_LIFETIME_TICKS;
         }

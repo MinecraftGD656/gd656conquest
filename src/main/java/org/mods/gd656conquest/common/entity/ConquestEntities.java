@@ -39,6 +39,15 @@ public final class ConquestEntities {
                     .build("ammo_box")
     );
 
+    public static final RegistryObject<EntityType<ShellingSmokeEntity>> SHELLING_SMOKE = ENTITY_TYPES.register("shelling_smoke",
+        () -> EntityType.Builder.<ShellingSmokeEntity>of(ShellingSmokeEntity::new, MobCategory.MISC)
+            .sized(1.0F, 1.0F)
+            .fireImmune()
+            .noSave()
+            .clientTrackingRange(64)
+            .updateInterval(1)
+            .build("shelling_smoke"));
+
     private ConquestEntities() {
     }
 

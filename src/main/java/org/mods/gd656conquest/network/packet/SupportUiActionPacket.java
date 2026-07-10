@@ -3,26 +3,30 @@ package org.mods.gd656conquest.network.packet;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
-import org.mods.gd656conquest.server.facility.support.HeroKitSupportService;
+import org.mods.gd656conquest.server.facility.support.SupportActionService;
 
 import java.util.function.Supplier;
 
 public final class SupportUiActionPacket {
     private final String action;
-    private final String heroKitId;
+    private final String targetId;
 
-    public SupportUiActionPacket(String action, String heroKitId) {
+    public SupportUiActionPacket(String action, String targetId) {
         this.action = action == null ? "" : action;
-        this.heroKitId = heroKitId == null ? "" : heroKitId;
+        this.targetId = targetId == null ? "" : targetId;
     }
 
     public static SupportUiActionPacket deployHeroKit(String heroKitId) {
         return new SupportUiActionPacket("deploy_hero_kit", heroKitId);
     }
 
+    public static SupportUiActionPacket startShelling(String shellingId) {
+        return new SupportUiActionPacket("start_shelling", shellingId);
+    }
+
     public static void encode(SupportUiActionPacket packet, FriendlyByteBuf buffer) {
         buffer.writeUtf(packet.action);
-        buffer.writeUtf(packet.heroKitId);
+        buffer.writeUtf(packet.targetId);
     }
 
     public static SupportUiActionPacket decode(FriendlyByteBuf buffer) {
@@ -36,7 +40,7 @@ public final class SupportUiActionPacket {
             if (sender == null) {
                 return;
             }
-            HeroKitSupportService.handleAction(sender, message.action, message.heroKitId);
+            SupportActionService.handleAction(sender, message.action, message.targetId);
         });
         context.setPacketHandled(true);
     }

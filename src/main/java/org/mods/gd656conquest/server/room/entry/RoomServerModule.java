@@ -81,7 +81,7 @@ public final class RoomServerModule implements ServerModule {
         if (!(event.getEntity() instanceof ServerPlayer player) || player.server == null) {
             return;
         }
-        ServerPlayer killer = RoomDamageSourceResolver.resolveAttackingPlayer(event.getSource());
+        ServerPlayer killer = RoomDamageSourceResolver.resolveAttackingPlayer(event.getSource(), event.getEntity());
         RoomCoreRuntimeManager.of(player.server).handleMarkedPlayerDeath(player, killer, player.server.getTickCount());
         if (killer != null && killer != player) {
             RoomCoreRuntimeManager.of(player.server).handlePlayerKillSupportDrop(player, killer);
@@ -141,7 +141,7 @@ public final class RoomServerModule implements ServerModule {
             return;
         }
         DamageSource damageSource = extractDamageSource(event);
-        ServerPlayer attacker = RoomDamageSourceResolver.resolveAttackingPlayer(damageSource);
+        ServerPlayer attacker = RoomDamageSourceResolver.resolveAttackingPlayer(damageSource, target);
         if (attacker == null || attacker == target || attacker.server == null || attacker.server != target.server) {
             return;
         }
@@ -173,7 +173,7 @@ public final class RoomServerModule implements ServerModule {
         if (!(event.getEntity() instanceof ServerPlayer target) || target.server == null) {
             return;
         }
-        ServerPlayer attacker = RoomDamageSourceResolver.resolveAttackingPlayer(event.getSource());
+        ServerPlayer attacker = RoomDamageSourceResolver.resolveAttackingPlayer(event.getSource(), target);
         if (attacker == null || attacker == target || attacker.server == null || attacker.server != target.server) {
             return;
         }

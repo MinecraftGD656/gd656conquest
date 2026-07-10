@@ -3,12 +3,27 @@ package org.mods.gd656conquest.server.room.entry;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 
 import java.lang.reflect.Method;
 
 public final class RoomDamageSourceResolver {
     private RoomDamageSourceResolver() {
+    }
+
+    public static ServerPlayer resolveAttackingPlayer(DamageSource damageSource, Entity victim) {
+        ServerPlayer killer = resolveAttackingPlayer(damageSource);
+        if (killer != null) {
+            return killer;
+        }
+        if (victim instanceof LivingEntity living) {
+            LivingEntity credit = living.getKillCredit();
+            if (credit instanceof ServerPlayer player) {
+                return player;
+            }
+        }
+        return null;
     }
 
     public static ServerPlayer resolveAttackingPlayer(DamageSource damageSource) {

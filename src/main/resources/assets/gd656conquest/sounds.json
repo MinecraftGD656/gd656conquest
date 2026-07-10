@@ -390,5 +390,356 @@
         "name": "gd656conquest:voice/support/herokit_available_trenchraider"
       }
     ]
+  },
+  "sfx.shelling.flame_sound_1": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/flame_sound_1",
+        "stream": true
+      }
+    ]
+  },
+  "sfx.shelling.flame_sound_2": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/flame_sound_2",
+        "stream": true
+      }
+    ]
+  },
+  "sfx.shelling.flame_sound_3": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/flame_sound_3",
+        "stream": true
+      }
+    ]
+  },
+  "sfx.shelling.flame_sound_4": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/flame_sound_4",
+        "stream": true
+      }
+    ]
+  },
+  "sfx.shelling.bombraid_sfx": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/bombraid_sfx"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_heavyshell_1": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_heavyshell_1"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_heavyshell_2": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_heavyshell_2"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_heavyshell_3": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_heavyshell_3"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_heavyshell_4": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_heavyshell_4"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_heavyshell_5": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_heavyshell_5"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_heavyshell_6": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_heavyshell_6"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_lightshell_1": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_lightshell_1"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_lightshell_2": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_lightshell_2"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_lightshell_3": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_lightshell_3"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_lightshell_4": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_lightshell_4"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_lightshell_5": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_lightshell_5"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_lightshell_6": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_lightshell_6"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_mediumshell_1": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_mediumshell_1"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_mediumshell_2": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_mediumshell_2"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_mediumshell_3": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_mediumshell_3"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_mediumshell_4": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_mediumshell_4"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_mediumshell_5": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_mediumshell_5"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_mediumshell_6": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_mediumshell_6"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_mediumflameshell_1": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_mediumflameshell_1"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_mediumflameshell_2": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_mediumflameshell_2"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_mediumflameshell_3": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_mediumflameshell_3"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_mediumflameshell_4": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_mediumflameshell_4"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_mediumflameshell_5": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_mediumflameshell_5"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_mediumflameshell_6": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_mediumflameshell_6"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_missile_1": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_missile_1"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_missile_2": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_missile_2"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_missile_3": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_missile_3"
+      }
+    ]
+  },
+  "sfx.shelling.incoming_missile_4": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/incoming_missile_4"
+      }
+    ]
+  },
+  "sfx.shelling.launch_heavyshell": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/launch_heavyshell"
+      }
+    ]
+  },
+  "sfx.shelling.launch_lightshell": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/launch_lightshell"
+      }
+    ]
+  },
+  "sfx.shelling.launch_mediumshell": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/launch_mediumshell"
+      }
+    ]
+  },
+  "sfx.shelling.launch_missile_1": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/launch_missile_1"
+      }
+    ]
+  },
+  "sfx.shelling.launch_missile_2": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/launch_missile_2"
+      }
+    ]
+  },
+  "sfx.shelling.launch_missile_3": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/launch_missile_3"
+      }
+    ]
+  },
+  "sfx.shelling.launch_missile_4": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/launch_missile_4"
+      }
+    ]
+  },
+  "sfx.shelling.launch_missile_5": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/launch_missile_5"
+      }
+    ]
+  },
+  "sfx.shelling.loop_heavyshell": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/loop_heavyshell",
+        "stream": true
+      }
+    ]
+  },
+  "sfx.shelling.loop_lightshell": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/loop_lightshell",
+        "stream": true
+      }
+    ]
+  },
+  "sfx.shelling.loop_mediumshell": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/loop_mediumshell",
+        "stream": true
+      }
+    ]
+  },
+  "sfx.shelling.loop_mediumflameshell": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/loop_mediumflameshell",
+        "stream": true
+      }
+    ]
+  },
+  "sfx.shelling.loop_missile": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/shelling/loop_missile"
+      }
+    ]
+  },
+  "voice.shelling.artillery_friendly_1": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/shelling/artillery_friendly_1"
+      }
+    ]
+  },
+  "voice.shelling.artillery_friendly_2": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/shelling/artillery_friendly_2"
+      }
+    ]
+  },
+  "voice.shelling.artillery_friendly_3": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/shelling/artillery_friendly_3"
+      }
+    ]
   }
 }

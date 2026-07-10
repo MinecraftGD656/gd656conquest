@@ -866,7 +866,7 @@ public class LoadoutRoomEditorScreen extends Screen {
                         }
                     }
                 }
-                leftScrollState.startDragging(mouseY);
+                leftScrollState.startDragging(mouseX, mouseY, leftX1, contentY1, leftX2, contentY2, roomEntries.size() * (ROW_H + ROW_GAP));
                 return true;
             }
             if (mouseX >= rightX1 && mouseX <= rightX2 && mouseY >= contentY1 && mouseY <= contentY2) {
@@ -880,7 +880,7 @@ public class LoadoutRoomEditorScreen extends Screen {
                         }
                     }
                 }
-                rightScrollState.startDragging(mouseY);
+                rightScrollState.startDragging(mouseX, mouseY, rightX1, contentY1, rightX2, contentY2, rightRows.size() * (ROW_H + ROW_GAP));
                 return true;
             }
         }

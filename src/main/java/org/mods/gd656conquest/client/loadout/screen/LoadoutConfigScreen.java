@@ -602,7 +602,15 @@ public class LoadoutConfigScreen extends Screen {
                 }
             }
             if (isMouseOverRightContent(mouseX, mouseY)) {
-                rightContentScroll.startDragging(mouseY);
+                rightContentScroll.startDragging(
+                    mouseX,
+                    mouseY,
+                    getRightPanelLeft(),
+                    getRightContentViewportTop(),
+                    getRightPanelRight(),
+                    getRightContentViewportBottom(),
+                    getRightContentHeight()
+                );
                 return true;
             }
         }

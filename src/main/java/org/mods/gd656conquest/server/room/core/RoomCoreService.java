@@ -48,6 +48,7 @@ import org.mods.gd656conquest.server.room.runtime.RoomDeploySelectionService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerLaunchService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerLoadoutService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerRespawnService;
+import org.mods.gd656conquest.server.room.runtime.RoomShellingRuntimeService;
 import org.mods.gd656conquest.server.room.runtime.RoomResultRuntimeService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerStateService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerTransferQueueService;
@@ -102,6 +103,7 @@ public final class RoomCoreService {
     private final RoomVehicleRuntimeService vehicleRuntimeService;
     private final RoomRuleRuntimeService ruleRuntimeService;
     private final RoomResultRuntimeService resultRuntimeService;
+    private final RoomShellingRuntimeService shellingRuntimeService;
     private final RoomGroupPlacementService groupPlacementService;
 
     public RoomCoreService(RoomCoreComponents components) {
@@ -135,6 +137,7 @@ public final class RoomCoreService {
         this.vehicleRuntimeService = resolved.vehicleRuntimeService();
         this.ruleRuntimeService = resolved.ruleRuntimeService();
         this.resultRuntimeService = resolved.resultRuntimeService();
+        this.shellingRuntimeService = new RoomShellingRuntimeService(server);
         this.groupPlacementService = new RoomGroupPlacementService(
             runtimeRepository,
             playerSessionService,
@@ -152,8 +155,16 @@ public final class RoomCoreService {
         return vehicleRuntimeService;
     }
 
+    public RoomMarkerRuntimeService markerRuntimeService() {
+        return markerRuntimeService;
+    }
+
     public RoomDeploySelectionService deploySelectionService() {
         return deploySelectionService;
+    }
+
+    public RoomShellingRuntimeService shellingRuntimeService() {
+        return shellingRuntimeService;
     }
 
     public void registerRoom(RoomDefinition room) {
@@ -197,6 +208,19 @@ public final class RoomCoreService {
         return runtimeRepository.list().stream()
             .map(RoomRuntimeSlot::room)
             .toList();
+    }
+
+    public void shutdown() {
+        for (RoomRuntimeSlot<RoomRuntimeState> slot : runtimeRepository.list()) {
+            if (slot == null) {
+                continue;
+            }
+            shellingRuntimeService.abortAllShellingRequests(
+                slot.room(),
+                slot.runtime().getRunningState(),
+                RoomShellingRuntimeService.AbortReason.ROOM_UNAVAILABLE
+            );
+        }
     }
 
     public Optional<RoomDefinition> findRoom(String roomId) {
@@ -690,6 +714,13 @@ public final class RoomCoreService {
         boolean bypassDownedForRedeploy = runningState.getDoubledRespawnPending().contains(playerId);
         boolean bypassDownedForBoundary = runningState.getBoundaryDeathPendingPlayers().remove(playerId);
         boolean bypassDowned = bypassDownedForRedeploy || bypassDownedForBoundary;
+        shellingRuntimeService.abortShellingRequest(
+            runningSlot.room(),
+            runningState,
+            player,
+            playerId,
+            RoomShellingRuntimeService.AbortReason.PLAYER_DEATH
+        );
         // Clear TACZ crawl before any downed/death handling so preview dimensions and pose start from a clean state.
         TaczServerPoseCompat.clearCrawlState(player);
         playerRespawnService.emitNearbyTeammatesManDown(
@@ -1249,6 +1280,7 @@ public final class RoomCoreService {
             itemReplenishService.tick(slot.room(), slot.runtime().getRunningState(), gameTick);
             ruleRuntimeService.tick(slot.room(), slot.runtime().getRunningState(), gameTick);
             squadBeaconService.tickRoom(slot.room(), slot.runtime().getRunningState(), gameTick);
+            shellingRuntimeService.tickRoom(slot.room(), slot.runtime().getRunningState(), gameTick);
             markerRuntimeService.tickRoom(slot.room(), slot.runtime().getRunningState(), gameTick);
             vehicleRuntimeService.tickRoom(slot.room(), slot.runtime().getRunningState(), gameTick);
             slot.runtime().getRunningState().getGameplayRuntime()
@@ -1403,12 +1435,70 @@ public final class RoomCoreService {
             .orElse(new SupportScoreService.ConsumptionResult(false, 0, 0, Math.max(0, cost)));
     }
 
+    public int refundPlayerSupportScore(UUID playerId, int refundAmount) {
+        if (playerId == null || refundAmount <= 0) {
+            return getPlayerSupportSpentScore(playerId);
+        }
+        return findRunningSlotByPlayer(playerId)
+            .map(slot -> {
+                RunningRuntimeState runningState = slot.runtime().getRunningState();
+                int currentSpent = SupportScoreService.getSpentScore(runningState, playerId);
+                return SupportScoreService.setSpentScore(runningState, playerId, currentSpent - refundAmount);
+            })
+            .orElse(0);
+    }
+
     public void clearPlayerSupportScore(UUID playerId) {
         if (playerId == null) {
             return;
         }
         findRunningSlotByPlayer(playerId)
             .ifPresent(slot -> SupportScoreService.clearPlayer(slot.runtime().getRunningState(), playerId));
+    }
+
+    public RoomShellingRuntimeService.StartRequestResult startShellingRequest(
+        ServerPlayer player,
+        String shellingId,
+        int reservedCost,
+        String originalSlot9ItemSnbt,
+        long gameTick
+    ) {
+        if (player == null) {
+            return RoomShellingRuntimeService.StartRequestResult.failure(
+                RoomShellingRuntimeService.StartFailureReason.INVALID_CONTEXT,
+                null,
+                null
+            );
+        }
+        return findRunningSlotByPlayer(player.getUUID())
+            .map(slot -> shellingRuntimeService.startShellingRequest(
+                slot.room(),
+                slot.runtime().getRunningState(),
+                player,
+                shellingId,
+                reservedCost,
+                originalSlot9ItemSnbt,
+                gameTick
+            ))
+            .orElse(RoomShellingRuntimeService.StartRequestResult.failure(
+                RoomShellingRuntimeService.StartFailureReason.INVALID_CONTEXT,
+                null,
+                null
+            ));
+    }
+
+    public boolean updateShellingTarget(ServerPlayer player, BlockPos targetBlockPos) {
+        if (player == null || targetBlockPos == null) {
+            return false;
+        }
+        return findRunningSlotByPlayer(player.getUUID())
+            .map(slot -> shellingRuntimeService.updateShellingTarget(
+                slot.room(),
+                slot.runtime().getRunningState(),
+                player.getUUID(),
+                targetBlockPos
+            ))
+            .orElse(false);
     }
 
     public Optional<String> buildAdminDebugOverlayPayload(ServerPlayer player) {
@@ -1566,6 +1656,13 @@ public final class RoomCoreService {
         RunningRuntimeState runningState = slot.runtime().getRunningState();
         playerRejoinService.markRejoinable(slot.room(), runningState, playerId, gameTick);
         ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
+        shellingRuntimeService.abortShellingRequest(
+            slot.room(),
+            runningState,
+            player,
+            playerId,
+            RoomShellingRuntimeService.AbortReason.PLAYER_LEFT_ROOM
+        );
         if (player != null) {
             inventorySnapshotService.restore(player, slot.runtime());
             clearTransientRoomClientState(player);
@@ -1611,6 +1708,13 @@ public final class RoomCoreService {
             return;
         }
         ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
+        shellingRuntimeService.abortShellingRequest(
+            slot.room(),
+            runningState,
+            player,
+            playerId,
+            RoomShellingRuntimeService.AbortReason.PLAYER_LEFT_ROOM
+        );
         if (player != null) {
             inventorySnapshotService.restore(player, slot.runtime());
             clearTransientRoomClientState(player);
@@ -1664,6 +1768,11 @@ public final class RoomCoreService {
     private void finishEnding(RoomRuntimeSlot<RoomRuntimeState> slot, long gameTick) {
         String roomId = slot.room().roomId();
         RunningRuntimeState runningState = slot.runtime().getRunningState();
+        shellingRuntimeService.abortAllShellingRequests(
+            slot.room(),
+            runningState,
+            RoomShellingRuntimeService.AbortReason.ROOM_UNAVAILABLE
+        );
         java.util.List<UUID> players = java.util.List.copyOf(runningState.getRoomPlayers());
         for (UUID playerId : players) {
             ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
@@ -1706,6 +1815,11 @@ public final class RoomCoreService {
             return;
         }
         RunningRuntimeState runningState = slot.runtime().getRunningState();
+        shellingRuntimeService.abortAllShellingRequests(
+            slot.room(),
+            runningState,
+            RoomShellingRuntimeService.AbortReason.ROOM_UNAVAILABLE
+        );
         runningState.getGameplayRuntime().ifPresent(runtime -> runtime.onLeaveMainPhase(slot.room(), gameTick));
         runningState.clearGameplayRuntime();
         runningState.clearRoomPlayers();

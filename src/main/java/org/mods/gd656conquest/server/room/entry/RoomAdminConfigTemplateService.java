@@ -144,6 +144,7 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.disableHunger(),
             sourceCommon.enableAutoTeamSwitchPrompt(),
             sourceCommon.disableInventoryChange(),
+            sourceCommon.enableKnifeDuel(),
             sourceCommon.enableGoatHorn(),
             sourceCommon.enablePlayerDowned(),
             sourceCommon.enableBackAgainstWall(),
@@ -152,7 +153,9 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.enableParachute(),
             sourceCommon.enableDeathSupportDrop(),
             sourceCommon.supportCampAHeroKits(),
-            sourceCommon.supportCampBHeroKits()
+            sourceCommon.supportCampBHeroKits(),
+            sourceCommon.supportCampAShellings(),
+            sourceCommon.supportCampBShellings()
         );
         return new RoomDefinition(
             target.roomId(),

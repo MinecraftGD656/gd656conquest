@@ -60,6 +60,7 @@ public final class ClientCore {
         event.registerEntityRenderer(ConquestEntities.SQUAD_DEPLOY_BEACON.get(), SquadDeployBeaconEntityRenderer::new);
         event.registerEntityRenderer(ConquestEntities.MEDICAL_BOX.get(), MedicalBoxEntityRenderer::new);
         event.registerEntityRenderer(ConquestEntities.AMMO_BOX.get(), AmmoBoxEntityRenderer::new);
+        event.registerEntityRenderer(ConquestEntities.SHELLING_SMOKE.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
     }
 
     private static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {

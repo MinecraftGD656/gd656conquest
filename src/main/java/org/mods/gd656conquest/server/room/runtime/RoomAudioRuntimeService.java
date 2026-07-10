@@ -3,6 +3,7 @@ package org.mods.gd656conquest.server.room.runtime;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.network.NetworkManager;
+import org.mods.gd656conquest.network.packet.ClientLoopSoundPacket;
 import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.server.compat.frontlinevoice.FrontlineVoiceBridge;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
@@ -25,12 +26,30 @@ public final class RoomAudioRuntimeService {
             return;
         }
         ClientShortSoundPacket packet = ClientShortSoundPacket.oneShot(soundId, Math.max(0.0F, volume), pitch);
+        int count = 0;
         for (UUID playerId : state.getRoomPlayers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player != null) {
                 NetworkManager.sendToPlayer(player, packet);
+                count++;
             }
         }
+        org.mods.gd656conquest.server.shared.log.ServerLogger.info("Sent short sound %s to %d players", soundId, count);
+    }
+
+    public void playLoopSoundToPlayer(ServerPlayer player, String soundId, float volume, int fadeInTicks) {
+        if (player == null || soundId == null || soundId.isBlank()) {
+            return;
+        }
+        NetworkManager.sendToPlayer(player, ClientLoopSoundPacket.play(soundId, Math.max(0.0F, volume), Math.max(0, fadeInTicks)));
+        org.mods.gd656conquest.server.shared.log.ServerLogger.info("Sent loop sound %s to player %s", soundId, player.getName().getString());
+    }
+
+    public void stopLoopSoundToPlayer(ServerPlayer player, String soundId, int fadeOutTicks) {
+        if (player == null || soundId == null || soundId.isBlank()) {
+            return;
+        }
+        NetworkManager.sendToPlayer(player, ClientLoopSoundPacket.stop(soundId, Math.max(0, fadeOutTicks)));
     }
 
     public void emitPlayerThirdPersonCue(RoomDefinition room, RunningRuntimeState state, ServerPlayer sourcePlayer, String cueId) {

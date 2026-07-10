@@ -40,6 +40,7 @@ import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -61,6 +62,13 @@ public final class RoomPlayerLoadoutService {
     private static final int THROWABLE_HOTBAR_SLOT = 5;
     private static final int GOAT_HORN_HOTBAR_SLOT = 7;
     private static final int SUPPORT_HOTBAR_SLOT = 8;
+    private static final java.util.Set<CustomLoadoutSlot> KNIFE_DUEL_BLOCKED_SLOTS = EnumSet.of(
+        CustomLoadoutSlot.PRIMARY_WEAPON,
+        CustomLoadoutSlot.SECONDARY_WEAPON,
+        CustomLoadoutSlot.GADGET_1,
+        CustomLoadoutSlot.GADGET_2,
+        CustomLoadoutSlot.THROWABLE
+    );
     private static final int PRIMARY_AMMO_ROW_START = 18;
     private static final int PRIMARY_AMMO_ROW_END = 26;
     private static final int SECONDARY_AMMO_ROW_START = 29;
@@ -944,7 +952,7 @@ public final class RoomPlayerLoadoutService {
             }
             entriesBySlot.put(slot, selectedEntry);
         }
-        return new ActiveLoadoutSelection(classType, entriesBySlot, false, playerDataChanged);
+        return applyRoomLoadoutRestrictions(roomContext, new ActiveLoadoutSelection(classType, entriesBySlot, false, playerDataChanged));
     }
 
     private ActiveLoadoutSelection resolveRandomizedLoadoutSelection(
@@ -960,7 +968,7 @@ public final class RoomPlayerLoadoutService {
         if (!refreshRandomSelection) {
             ActiveLoadoutSelection existing = resolveStoredRandomizedLoadoutSelection(state, equipmentData, playerId);
             if (!existing.entriesBySlot().isEmpty()) {
-                return existing;
+                return applyRoomLoadoutRestrictions(resolveRoomRuntimeContext(player), existing);
             }
         }
         List<PlayerClassType> fullCoverageClasses = new ArrayList<>();
@@ -1001,7 +1009,7 @@ public final class RoomPlayerLoadoutService {
         }
         state.getRandomizedLoadoutClassKeysByPlayer().put(playerId, chosenClass.getKey());
         state.getRandomizedLoadoutSelectionIdsByPlayerSlot().put(playerId, storedSelectionIds);
-        return new ActiveLoadoutSelection(chosenClass, entriesBySlot, true, false);
+        return applyRoomLoadoutRestrictions(resolveRoomRuntimeContext(player), new ActiveLoadoutSelection(chosenClass, entriesBySlot, true, false));
     }
 
     private ActiveLoadoutSelection resolveStoredRandomizedLoadoutSelection(
@@ -1039,6 +1047,22 @@ public final class RoomPlayerLoadoutService {
             && roomContext.room() != null
             && roomContext.state() != null
             && roomContext.room().commonConfig().enableRandomLoadout();
+    }
+
+    private ActiveLoadoutSelection applyRoomLoadoutRestrictions(RoomRuntimeContext roomContext, ActiveLoadoutSelection selection) {
+        if (selection == null || selection.entriesBySlot().isEmpty() || !isKnifeDuelEnabled(roomContext)) {
+            return selection;
+        }
+        Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> filteredEntries = new EnumMap<>(CustomLoadoutSlot.class);
+        filteredEntries.putAll(selection.entriesBySlot());
+        filteredEntries.keySet().removeIf(KNIFE_DUEL_BLOCKED_SLOTS::contains);
+        return new ActiveLoadoutSelection(selection.classType(), filteredEntries, selection.randomized(), selection.playerDataChanged());
+    }
+
+    private boolean isKnifeDuelEnabled(RoomRuntimeContext roomContext) {
+        return roomContext != null
+            && roomContext.room() != null
+            && roomContext.room().commonConfig().enableKnifeDuel();
     }
 
     private boolean isRandomizedAttachmentEnabled(RoomRuntimeContext roomContext) {

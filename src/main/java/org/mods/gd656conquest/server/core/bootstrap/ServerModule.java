@@ -6,6 +6,7 @@ import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.event.entity.ProjectileImpactEvent;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
@@ -62,6 +63,9 @@ public interface ServerModule {
     }
 
     default void onLivingDeath(LivingDeathEvent event) {
+    }
+
+    default void onProjectileImpact(ProjectileImpactEvent event) {
     }
 
     default void onPlayerXpPickup(PlayerXpEvent.PickupXp event) {

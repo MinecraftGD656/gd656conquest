@@ -53,6 +53,8 @@ public final class RunningRuntimeState {
     private final Map<UUID, Integer> supportSpentScoreByPlayer = new LinkedHashMap<>();
     private final Map<UUID, String> activeHeroKitIdsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, String> activeHeroKitTypesByPlayer = new LinkedHashMap<>();
+    private final Map<RoomTeamId, UUID> activeShellingPlayerByTeam = new LinkedHashMap<>();
+    private final Map<UUID, ShellingRequestState> activeShellingsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Map<Integer, Long>> loadoutItemLastReplenishTickByPlayerSlot = new LinkedHashMap<>();
     private final Map<UUID, String> randomizedLoadoutClassKeysByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Map<String, String>> randomizedLoadoutSelectionIdsByPlayerSlot = new LinkedHashMap<>();
@@ -283,6 +285,14 @@ public final class RunningRuntimeState {
         return activeHeroKitTypesByPlayer;
     }
 
+    public Map<RoomTeamId, UUID> getActiveShellingPlayerByTeam() {
+        return activeShellingPlayerByTeam;
+    }
+
+    public Map<UUID, ShellingRequestState> getActiveShellingsByPlayer() {
+        return activeShellingsByPlayer;
+    }
+
     public Map<UUID, Map<Integer, Long>> getLoadoutItemLastReplenishTickByPlayerSlot() {
         return loadoutItemLastReplenishTickByPlayerSlot;
     }
@@ -449,6 +459,7 @@ public final class RunningRuntimeState {
         supportSpentScoreByPlayer.clear();
         activeHeroKitIdsByPlayer.clear();
         activeHeroKitTypesByPlayer.clear();
+        clearAllShellingRequests();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
         rejoinTickets.clear();
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();
@@ -465,6 +476,7 @@ public final class RunningRuntimeState {
         supportSpentScoreByPlayer.clear();
         activeHeroKitIdsByPlayer.clear();
         activeHeroKitTypesByPlayer.clear();
+        clearAllShellingRequests();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
         rejoinTickets.clear();
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();
@@ -512,6 +524,7 @@ public final class RunningRuntimeState {
         autoTeamSwitchOfferExpireTicks.remove(playerId);
         activeHeroKitIdsByPlayer.remove(playerId);
         activeHeroKitTypesByPlayer.remove(playerId);
+        clearShellingRequest(playerId);
         loadoutItemLastReplenishTickByPlayerSlot.remove(playerId);
         randomizedLoadoutClassKeysByPlayer.remove(playerId);
         randomizedLoadoutSelectionIdsByPlayerSlot.remove(playerId);
@@ -567,6 +580,7 @@ public final class RunningRuntimeState {
         supportSpentScoreByPlayer.clear();
         activeHeroKitIdsByPlayer.clear();
         activeHeroKitTypesByPlayer.clear();
+        clearAllShellingRequests();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
         randomizedLoadoutClassKeysByPlayer.clear();
         randomizedLoadoutSelectionIdsByPlayerSlot.clear();
@@ -802,6 +816,41 @@ public final class RunningRuntimeState {
         resultAwardedPlayers.clear();
     }
 
+    public boolean isPlayerInShellingFlow(UUID playerId) {
+        return playerId != null && activeShellingsByPlayer.containsKey(playerId);
+    }
+
+    public ShellingRequestState getActiveShellingRequest(UUID playerId) {
+        return playerId == null ? null : activeShellingsByPlayer.get(playerId);
+    }
+
+    public void putShellingRequest(ShellingRequestState request) {
+        if (request == null || request.playerId() == null || request.teamId() == null) {
+            return;
+        }
+        clearShellingRequest(request.playerId());
+        activeShellingsByPlayer.put(request.playerId(), request);
+        activeShellingPlayerByTeam.put(request.teamId(), request.playerId());
+    }
+
+    public ShellingRequestState clearShellingRequest(UUID playerId) {
+        if (playerId == null) {
+            return null;
+        }
+        ShellingRequestState removed = activeShellingsByPlayer.remove(playerId);
+        if (removed != null && removed.teamId() != null) {
+            activeShellingPlayerByTeam.remove(removed.teamId(), playerId);
+        } else {
+            activeShellingPlayerByTeam.entrySet().removeIf(entry -> playerId.equals(entry.getValue()));
+        }
+        return removed;
+    }
+
+    public void clearAllShellingRequests() {
+        activeShellingPlayerByTeam.clear();
+        activeShellingsByPlayer.clear();
+    }
+
     public record RejoinTicket(
         long matchInstanceId,
         RoomTeamId teamId,
@@ -817,6 +866,29 @@ public final class RunningRuntimeState {
         int assist,
         int revive
     ) {
+    }
+
+    public record ShellingRequestState(
+        UUID playerId,
+        RoomTeamId teamId,
+        String roomId,
+        String shellingId,
+        int reservedCost,
+        String originalSlot9ItemSnbt,
+        long indicatorIssuedTick,
+        long timeoutTick,
+        long confirmedTick,
+        long returnTick,
+        BlockPos targetBlockPos,
+        boolean confirmed
+    ) {
+        public ShellingRequestState {
+            roomId = roomId == null ? "" : roomId;
+            shellingId = shellingId == null ? "" : shellingId;
+            reservedCost = Math.max(0, reservedCost);
+            originalSlot9ItemSnbt = originalSlot9ItemSnbt == null ? "" : originalSlot9ItemSnbt;
+            targetBlockPos = targetBlockPos == null ? null : targetBlockPos.immutable();
+        }
     }
 
     public record TacticalMarker(
@@ -843,6 +915,8 @@ public final class RunningRuntimeState {
 
     public enum MarkerKind {
         NORMAL,
+        OBSERVE_GROUND,
+        REQUEST_STRIKE,
         ENEMY,
         DIRECT_ENEMY,
         AUTO_ENEMY,

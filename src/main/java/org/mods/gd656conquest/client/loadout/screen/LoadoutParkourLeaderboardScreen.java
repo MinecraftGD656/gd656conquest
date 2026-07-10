@@ -104,7 +104,11 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
                 return true;
             }
             if (isMouseOverRightPanel(mouseX, mouseY)) {
-                rightScroll.startDragging(mouseY);
+                int left = Math.min(this.width / 2 - 8, PADDING + LEFT_WIDTH) + PADDING;
+                int right = this.width - PADDING;
+                int top = TOP + ROW_H + 1;
+                int bottom = this.height - 36;
+                rightScroll.startDragging(mouseX, mouseY, left, top, right, bottom, getLeaderboardContentHeight());
                 return true;
             }
         }

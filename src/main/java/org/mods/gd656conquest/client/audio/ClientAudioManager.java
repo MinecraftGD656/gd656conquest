@@ -19,8 +19,10 @@ import java.util.List;
 public final class ClientAudioManager {
     private static final ClientAudioManager INSTANCE = new ClientAudioManager();
     private static final float DEFAULT_PITCH = 1.0F;
+    private static final float MAX_MANAGED_VOLUME = 1.5F;
     private final ConcurrentLinkedQueue<Runnable> mainThreadTasks = new ConcurrentLinkedQueue<>();
     private final Map<ResourceLocation, ManagedMusicSound> activeMusic = new ConcurrentHashMap<>();
+    private final Map<ResourceLocation, ManagedLoopSound> activeLoops = new ConcurrentHashMap<>();
     private ResourceKey<Level> lastDimension;
     private boolean wasConnected;
 
@@ -45,6 +47,14 @@ public final class ClientAudioManager {
 
     public void enqueueStopAllMusic(int fadeOutTicks) {
         mainThreadTasks.offer(() -> stopAllMusicInternal(fadeOutTicks));
+    }
+
+    public void enqueuePlayLoopSound(String soundId, float volume, int fadeInTicks) {
+        mainThreadTasks.offer(() -> playLoopSoundInternal(soundId, volume, fadeInTicks));
+    }
+
+    public void enqueueStopLoopSound(String soundId, int fadeOutTicks) {
+        mainThreadTasks.offer(() -> stopLoopSoundInternal(soundId, fadeOutTicks));
     }
 
     public void enqueuePlaySound(String soundId, float volume, float pitch) {
@@ -87,10 +97,20 @@ public final class ClientAudioManager {
                 activeMusic.remove(entry.getKey(), sound);
             }
         }
+        for (Map.Entry<ResourceLocation, ManagedLoopSound> entry : activeLoops.entrySet()) {
+            ManagedLoopSound sound = entry.getValue();
+            if (sound == null) {
+                continue;
+            }
+            if (sound.shouldStop(soundManager)) {
+                soundManager.stop(sound);
+                activeLoops.remove(entry.getKey(), sound);
+            }
+        }
         boolean hasConnection = minecraft.getConnection() != null;
         if (!hasConnection) {
             if (wasConnected) {
-                stopAllMusicImmediate(soundManager);
+                stopAllManagedAudioImmediate(soundManager);
             }
             wasConnected = false;
             lastDimension = null;
@@ -104,7 +124,7 @@ public final class ClientAudioManager {
         }
         ResourceKey<Level> currentDimension = minecraft.level.dimension();
         if (lastDimension != null && !lastDimension.equals(currentDimension)) {
-            stopAllMusicImmediate(soundManager);
+            stopAllManagedAudioImmediate(soundManager);
         }
         lastDimension = currentDimension;
     }
@@ -161,15 +181,59 @@ public final class ClientAudioManager {
         }
     }
 
+    private void playLoopSoundInternal(String soundId, float volume, int fadeInTicks) {
+        Minecraft minecraft = Minecraft.getInstance();
+        SoundManager soundManager = minecraft.getSoundManager();
+        if (soundManager == null) {
+            org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Cannot play loop sound, SoundManager is null: " + soundId);
+            return;
+        }
+        ResourceLocation key = parseSoundId(soundId);
+        if (key == null) {
+            org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Cannot parse soundId for loop: " + soundId);
+            return;
+        }
+        float targetVolume = clampVolume(volume);
+        ManagedLoopSound existing = activeLoops.get(key);
+        if (existing != null) {
+            existing.refreshPlayback(targetVolume, fadeInTicks);
+            org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Refreshed existing loop sound: " + key);
+            return;
+        }
+        ManagedLoopSound sound = new ManagedLoopSound(key, targetVolume, fadeInTicks);
+        activeLoops.put(key, sound);
+        soundManager.play(sound);
+        org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Started global loop sound: " + key + " at vol " + targetVolume);
+    }
+
+    private void stopLoopSoundInternal(String soundId, int fadeOutTicks) {
+        ResourceLocation key = parseSoundId(soundId);
+        if (key == null) {
+            return;
+        }
+        ManagedLoopSound sound = activeLoops.get(key);
+        if (sound == null) {
+            return;
+        }
+        if (fadeOutTicks <= 0) {
+            Minecraft.getInstance().getSoundManager().stop(sound);
+            activeLoops.remove(key);
+            return;
+        }
+        sound.beginFadeOut(fadeOutTicks);
+    }
+
     private void playSoundInternal(String soundId, float volume, float pitch) {
         SoundManager soundManager = Minecraft.getInstance().getSoundManager();
         ResourceLocation key = parseSoundId(soundId);
         if (soundManager == null || key == null) {
+            org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Cannot play short sound, SoundManager/key is null: " + soundId);
             return;
         }
         OneShotSound sound = new OneShotSound(key, clampVolume(volume), clampPitch(pitch));
         ClientAudioDebugState.registerEffect(ClientAudioDebugState.DebugSoundKind.SOUND, key.toString(), sound);
         soundManager.play(sound);
+        org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Played global short sound: " + key);
     }
 
     private void stopAllMusicImmediate(SoundManager soundManager) {
@@ -180,6 +244,20 @@ public final class ClientAudioManager {
         }
         activeMusic.clear();
         ClientAudioDebugState.clear();
+    }
+
+    private void stopAllLoopSoundsImmediate(SoundManager soundManager) {
+        for (ManagedLoopSound sound : activeLoops.values()) {
+            if (sound != null) {
+                soundManager.stop(sound);
+            }
+        }
+        activeLoops.clear();
+    }
+
+    private void stopAllManagedAudioImmediate(SoundManager soundManager) {
+        stopAllMusicImmediate(soundManager);
+        stopAllLoopSoundsImmediate(soundManager);
     }
 
     private void drainMainThreadTasks() {
@@ -193,7 +271,7 @@ public final class ClientAudioManager {
         if (Float.isNaN(volume)) {
             return 0.0F;
         }
-        return Math.max(0.0F, Math.min(1.0F, volume));
+        return Math.max(0.0F, Math.min(MAX_MANAGED_VOLUME, volume));
     }
 
     private static float clampPitch(float pitch) {
@@ -318,9 +396,103 @@ public final class ClientAudioManager {
         }
     }
 
+    static final class ManagedLoopSound extends AbstractTickableSoundInstance {
+        private static final int STARTUP_ACTIVE_CHECK_GRACE_TICKS = 20;
+        private int fadeTicksTotal;
+        private int fadeTicksLeft;
+        private float fadeStartVolume;
+        private int fadeInTicksTotal;
+        private int fadeInTicksLeft;
+        private float fadeInTargetVolume;
+        private int activeCheckGraceTicks = STARTUP_ACTIVE_CHECK_GRACE_TICKS;
+
+        private ManagedLoopSound(ResourceLocation soundId, float volume, int fadeInTicks) {
+            super(SoundEvent.createVariableRangeEvent(soundId), SoundSource.MASTER, RandomSource.create());
+            this.volume = fadeInTicks > 0 ? 0.0F : volume;
+            this.pitch = DEFAULT_PITCH;
+            this.looping = true;
+            this.relative = true;
+            this.attenuation = Attenuation.NONE;
+            this.delay = 0;
+            this.fadeInTargetVolume = volume;
+            if (fadeInTicks > 0) {
+                this.fadeInTicksTotal = fadeInTicks;
+                this.fadeInTicksLeft = fadeInTicks;
+            }
+        }
+
+        @Override
+        public void tick() {
+        }
+
+        private synchronized void beginFadeOut(int ticks) {
+            int safeTicks = Math.max(1, ticks);
+            this.fadeTicksTotal = safeTicks;
+            this.fadeTicksLeft = safeTicks;
+            this.fadeStartVolume = this.volume;
+        }
+
+        private synchronized boolean tickFadeOut() {
+            if (fadeTicksLeft <= 0) {
+                return false;
+            }
+            fadeTicksLeft--;
+            float ratio = fadeTicksTotal <= 0 ? 0.0F : (float) fadeTicksLeft / (float) fadeTicksTotal;
+            this.volume = Math.max(0.0F, fadeStartVolume * ratio);
+            if (fadeTicksLeft <= 0 || this.volume <= 0.0001F) {
+                this.volume = 0.0F;
+                this.stop();
+                return true;
+            }
+            return false;
+        }
+
+        private synchronized void tickFadeIn() {
+            if (fadeInTicksLeft <= 0) {
+                return;
+            }
+            fadeInTicksLeft--;
+            float progress = fadeInTicksTotal <= 0 ? 1.0F : 1.0F - (fadeInTicksLeft / (float) fadeInTicksTotal);
+            this.volume = Math.max(this.volume, fadeInTargetVolume * progress);
+            if (fadeInTicksLeft <= 0) {
+                this.volume = fadeInTargetVolume;
+            }
+        }
+
+        private synchronized boolean shouldStop(SoundManager soundManager) {
+            if (tickFadeOut()) {
+                return true;
+            }
+            tickFadeIn();
+            if (activeCheckGraceTicks > 0) {
+                activeCheckGraceTicks--;
+                return false;
+            }
+            return !soundManager.isActive(this);
+        }
+
+        private synchronized void refreshPlayback(float newVolume, int fadeInTicks) {
+            this.fadeInTargetVolume = newVolume;
+            if (fadeInTicks > 0 && this.volume < newVolume) {
+                this.fadeInTicksTotal = fadeInTicks;
+                this.fadeInTicksLeft = fadeInTicks;
+            } else {
+                this.volume = newVolume;
+                this.fadeInTicksTotal = 0;
+                this.fadeInTicksLeft = 0;
+            }
+            this.fadeTicksTotal = 0;
+            this.fadeTicksLeft = 0;
+            this.fadeStartVolume = 0.0F;
+            if (fadeInTicks <= 0) {
+                this.volume = newVolume;
+            }
+        }
+    }
+
     private static class OneShotSound extends AbstractTickableSoundInstance {
         private OneShotSound(ResourceLocation soundId, float volume, float pitch) {
-            super(SoundEvent.createVariableRangeEvent(soundId), SoundSource.PLAYERS, RandomSource.create());
+            super(SoundEvent.createVariableRangeEvent(soundId), SoundSource.MASTER, RandomSource.create());
             this.volume = volume;
             this.pitch = pitch;
             this.looping = false;

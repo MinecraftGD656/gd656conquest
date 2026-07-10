@@ -39,12 +39,15 @@ import org.mods.gd656conquest.network.packet.RoomTeamMirrorSyncPacket;
 import org.mods.gd656conquest.network.packet.AdminDebugOverlayPacket;
 import org.mods.gd656conquest.network.packet.HudDebugPreviewPacket;
 import org.mods.gd656conquest.network.packet.MarkerDebugPreviewPacket;
+import org.mods.gd656conquest.network.packet.ClientLoopSoundPacket;
 import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.network.packet.ClientboundPackAuditRequestPacket;
 import org.mods.gd656conquest.network.packet.ClientboundScreenshotRequestPacket;
 import org.mods.gd656conquest.network.packet.ServerboundScreenshotChunkPacket;
 import org.mods.gd656conquest.network.packet.ServerboundScreenshotStatusPacket;
 import org.mods.gd656conquest.network.packet.ServerboundAmmoBoxInteractPacket;
+import org.mods.gd656conquest.network.packet.ShellingConfirmTargetPacket;
+import org.mods.gd656conquest.network.packet.ShellingIndicatorOpenedPacket;
 import org.mods.gd656conquest.network.packet.SupportUiActionPacket;
 import org.mods.gd656conquest.network.packet.SupportUiOpenPacket;
 import org.mods.gd656conquest.network.packet.SupportUiRequestPacket;
@@ -55,7 +58,7 @@ import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "083";
+    private static final String PROTOCOL_VERSION = "086";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -189,6 +192,13 @@ public final class NetworkManager {
         );
         CHANNEL.registerMessage(
                 packetId++,
+                ClientLoopSoundPacket.class,
+                ClientLoopSoundPacket::encode,
+                ClientLoopSoundPacket::decode,
+                ClientLoopSoundPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
                 ClientShortSoundPacket.class,
                 ClientShortSoundPacket::encode,
                 ClientShortSoundPacket::decode,
@@ -249,6 +259,20 @@ public final class NetworkManager {
                 SupportUiActionPacket::encode,
                 SupportUiActionPacket::decode,
                 SupportUiActionPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                ShellingConfirmTargetPacket.class,
+                ShellingConfirmTargetPacket::encode,
+                ShellingConfirmTargetPacket::decode,
+                ShellingConfirmTargetPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                ShellingIndicatorOpenedPacket.class,
+                ShellingIndicatorOpenedPacket::encode,
+                ShellingIndicatorOpenedPacket::decode,
+                ShellingIndicatorOpenedPacket::handle
         );
         CHANNEL.registerMessage(
                 packetId++,

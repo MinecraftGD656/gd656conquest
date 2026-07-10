@@ -270,7 +270,7 @@ public class LoadoutItemEditorScreen extends Screen {
                     }
                 }
             }
-            scrollState.startDragging(mouseY);
+            scrollState.startDragging(mouseX, mouseY, x1, y1, x2, y2, entries.size() * (ROW_H + ROW_GAP));
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);

@@ -910,6 +910,11 @@ public final class RoomCommands {
             heroKitIds.sort(String.CASE_INSENSITIVE_ORDER);
             return SharedSuggestionProvider.suggest(heroKitIds, builder);
         }
+        if (supportsShellingSuggestions(descriptor)) {
+            List<String> shellingIds = new ArrayList<>(ConquestDataManager.of(context.getSource().getServer()).shellings().get().getShellingsById().keySet());
+            shellingIds.sort(String.CASE_INSENSITIVE_ORDER);
+            return SharedSuggestionProvider.suggest(shellingIds, builder);
+        }
         List<String> suggestions = RoomConfigDescriptorRegistry.suggestionValues(descriptor.configId());
         if (!suggestions.isEmpty()) {
             return SharedSuggestionProvider.suggest(suggestions, builder);
@@ -1015,6 +1020,11 @@ public final class RoomCommands {
             heroKitIds.sort(String.CASE_INSENSITIVE_ORDER);
             return SharedSuggestionProvider.suggest(heroKitIds, builder);
         }
+        if (supportsShellingSuggestions(descriptor)) {
+            List<String> shellingIds = new ArrayList<>(ConquestDataManager.of(source.getServer()).shellings().get().getShellingsById().keySet());
+            shellingIds.sort(String.CASE_INSENSITIVE_ORDER);
+            return SharedSuggestionProvider.suggest(shellingIds, builder);
+        }
         return SharedSuggestionProvider.suggest(RoomConfigDescriptorRegistry.suggestionValues(descriptor.configId()), builder);
     }
 
@@ -1034,6 +1044,15 @@ public final class RoomCommands {
         String configId = descriptor.configId();
         return "supportCampAHeroKits".equalsIgnoreCase(configId)
             || "supportCampBHeroKits".equalsIgnoreCase(configId);
+    }
+
+    private static boolean supportsShellingSuggestions(RoomConfigDescriptor descriptor) {
+        if (descriptor == null) {
+            return false;
+        }
+        String configId = descriptor.configId();
+        return "supportCampAShellings".equalsIgnoreCase(configId)
+            || "supportCampBShellings".equalsIgnoreCase(configId);
     }
 
     private static String stringifyConfigValue(Object value) {

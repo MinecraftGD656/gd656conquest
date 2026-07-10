@@ -24,6 +24,7 @@ public record RoomCommonConfig(
     boolean disableHunger,
     boolean enableAutoTeamSwitchPrompt,
     boolean disableInventoryChange,
+    boolean enableKnifeDuel,
     boolean enableGoatHorn,
     boolean enablePlayerDowned,
     boolean enableBackAgainstWall,
@@ -32,7 +33,9 @@ public record RoomCommonConfig(
     boolean enableParachute,
     boolean enableDeathSupportDrop,
     List<String> supportCampAHeroKits,
-    List<String> supportCampBHeroKits
+    List<String> supportCampBHeroKits,
+    List<String> supportCampAShellings,
+    List<String> supportCampBShellings
 ) {
     public RoomCommonConfig {
         matchingConfig = matchingConfig == null ? RoomMatchingConfig.defaults() : matchingConfig;
@@ -50,8 +53,10 @@ public record RoomCommonConfig(
         campAVoicePack = normalizeVoicePack(campAVoicePack);
         campBVoicePack = normalizeVoicePack(campBVoicePack);
         progressSpeed = Double.isFinite(progressSpeed) && progressSpeed > 0.0D ? progressSpeed : 40.0D;
-        supportCampAHeroKits = normalizeHeroKitIds(supportCampAHeroKits);
-        supportCampBHeroKits = normalizeHeroKitIds(supportCampBHeroKits);
+        supportCampAHeroKits = normalizeSupportIds(supportCampAHeroKits);
+        supportCampBHeroKits = normalizeSupportIds(supportCampBHeroKits);
+        supportCampAShellings = normalizeSupportIds(supportCampAShellings);
+        supportCampBShellings = normalizeSupportIds(supportCampBShellings);
     }
 
     public static RoomCommonConfig defaults() {
@@ -80,8 +85,11 @@ public record RoomCommonConfig(
             false,
             false,
             false,
+            false,
             true,
             true,
+            List.of(),
+            List.of(),
             List.of(),
             List.of()
         );
@@ -151,8 +159,11 @@ public record RoomCommonConfig(
             false,
             false,
             false,
+            false,
             true,
             true,
+            List.of(),
+            List.of(),
             List.of(),
             List.of()
         );
@@ -204,8 +215,11 @@ public record RoomCommonConfig(
             false,
             false,
             false,
+            false,
             true,
             true,
+            List.of(),
+            List.of(),
             List.of(),
             List.of()
         );
@@ -256,6 +270,7 @@ public record RoomCommonConfig(
             disableHunger,
             enableAutoTeamSwitchPrompt,
             disableInventoryChange,
+            false,
             enableGoatHorn,
             enablePlayerDowned,
             enableBackAgainstWall,
@@ -263,6 +278,8 @@ public record RoomCommonConfig(
             false,
             true,
             true,
+            List.of(),
+            List.of(),
             List.of(),
             List.of()
         );
@@ -314,6 +331,7 @@ public record RoomCommonConfig(
             disableHunger,
             enableAutoTeamSwitchPrompt,
             disableInventoryChange,
+            false,
             enableGoatHorn,
             enablePlayerDowned,
             enableBackAgainstWall,
@@ -321,6 +339,8 @@ public record RoomCommonConfig(
             enableRandomAttachments,
             true,
             true,
+            List.of(),
+            List.of(),
             List.of(),
             List.of()
         );
@@ -373,6 +393,7 @@ public record RoomCommonConfig(
             disableHunger,
             enableAutoTeamSwitchPrompt,
             disableInventoryChange,
+            false,
             enableGoatHorn,
             enablePlayerDowned,
             enableBackAgainstWall,
@@ -381,11 +402,13 @@ public record RoomCommonConfig(
             enableParachute,
             true,
             List.of(),
+            List.of(),
+            List.of(),
             List.of()
         );
     }
 
-    private static List<String> normalizeHeroKitIds(List<String> rawValues) {
+    private static List<String> normalizeSupportIds(List<String> rawValues) {
         if (rawValues == null || rawValues.isEmpty()) {
             return List.of();
         }
