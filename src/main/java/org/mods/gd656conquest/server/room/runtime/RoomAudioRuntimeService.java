@@ -26,15 +26,12 @@ public final class RoomAudioRuntimeService {
             return;
         }
         ClientShortSoundPacket packet = ClientShortSoundPacket.oneShot(soundId, Math.max(0.0F, volume), pitch);
-        int count = 0;
         for (UUID playerId : state.getRoomPlayers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player != null) {
                 NetworkManager.sendToPlayer(player, packet);
-                count++;
             }
         }
-        org.mods.gd656conquest.server.shared.log.ServerLogger.info("Sent short sound %s to %d players", soundId, count);
     }
 
     public void playLoopSoundToPlayer(ServerPlayer player, String soundId, float volume, int fadeInTicks) {
@@ -42,7 +39,6 @@ public final class RoomAudioRuntimeService {
             return;
         }
         NetworkManager.sendToPlayer(player, ClientLoopSoundPacket.play(soundId, Math.max(0.0F, volume), Math.max(0, fadeInTicks)));
-        org.mods.gd656conquest.server.shared.log.ServerLogger.info("Sent loop sound %s to player %s", soundId, player.getName().getString());
     }
 
     public void stopLoopSoundToPlayer(ServerPlayer player, String soundId, int fadeOutTicks) {

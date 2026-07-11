@@ -45,7 +45,6 @@ public final class ClientShortSoundPacket {
                 cleanSoundId = "gd656conquest:" + cleanSoundId;
             }
             ClientAudioManager.getInstance().enqueuePlaySound(cleanSoundId, packet.volume, packet.pitch);
-            org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Queued short sound packet: " + cleanSoundId + ", vol: " + packet.volume + ", pitch: " + packet.pitch);
         }));
         context.setPacketHandled(true);
     }

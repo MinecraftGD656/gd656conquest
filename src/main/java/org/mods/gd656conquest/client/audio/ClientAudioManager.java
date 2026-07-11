@@ -61,6 +61,10 @@ public final class ClientAudioManager {
         mainThreadTasks.offer(() -> playSoundInternal(soundId, volume, pitch));
     }
 
+    public void enqueuePlaySoundAt(String soundId, float volume, float pitch, double x, double y, double z) {
+        mainThreadTasks.offer(() -> playSoundAtInternal(soundId, volume, pitch, x, y, z));
+    }
+
     public boolean isMusicActive(String soundId) {
         ResourceLocation key = parseSoundId(soundId);
         if (key == null) {
@@ -185,25 +189,21 @@ public final class ClientAudioManager {
         Minecraft minecraft = Minecraft.getInstance();
         SoundManager soundManager = minecraft.getSoundManager();
         if (soundManager == null) {
-            org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Cannot play loop sound, SoundManager is null: " + soundId);
             return;
         }
         ResourceLocation key = parseSoundId(soundId);
         if (key == null) {
-            org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Cannot parse soundId for loop: " + soundId);
             return;
         }
         float targetVolume = clampVolume(volume);
         ManagedLoopSound existing = activeLoops.get(key);
         if (existing != null) {
             existing.refreshPlayback(targetVolume, fadeInTicks);
-            org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Refreshed existing loop sound: " + key);
             return;
         }
         ManagedLoopSound sound = new ManagedLoopSound(key, targetVolume, fadeInTicks);
         activeLoops.put(key, sound);
         soundManager.play(sound);
-        org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Started global loop sound: " + key + " at vol " + targetVolume);
     }
 
     private void stopLoopSoundInternal(String soundId, int fadeOutTicks) {
@@ -227,13 +227,22 @@ public final class ClientAudioManager {
         SoundManager soundManager = Minecraft.getInstance().getSoundManager();
         ResourceLocation key = parseSoundId(soundId);
         if (soundManager == null || key == null) {
-            org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Cannot play short sound, SoundManager/key is null: " + soundId);
             return;
         }
         OneShotSound sound = new OneShotSound(key, clampVolume(volume), clampPitch(pitch));
         ClientAudioDebugState.registerEffect(ClientAudioDebugState.DebugSoundKind.SOUND, key.toString(), sound);
         soundManager.play(sound);
-        org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Played global short sound: " + key);
+    }
+
+    private void playSoundAtInternal(String soundId, float volume, float pitch, double x, double y, double z) {
+        SoundManager soundManager = Minecraft.getInstance().getSoundManager();
+        ResourceLocation key = parseSoundId(soundId);
+        if (soundManager == null || key == null) {
+            return;
+        }
+        PositionalOneShotSound sound = new PositionalOneShotSound(key, clampVolume(volume), clampPitch(pitch), x, y, z);
+        ClientAudioDebugState.registerEffect(ClientAudioDebugState.DebugSoundKind.SOUND, key.toString(), sound);
+        soundManager.play(sound);
     }
 
     private void stopAllMusicImmediate(SoundManager soundManager) {
@@ -499,6 +508,25 @@ public final class ClientAudioManager {
             this.relative = true;
             this.attenuation = Attenuation.NONE;
             this.delay = 0;
+        }
+
+        @Override
+        public void tick() {
+        }
+    }
+
+    private static class PositionalOneShotSound extends AbstractTickableSoundInstance {
+        private PositionalOneShotSound(ResourceLocation soundId, float volume, float pitch, double x, double y, double z) {
+            super(SoundEvent.createVariableRangeEvent(soundId), SoundSource.MASTER, RandomSource.create());
+            this.volume = volume;
+            this.pitch = pitch;
+            this.looping = false;
+            this.relative = false;
+            this.attenuation = Attenuation.NONE;
+            this.delay = 0;
+            this.x = x;
+            this.y = y;
+            this.z = z;
         }
 
         @Override

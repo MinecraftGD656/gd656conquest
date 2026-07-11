@@ -2,11 +2,9 @@ package org.mods.gd656conquest.server.room.runtime;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.mods.gd656conquest.common.item.ConquestItems;
 import org.mods.gd656conquest.server.compat.superbwarfare.SuperbWarfareCompatBridge;
@@ -20,6 +18,11 @@ import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.runtime.audio.RoomDistanceAudioService;
+import org.mods.gd656conquest.server.room.runtime.shelling.ActiveShellingSequence;
+import org.mods.gd656conquest.server.room.runtime.shelling.ShellingSequenceKind;
+import org.mods.gd656conquest.server.room.runtime.shelling.ShellingSequenceProfile;
+import org.mods.gd656conquest.server.room.runtime.shelling.ShellingSequenceProfiles;
+import org.mods.gd656conquest.server.room.runtime.shelling.TimedShellingConfigSnapshot;
 import org.mods.gd656conquest.server.shared.inventory.PlayerInventorySanitizer;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
 import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
@@ -41,30 +44,12 @@ public final class RoomShellingRuntimeService {
     public static final String ACTIONBAR_SOURCE_SHELLING_REQUEST = "shelling_request";
     public static final String ACTIONBAR_SOURCE_SHELLING_COUNTDOWN = "shelling_request_countdown";
     private static final int INDICATOR_OPEN_PROMPT_TICKS = 60;
-    private static final String MISSILE_LOOP_SOUND_ID = "gd656conquest:sfx.shelling.loop_missile";
-    private static final String MISSILE_ALARM_SOUND_ID = "gd656conquest:sfx.shelling.bombraid_sfx";
-    private static final List<String> MISSILE_LAUNCH_SOUND_IDS = List.of(
-        "gd656conquest:sfx.shelling.launch_missile_1",
-        "gd656conquest:sfx.shelling.launch_missile_2",
-        "gd656conquest:sfx.shelling.launch_missile_3",
-        "gd656conquest:sfx.shelling.launch_missile_4",
-        "gd656conquest:sfx.shelling.launch_missile_5"
-    );
-    private static final List<String> MISSILE_INCOMING_SOUND_IDS = List.of(
-        "gd656conquest:sfx.shelling.incoming_missile_1",
-        "gd656conquest:sfx.shelling.incoming_missile_2",
-        "gd656conquest:sfx.shelling.incoming_missile_3",
-        "gd656conquest:sfx.shelling.incoming_missile_4"
-    );
-    private static final long MISSILE_WARNING_DURATION_TICKS = 30L * 20L;
-    private static final long MISSILE_APPROACH_START_TICKS = 28L * 20L;
     private static final long MISSILE_ALARM_INTERVAL_TICKS = 10L * 20L;
     private static final long CONFIRMED_SLOT_RESTORE_DELAY_TICKS = 5L * 20L;
     private static final int MISSILE_COUNTDOWN_INTERVAL_SECONDS = 5;
     private static final int MISSILE_ALARM_COUNT = 3;
-    private static final double MISSILE_INCOMING_RADIUS = 100.0D;
-    private static final float MISSILE_INCOMING_MAX_VOLUME = 1.5F;
-    private static final float MISSILE_LAUNCH_VOLUME = 0.6F;
+    private static final int LOOP_FADE_IN_TICKS = 6;
+    private static final int LOOP_FADE_OUT_TICKS = 20;
 
     private final MinecraftServer server;
     private final RoomAudioRuntimeService audioRuntimeService;
@@ -178,8 +163,8 @@ public final class RoomShellingRuntimeService {
         if (existing == null || existing.targetBlockPos() == null) {
             return ConfirmExecutionResult.failure("请先标定炮击坐标");
         }
-        if (isMissileShelling(shellingEntry)) {
-            return startMissileSequence(room, state, player, shellingEntry, markerRuntimeService, existing.targetBlockPos(), gameTick);
+        if (isSequencedShelling(shellingEntry)) {
+            return startSequencedShelling(room, state, player, shellingEntry, markerRuntimeService, existing.targetBlockPos(), gameTick);
         }
         return executeImmediateShelling(room, state, player, shellingEntry, markerRuntimeService, gameTick, existing);
     }
@@ -221,7 +206,7 @@ public final class RoomShellingRuntimeService {
         return ConfirmExecutionResult.success(startResult.message());
     }
 
-    private ConfirmExecutionResult startMissileSequence(
+    private ConfirmExecutionResult startSequencedShelling(
         RoomDefinition room,
         RunningRuntimeState state,
         ServerPlayer player,
@@ -230,27 +215,30 @@ public final class RoomShellingRuntimeService {
         BlockPos targetBlockPos,
         long gameTick
     ) {
-        MissileConfigSnapshot missileConfig = MissileConfigSnapshot.fromEntry(shellingEntry);
-        if (missileConfig.gunId().isBlank()) {
-            return ConfirmExecutionResult.failure("导弹炮击模板缺少 TACZ 枪械 ID");
+        ShellingSequenceProfile profile = resolveSequenceProfile(shellingEntry == null ? null : shellingEntry.resolveImpactType());
+        if (profile == null) {
+            return ConfirmExecutionResult.failure("当前炮击类型尚未接入阶段化时序");
         }
-        int missileCount = Math.max(1, TaczShellingTestService.estimateShellCount(shellingEntry));
-        ActiveShellingSequence sequence = ActiveShellingSequence.createMissile(
+        TimedShellingConfigSnapshot shellingConfig = TimedShellingConfigSnapshot.fromEntry(shellingEntry);
+        if (shellingConfig.gunId().isBlank()) {
+            return ConfirmExecutionResult.failure(profile.displayName() + "模板缺少 TACZ 枪械 ID");
+        }
+        int shellCount = Math.max(1, TaczShellingTestService.estimateShellCount(shellingEntry));
+        ActiveShellingSequence sequence = ActiveShellingSequence.create(
             room.roomId(),
             player.getUUID(),
             player.getScoreboardName(),
             state.getRoomTeams().get(player.getUUID()),
+            player.serverLevel().dimension(),
             Vec3.atCenterOf(targetBlockPos),
-            missileConfig,
+            shellingConfig,
+            profile,
             gameTick,
-            missileCount
+            shellCount
         );
         activeSequences.put(sequence.sequenceId, sequence);
-        ServerLogger.info("已成功创建导弹炮击序列: sequenceId=%s, gunId=%s", sequence.sequenceId, sequence.missileConfig.gunId());
-        playMissileLaunchAndLoop(state, sequence);
-        
-        // Let tickActiveSequences handle alarms, so we don't duplicate the first alarm
-        sequence.alarmsPlayed = 0;
+        ServerLogger.info("已成功创建%s序列: sequenceId=%s, gunId=%s", profile.displayName(), sequence.sequenceId, sequence.shellingConfig.gunId());
+        playSequenceOpeningAudio(state, sequence, gameTick);
         if (markerRuntimeService != null) {
             markerRuntimeService.placeMarker(
                 room,
@@ -268,10 +256,10 @@ public final class RoomShellingRuntimeService {
         ServerActionBarService.showBuilder(
             player,
             ACTIONBAR_SOURCE_SHELLING_REQUEST,
-            ServerActionBarService.builder().text("导弹已发射，正在接近目标区", ChatFormatting.GOLD),
+            ServerActionBarService.builder().text(profile.actionbarText(), ChatFormatting.GOLD),
             60
         );
-        return ConfirmExecutionResult.success("已发起导弹打击，预计来袭 " + missileCount + " 枚导弹");
+        return ConfirmExecutionResult.success(profile.resultMessagePrefix() + shellCount + " " + profile.projectileNoun());
     }
 
     public boolean updateShellingTarget(
@@ -482,20 +470,19 @@ public final class RoomShellingRuntimeService {
                 iterator.remove();
                 continue;
             }
-            if (sequence.kind != SequenceKind.MISSILE) {
-                iterator.remove();
-                continue;
+            syncSequenceLoopRecipients(sequence, state);
+            if (sequence.kind == ShellingSequenceKind.MISSILE) {
+                while (sequence.alarmsPlayed < MISSILE_ALARM_COUNT
+                    && gameTick >= sequence.startTick + (long) sequence.alarmsPlayed * MISSILE_ALARM_INTERVAL_TICKS) {
+                    playMissileAlarm(state);
+                    sequence.alarmsPlayed++;
+                    ServerLogger.info("正在播放导弹警报: sequenceId=%s, alarmsPlayed=%d", sequence.sequenceId, sequence.alarmsPlayed);
+                }
+                broadcastMissileCountdownIfNeeded(state, sequence, gameTick);
             }
-            syncMissileLoopRecipients(sequence, state);
-            while (sequence.alarmsPlayed < MISSILE_ALARM_COUNT
-            && gameTick >= sequence.startTick + (long) sequence.alarmsPlayed * MISSILE_ALARM_INTERVAL_TICKS) {
-            playMissileAlarm(state);
-            sequence.alarmsPlayed++;
-            ServerLogger.info("正在播放导弹警报: sequenceId=%s, alarmsPlayed=%d", sequence.sequenceId, sequence.alarmsPlayed);
-        }
-            broadcastMissileCountdownIfNeeded(state, sequence, gameTick);
+            playDueSequenceLaunches(state, sequence, gameTick);
             while (sequence.spawnedShellCount < sequence.totalShellCount && gameTick >= sequence.nextShellSpawnTick) {
-                if (!spawnMissileShell(state, sequence)) {
+                if (!spawnSequenceShell(state, sequence)) {
                     stopSequenceLoop(sequence);
                     iterator.remove();
                     break;
@@ -505,7 +492,7 @@ public final class RoomShellingRuntimeService {
             }
             pruneTrackedProjectiles(sequence);
             if (sequence.spawnedShellCount >= sequence.totalShellCount
-                && gameTick >= sequence.nominalFinishTick
+                && gameTick >= sequence.completionTick
                 && sequence.trackedProjectiles.isEmpty()) {
                 stopSequenceLoop(sequence);
                 iterator.remove();
@@ -514,7 +501,7 @@ public final class RoomShellingRuntimeService {
     }
 
     private void broadcastMissileCountdownIfNeeded(RunningRuntimeState state, ActiveShellingSequence sequence, long gameTick) {
-        if (state == null || sequence == null || sequence.kind != SequenceKind.MISSILE || sequence.teamId == null) {
+        if (state == null || sequence == null || sequence.kind != ShellingSequenceKind.MISSILE || sequence.teamId == null) {
             return;
         }
         long remainingTicks = Math.max(0L, sequence.nominalFinishTick - gameTick);
@@ -537,88 +524,142 @@ public final class RoomShellingRuntimeService {
         );
     }
 
-    private boolean spawnMissileShell(RunningRuntimeState state, ActiveShellingSequence sequence) {
+    private boolean spawnSequenceShell(RunningRuntimeState state, ActiveShellingSequence sequence) {
         ServerPlayer owner = server.getPlayerList().getPlayer(sequence.ownerId);
         if (owner == null || owner.isRemoved()) {
-            ServerLogger.failure("导弹序列已中断：触发者离线 sequence=%s owner=%s", sequence.sequenceId, sequence.ownerName);
+            ServerLogger.failure("%s序列已中断：触发者离线 sequence=%s owner=%s", sequence.profile.displayName(), sequence.sequenceId, sequence.ownerName);
             return false;
         }
         TaczShellingTestService.SpawnResult spawnResult = TaczShellingTestService.of(server)
-            .spawnConfiguredShell(owner, sequence.missileConfig.toEntry(), sequence.targetCenter);
+            .spawnConfiguredShell(owner, sequence.shellingConfig.toEntry(), sequence.targetCenter);
         if (!spawnResult.success()) {
-            ServerLogger.failure("导弹序列生成失败 sequence=%s owner=%s error=%s", sequence.sequenceId, sequence.ownerName, spawnResult.message());
+            ServerLogger.failure("%s序列生成失败 sequence=%s owner=%s error=%s", sequence.profile.displayName(), sequence.sequenceId, sequence.ownerName, spawnResult.message());
             return false;
         }
         if (spawnResult.projectileId() != null && spawnResult.dimension() != null) {
-            sequence.trackedProjectiles.add(new TrackedProjectile(spawnResult.dimension(), spawnResult.projectileId()));
+            sequence.trackedProjectiles.add(new ActiveShellingSequence.TrackedProjectile(spawnResult.dimension(), spawnResult.projectileId()));
         }
         if (spawnResult.dimension() != null && spawnResult.spawnPosition() != null) {
-            distanceAudioService.playHorizontalRadiusSound(
-                state,
-                spawnResult.dimension(),
-                spawnResult.spawnPosition(),
-                randomSoundId(MISSILE_INCOMING_SOUND_IDS),
-                MISSILE_INCOMING_RADIUS,
-                MISSILE_INCOMING_MAX_VOLUME,
-                1.0F
-            );
+            String soundId = randomSoundId(sequence.profile.incomingSoundIds());
+            if (!soundId.isBlank()) {
+                distanceAudioService.playHorizontalRadiusSound(
+                    state,
+                    spawnResult.dimension(),
+                    spawnResult.spawnPosition(),
+                    soundId,
+                    sequence.profile.incomingRadius(),
+                    sequence.profile.incomingMaxVolume(),
+                    1.0F
+                );
+            }
         }
         return true;
     }
 
     private void pruneTrackedProjectiles(ActiveShellingSequence sequence) {
-        Iterator<TrackedProjectile> iterator = sequence.trackedProjectiles.iterator();
+        Iterator<ActiveShellingSequence.TrackedProjectile> iterator = sequence.trackedProjectiles.iterator();
         while (iterator.hasNext()) {
-            TrackedProjectile tracked = iterator.next();
-            if (tracked == null || tracked.dimension == null || tracked.projectileId == null) {
+            ActiveShellingSequence.TrackedProjectile tracked = iterator.next();
+            if (tracked == null || tracked.dimension() == null || tracked.projectileId() == null) {
                 iterator.remove();
                 continue;
             }
-            if (server.getLevel(tracked.dimension) == null || server.getLevel(tracked.dimension).getEntity(tracked.projectileId) == null) {
+            if (server.getLevel(tracked.dimension()) == null || server.getLevel(tracked.dimension()).getEntity(tracked.projectileId()) == null) {
                 iterator.remove();
             }
         }
     }
 
-    private void playMissileLaunchAndLoop(RunningRuntimeState state, ActiveShellingSequence sequence) {
-        audioRuntimeService.playOneShotShortSoundToRoomPlayers(state, randomSoundId(MISSILE_LAUNCH_SOUND_IDS), MISSILE_LAUNCH_VOLUME, 1.0F);
-        syncMissileLoopRecipients(sequence, state);
-        ServerLogger.info("发射阶段音效及循环音效请求已发送 sequenceId=%s", sequence.sequenceId);
+    private void playSequenceOpeningAudio(RunningRuntimeState state, ActiveShellingSequence sequence, long gameTick) {
+        if (state == null || sequence == null) {
+            return;
+        }
+        String openingSoundId = randomSoundId(sequence.profile.openingSoundIds());
+        if (!openingSoundId.isBlank()) {
+            audioRuntimeService.playOneShotShortSoundToRoomPlayers(state, openingSoundId, sequence.profile.openingVolume(), 1.0F);
+        }
+        syncSequenceLoopRecipients(sequence, state);
+        playDueSequenceLaunches(state, sequence, gameTick);
     }
 
     private void playMissileAlarm(RunningRuntimeState state) {
-        audioRuntimeService.playOneShotShortSoundToRoomPlayers(state, MISSILE_ALARM_SOUND_ID, 1.0F, 1.0F);
-        ServerLogger.info("单次警报音效请求已发送");
+        audioRuntimeService.playOneShotShortSoundToRoomPlayers(state, ShellingSequenceProfiles.missileAlarmSoundId(), 1.0F, 1.0F);
     }
 
-    private void syncMissileLoopRecipients(ActiveShellingSequence sequence, RunningRuntimeState state) {
+    private void playDueSequenceLaunches(RunningRuntimeState state, ActiveShellingSequence sequence, long gameTick) {
+        if (state == null || sequence == null || sequence.profile.eventLaunchSoundIds().isEmpty()) {
+            return;
+        }
+        while (sequence.startedEventCount < sequence.totalShellCount && gameTick >= sequence.nextEventTick) {
+            String soundId = randomSoundId(sequence.profile.eventLaunchSoundIds());
+            if (!soundId.isBlank()) {
+                audioRuntimeService.playOneShotShortSoundToRoomPlayers(state, soundId, sequence.profile.eventLaunchVolume(), 1.0F);
+            }
+            sequence.startedEventCount++;
+            sequence.nextEventTick += sequence.intervalTicks;
+        }
+    }
+
+    private void syncSequenceLoopRecipients(ActiveShellingSequence sequence, RunningRuntimeState state) {
         if (sequence == null || state == null) {
             return;
         }
         Set<UUID> activeRoomPlayers = new LinkedHashSet<>(state.getRoomPlayers());
         for (UUID playerId : activeRoomPlayers) {
-            if (playerId == null || sequence.loopRecipients.contains(playerId)) {
+            if (playerId == null) {
                 continue;
             }
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player == null) {
                 continue;
             }
-            audioRuntimeService.playLoopSoundToPlayer(player, MISSILE_LOOP_SOUND_ID, 1.0F, 0);
-            sequence.loopRecipients.add(playerId);
+            float loopVolume = resolveLoopVolume(sequence, player);
+            if (loopVolume > 0.0F) {
+                boolean newlyAdded = sequence.loopRecipients.add(playerId);
+                audioRuntimeService.playLoopSoundToPlayer(player, sequence.profile.loopSoundId(), loopVolume, newlyAdded ? LOOP_FADE_IN_TICKS : 0);
+                continue;
+            }
+            if (sequence.loopRecipients.contains(playerId)) {
+                audioRuntimeService.stopLoopSoundToPlayer(player, sequence.profile.loopSoundId(), LOOP_FADE_OUT_TICKS);
+                sequence.loopRecipients.remove(playerId);
+            }
         }
         Iterator<UUID> iterator = sequence.loopRecipients.iterator();
         while (iterator.hasNext()) {
             UUID playerId = iterator.next();
-            if (playerId == null || activeRoomPlayers.contains(playerId)) {
+            if (playerId == null) {
+                iterator.remove();
                 continue;
             }
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
-            if (player != null) {
-                audioRuntimeService.stopLoopSoundToPlayer(player, MISSILE_LOOP_SOUND_ID, 0);
+            if (!activeRoomPlayers.contains(playerId) || player == null || resolveLoopVolume(sequence, player) <= 0.0F) {
+                if (player != null) {
+                    audioRuntimeService.stopLoopSoundToPlayer(player, sequence.profile.loopSoundId(), LOOP_FADE_OUT_TICKS);
+                }
+                iterator.remove();
             }
-            iterator.remove();
         }
+    }
+
+    private float resolveLoopVolume(ActiveShellingSequence sequence, ServerPlayer player) {
+        if (sequence == null || player == null || sequence.profile.loopSoundId() == null || sequence.profile.loopSoundId().isBlank()) {
+            return 0.0F;
+        }
+        double loopRadius = sequence.profile.loopRadius();
+        float loopMaxVolume = sequence.profile.loopMaxVolume();
+        if (loopRadius <= 0.0D) {
+            return loopMaxVolume <= 0.0F ? 0.0F : loopMaxVolume;
+        }
+        if (sequence.dimension == null) {
+            return 0.0F;
+        }
+        return distanceAudioService.resolveHorizontalVolume(
+            player,
+            sequence.dimension,
+            sequence.targetCenter,
+            loopRadius,
+            loopMaxVolume
+        );
     }
 
     private void stopSequenceLoop(ActiveShellingSequence sequence) {
@@ -628,7 +669,7 @@ public final class RoomShellingRuntimeService {
         for (UUID playerId : List.copyOf(sequence.loopRecipients)) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player != null) {
-                audioRuntimeService.stopLoopSoundToPlayer(player, MISSILE_LOOP_SOUND_ID, 0);
+                audioRuntimeService.stopLoopSoundToPlayer(player, sequence.profile.loopSoundId(), LOOP_FADE_OUT_TICKS);
             }
         }
         sequence.loopRecipients.clear();
@@ -650,11 +691,15 @@ public final class RoomShellingRuntimeService {
         }
     }
 
-    private boolean isMissileShelling(ShellingDataModel.ShellingEntry shellingEntry) {
+    private boolean isSequencedShelling(ShellingDataModel.ShellingEntry shellingEntry) {
         if (shellingEntry == null) {
             return false;
         }
-        return shellingEntry.resolveImpactType() == ShellingImpactType.MISSILE;
+        return ShellingSequenceProfiles.isSequenced(shellingEntry.resolveImpactType());
+    }
+
+    private ShellingSequenceProfile resolveSequenceProfile(ShellingImpactType impactType) {
+        return ShellingSequenceProfiles.resolve(impactType);
     }
 
     private String randomSoundId(List<String> soundIds) {
@@ -839,136 +884,6 @@ public final class RoomShellingRuntimeService {
         public ChatFormatting feedbackColor() {
             return feedbackColor;
         }
-    }
-
-    private enum SequenceKind {
-        MISSILE
-    }
-
-    private static final class ActiveShellingSequence {
-        private final UUID sequenceId;
-        private final SequenceKind kind;
-        private final String roomId;
-        private final UUID ownerId;
-        private final String ownerName;
-        private final RoomTeamId teamId;
-        private final Vec3 targetCenter;
-        private final MissileConfigSnapshot missileConfig;
-        private final long startTick;
-        private final long nominalFinishTick;
-        private final long intervalTicks;
-        private final int totalShellCount;
-        private final Set<UUID> loopRecipients = new LinkedHashSet<>();
-        private final Set<TrackedProjectile> trackedProjectiles = new LinkedHashSet<>();
-        private long nextShellSpawnTick;
-        private int alarmsPlayed;
-        private int spawnedShellCount;
-        private int lastCountdownAnnouncedSecond = -1;
-
-        private ActiveShellingSequence(
-            UUID sequenceId,
-            SequenceKind kind,
-            String roomId,
-            UUID ownerId,
-            String ownerName,
-            RoomTeamId teamId,
-            Vec3 targetCenter,
-            MissileConfigSnapshot missileConfig,
-            long startTick,
-            long nominalFinishTick,
-            long intervalTicks,
-            int totalShellCount
-        ) {
-            this.sequenceId = sequenceId == null ? UUID.randomUUID() : sequenceId;
-            this.kind = kind == null ? SequenceKind.MISSILE : kind;
-            this.roomId = roomId == null ? "" : roomId;
-            this.ownerId = ownerId;
-            this.ownerName = ownerName == null ? "" : ownerName;
-            this.teamId = teamId;
-            this.targetCenter = targetCenter == null ? Vec3.ZERO : targetCenter;
-            this.missileConfig = missileConfig;
-            this.startTick = startTick;
-            this.nominalFinishTick = nominalFinishTick;
-            this.intervalTicks = Math.max(1L, intervalTicks);
-            this.totalShellCount = Math.max(1, totalShellCount);
-            this.nextShellSpawnTick = startTick + MISSILE_APPROACH_START_TICKS;
-        }
-
-        private static ActiveShellingSequence createMissile(
-            String roomId,
-            UUID ownerId,
-            String ownerName,
-            RoomTeamId teamId,
-            Vec3 targetCenter,
-            MissileConfigSnapshot missileConfig,
-            long startTick,
-            int totalShellCount
-        ) {
-            return new ActiveShellingSequence(
-                UUID.randomUUID(),
-                SequenceKind.MISSILE,
-                roomId,
-                ownerId,
-                ownerName,
-                teamId,
-                targetCenter,
-                missileConfig,
-                startTick,
-                startTick + MISSILE_WARNING_DURATION_TICKS,
-                missileConfig == null ? 20L : missileConfig.intervalTicks(),
-                totalShellCount
-            );
-        }
-    }
-
-    private record MissileConfigSnapshot(
-        String gunId,
-        String gunItemSnbt,
-        String displayName,
-        double durationSeconds,
-        double intervalSeconds,
-        double radius,
-        double shellHeight,
-        float pitch,
-        float yaw,
-        String impactTypeId
-    ) {
-        private static MissileConfigSnapshot fromEntry(ShellingDataModel.ShellingEntry entry) {
-            return new MissileConfigSnapshot(
-                entry == null ? "" : entry.getGunId(),
-                entry == null ? "" : entry.getGunItemSnbt(),
-                entry == null ? "" : entry.getDisplayName(),
-                entry == null ? 0.0D : entry.getDurationSeconds(),
-                entry == null ? 0.0D : entry.getIntervalSeconds(),
-                entry == null ? 0.0D : entry.getRadius(),
-                entry == null ? 0.0D : entry.getShellHeight(),
-                entry == null ? 0.0F : entry.getPitch(),
-                entry == null ? 0.0F : entry.getYaw(),
-                entry == null ? ShellingImpactType.MISSILE.id() : entry.getImpactType()
-            );
-        }
-
-        private long intervalTicks() {
-            return Math.max(1L, Math.round(intervalSeconds * 20.0D));
-        }
-
-        private ShellingDataModel.ShellingEntry toEntry() {
-            ShellingDataModel.ShellingEntry entry = new ShellingDataModel.ShellingEntry();
-            entry.setGunId(gunId);
-            entry.setGunItemSnbt(gunItemSnbt);
-            entry.setDisplayName(displayName);
-            entry.setDurationSeconds(durationSeconds);
-            entry.setIntervalSeconds(intervalSeconds);
-            entry.setRadius(radius);
-            entry.setShellHeight(shellHeight);
-            entry.setPitch(pitch);
-            entry.setYaw(yaw);
-            entry.setImpactType(impactTypeId);
-            return entry;
-        }
-    }
-
-    private record TrackedProjectile(ResourceKey<Level> dimension, UUID projectileId) {
     }
 
     private record PendingSlotRestore(

@@ -17,6 +17,7 @@ import org.joml.Vector2d;
 import org.mods.gd656conquest.server.compat.lrtactical.LrTacticalShellImpactCompatBridge;
 import org.mods.gd656conquest.server.data.shelling.ShellingDataModel;
 import org.mods.gd656conquest.server.data.shelling.ShellingImpactType;
+import org.mods.gd656conquest.server.room.runtime.audio.RoomDistanceAudioService;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
 import org.mods.gd656conquest.server.shared.util.ItemStackSnbtCodec;
 
@@ -39,15 +40,25 @@ public final class TaczShellingTestService {
     private static final String TACZ_MOD_ID = "tacz";
     private static final ResourceLocation M320_GUN_ID = new ResourceLocation(TACZ_MOD_ID, "m320");
     private static final long MAX_TRACKED_IMPACT_LIFETIME_TICKS = 20L * 30L;
+    private static final double FLAME_IMPACT_SOUND_RADIUS = 15.0D;
+    private static final float FLAME_IMPACT_SOUND_MAX_VOLUME = 1.0F;
+    private static final List<String> FLAME_IMPACT_SOUND_IDS = List.of(
+        "gd656conquest:sfx.shelling.flame_sound_1",
+        "gd656conquest:sfx.shelling.flame_sound_2",
+        "gd656conquest:sfx.shelling.flame_sound_3",
+        "gd656conquest:sfx.shelling.flame_sound_4"
+    );
     private static final Map<MinecraftServer, TaczShellingTestService> INSTANCES = new WeakHashMap<>();
 
     private final MinecraftServer server;
+    private final RoomDistanceAudioService distanceAudioService;
     private final Map<UUID, ActiveShellingTask> activeTasks = new LinkedHashMap<>();
     private final Map<UUID, PendingImpactEffect> trackedImpactEffects = new LinkedHashMap<>();
     private final TaczShellBridge shellBridge = new TaczShellBridge();
 
     private TaczShellingTestService(MinecraftServer server) {
         this.server = Objects.requireNonNull(server, "server");
+        this.distanceAudioService = new RoomDistanceAudioService(server);
     }
 
     public static TaczShellingTestService of(MinecraftServer server) {
@@ -365,6 +376,26 @@ public final class TaczShellingTestService {
         }
         Vec3 impactPos = projectile.position();
         LrTacticalShellImpactCompatBridge.spawnImpactEffect(level, owner, impactPos, pending.impactType());
+        playImpactSound(level, impactPos, pending.impactType());
+    }
+
+    private void playImpactSound(ServerLevel level, Vec3 impactPos, ShellingImpactType impactType) {
+        if (level == null || impactPos == null || impactType != ShellingImpactType.FLAMESHELL || FLAME_IMPACT_SOUND_IDS.isEmpty()) {
+            return;
+        }
+        String soundId = FLAME_IMPACT_SOUND_IDS.get(ThreadLocalRandom.current().nextInt(FLAME_IMPACT_SOUND_IDS.size()));
+        if (soundId.isBlank()) {
+            return;
+        }
+        distanceAudioService.playPositionalRadiusSound(
+            level.players(),
+            level.dimension(),
+            impactPos,
+            soundId,
+            FLAME_IMPACT_SOUND_RADIUS,
+            FLAME_IMPACT_SOUND_MAX_VOLUME,
+            1.0F
+        );
     }
 
     private void cleanupTrackedImpactEffects(long gameTick) {

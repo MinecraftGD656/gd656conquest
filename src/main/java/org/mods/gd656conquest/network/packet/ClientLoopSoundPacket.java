@@ -53,11 +53,9 @@ public final class ClientLoopSoundPacket {
                 cleanSoundId = "gd656conquest:" + cleanSoundId;
             }
             if (packet.action == Action.PLAY) {
-                org.mods.gd656conquest.client.audio.ClientAudioManager.getInstance().enqueuePlayLoopSound(cleanSoundId, packet.volume, packet.fadeTicks);
-                org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Received play loop sound packet: " + cleanSoundId);
+                ClientAudioManager.getInstance().enqueuePlayLoopSound(cleanSoundId, packet.volume, packet.fadeTicks);
             } else {
-                org.mods.gd656conquest.client.audio.ClientAudioManager.getInstance().enqueueStopLoopSound(cleanSoundId, packet.fadeTicks);
-                org.mods.gd656conquest.server.shared.log.ServerLogger.info("[ClientAudio] Received stop loop sound packet: " + cleanSoundId);
+                ClientAudioManager.getInstance().enqueueStopLoopSound(cleanSoundId, packet.fadeTicks);
             }
         }));
         context.setPacketHandled(true);
