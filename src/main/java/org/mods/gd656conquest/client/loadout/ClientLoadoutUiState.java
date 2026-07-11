@@ -5,13 +5,38 @@ import org.mods.gd656conquest.network.packet.LoadoutUiOpenPacket;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.TagParser;
 
 public final class ClientLoadoutUiState {
     private static Snapshot snapshot;
     private static boolean requestOpenPanel;
     private static long snapshotUpdatedAtMs;
+    
+    private static final int MAX_CACHE_SIZE = 500;
+    private static final Map<String, ItemStack> ITEM_STACK_CACHE = new LinkedHashMap<>(100, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, ItemStack> eldest) {
+            return size() > MAX_CACHE_SIZE;
+        }
+    };
 
     private ClientLoadoutUiState() {
+    }
+
+    public static synchronized ItemStack parseAndCacheStack(String snbt) {
+        if (snbt == null || snbt.isBlank()) {
+            return ItemStack.EMPTY;
+        }
+        return ITEM_STACK_CACHE.computeIfAbsent(snbt, s -> {
+            try {
+                CompoundTag tag = TagParser.parseTag(s);
+                return ItemStack.of(tag);
+            } catch (Exception ignored) {
+                return ItemStack.EMPTY;
+            }
+        });
     }
 
     public static synchronized void apply(LoadoutUiOpenPacket packet) {
@@ -173,6 +198,7 @@ public final class ClientLoadoutUiState {
         snapshot = null;
         requestOpenPanel = false;
         snapshotUpdatedAtMs = 0L;
+        ITEM_STACK_CACHE.clear();
     }
 
     public static synchronized long snapshotAgeMs() {

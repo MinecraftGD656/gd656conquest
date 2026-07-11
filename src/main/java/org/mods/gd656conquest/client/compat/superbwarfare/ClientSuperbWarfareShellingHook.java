@@ -4,11 +4,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.client.event.ScreenEvent;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.RoomMarkerActionPacket;
 import org.mods.gd656conquest.network.packet.ShellingConfirmTargetPacket;
-import org.mods.gd656conquest.network.packet.ShellingIndicatorOpenedPacket;
 import org.mods.gd656conquest.server.compat.superbwarfare.SuperbWarfareCompatBridge;
 
 import java.util.UUID;
@@ -73,17 +71,6 @@ public final class ClientSuperbWarfareShellingHook {
         }
     }
 
-    public void handleScreenOpening(Minecraft minecraft, ScreenEvent.Opening event) {
-        if (!isManagedShellingScreenOpening(minecraft, event)) {
-            return;
-        }
-        String shellingId = SuperbWarfareCompatBridge.getManagedShellingId(minecraft.player.getMainHandItem());
-        if (shellingId.isBlank()) {
-            return;
-        }
-        NetworkManager.getChannel().sendToServer(ShellingIndicatorOpenedPacket.of(shellingId));
-    }
-
     public void reset() {
         leftClickHeld = false;
         resetHoldState();
@@ -113,22 +100,6 @@ public final class ClientSuperbWarfareShellingHook {
         }
         ItemStack stack = minecraft.player.getMainHandItem();
         return SuperbWarfareCompatBridge.isManagedArtilleryIndicator(stack);
-    }
-
-    private boolean isShellingObservationScreenOpen(Minecraft minecraft) {
-        return minecraft != null
-            && minecraft.screen != null
-            && SBW_ARTILLERY_SCREEN_CLASS.equals(minecraft.screen.getClass().getName());
-    }
-
-    private boolean isManagedShellingScreenOpening(Minecraft minecraft, ScreenEvent.Opening event) {
-        if (minecraft == null || minecraft.player == null || event == null || event.getNewScreen() == null) {
-            return false;
-        }
-        if (!SBW_ARTILLERY_SCREEN_CLASS.equals(event.getNewScreen().getClass().getName())) {
-            return false;
-        }
-        return SuperbWarfareCompatBridge.isManagedArtilleryIndicator(minecraft.player.getMainHandItem());
     }
 
     private boolean isLeftClickDown(Minecraft minecraft) {

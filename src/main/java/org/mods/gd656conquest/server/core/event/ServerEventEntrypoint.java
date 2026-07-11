@@ -122,6 +122,11 @@ public final class ServerEventEntrypoint {
     }
 
     @SubscribeEvent
+    public void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
+        lifecycleCoordinator.onRightClickItem(event);
+    }
+
+    @SubscribeEvent
     public void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
         lifecycleCoordinator.onLeftClickBlock(event);
     }

@@ -53,7 +53,6 @@ public final class RunningRuntimeState {
     private final Map<UUID, Integer> supportSpentScoreByPlayer = new LinkedHashMap<>();
     private final Map<UUID, String> activeHeroKitIdsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, String> activeHeroKitTypesByPlayer = new LinkedHashMap<>();
-    private final Map<RoomTeamId, UUID> activeShellingPlayerByTeam = new LinkedHashMap<>();
     private final Map<UUID, ShellingRequestState> activeShellingsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Map<Integer, Long>> loadoutItemLastReplenishTickByPlayerSlot = new LinkedHashMap<>();
     private final Map<UUID, String> randomizedLoadoutClassKeysByPlayer = new LinkedHashMap<>();
@@ -283,10 +282,6 @@ public final class RunningRuntimeState {
 
     public Map<UUID, String> getActiveHeroKitTypesByPlayer() {
         return activeHeroKitTypesByPlayer;
-    }
-
-    public Map<RoomTeamId, UUID> getActiveShellingPlayerByTeam() {
-        return activeShellingPlayerByTeam;
     }
 
     public Map<UUID, ShellingRequestState> getActiveShellingsByPlayer() {
@@ -824,30 +819,37 @@ public final class RunningRuntimeState {
         return playerId == null ? null : activeShellingsByPlayer.get(playerId);
     }
 
+    public ShellingRequestState findActiveShellingRequest(RoomTeamId teamId, String shellingId) {
+        if (teamId == null || shellingId == null || shellingId.isBlank()) {
+            return null;
+        }
+        for (ShellingRequestState request : activeShellingsByPlayer.values()) {
+            if (request == null) {
+                continue;
+            }
+            if (teamId == request.teamId() && shellingId.equals(request.shellingId())) {
+                return request;
+            }
+        }
+        return null;
+    }
+
     public void putShellingRequest(ShellingRequestState request) {
         if (request == null || request.playerId() == null || request.teamId() == null) {
             return;
         }
         clearShellingRequest(request.playerId());
         activeShellingsByPlayer.put(request.playerId(), request);
-        activeShellingPlayerByTeam.put(request.teamId(), request.playerId());
     }
 
     public ShellingRequestState clearShellingRequest(UUID playerId) {
         if (playerId == null) {
             return null;
         }
-        ShellingRequestState removed = activeShellingsByPlayer.remove(playerId);
-        if (removed != null && removed.teamId() != null) {
-            activeShellingPlayerByTeam.remove(removed.teamId(), playerId);
-        } else {
-            activeShellingPlayerByTeam.entrySet().removeIf(entry -> playerId.equals(entry.getValue()));
-        }
-        return removed;
+        return activeShellingsByPlayer.remove(playerId);
     }
 
     public void clearAllShellingRequests() {
-        activeShellingPlayerByTeam.clear();
         activeShellingsByPlayer.clear();
     }
 

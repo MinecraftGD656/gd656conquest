@@ -13,6 +13,7 @@ public final class ActiveShellingSequence {
     public final UUID sequenceId;
     public final ShellingSequenceKind kind;
     public final String roomId;
+    public final String shellingId;
     public final UUID ownerId;
     public final String ownerName;
     public final RoomTeamId teamId;
@@ -38,6 +39,7 @@ public final class ActiveShellingSequence {
         UUID sequenceId,
         ShellingSequenceKind kind,
         String roomId,
+        String shellingId,
         UUID ownerId,
         String ownerName,
         RoomTeamId teamId,
@@ -56,6 +58,7 @@ public final class ActiveShellingSequence {
         this.sequenceId = sequenceId == null ? UUID.randomUUID() : sequenceId;
         this.kind = kind == null ? ShellingSequenceKind.MISSILE : kind;
         this.roomId = roomId == null ? "" : roomId;
+        this.shellingId = shellingId == null ? "" : shellingId;
         this.ownerId = ownerId;
         this.ownerName = ownerName == null ? "" : ownerName;
         this.teamId = teamId;
@@ -74,6 +77,7 @@ public final class ActiveShellingSequence {
 
     public static ActiveShellingSequence create(
         String roomId,
+        String shellingId,
         UUID ownerId,
         String ownerName,
         RoomTeamId teamId,
@@ -95,6 +99,7 @@ public final class ActiveShellingSequence {
             UUID.randomUUID(),
             profile == null ? ShellingSequenceKind.MISSILE : profile.kind(),
             roomId,
+            shellingId,
             ownerId,
             ownerName,
             teamId,

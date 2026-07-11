@@ -235,10 +235,6 @@ public final class ClientEventHandler {
     }
 
     public void handleScreenOpening(ScreenEvent.Opening event) {
-        superbWarfareShellingHook.handleScreenOpening(Minecraft.getInstance(), event);
-        if (event != null && event.isCanceled()) {
-            return;
-        }
         roomSessionController.handleScreenOpening(event, captureOverlayController);
     }
 

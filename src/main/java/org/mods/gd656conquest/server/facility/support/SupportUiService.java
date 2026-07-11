@@ -14,6 +14,7 @@ import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
+import org.mods.gd656conquest.server.room.runtime.RoomShellingRuntimeService;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -88,7 +89,7 @@ public final class SupportUiService {
         List<String> configuredShellingIds = resolveConfiguredShellingIds(room, teamId);
         List<SupportUiSnapshotPacket.SupportEntryPayload> entries = new ArrayList<>();
         entries.addAll(buildHeroKitEntries(player, remainingScore, configuredHeroKitIds, isCurrentlyHeroKit));
-        entries.addAll(buildShellingEntries(player, remainingScore, configuredShellingIds, state, teamId));
+        entries.addAll(buildShellingEntries(player, room.roomId(), remainingScore, configuredShellingIds, state, roomManager.shellingRuntimeService(), teamId));
         entries.sort(Comparator
             .comparing(SupportUiSnapshotPacket.SupportEntryPayload::available, Comparator.reverseOrder())
             .thenComparingInt(SupportUiSnapshotPacket.SupportEntryPayload::cost)
@@ -155,9 +156,11 @@ public final class SupportUiService {
 
     private static List<SupportUiSnapshotPacket.SupportEntryPayload> buildShellingEntries(
         ServerPlayer player,
+        String roomId,
         int remainingScore,
         List<String> configuredShellingIds,
         org.mods.gd656conquest.server.room.core.RunningRuntimeState state,
+        RoomShellingRuntimeService shellingRuntimeService,
         RoomTeamId teamId
     ) {
         if (player == null || player.server == null || configuredShellingIds.isEmpty()) {
@@ -167,28 +170,36 @@ public final class SupportUiService {
             .shellings()
             .get()
             .getShellingsById();
-        RunningRuntimeState.ShellingRequestState activeRequest = state == null || teamId == null
-            ? null
-            : state.getActiveShellingRequest(state.getActiveShellingPlayerByTeam().get(teamId));
-        boolean teamLocked = activeRequest != null;
-        boolean lockedBySelf = teamLocked && player.getUUID().equals(activeRequest.playerId());
-        String lockedPlayerName = lockedBySelf ? "" : resolvePlayerName(player, activeRequest == null ? null : activeRequest.playerId());
         List<SupportUiSnapshotPacket.SupportEntryPayload> entries = new ArrayList<>();
         for (String shellingId : configuredShellingIds) {
             ShellingDataModel.ShellingEntry entry = shellingsById.get(shellingId);
             if (entry == null || entry.getId().isBlank()) {
                 continue;
             }
+            RoomShellingRuntimeService.ShellingOccupancy occupancy = shellingRuntimeService == null
+                ? RoomShellingRuntimeService.ShellingOccupancy.idle()
+                : shellingRuntimeService.resolveShellingOccupancy(roomId, state, teamId, shellingId, player.getUUID());
             int cost = entry.getCost();
             ShellingImpactType impactType = entry.resolveImpactType();
-            boolean available = !teamLocked && remainingScore >= cost;
+            boolean locked = occupancy.occupied();
+            boolean lockedBySelf = locked && player.getUUID().equals(occupancy.occupiedByPlayerId());
+            String lockedPlayerName = lockedBySelf ? "" : resolvePlayerName(player, occupancy.occupiedByPlayerId());
+            boolean available = !locked && remainingScore >= cost;
             String detailText;
             String buttonText;
-            if (teamLocked) {
+            if (locked) {
                 buttonText = "锁定";
-                detailText = lockedBySelf
-                    ? "你已进入炮击坐标选定流程"
-                    : (lockedPlayerName.isBlank() ? "同阵营已有玩家正在使用炮击支援" : lockedPlayerName + " 正在使用炮击支援");
+                if (lockedBySelf) {
+                    detailText = "你已进入该炮击的坐标选定流程";
+                } else if (occupancy.sequenceRunning()) {
+                    detailText = lockedPlayerName.isBlank()
+                        ? "同阵营已有玩家正在释放该炮击支援"
+                        : lockedPlayerName + " 正在释放该炮击支援";
+                } else {
+                    detailText = lockedPlayerName.isBlank()
+                        ? "同阵营已有玩家正在部署该炮击支援"
+                        : lockedPlayerName + " 正在部署该炮击支援";
+                }
             } else if (available) {
                 buttonText = "选定";
                 detailText = "消耗 " + cost + " 分，点击后进入坐标选定";

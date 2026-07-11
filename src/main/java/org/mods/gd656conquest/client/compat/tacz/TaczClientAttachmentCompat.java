@@ -2,8 +2,6 @@ package org.mods.gd656conquest.client.compat.tacz;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.TagParser;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
@@ -148,15 +146,7 @@ public final class TaczClientAttachmentCompat {
     }
 
     private ItemStack parseItemStack(String itemSnbt) {
-        if (itemSnbt == null || itemSnbt.isBlank()) {
-            return ItemStack.EMPTY;
-        }
-        try {
-            CompoundTag tag = TagParser.parseTag(itemSnbt);
-            return ItemStack.of(tag);
-        } catch (Exception ignored) {
-            return ItemStack.EMPTY;
-        }
+        return org.mods.gd656conquest.client.loadout.ClientLoadoutUiState.parseAndCacheStack(itemSnbt);
     }
 
     public ItemStack installAttachment(ItemStack gunStack, ItemStack attachmentStack) {

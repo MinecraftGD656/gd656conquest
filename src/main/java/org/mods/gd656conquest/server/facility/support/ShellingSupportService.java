@@ -115,43 +115,18 @@ public final class ShellingSupportService {
         if (player == null || player.server == null) {
             return;
         }
-        String shellingId = normalizeShellingId(rawShellingId);
-        RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(player.server);
-        String roomId = roomManager.findPlayerRoomId(player.getUUID()).orElse("");
-        RoomDefinition room = roomManager.findRoom(roomId).orElse(null);
-        RunningRuntimeState runningState = room == null ? null : roomManager.findRunningState(room.roomId()).orElse(null);
-        RoomShellingRuntimeService shellingRuntimeService = roomManager.shellingRuntimeService();
-        if (room == null || runningState == null || shellingRuntimeService == null || room.lifecycleState() != RoomLifecycleState.RUNNING) {
+        ManagedIndicatorContext context = resolveManagedIndicatorContext(player, normalizeShellingId(rawShellingId));
+        if (context == null) {
             return;
         }
-        RunningRuntimeState.ShellingRequestState request = runningState.getActiveShellingRequest(player.getUUID());
-        if (request == null || request.shellingId().isBlank()) {
-            return;
-        }
-        if (!request.shellingId().equalsIgnoreCase(shellingId)) {
-            return;
-        }
-        ItemStack stack = player.getMainHandItem();
-        if (!SuperbWarfareCompatBridge.isManagedArtilleryIndicator(stack)) {
-            return;
-        }
-        if (!room.roomId().equals(SuperbWarfareCompatBridge.getManagedShellingRoomId(stack))) {
-            return;
-        }
-        if (!shellingId.equalsIgnoreCase(SuperbWarfareCompatBridge.getManagedShellingId(stack))) {
-            return;
-        }
-        UUID taggedPlayerId = SuperbWarfareCompatBridge.getManagedShellingPlayerId(stack);
-        if (taggedPlayerId != null && !taggedPlayerId.equals(player.getUUID())) {
-            return;
-        }
-        BlockPos serverTargetPos = SuperbWarfareCompatBridge.getManagedTargetPos(stack);
+        String shellingId = context.request().shellingId();
+        BlockPos serverTargetPos = SuperbWarfareCompatBridge.getManagedTargetPos(context.stack());
         BlockPos resolvedTargetPos = serverTargetPos != null ? serverTargetPos : requestedTargetPos;
         if (resolvedTargetPos == null) {
             ServerMessageSender.system(player, "阵地支援", "请先标定炮击坐标", ChatFormatting.YELLOW);
             return;
         }
-        if (!roomManager.updateShellingTarget(player, resolvedTargetPos)) {
+        if (!context.roomManager().updateShellingTarget(player, resolvedTargetPos)) {
             return;
         }
         ShellingDataModel.ShellingEntry shellingEntry = ConquestDataManager.of(player.server)
@@ -163,12 +138,12 @@ public final class ShellingSupportService {
             ServerMessageSender.system(player, "阵地支援", "炮击模板不存在", ChatFormatting.RED);
             return;
         }
-        RoomShellingRuntimeService.ConfirmExecutionResult result = shellingRuntimeService.executeConfirmedShelling(
-            room,
-            runningState,
+        RoomShellingRuntimeService.ConfirmExecutionResult result = context.shellingRuntimeService().executeConfirmedShelling(
+            context.room(),
+            context.runningState(),
             player,
             shellingEntry,
-            roomManager.coreService().markerRuntimeService(),
+            context.roomManager().coreService().markerRuntimeService(),
             player.server.getTickCount()
         );
         if (!result.success()) {
@@ -177,8 +152,8 @@ public final class ShellingSupportService {
         }
         playDeployVoice(player);
         SupportHudSubtitleService.broadcastShellingStarted(
-            runningState,
-            request.teamId(),
+            context.runningState(),
+            context.request().teamId(),
             player,
             resolvedTargetPos,
             shellingEntry.resolveImpactType().displayName()
@@ -192,13 +167,28 @@ public final class ShellingSupportService {
         SupportUiService.sendSnapshot(player);
     }
 
-    public static void handleIndicatorOpened(ServerPlayer player, String rawShellingId) {
+    public static boolean handleIndicatorRightClickCancel(ServerPlayer player) {
         if (player == null || player.server == null) {
-            return;
+            return false;
         }
-        String shellingId = normalizeShellingId(rawShellingId);
-        if (shellingId.isBlank()) {
-            return;
+        ManagedIndicatorContext context = resolveManagedIndicatorContext(player, "");
+        if (context == null) {
+            return false;
+        }
+        context.shellingRuntimeService().abortShellingRequest(
+            context.room(),
+            context.runningState(),
+            player,
+            player.getUUID(),
+            RoomShellingRuntimeService.AbortReason.PLAYER_CANCELLED
+        );
+        SupportUiService.sendSnapshot(player);
+        return true;
+    }
+
+    private static ManagedIndicatorContext resolveManagedIndicatorContext(ServerPlayer player, String expectedShellingId) {
+        if (player == null || player.server == null) {
+            return null;
         }
         RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(player.server);
         String roomId = roomManager.findPlayerRoomId(player.getUUID()).orElse("");
@@ -206,26 +196,30 @@ public final class ShellingSupportService {
         RunningRuntimeState runningState = room == null ? null : roomManager.findRunningState(room.roomId()).orElse(null);
         RoomShellingRuntimeService shellingRuntimeService = roomManager.shellingRuntimeService();
         if (room == null || runningState == null || shellingRuntimeService == null || room.lifecycleState() != RoomLifecycleState.RUNNING) {
-            return;
+            return null;
         }
         RunningRuntimeState.ShellingRequestState request = runningState.getActiveShellingRequest(player.getUUID());
-        if (request == null || !shellingId.equalsIgnoreCase(request.shellingId())) {
-            return;
+        if (request == null || request.shellingId().isBlank()) {
+            return null;
+        }
+        if (!expectedShellingId.isBlank() && !expectedShellingId.equals(request.shellingId())) {
+            return null;
         }
         ItemStack stack = player.getMainHandItem();
         if (!SuperbWarfareCompatBridge.isManagedArtilleryIndicator(stack)) {
-            return;
+            return null;
         }
         if (!room.roomId().equals(SuperbWarfareCompatBridge.getManagedShellingRoomId(stack))) {
-            return;
+            return null;
         }
-        if (!shellingId.equalsIgnoreCase(SuperbWarfareCompatBridge.getManagedShellingId(stack))) {
-            return;
+        if (!request.shellingId().equals(SuperbWarfareCompatBridge.getManagedShellingId(stack))) {
+            return null;
         }
         UUID taggedPlayerId = SuperbWarfareCompatBridge.getManagedShellingPlayerId(stack);
         if (taggedPlayerId != null && !taggedPlayerId.equals(player.getUUID())) {
-            return;
+            return null;
         }
+        return new ManagedIndicatorContext(roomManager, room, runningState, shellingRuntimeService, request, stack);
     }
 
     private static RunningChecks resolveRunningChecks(
@@ -283,11 +277,12 @@ public final class ShellingSupportService {
             return;
         }
         RoomShellingRuntimeService.StartFailureReason reason = result.failureReason();
-        if (reason == RoomShellingRuntimeService.StartFailureReason.TEAM_BUSY) {
+        if (reason == RoomShellingRuntimeService.StartFailureReason.SHELLING_BUSY) {
             String holderName = resolvePlayerName(player, result.occupiedByPlayerId());
+            String actionText = result.occupiedByActiveSequence() ? "正在释放该炮击" : "正在部署该炮击";
             String message = holderName.isBlank()
-                ? "当前同阵营已有玩家正在进行炮击流程"
-                : "当前同阵营已有玩家正在进行炮击流程: " + holderName;
+                ? "当前同阵营已有玩家" + actionText
+                : holderName + actionText;
             ServerMessageSender.system(player, "阵地支援", message, ChatFormatting.RED);
             return;
         }
@@ -351,5 +346,15 @@ public final class ShellingSupportService {
         private static RunningChecks failure() {
             return new RunningChecks(false, null);
         }
+    }
+
+    private record ManagedIndicatorContext(
+        RoomCoreRuntimeManager roomManager,
+        RoomDefinition room,
+        RunningRuntimeState runningState,
+        RoomShellingRuntimeService shellingRuntimeService,
+        RunningRuntimeState.ShellingRequestState request,
+        ItemStack stack
+    ) {
     }
 }

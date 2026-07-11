@@ -2,8 +2,6 @@ package org.mods.gd656conquest.client.loadout.screen;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -1190,16 +1188,11 @@ public class LoadoutConfigScreen extends Screen {
         if (itemSnbt == null || itemSnbt.isBlank()) {
             return null;
         }
-        try {
-            CompoundTag tag = TagParser.parseTag(itemSnbt);
-            ItemStack stack = ItemStack.of(tag);
-            if (stack.isEmpty()) {
-                return null;
-            }
-            return ChoiceListDialog.RowIcon.item(stack);
-        } catch (Exception ignored) {
+        ItemStack stack = ClientLoadoutUiState.parseAndCacheStack(itemSnbt);
+        if (stack.isEmpty()) {
             return null;
         }
+        return ChoiceListDialog.RowIcon.item(stack);
     }
 
     private ChoiceListDialog.RowIcon resolveClassIcon(String classKey) {
@@ -1315,15 +1308,7 @@ public class LoadoutConfigScreen extends Screen {
     }
 
     private ItemStack parseStack(String snbt) {
-        if (snbt == null || snbt.isBlank()) {
-            return ItemStack.EMPTY;
-        }
-        try {
-            CompoundTag tag = TagParser.parseTag(snbt);
-            return ItemStack.of(tag);
-        } catch (Exception ignored) {
-            return ItemStack.EMPTY;
-        }
+        return ClientLoadoutUiState.parseAndCacheStack(snbt);
     }
 
     private String buildAttachmentSummary(ClientLoadoutUiState.WeaponAttachmentPanelState panel) {

@@ -48,7 +48,6 @@ import org.mods.gd656conquest.network.packet.ServerboundScreenshotChunkPacket;
 import org.mods.gd656conquest.network.packet.ServerboundScreenshotStatusPacket;
 import org.mods.gd656conquest.network.packet.ServerboundAmmoBoxInteractPacket;
 import org.mods.gd656conquest.network.packet.ShellingConfirmTargetPacket;
-import org.mods.gd656conquest.network.packet.ShellingIndicatorOpenedPacket;
 import org.mods.gd656conquest.network.packet.SupportUiActionPacket;
 import org.mods.gd656conquest.network.packet.SupportUiOpenPacket;
 import org.mods.gd656conquest.network.packet.SupportUiRequestPacket;
@@ -59,7 +58,7 @@ import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "088";
+    private static final String PROTOCOL_VERSION = "089";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -274,13 +273,6 @@ public final class NetworkManager {
                 ShellingConfirmTargetPacket::encode,
                 ShellingConfirmTargetPacket::decode,
                 ShellingConfirmTargetPacket::handle
-        );
-        CHANNEL.registerMessage(
-                packetId++,
-                ShellingIndicatorOpenedPacket.class,
-                ShellingIndicatorOpenedPacket::encode,
-                ShellingIndicatorOpenedPacket::decode,
-                ShellingIndicatorOpenedPacket::handle
         );
         CHANNEL.registerMessage(
                 packetId++,

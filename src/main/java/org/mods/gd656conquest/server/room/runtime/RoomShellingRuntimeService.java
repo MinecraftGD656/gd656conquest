@@ -55,6 +55,7 @@ public final class RoomShellingRuntimeService {
     private final RoomAudioRuntimeService audioRuntimeService;
     private final RoomDistanceAudioService distanceAudioService;
     private final LinkedHashMap<UUID, ActiveShellingSequence> activeSequences = new LinkedHashMap<>();
+    private final LinkedHashMap<UUID, ActiveShellingExecutionLock> activeExecutionLocks = new LinkedHashMap<>();
     private final LinkedHashMap<UUID, PendingSlotRestore> pendingSlotRestores = new LinkedHashMap<>();
 
     public RoomShellingRuntimeService(MinecraftServer server) {
@@ -94,10 +95,13 @@ public final class RoomShellingRuntimeService {
             return StartRequestResult.failure(StartFailureReason.ALREADY_ACTIVE, existing, existing.playerId());
         }
         pendingSlotRestores.remove(playerId);
-        UUID occupiedBy = state.getActiveShellingPlayerByTeam().get(teamId);
-        if (occupiedBy != null && !occupiedBy.equals(playerId)) {
-            RunningRuntimeState.ShellingRequestState occupiedRequest = state.getActiveShellingRequest(occupiedBy);
-            return StartRequestResult.failure(StartFailureReason.TEAM_BUSY, occupiedRequest, occupiedBy);
+        RunningRuntimeState.ShellingRequestState occupiedRequest = state.findActiveShellingRequest(teamId, shellingId);
+        if (occupiedRequest != null && !playerId.equals(occupiedRequest.playerId())) {
+            return StartRequestResult.failure(StartFailureReason.SHELLING_BUSY, occupiedRequest, occupiedRequest.playerId(), false);
+        }
+        ActiveShellingExecutionLock occupiedExecution = findActiveExecutionLock(room.roomId(), teamId, shellingId, playerId, gameTick);
+        if (occupiedExecution != null) {
+            return StartRequestResult.failure(StartFailureReason.SHELLING_BUSY, null, occupiedExecution.ownerId(), true);
         }
         RunningRuntimeState.ShellingRequestState request = new RunningRuntimeState.ShellingRequestState(
             playerId,
@@ -194,6 +198,14 @@ public final class RoomShellingRuntimeService {
                 gameTick
             );
         }
+        trackExecutionLock(
+            UUID.randomUUID(),
+            room.roomId(),
+            existing.shellingId(),
+            existing.teamId(),
+            player.getUUID(),
+            resolveImmediateExecutionExpireTick(shellingEntry, gameTick)
+        );
         ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_SHELLING_COUNTDOWN);
         scheduleSupportSlotRestore(existing, gameTick + CONFIRMED_SLOT_RESTORE_DELAY_TICKS);
         state.clearShellingRequest(existing.playerId());
@@ -226,6 +238,7 @@ public final class RoomShellingRuntimeService {
         int shellCount = Math.max(1, TaczShellingTestService.estimateShellCount(shellingEntry));
         ActiveShellingSequence sequence = ActiveShellingSequence.create(
             room.roomId(),
+            shellingEntry.getId(),
             player.getUUID(),
             player.getScoreboardName(),
             state.getRoomTeams().get(player.getUUID()),
@@ -237,6 +250,14 @@ public final class RoomShellingRuntimeService {
             shellCount
         );
         activeSequences.put(sequence.sequenceId, sequence);
+        trackExecutionLock(
+            sequence.sequenceId,
+            room.roomId(),
+            shellingEntry.getId(),
+            sequence.teamId,
+            sequence.ownerId,
+            sequence.completionTick
+        );
         ServerLogger.info("已成功创建%s序列: sequenceId=%s, gunId=%s", profile.displayName(), sequence.sequenceId, sequence.shellingConfig.gunId());
         playSequenceOpeningAudio(state, sequence, gameTick);
         if (markerRuntimeService != null) {
@@ -349,6 +370,7 @@ public final class RoomShellingRuntimeService {
             abortShellingRequest(room, state, player, request.playerId(), reason);
         }
         stopActiveSequencesForRoom(room.roomId());
+        stopExecutionLocksForRoom(room.roomId());
     }
 
     public boolean issueShellingIndicator(
@@ -390,7 +412,7 @@ public final class RoomShellingRuntimeService {
             request.targetBlockPos(),
             request.confirmed()
         ));
-        showIndicatorOpenPrompt(player);
+        showIndicatorDeploymentPrompt(player);
         return true;
     }
 
@@ -416,6 +438,7 @@ public final class RoomShellingRuntimeService {
         if (room == null || state == null) {
             return;
         }
+        tickActiveExecutionLocks(room, gameTick);
         tickPendingSlotRestores(room, gameTick);
         for (RunningRuntimeState.ShellingRequestState request : List.copyOf(state.getActiveShellingsByPlayer().values())) {
             if (request == null || request.playerId() == null) {
@@ -465,7 +488,7 @@ public final class RoomShellingRuntimeService {
             if (sequence == null || !room.roomId().equals(sequence.roomId)) {
                 continue;
             }
-            if (room.lifecycleState() != RoomLifecycleState.RUNNING) {
+            if (isRoomShuttingDown(room.lifecycleState())) {
                 stopSequenceLoop(sequence);
                 iterator.remove();
                 continue;
@@ -674,6 +697,7 @@ public final class RoomShellingRuntimeService {
         }
         sequence.loopRecipients.clear();
         sequence.trackedProjectiles.clear();
+        activeExecutionLocks.remove(sequence.sequenceId);
     }
 
     private void stopActiveSequencesForRoom(String roomId) {
@@ -691,11 +715,126 @@ public final class RoomShellingRuntimeService {
         }
     }
 
+    public ShellingOccupancy resolveShellingOccupancy(
+        String roomId,
+        RunningRuntimeState state,
+        RoomTeamId teamId,
+        String shellingId,
+        UUID requesterId
+    ) {
+        if (roomId == null || roomId.isBlank() || state == null || teamId == null || shellingId == null || shellingId.isBlank()) {
+            return ShellingOccupancy.idle();
+        }
+        RunningRuntimeState.ShellingRequestState activeRequest = state.findActiveShellingRequest(teamId, shellingId);
+        if (activeRequest != null) {
+            return new ShellingOccupancy(true, activeRequest.playerId(), true, false);
+        }
+        ActiveShellingExecutionLock activeExecution = findActiveExecutionLock(roomId, teamId, shellingId, requesterId, server.getTickCount());
+        if (activeExecution != null) {
+            return new ShellingOccupancy(true, activeExecution.ownerId(), false, true);
+        }
+        return ShellingOccupancy.idle();
+    }
+
+    private ActiveShellingExecutionLock findActiveExecutionLock(
+        String roomId,
+        RoomTeamId teamId,
+        String shellingId,
+        UUID requesterId,
+        long gameTick
+    ) {
+        if (roomId == null || roomId.isBlank() || teamId == null || shellingId == null || shellingId.isBlank() || activeExecutionLocks.isEmpty()) {
+            return null;
+        }
+        for (ActiveShellingExecutionLock executionLock : activeExecutionLocks.values()) {
+            if (executionLock == null) {
+                continue;
+            }
+            if (executionLock.expireTick() > 0L && gameTick >= executionLock.expireTick()) {
+                continue;
+            }
+            if (!roomId.equals(executionLock.roomId())
+                || teamId != executionLock.teamId()
+                || !shellingId.equals(executionLock.shellingId())) {
+                continue;
+            }
+            if (requesterId != null && requesterId.equals(executionLock.ownerId())) {
+                continue;
+            }
+            return executionLock;
+        }
+        return null;
+    }
+
+    private void trackExecutionLock(
+        UUID lockId,
+        String roomId,
+        String shellingId,
+        RoomTeamId teamId,
+        UUID ownerId,
+        long expireTick
+    ) {
+        if (lockId == null || roomId == null || roomId.isBlank() || shellingId == null || shellingId.isBlank() || teamId == null || ownerId == null) {
+            return;
+        }
+        activeExecutionLocks.put(lockId, new ActiveShellingExecutionLock(
+            lockId,
+            roomId,
+            shellingId,
+            teamId,
+            ownerId,
+            Math.max(0L, expireTick)
+        ));
+    }
+
+    private void tickActiveExecutionLocks(RoomDefinition room, long gameTick) {
+        if (room == null || activeExecutionLocks.isEmpty()) {
+            return;
+        }
+        Iterator<ActiveShellingExecutionLock> iterator = activeExecutionLocks.values().iterator();
+        while (iterator.hasNext()) {
+            ActiveShellingExecutionLock executionLock = iterator.next();
+            if (executionLock == null) {
+                iterator.remove();
+                continue;
+            }
+            if (!room.roomId().equals(executionLock.roomId())) {
+                continue;
+            }
+            if (gameTick >= executionLock.expireTick()) {
+                iterator.remove();
+            }
+        }
+    }
+
+    private void stopExecutionLocksForRoom(String roomId) {
+        if (roomId == null || roomId.isBlank() || activeExecutionLocks.isEmpty()) {
+            return;
+        }
+        activeExecutionLocks.entrySet().removeIf(entry -> entry.getValue() == null || roomId.equals(entry.getValue().roomId()));
+    }
+
+    private long resolveImmediateExecutionExpireTick(ShellingDataModel.ShellingEntry shellingEntry, long gameTick) {
+        long durationTicks = shellingEntry == null ? 0L : Math.round(Math.max(0.0D, shellingEntry.getDurationSeconds()) * 20.0D);
+        return gameTick + Math.max(20L, durationTicks);
+    }
+
     private boolean isSequencedShelling(ShellingDataModel.ShellingEntry shellingEntry) {
         if (shellingEntry == null) {
             return false;
         }
         return ShellingSequenceProfiles.isSequenced(shellingEntry.resolveImpactType());
+    }
+
+    /**
+     * 判定房间是否已进入强制收尾阶段（房间关闭、保存、清理、禁用等）。
+     * 对局进行中（RUNNING）与对局结算阶段（ENDING）视为允许已发起的炮击事件自然播完。
+     */
+    private static boolean isRoomShuttingDown(RoomLifecycleState state) {
+        if (state == null) {
+            return true;
+        }
+        return state != RoomLifecycleState.RUNNING && state != RoomLifecycleState.ENDING;
     }
 
     private ShellingSequenceProfile resolveSequenceProfile(ShellingImpactType impactType) {
@@ -772,7 +911,7 @@ public final class RoomShellingRuntimeService {
         }
     }
 
-    public void showIndicatorOpenPrompt(ServerPlayer player) {
+    public void showIndicatorDeploymentPrompt(ServerPlayer player) {
         if (player == null) {
             return;
         }
@@ -780,7 +919,9 @@ public final class RoomShellingRuntimeService {
             player,
             ACTIONBAR_SOURCE_SHELLING_REQUEST,
             ServerActionBarService.builder()
-                .text("长按选定目标点呼叫空中支援", ChatFormatting.GOLD),
+                .text("长按选定目标点呼叫空中支援", ChatFormatting.GOLD)
+                .text("  |  ", ChatFormatting.DARK_GRAY)
+                .text("点按右键以取消部署", ChatFormatting.GOLD),
             INDICATOR_OPEN_PROMPT_TICKS
         );
     }
@@ -817,17 +958,18 @@ public final class RoomShellingRuntimeService {
         PLAYER_NOT_ELIGIBLE,
         INVALID_TEAM,
         ALREADY_ACTIVE,
-        TEAM_BUSY
+        SHELLING_BUSY
     }
 
     public record StartRequestResult(
         boolean success,
         StartFailureReason failureReason,
         RunningRuntimeState.ShellingRequestState request,
-        UUID occupiedByPlayerId
+        UUID occupiedByPlayerId,
+        boolean occupiedByActiveSequence
     ) {
         public static StartRequestResult success(RunningRuntimeState.ShellingRequestState request) {
-            return new StartRequestResult(true, null, request, null);
+            return new StartRequestResult(true, null, request, null, false);
         }
 
         public static StartRequestResult failure(
@@ -835,7 +977,27 @@ public final class RoomShellingRuntimeService {
             RunningRuntimeState.ShellingRequestState request,
             UUID occupiedByPlayerId
         ) {
-            return new StartRequestResult(false, failureReason, request, occupiedByPlayerId);
+            return new StartRequestResult(false, failureReason, request, occupiedByPlayerId, false);
+        }
+
+        public static StartRequestResult failure(
+            StartFailureReason failureReason,
+            RunningRuntimeState.ShellingRequestState request,
+            UUID occupiedByPlayerId,
+            boolean occupiedByActiveSequence
+        ) {
+            return new StartRequestResult(false, failureReason, request, occupiedByPlayerId, occupiedByActiveSequence);
+        }
+    }
+
+    public record ShellingOccupancy(
+        boolean occupied,
+        UUID occupiedByPlayerId,
+        boolean requestInProgress,
+        boolean sequenceRunning
+    ) {
+        public static ShellingOccupancy idle() {
+            return new ShellingOccupancy(false, null, false, false);
         }
     }
 
@@ -854,6 +1016,7 @@ public final class RoomShellingRuntimeService {
         PLAYER_DEATH(true, true, "炮击释放流程已中断", ChatFormatting.YELLOW),
         PLAYER_OFFLINE(true, false, "", ChatFormatting.YELLOW),
         PLAYER_LEFT_ROOM(true, true, "炮击释放流程已退出", ChatFormatting.YELLOW),
+        PLAYER_CANCELLED(true, true, "炮击部署已取消", ChatFormatting.YELLOW),
         TEAM_CHANGED(true, true, "炮击释放流程已取消", ChatFormatting.YELLOW),
         ROOM_UNAVAILABLE(true, true, "炮击释放流程已取消", ChatFormatting.YELLOW);
 
@@ -891,6 +1054,16 @@ public final class RoomShellingRuntimeService {
         String roomId,
         String originalSlot9ItemSnbt,
         long dueTick
+    ) {
+    }
+
+    private record ActiveShellingExecutionLock(
+        UUID lockId,
+        String roomId,
+        String shellingId,
+        RoomTeamId teamId,
+        UUID ownerId,
+        long expireTick
     ) {
     }
 }
