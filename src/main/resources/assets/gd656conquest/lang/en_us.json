@@ -94,6 +94,7 @@
   "key.gd656conquest.open_loadout_screen": "Open Loadout Screen",
   "key.gd656conquest.place_tactical_marker": "Tactical Marker",
   "key.gd656conquest.common_use": "Common Use",
+  "key.gd656conquest.common_cancel": "Common Cancel",
   "gd656conquest.client.gui.loadout.info.player": "Player: %s",
   "gd656conquest.client.gui.loadout.info.level": "Level: %s",
   "gd656conquest.client.gui.loadout.info.class": "Class: %s",

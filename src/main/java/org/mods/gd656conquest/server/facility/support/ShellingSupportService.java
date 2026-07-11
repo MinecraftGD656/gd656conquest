@@ -167,7 +167,7 @@ public final class ShellingSupportService {
         SupportUiService.sendSnapshot(player);
     }
 
-    public static boolean handleIndicatorRightClickCancel(ServerPlayer player) {
+    public static boolean handleIndicatorCancelRequest(ServerPlayer player) {
         if (player == null || player.server == null) {
             return false;
         }

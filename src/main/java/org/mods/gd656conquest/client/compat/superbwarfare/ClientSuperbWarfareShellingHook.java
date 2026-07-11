@@ -4,8 +4,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.client.event.InputEvent;
+import org.mods.gd656conquest.client.input.ClientKeyMappings;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.RoomMarkerActionPacket;
+import org.mods.gd656conquest.network.packet.ShellingCancelRequestPacket;
 import org.mods.gd656conquest.network.packet.ShellingConfirmTargetPacket;
 import org.mods.gd656conquest.server.compat.superbwarfare.SuperbWarfareCompatBridge;
 
@@ -75,6 +78,24 @@ public final class ClientSuperbWarfareShellingHook {
         leftClickHeld = false;
         resetHoldState();
         lastMissingTargetFeedbackMs = 0L;
+    }
+
+    public boolean handleKeyInput(Minecraft minecraft, InputEvent.Key event) {
+        if (event == null || event.getAction() != GLFW.GLFW_PRESS) {
+            return false;
+        }
+        if (!ClientKeyMappings.COMMON_CANCEL.matches(event.getKey(), event.getScanCode())) {
+            return false;
+        }
+        if (!canHandleShellingObservation(minecraft)) {
+            return false;
+        }
+        NetworkManager.getChannel().sendToServer(ShellingCancelRequestPacket.of());
+        reset();
+        if (minecraft != null && minecraft.screen != null && SBW_ARTILLERY_SCREEN_CLASS.equals(minecraft.screen.getClass().getName())) {
+            minecraft.setScreen(null);
+        }
+        return true;
     }
 
     private void resetHoldState() {

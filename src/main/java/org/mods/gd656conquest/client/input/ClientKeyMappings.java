@@ -24,6 +24,12 @@ public final class ClientKeyMappings {
             InputConstants.KEY_F,
             CATEGORY
     );
+    public static final KeyMapping COMMON_CANCEL = new KeyMapping(
+            "key.gd656conquest.common_cancel",
+            InputConstants.Type.KEYSYM,
+            InputConstants.KEY_X,
+            CATEGORY
+    );
     public static final KeyMapping CYCLE_DEPLOY_TARGET = new KeyMapping(
             "key.gd656conquest.cycle_deploy_target",
             InputConstants.Type.KEYSYM,
@@ -41,6 +47,7 @@ public final class ClientKeyMappings {
         event.register(OPEN_LOADOUT_SCREEN);
         event.register(PLACE_TACTICAL_MARKER);
         event.register(COMMON_USE);
+        event.register(COMMON_CANCEL);
         event.register(CYCLE_DEPLOY_TARGET);
     }
 }

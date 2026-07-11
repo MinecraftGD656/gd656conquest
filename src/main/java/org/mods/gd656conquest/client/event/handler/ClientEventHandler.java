@@ -239,6 +239,12 @@ public final class ClientEventHandler {
     }
 
     public void handleClientKeyInput(InputEvent.Key event) {
+        if (superbWarfareShellingHook.handleKeyInput(Minecraft.getInstance(), event)) {
+            if (event != null && event.isCancelable()) {
+                event.setCanceled(true);
+            }
+            return;
+        }
         if (captureOverlayController.handleKeyInput(event)) {
             return;
         }

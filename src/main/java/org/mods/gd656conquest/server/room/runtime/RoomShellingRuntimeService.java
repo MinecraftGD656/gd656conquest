@@ -921,7 +921,9 @@ public final class RoomShellingRuntimeService {
             ServerActionBarService.builder()
                 .text("长按选定目标点呼叫空中支援", ChatFormatting.GOLD)
                 .text("  |  ", ChatFormatting.DARK_GRAY)
-                .text("点按右键以取消部署", ChatFormatting.GOLD),
+                .text("按下 ", ChatFormatting.WHITE)
+                .text("[X]", ChatFormatting.GOLD)
+                .text(" 以取消部署", ChatFormatting.WHITE),
             INDICATOR_OPEN_PROMPT_TICKS
         );
     }

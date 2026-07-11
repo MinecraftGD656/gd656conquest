@@ -1261,6 +1261,7 @@ public final class RoomCoreService {
                     .map(RoomGameplayPresentationProvider.class::cast)
                     .ifPresent(runtime -> runtime.syncEndingHudSubtitles(slot.room(), gameTick));
                 syncRunningHudIfDue(slot.room(), slot.runtime().getRunningState(), gameTick);
+                shellingRuntimeService.tickRoom(slot.room(), slot.runtime().getRunningState(), gameTick);
                 if (resultRuntimeService.tickEnding(slot.room(), slot.runtime().getRunningState(), gameTick)) {
                     finishEnding(slot, gameTick);
                 }

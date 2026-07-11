@@ -102,12 +102,6 @@ public final class ServerLifecycleCoordinator {
         }
     }
 
-    public void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
-        for (ServerModule module : moduleRegistry.modules()) {
-            module.onRightClickItem(event);
-        }
-    }
-
     public void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
         for (ServerModule module : moduleRegistry.modules()) {
             module.onLeftClickBlock(event);

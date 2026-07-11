@@ -96,6 +96,7 @@
   "key.gd656conquest.open_loadout_screen": "打开配装界面",
   "key.gd656conquest.place_tactical_marker": "标记",
   "key.gd656conquest.common_use": "通用使用",
+  "key.gd656conquest.common_cancel": "通用取消",
   "gd656conquest.client.gui.loadout.info.player": "玩家: %s",
   "gd656conquest.client.gui.loadout.info.level": "等级: %s",
   "gd656conquest.client.gui.loadout.info.class": "兵种: %s",

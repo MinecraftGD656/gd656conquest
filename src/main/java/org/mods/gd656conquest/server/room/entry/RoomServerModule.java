@@ -2,14 +2,11 @@ package org.mods.gd656conquest.server.room.entry;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
-import org.mods.gd656conquest.server.facility.support.ShellingSupportService;
 import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
 import org.mods.gd656conquest.server.room.runtime.audio.RoomThirdPersonAudioCueRegistry;
 import org.mods.gd656conquest.server.core.bootstrap.ServerModule;
@@ -54,22 +51,6 @@ public final class RoomServerModule implements ServerModule {
     @Override
     public void onPlayerTick(ServerPlayer player) {
         RoomPlayerDimensionStabilityService.onPlayerTick(player);
-    }
-
-    @Override
-    public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
-        if (handleManagedShellingRightClick(event == null ? null : event.getEntity(), event == null ? null : event.getHand())) {
-            event.setCancellationResult(InteractionResult.SUCCESS);
-            event.setCanceled(true);
-        }
-    }
-
-    @Override
-    public void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
-        if (handleManagedShellingRightClick(event == null ? null : event.getEntity(), event == null ? null : event.getHand())) {
-            event.setCancellationResult(InteractionResult.SUCCESS);
-            event.setCanceled(true);
-        }
     }
 
     @Override
@@ -208,16 +189,6 @@ public final class RoomServerModule implements ServerModule {
             return false;
         }
         return isTaczBulletEntity(damageSource.getDirectEntity()) || isTaczBulletEntity(damageSource.getEntity());
-    }
-
-    private static boolean handleManagedShellingRightClick(net.minecraft.world.entity.player.Player rawPlayer, net.minecraft.world.InteractionHand hand) {
-        if (hand != net.minecraft.world.InteractionHand.MAIN_HAND) {
-            return false;
-        }
-        if (!(rawPlayer instanceof ServerPlayer player) || player.server == null) {
-            return false;
-        }
-        return ShellingSupportService.handleIndicatorRightClickCancel(player);
     }
 
     private static boolean isTaczBulletEntity(Entity entity) {

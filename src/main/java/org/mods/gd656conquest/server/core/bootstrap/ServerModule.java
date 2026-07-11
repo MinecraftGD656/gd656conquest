@@ -53,9 +53,6 @@ public interface ServerModule {
     default void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
     }
 
-    default void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
-    }
-
     default void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
     }
 
