@@ -90,7 +90,8 @@ public final class ConquestServerCommands {
         "parkourEndPos",
         "parkourCompletionTitleId",
         "parkourBestTitleId",
-        "enablePackValidation"
+        "enablePackValidation",
+        "missileKillRadius"
     );
 
     private ConquestServerCommands() {
@@ -523,6 +524,7 @@ public final class ConquestServerCommands {
             case "parkourCompletionTitleId" -> config.setParkourCompletionTitleId(rawValue);
             case "parkourBestTitleId" -> config.setParkourBestTitleId(rawValue);
             case "enablePackValidation" -> config.setEnablePackValidation(parseBooleanStrict(rawValue));
+            case "missileKillRadius" -> config.setMissileKillRadius(parseNonNegativeDouble(rawValue));
             default -> throw new SimpleCommandExceptionType(Component.literal("未知配置项: " + configId)).create();
         }
         store.save(config);
@@ -571,6 +573,8 @@ public final class ConquestServerCommands {
                 SharedSuggestionProvider.suggest(List.of("here"), builder);
             case "parkourCompletionTitleId", "parkourBestTitleId" ->
                 SharedSuggestionProvider.suggest(List.of("\"\"", "RUNNER", "PARKOUR_MASTER"), builder);
+            case "missileKillRadius" ->
+                SharedSuggestionProvider.suggest(List.of("30.0", "35.0", "40.0"), builder);
             default -> builder.buildFuture();
         };
     }
@@ -609,6 +613,7 @@ public final class ConquestServerCommands {
             case "parkourcompletiontitleid", "parkourtitle", "parkourcompletiontitle" -> "parkourCompletionTitleId";
             case "parkourbesttitleid", "parkourfirsttitle", "parkourrecordtitle" -> "parkourBestTitleId";
             case "enablepackvalidation", "packvalidation", "checkpacks", "packcheck" -> "enablePackValidation";
+            case "missilekillradius", "missileradius", "missilekill" -> "missileKillRadius";
             default -> null;
         };
     }
@@ -637,6 +642,7 @@ public final class ConquestServerCommands {
             case "parkourCompletionTitleId" -> store.getParkourCompletionTitleId();
             case "parkourBestTitleId" -> store.getParkourBestTitleId();
             case "enablePackValidation" -> String.valueOf(store.isPackValidationEnabled());
+            case "missileKillRadius" -> formatDecimal(store.getMissileKillRadius());
             default -> "-";
         };
     }

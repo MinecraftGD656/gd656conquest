@@ -25,6 +25,7 @@ public final class ServerConfigDataModel {
     private String parkourBestTitleId = "";
     private RoomVehicleBackend vehicleBackend = RoomVehicleBackend.defaultValue();
     private Boolean enablePackValidation = false;
+    private Double missileKillRadius = 35.0;
 
     public Boolean getBoolOverworldInvulnerable() {
         return boolOverworldInvulnerable;
@@ -192,5 +193,13 @@ public final class ServerConfigDataModel {
 
     public void setEnablePackValidation(Boolean enablePackValidation) {
         this.enablePackValidation = enablePackValidation;
+    }
+
+    public Double getMissileKillRadius() {
+        return missileKillRadius;
+    }
+
+    public void setMissileKillRadius(Double missileKillRadius) {
+        this.missileKillRadius = missileKillRadius;
     }
 }

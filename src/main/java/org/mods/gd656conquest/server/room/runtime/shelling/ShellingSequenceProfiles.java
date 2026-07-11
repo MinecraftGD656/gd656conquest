@@ -20,8 +20,8 @@ public final class ShellingSequenceProfiles {
         "gd656conquest:sfx.shelling.incoming_missile_3",
         "gd656conquest:sfx.shelling.incoming_missile_4"
     );
-    private static final long MISSILE_WARNING_DURATION_TICKS = 30L * 20L;
-    private static final long MISSILE_APPROACH_START_TICKS = 28L * 20L;
+    private static final long MISSILE_WARNING_DURATION_TICKS = 20L * 20L;
+    private static final long MISSILE_APPROACH_START_TICKS = 18L * 20L;
     private static final double MISSILE_INCOMING_RADIUS = 100.0D;
     private static final float MISSILE_INCOMING_MAX_VOLUME = 1.5F;
     private static final float MISSILE_LAUNCH_VOLUME = 0.6F;

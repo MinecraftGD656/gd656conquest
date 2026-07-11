@@ -5,9 +5,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -17,6 +17,7 @@ import org.joml.Vector2d;
 import org.mods.gd656conquest.server.compat.lrtactical.LrTacticalShellImpactCompatBridge;
 import org.mods.gd656conquest.server.data.shelling.ShellingDataModel;
 import org.mods.gd656conquest.server.data.shelling.ShellingImpactType;
+import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.runtime.audio.RoomDistanceAudioService;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
 import org.mods.gd656conquest.server.shared.util.ItemStackSnbtCodec;
@@ -376,7 +377,32 @@ public final class TaczShellingTestService {
         }
         Vec3 impactPos = projectile.position();
         LrTacticalShellImpactCompatBridge.spawnImpactEffect(level, owner, impactPos, pending.impactType());
+        applyMissileImpactKill(level, owner, impactPos, pending.impactType());
         playImpactSound(level, impactPos, pending.impactType());
+    }
+
+    private void applyMissileImpactKill(ServerLevel level, ServerPlayer owner, Vec3 impactPos, ShellingImpactType impactType) {
+        if (level == null || owner == null || impactPos == null || impactType != ShellingImpactType.MISSILE) {
+            return;
+        }
+        RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(server);
+        double killRadius = org.mods.gd656conquest.server.data.ConquestDataManager.of(server).serverConfig().getMissileKillRadius();
+        double maxDistanceSqr = killRadius * killRadius;
+        for (ServerPlayer target : level.players()) {
+            if (target == null || target.isRemoved() || !target.isAlive() || target.isSpectator()) {
+                continue;
+            }
+            if (target.getUUID().equals(owner.getUUID())) {
+                continue;
+            }
+            if (roomManager.isSameCampPlayer(owner, target)) {
+                continue;
+            }
+            if (target.position().distanceToSqr(impactPos) > maxDistanceSqr) {
+                continue;
+            }
+            target.hurt(owner.damageSources().playerAttack(owner), Float.MAX_VALUE);
+        }
     }
 
     private void playImpactSound(ServerLevel level, Vec3 impactPos, ShellingImpactType impactType) {

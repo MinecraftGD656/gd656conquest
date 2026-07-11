@@ -20,7 +20,6 @@ import org.mods.gd656conquest.server.compat.superbwarfare.SuperbWarfareCompatBri
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.UUID;
 
@@ -109,7 +108,7 @@ public final class ShellingSupportService {
     }
 
     private static String normalizeShellingId(String rawShellingId) {
-        return rawShellingId == null ? "" : rawShellingId.trim().toLowerCase(Locale.ROOT);
+        return rawShellingId == null ? "" : rawShellingId.trim();
     }
 
     public static void handleConfirmTarget(ServerPlayer player, String rawShellingId, BlockPos requestedTargetPos) {

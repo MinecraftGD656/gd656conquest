@@ -97,6 +97,11 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         return Boolean.TRUE.equals(get().getEnablePackValidation());
     }
 
+    public synchronized double getMissileKillRadius() {
+        Double value = get().getMissileKillRadius();
+        return value == null || value < 0.0 ? 35.0 : value;
+    }
+
     public synchronized RoomPosition getOverworldSpawnFallbackShared() {
         RoomPosition configured = get().getOverworldSpawn();
         if (configured != null) {
@@ -193,6 +198,9 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         }
         model.setParkourCompletionTitleId(normalizeTitleId(model.getParkourCompletionTitleId()));
         model.setParkourBestTitleId(normalizeTitleId(model.getParkourBestTitleId()));
+        if (model.getMissileKillRadius() == null || model.getMissileKillRadius() < 0.0) {
+            model.setMissileKillRadius(35.0);
+        }
     }
 
     private static double sanitizeScopeLimit(Double value, double fallback) {

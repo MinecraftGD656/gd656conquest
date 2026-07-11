@@ -6,6 +6,7 @@
   "refmap": "gd656conquest.refmap.json",
   "mixins": [
     "compat.ywzjvehicle.RepairToolItemMixin",
+    "compat.explosionoverhaul.ExplosionOverhaulCaveDustDisableMixin",
     "server.EntityMixin",
     "server.MinecraftServerMixin",
     "server.PlayerListMixin",
@@ -20,7 +21,9 @@
     "client.MouseHandlerMixin",
     "client.PauseScreenMixin",
     "client.PlayerTabOverlayMixin",
-    "client.PlayerTeamColorMixin"
+    "client.PlayerTeamColorMixin",
+    "client.compat.explosionoverhaul.ExplosionOverhaulAmbientCaveDustDisableMixin",
+    "client.compat.explosionoverhaul.ExplosionOverhaulBlockParticleGuardMixin"
   ],
   "injectors": {
     "defaultRequire": 1

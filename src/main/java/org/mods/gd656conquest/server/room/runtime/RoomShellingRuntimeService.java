@@ -47,7 +47,7 @@ public final class RoomShellingRuntimeService {
     private static final long MISSILE_ALARM_INTERVAL_TICKS = 10L * 20L;
     private static final long CONFIRMED_SLOT_RESTORE_DELAY_TICKS = 5L * 20L;
     private static final int MISSILE_COUNTDOWN_INTERVAL_SECONDS = 5;
-    private static final int MISSILE_ALARM_COUNT = 3;
+    private static final int MISSILE_ALARM_COUNT = 2;
     private static final int LOOP_FADE_IN_TICKS = 6;
     private static final int LOOP_FADE_OUT_TICKS = 20;
 

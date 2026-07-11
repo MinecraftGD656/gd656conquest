@@ -20,7 +20,6 @@ import org.mods.gd656conquest.server.shared.util.ItemStackSnbtCodec;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -149,7 +148,7 @@ public final class HeroKitSupportService {
     }
 
     private static String normalizeHeroKitId(String rawHeroKitId) {
-        return rawHeroKitId == null ? "" : rawHeroKitId.trim().toLowerCase(Locale.ROOT);
+        return rawHeroKitId == null ? "" : rawHeroKitId.trim();
     }
 
     private static void applyHeroKitInventory(ServerPlayer player, HeroKitDataModel.HeroKitEntry entry) {
