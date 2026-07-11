@@ -104,7 +104,6 @@ public final class ShellingSupportService {
             SupportUiService.sendSnapshot(player);
             return;
         }
-        playDeployVoice(player);
         handleStartResult(player, roomManager, result, consumeResult);
         SupportUiService.sendSnapshot(player);
     }
@@ -177,6 +176,7 @@ public final class ShellingSupportService {
             ServerMessageSender.system(player, "阵地支援", result.message(), ChatFormatting.RED);
             return;
         }
+        playDeployVoice(player);
         SupportHudSubtitleService.broadcastShellingStarted(
             runningState,
             request.teamId(),
