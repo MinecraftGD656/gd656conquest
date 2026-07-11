@@ -1,12 +1,10 @@
 package org.mods.gd656conquest.network.packet;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
-import org.mods.gd656conquest.client.support.ClientSupportUiState;
-import org.mods.gd656conquest.client.support.SupportScreen;
+import org.mods.gd656conquest.network.clientbridge.ClientPacketBridgeHolder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -92,13 +90,7 @@ public record SupportUiSnapshotPacket(
 
     public static void handle(SupportUiSnapshotPacket message, Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context context = contextSupplier.get();
-        context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
-            ClientSupportUiState.apply(message);
-            Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft != null && minecraft.screen instanceof SupportScreen supportScreen) {
-                supportScreen.refreshFromState();
-            }
-        }));
+        context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientPacketBridgeHolder.get().applySupportUiSnapshot(message)));
         context.setPacketHandled(true);
     }
 
