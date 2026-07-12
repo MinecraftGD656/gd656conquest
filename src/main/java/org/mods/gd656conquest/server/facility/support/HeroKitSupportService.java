@@ -11,6 +11,8 @@ import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.data.herokit.HeroKitDataModel;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
+import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
+import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.shared.inventory.PlayerInventorySanitizer;
