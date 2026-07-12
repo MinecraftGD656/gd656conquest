@@ -242,6 +242,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().enableKnifeDuel(),
             base.commonConfig().enableGoatHorn(),
             base.commonConfig().enablePlayerDowned(),
+            base.commonConfig().enableRespawnCountdownWhileDowned(),
             base.commonConfig().enableBackAgainstWall(),
             base.commonConfig().enableRandomLoadout(),
             base.commonConfig().enableRandomAttachments(),
@@ -331,6 +332,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             "",
             40.0D,
             RoomResultConfig.defaults(),
+            false,
             false,
             false,
             false,
@@ -493,6 +495,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                         normalizedCommon.enableKnifeDuel(),
                         normalizedCommon.resolveEnableGoatHorn(false),
                         normalizedCommon.enablePlayerDowned(),
+                        normalizedCommon.enableRespawnCountdownWhileDowned(),
                         normalizedCommon.enableBackAgainstWall(),
                         normalizedCommon.enableRandomLoadout(),
                         normalizedCommon.enableRandomAttachments(),
@@ -565,6 +568,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 gameplayConfig != null && gameplayConfig.disableHunger(),
                 gameplayConfig != null && gameplayConfig.enableAutoTeamSwitchPrompt(),
                 gameplayConfig != null && gameplayConfig.disableInventoryChange(),
+                false,
                 false,
                 false,
                 false,
@@ -784,6 +788,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         private Boolean enableKnifeDuel;
         private Boolean enableGoatHorn;
         private boolean enablePlayerDowned;
+        private boolean enableRespawnCountdownWhileDowned;
         private boolean enableBackAgainstWall;
         private boolean enableRandomLoadout;
         private boolean enableRandomAttachments;
@@ -826,6 +831,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.enableKnifeDuel = definition.commonConfig().enableKnifeDuel();
             config.enableGoatHorn = definition.commonConfig().enableGoatHorn();
             config.enablePlayerDowned = definition.commonConfig().enablePlayerDowned();
+            config.enableRespawnCountdownWhileDowned = definition.commonConfig().enableRespawnCountdownWhileDowned();
             config.enableBackAgainstWall = definition.commonConfig().enableBackAgainstWall();
             config.enableRandomLoadout = definition.commonConfig().enableRandomLoadout();
             config.enableRandomAttachments = definition.commonConfig().enableRandomAttachments();
@@ -868,6 +874,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             config.enableKnifeDuel = false;
             config.enableGoatHorn = false;
             config.enablePlayerDowned = false;
+            config.enableRespawnCountdownWhileDowned = false;
             config.enableBackAgainstWall = false;
             config.enableRandomLoadout = false;
             config.enableRandomAttachments = false;
@@ -910,6 +917,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             normalized.enableKnifeDuel = enableKnifeDuel == null ? defaults.enableKnifeDuel : enableKnifeDuel;
             normalized.enableGoatHorn = enableGoatHorn;
             normalized.enablePlayerDowned = enablePlayerDowned;
+            normalized.enableRespawnCountdownWhileDowned = enableRespawnCountdownWhileDowned;
             normalized.enableBackAgainstWall = enableBackAgainstWall;
             normalized.enableRandomLoadout = enableRandomLoadout;
             normalized.enableRandomAttachments = enableRandomAttachments;
@@ -1046,6 +1054,10 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             return enablePlayerDowned;
         }
 
+        public boolean enableRespawnCountdownWhileDowned() {
+            return enableRespawnCountdownWhileDowned;
+        }
+
         public boolean enableBackAgainstWall() {
             return enableBackAgainstWall;
         }
@@ -1164,6 +1176,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().enableKnifeDuel(),
             definition.commonConfig().enableGoatHorn(),
             definition.commonConfig().enablePlayerDowned(),
+            definition.commonConfig().enableRespawnCountdownWhileDowned(),
             definition.commonConfig().enableBackAgainstWall(),
             definition.commonConfig().enableRandomLoadout(),
             definition.commonConfig().enableRandomAttachments(),
@@ -1221,6 +1234,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.commonConfig().enableKnifeDuel(),
             definition.commonConfig().enableGoatHorn(),
             definition.commonConfig().enablePlayerDowned(),
+            definition.commonConfig().enableRespawnCountdownWhileDowned(),
             definition.commonConfig().enableBackAgainstWall(),
             definition.commonConfig().enableRandomLoadout(),
             definition.commonConfig().enableRandomAttachments(),

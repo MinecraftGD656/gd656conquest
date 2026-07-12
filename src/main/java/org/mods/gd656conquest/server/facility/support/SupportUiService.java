@@ -88,7 +88,7 @@ public final class SupportUiService {
         List<String> configuredHeroKitIds = resolveConfiguredHeroKitIds(room, teamId);
         List<String> configuredShellingIds = resolveConfiguredShellingIds(room, teamId);
         List<SupportUiSnapshotPacket.SupportEntryPayload> entries = new ArrayList<>();
-        entries.addAll(buildHeroKitEntries(player, remainingScore, configuredHeroKitIds, isCurrentlyHeroKit));
+        entries.addAll(buildHeroKitEntries(player, remainingScore, configuredHeroKitIds, isCurrentlyHeroKit, state, teamId));
         entries.addAll(buildShellingEntries(player, room.roomId(), remainingScore, configuredShellingIds, state, roomManager.shellingRuntimeService(), teamId));
         entries.sort(Comparator
             .comparing(SupportUiSnapshotPacket.SupportEntryPayload::available, Comparator.reverseOrder())
@@ -113,7 +113,9 @@ public final class SupportUiService {
         ServerPlayer player,
         int remainingScore,
         List<String> configuredHeroKitIds,
-        boolean isCurrentlyHeroKit
+        boolean isCurrentlyHeroKit,
+        RunningRuntimeState state,
+        RoomTeamId teamId
     ) {
         if (player == null || player.server == null || configuredHeroKitIds.isEmpty()) {
             return List.of();
@@ -122,6 +124,7 @@ public final class SupportUiService {
             .heroKits()
             .get()
             .getHeroKitsById();
+        long gameTick = player.server.getTickCount();
         List<SupportUiSnapshotPacket.SupportEntryPayload> entries = new ArrayList<>();
         for (String heroKitId : configuredHeroKitIds) {
             HeroKitDataModel.HeroKitEntry entry = heroKitsById.get(heroKitId);
@@ -129,24 +132,45 @@ public final class SupportUiService {
                 continue;
             }
             int cost = entry.getCost();
-            boolean available = remainingScore >= cost && !isCurrentlyHeroKit;
+            HeroKitSupportService.HeroKitOccupancy occupancy = HeroKitSupportService.resolveHeroKitOccupancy(
+                state,
+                teamId,
+                entry.getId(),
+                player.getUUID(),
+                gameTick
+            );
+            boolean locked = occupancy.occupied();
+            boolean coolingDown = occupancy.coolingDown();
+            String holderName = locked ? resolvePlayerName(player, occupancy.occupiedByPlayerId()) : "";
+            boolean available = remainingScore >= cost && !isCurrentlyHeroKit && !locked && !coolingDown;
             String typeLabel = SupportHeroKitTypeRegistry.displayName(entry.getType());
             String detailText;
+            String buttonText;
             if (isCurrentlyHeroKit) {
                 detailText = "您当前已经是精英兵状态，无法再次购买";
+                buttonText = "锁定";
+            } else if (locked) {
+                detailText = holderName.isBlank()
+                    ? "同阵营已有玩家正在使用该精英兵"
+                    : holderName + " 正在使用该精英兵";
+                buttonText = "锁定";
+            } else if (coolingDown) {
+                detailText = "该精英兵冷却中，还需 " + occupancy.remainingCooldownSeconds() + " 秒";
+                buttonText = "冷却";
             } else {
                 detailText = available
                     ? "消耗 " + cost + " 分，点击后立即请求部署"
                     : "需要 " + cost + " 分，当前条件不足";
+                buttonText = available ? "使用" : "未解锁";
             }
             entries.add(new SupportUiSnapshotPacket.SupportEntryPayload(
                 "hero_kit",
                 entry.getId(),
                 entry.getDisplayName().isBlank() ? entry.getId() : entry.getDisplayName(),
                 entry.getType(),
-                "精英兵 | " + typeLabel,
+                buildHeroKitSubtitle(typeLabel, entry),
                 detailText,
-                available ? "使用" : "未解锁",
+                buttonText,
                 cost,
                 available
             ));
@@ -273,6 +297,17 @@ public final class SupportUiService {
             return entry.getDisplayName();
         }
         return entry.getId();
+    }
+
+    private static String buildHeroKitSubtitle(String typeLabel, HeroKitDataModel.HeroKitEntry entry) {
+        if (entry == null) {
+            return "精英兵 | " + typeLabel;
+        }
+        return "精英兵 | "
+            + typeLabel
+            + " | 冷却 "
+            + entry.getCooldownSeconds()
+            + "s";
     }
 
     private static String resolveStatusText(

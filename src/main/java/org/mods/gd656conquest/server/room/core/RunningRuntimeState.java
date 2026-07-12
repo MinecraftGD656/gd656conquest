@@ -53,6 +53,8 @@ public final class RunningRuntimeState {
     private final Map<UUID, Integer> supportSpentScoreByPlayer = new LinkedHashMap<>();
     private final Map<UUID, String> activeHeroKitIdsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, String> activeHeroKitTypesByPlayer = new LinkedHashMap<>();
+    private final Map<String, Long> heroKitCooldownExpireTicksByScopedKey = new LinkedHashMap<>();
+    private final Set<UUID> heroKitLoadoutResetPendingPlayers = new LinkedHashSet<>();
     private final Map<UUID, ShellingRequestState> activeShellingsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Map<Integer, Long>> loadoutItemLastReplenishTickByPlayerSlot = new LinkedHashMap<>();
     private final Map<UUID, String> randomizedLoadoutClassKeysByPlayer = new LinkedHashMap<>();
@@ -284,6 +286,14 @@ public final class RunningRuntimeState {
         return activeHeroKitTypesByPlayer;
     }
 
+    public Map<String, Long> getHeroKitCooldownExpireTicksByScopedKey() {
+        return heroKitCooldownExpireTicksByScopedKey;
+    }
+
+    public Set<UUID> getHeroKitLoadoutResetPendingPlayers() {
+        return heroKitLoadoutResetPendingPlayers;
+    }
+
     public Map<UUID, ShellingRequestState> getActiveShellingsByPlayer() {
         return activeShellingsByPlayer;
     }
@@ -454,6 +464,8 @@ public final class RunningRuntimeState {
         supportSpentScoreByPlayer.clear();
         activeHeroKitIdsByPlayer.clear();
         activeHeroKitTypesByPlayer.clear();
+        heroKitCooldownExpireTicksByScopedKey.clear();
+        heroKitLoadoutResetPendingPlayers.clear();
         clearAllShellingRequests();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
         rejoinTickets.clear();
@@ -471,6 +483,8 @@ public final class RunningRuntimeState {
         supportSpentScoreByPlayer.clear();
         activeHeroKitIdsByPlayer.clear();
         activeHeroKitTypesByPlayer.clear();
+        heroKitCooldownExpireTicksByScopedKey.clear();
+        heroKitLoadoutResetPendingPlayers.clear();
         clearAllShellingRequests();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
         rejoinTickets.clear();
@@ -519,6 +533,7 @@ public final class RunningRuntimeState {
         autoTeamSwitchOfferExpireTicks.remove(playerId);
         activeHeroKitIdsByPlayer.remove(playerId);
         activeHeroKitTypesByPlayer.remove(playerId);
+        heroKitLoadoutResetPendingPlayers.remove(playerId);
         clearShellingRequest(playerId);
         loadoutItemLastReplenishTickByPlayerSlot.remove(playerId);
         randomizedLoadoutClassKeysByPlayer.remove(playerId);
@@ -575,6 +590,8 @@ public final class RunningRuntimeState {
         supportSpentScoreByPlayer.clear();
         activeHeroKitIdsByPlayer.clear();
         activeHeroKitTypesByPlayer.clear();
+        heroKitCooldownExpireTicksByScopedKey.clear();
+        heroKitLoadoutResetPendingPlayers.clear();
         clearAllShellingRequests();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
         randomizedLoadoutClassKeysByPlayer.clear();

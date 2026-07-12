@@ -20,7 +20,7 @@ public final class ParkourCommands {
         return Commands.literal("parkour")
             .requires(source -> source.hasPermission(2))
             .then(Commands.literal("del")
-                .then(Commands.argument("player", StringArgumentType.word())
+                .then(Commands.argument("player", StringArgumentType.string())
                     .suggests(ParkourCommands::suggestKnownPlayers)
                     .executes(ParkourCommands::executeDeleteRecord)));
     }

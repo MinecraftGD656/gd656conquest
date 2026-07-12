@@ -36,6 +36,17 @@ import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 public final class ShellingCommands {
+    private static final List<String> SHELLING_EDIT_FIELDS = List.of(
+        "displayName",
+        "shellHeight",
+        "durationSeconds",
+        "intervalSeconds",
+        "radius",
+        "cost",
+        "impactType",
+        "pitch",
+        "yaw"
+    );
     private static final DynamicCommandExceptionType INVALID_ID = new DynamicCommandExceptionType(
         value -> Component.literal("非法炮击 ID: " + value + "，仅支持字母、数字和下划线")
     );
@@ -57,6 +68,9 @@ public final class ShellingCommands {
     private static final DynamicCommandExceptionType INVALID_IMPACT_TYPE = new DynamicCommandExceptionType(
         value -> Component.literal("非法炮击类型: " + value + "，仅支持 empty、lightshell、mediumshell、heavyshell、missile、smokeshell、flameshell")
     );
+    private static final DynamicCommandExceptionType INVALID_FIELD = new DynamicCommandExceptionType(
+        value -> Component.literal("不支持修改的炮击配置项: " + value)
+    );
 
     private ShellingCommands() {
     }
@@ -65,14 +79,14 @@ public final class ShellingCommands {
         return Commands.literal("shelling")
             .requires(source -> source.hasPermission(2))
             .then(Commands.literal("add")
-                .then(Commands.argument("id", StringArgumentType.word())
+                .then(Commands.argument("id", StringArgumentType.string())
                     .then(Commands.argument("displayName", StringArgumentType.string())
                         .then(Commands.argument("shellHeight", DoubleArgumentType.doubleArg(0.0D))
                             .then(Commands.argument("durationSeconds", DoubleArgumentType.doubleArg(0.05D))
                                 .then(Commands.argument("intervalSeconds", DoubleArgumentType.doubleArg(0.05D))
                                     .then(Commands.argument("radius", DoubleArgumentType.doubleArg(0.0D))
                                         .then(Commands.argument("cost", IntegerArgumentType.integer(0))
-                                            .then(Commands.argument("impactType", StringArgumentType.word())
+                                            .then(Commands.argument("impactType", StringArgumentType.string())
                                                 .suggests(ShellingCommands::suggestImpactTypes)
                                                 .executes(ShellingCommands::executeAdd)
                                             )
@@ -84,17 +98,24 @@ public final class ShellingCommands {
                     )
                 ))
             .then(Commands.literal("edit")
-                .then(Commands.argument("id", StringArgumentType.word())
+                .then(Commands.argument("id", StringArgumentType.string())
                     .suggests(ShellingCommands::suggestIds)
                     .executes(ShellingCommands::executeEdit)))
             .then(Commands.literal("del")
-                .then(Commands.argument("id", StringArgumentType.word())
+                .then(Commands.argument("id", StringArgumentType.string())
                     .suggests(ShellingCommands::suggestIds)
                     .executes(ShellingCommands::executeDelete)))
             .then(Commands.literal("list")
                 .executes(ShellingCommands::executeList))
             .then(Commands.literal("reload")
-                .executes(ShellingCommands::executeReload));
+                .executes(ShellingCommands::executeReload))
+            .then(Commands.argument("id", StringArgumentType.string())
+                .suggests(ShellingCommands::suggestIds)
+                .then(Commands.argument("field", StringArgumentType.string())
+                    .suggests(ShellingCommands::suggestEditFields)
+                    .then(Commands.argument("value", StringArgumentType.greedyString())
+                        .suggests(ShellingCommands::suggestEditValues)
+                        .executes(ShellingCommands::executeSetField))));
     }
 
     private static int executeAdd(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -217,6 +238,35 @@ public final class ShellingCommands {
         return CommandFeedbacks.info(context.getSource(), "已从磁盘重载炮击模板，当前条目数: " + data.getShellingsById().size());
     }
 
+    private static int executeSetField(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        String id = normalizeShellingId(StringArgumentType.getString(context, "id"));
+        String field = normalizeEditField(StringArgumentType.getString(context, "field"));
+        String rawValue = unwrapQuotedValue(StringArgumentType.getString(context, "value"));
+        ShellingDataStore store = ConquestDataManager.of(context.getSource().getServer()).shellings();
+        ShellingDataModel data = store.get();
+        ShellingDataModel.ShellingEntry entry = data.getShellingsById().get(id);
+        if (entry == null) {
+            throw SHELLING_NOT_FOUND.create(id);
+        }
+        switch (field) {
+            case "displayname" -> entry.setDisplayName(normalizeDisplayName(rawValue, id));
+            case "shellheight" -> entry.setShellHeight(parseNonNegativeDouble(field, rawValue));
+            case "durationseconds" -> entry.setDurationSeconds(parsePositiveOrZeroDouble(field, rawValue));
+            case "intervalseconds" -> entry.setIntervalSeconds(parsePositiveOrZeroDouble(field, rawValue));
+            case "radius" -> entry.setRadius(parseNonNegativeDouble(field, rawValue));
+            case "cost" -> entry.setCost(parseNonNegativeInteger(field, rawValue));
+            case "impacttype" -> entry.setImpactType(resolveImpactType(rawValue).id());
+            case "pitch" -> entry.setPitch((float) parseFiniteDouble(field, rawValue));
+            case "yaw" -> entry.setYaw((float) parseFiniteDouble(field, rawValue));
+            default -> throw INVALID_FIELD.create(field);
+        }
+        persistShellings(context.getSource(), store, data);
+        return CommandFeedbacks.info(
+            context.getSource(),
+            String.format(Locale.ROOT, "已更新炮击模板 %s 的 %s = %s", id, field, rawValue)
+        );
+    }
+
     private static CompletableFuture<Suggestions> suggestIds(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         List<String> ids = new ArrayList<>(ConquestDataManager.of(context.getSource().getServer()).shellings().get().getShellingsById().keySet());
         ids.sort(String.CASE_INSENSITIVE_ORDER);
@@ -225,6 +275,18 @@ public final class ShellingCommands {
 
     private static CompletableFuture<Suggestions> suggestImpactTypes(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         return SharedSuggestionProvider.suggest(ShellingImpactType.suggestionIds(), builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestEditFields(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return SharedSuggestionProvider.suggest(SHELLING_EDIT_FIELDS, builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestEditValues(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        String field = normalizeEditField(StringArgumentType.getString(context, "field"));
+        if ("impacttype".equals(field)) {
+            return SharedSuggestionProvider.suggest(ShellingImpactType.suggestionIds(), builder);
+        }
+        return Suggestions.empty();
     }
 
     private static ShellingDataModel.ShellingEntry captureShellingEntry(
@@ -285,6 +347,50 @@ public final class ShellingCommands {
     private static String normalizeDisplayName(String rawDisplayName, String fallbackId) {
         String normalized = rawDisplayName == null ? "" : rawDisplayName.trim();
         return normalized.isBlank() ? (fallbackId == null ? "" : fallbackId.trim()) : normalized;
+    }
+
+    private static String normalizeEditField(String raw) {
+        return raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String unwrapQuotedValue(String raw) {
+        String normalized = raw == null ? "" : raw.trim();
+        if (normalized.length() >= 2 && normalized.startsWith("\"") && normalized.endsWith("\"")) {
+            return normalized.substring(1, normalized.length() - 1);
+        }
+        return normalized;
+    }
+
+    private static int parseNonNegativeInteger(String field, String rawValue) throws CommandSyntaxException {
+        try {
+            return Math.max(0, Integer.parseInt(rawValue));
+        } catch (NumberFormatException exception) {
+            throw new SimpleCommandExceptionType(Component.literal("配置项 " + field + " 需要非负整数")).create();
+        }
+    }
+
+    private static double parseFiniteDouble(String field, String rawValue) throws CommandSyntaxException {
+        try {
+            double value = Double.parseDouble(rawValue);
+            if (!Double.isFinite(value)) {
+                throw new NumberFormatException(rawValue);
+            }
+            return value;
+        } catch (NumberFormatException exception) {
+            throw new SimpleCommandExceptionType(Component.literal("配置项 " + field + " 需要有效数字")).create();
+        }
+    }
+
+    private static double parseNonNegativeDouble(String field, String rawValue) throws CommandSyntaxException {
+        double value = parseFiniteDouble(field, rawValue);
+        if (value < 0.0D) {
+            throw new SimpleCommandExceptionType(Component.literal("配置项 " + field + " 不能小于 0")).create();
+        }
+        return value;
+    }
+
+    private static double parsePositiveOrZeroDouble(String field, String rawValue) throws CommandSyntaxException {
+        return parseNonNegativeDouble(field, rawValue);
     }
 
     private static String resolveEntryDisplayName(ShellingDataModel.ShellingEntry entry) {

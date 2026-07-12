@@ -65,6 +65,7 @@ public final class HeroKitDataStore extends JsonDataStoreSupport {
             resolved.setDisplayName(resolved.getDisplayName());
             resolved.setCost(resolved.getCost());
             resolved.setType(resolved.getType());
+            resolved.setCooldownSeconds(resolved.getCooldownSeconds());
             resolved.setHotbarBySlot(normalizeSlotMap(resolved.getHotbarBySlot()));
             resolved.setInventoryBySlot(normalizeSlotMap(resolved.getInventoryBySlot()));
             resolved.setOffhandItemSnbt(resolved.getOffhandItemSnbt());

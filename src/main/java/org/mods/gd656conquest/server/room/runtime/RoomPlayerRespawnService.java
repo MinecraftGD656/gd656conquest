@@ -153,6 +153,7 @@ public final class RoomPlayerRespawnService {
         long countdownStartTick = gameTick + (killerEntityId >= 0
             ? DEATH_WITH_KILLER_OPEN_DEPLOY_TICKS
             : DEATH_NO_KILLER_OPEN_DEPLOY_TICKS);
+        HeroKitSupportService.endHeroKitState(server, state, playerId, gameTick);
         state.markPlayerDead(playerId, deathPosition, countdownStartTick, killerEntityId);
         notifyNearbyTeammatesManDown(state, playerId, deathPosition, killerEntityId, false);
         ServerPlayer player = server.getPlayerList().getPlayer(playerId);
@@ -194,6 +195,7 @@ public final class RoomPlayerRespawnService {
             || state.isInRespawnFlow(playerId)) {
             return false;
         }
+        HeroKitSupportService.endHeroKitState(server, state, playerId, gameTick);
         long expireTick = gameTick + DOWNED_DURATION_TICKS;
         state.markPlayerDowned(playerId, deathPosition, gameTick, expireTick, killerEntityId);
         notifyNearbyTeammatesManDown(state, playerId, deathPosition, killerEntityId, true);
@@ -945,7 +947,8 @@ public final class RoomPlayerRespawnService {
         state.getRespawnFinalizeTicks().remove(playerId);
         state.getRespawnTargetPositions().put(playerId, spawn);
         playerLaunchService.teleportToRoomPosition(player, room, spawn);
-        HeroKitSupportService.clearHeroKitStateOnRespawn(state, playerId);
+        HeroKitSupportService.endHeroKitState(server, state, playerId, gameTick);
+        state.getHeroKitLoadoutResetPendingPlayers().remove(playerId);
         loadoutService.applySpawnLoadout(state, player);
         markInitialMovementLocked(state, playerId);
         playerStateService.applyRespawnState(room, playerId, gameTick);
@@ -962,6 +965,7 @@ public final class RoomPlayerRespawnService {
         UUID reviverId = state.getReviveReviverByTarget().get(playerId);
         ServerPlayer reviver = reviverId == null ? null : server.getPlayerList().getPlayer(reviverId);
         int killerEntityId = state.getDeathKillerEntityIdOrDefault(playerId);
+        int deployDelayTicks = resolveDeployDelayTicksFromDowned(room, state, playerId, gameTick);
         clearRevivePresentation(reviver, player);
         releaseForcedReviveCrouch(reviver);
         state.clearRespawnFlow(playerId);
@@ -971,7 +975,7 @@ public final class RoomPlayerRespawnService {
             PlayerAnimatorDebugDimensionsState.stopPreview(player);
             NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());
             FrontlineVoiceBridge.playConfirmedDeath(player);
-            beginDeployFromDowned(room, state, player, killerEntityId, gameTick);
+            beginDeployFromDowned(room, state, player, killerEntityId, gameTick, deployDelayTicks);
         }
         state.clearReviveState(playerId);
         broadcastPlayerAnimatorState(state, playerId, 0, false);
@@ -992,20 +996,20 @@ public final class RoomPlayerRespawnService {
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
         PlayerAnimatorDebugDimensionsState.stopPreview(player);
         int killerEntityId = state.getDeathKillerEntityIdOrDefault(playerId);
+        int deployDelayTicks = resolveDeployDelayTicksFromDowned(room, state, playerId, gameTick);
         state.clearReviveState(playerId);
         state.clearRespawnFlow(playerId);
         broadcastPlayerAnimatorState(state, playerId, 0, false);
         FrontlineVoiceBridge.playConfirmedDeath(player);
-        beginDeployFromDowned(room, state, player, killerEntityId, gameTick);
+        beginDeployFromDowned(room, state, player, killerEntityId, gameTick, deployDelayTicks);
     }
 
-    private void beginDeployFromDowned(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, int killerEntityId, long gameTick) {
+    private void beginDeployFromDowned(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, int killerEntityId, long gameTick, int deployDelayTicks) {
         if (room == null || state == null || player == null) {
             return;
         }
         UUID playerId = player.getUUID();
         notifyGameplayConfirmedDeath(room, state, playerId, killerEntityId, gameTick);
-        int deployDelayTicks = resolveDeployDelayTicks(room, state, 1);
         if (state.getDoubledRespawnPending().remove(playerId)) {
             deployDelayTicks *= 2;
         }
@@ -1017,6 +1021,19 @@ public final class RoomPlayerRespawnService {
             deployDelayTicks,
             false
         ));
+    }
+
+    private int resolveDeployDelayTicksFromDowned(RoomDefinition room, RunningRuntimeState state, UUID playerId, long gameTick) {
+        int deployDelayTicks = resolveDeployDelayTicks(room, state, 1);
+        if (room == null || state == null || playerId == null || !room.commonConfig().enableRespawnCountdownWhileDowned()) {
+            return deployDelayTicks;
+        }
+        Long downedStartTick = state.getDownedStartTicks().get(playerId);
+        if (downedStartTick == null) {
+            return deployDelayTicks;
+        }
+        long elapsedTicks = Math.max(0L, gameTick - downedStartTick);
+        return (int) Math.max(0L, deployDelayTicks - elapsedTicks);
     }
 
     private void notifyNearbyTeammatesManDown(
@@ -1532,6 +1549,9 @@ public final class RoomPlayerRespawnService {
         state.clearRespawnFlow(targetId);
         PlayerAnimatorDebugDimensionsState.stopPreview(target);
         playerStateService.applyRevivedState(room, target, gameTick, revivedByAssault);
+        if (state.getHeroKitLoadoutResetPendingPlayers().remove(targetId)) {
+            loadoutService.applySpawnLoadout(state, target);
+        }
         target.setDeltaMovement(0.0D, 0.0D, 0.0D);
         applyReviveBlindEffect(target);
         boolean revivedCuePlayed = FrontlineVoiceBridge.playCue(target, "REVIVED");
@@ -1617,7 +1637,8 @@ public final class RoomPlayerRespawnService {
         player.setXRot(0.0F);
         playerLaunchService.teleportToRoomPosition(player, room, spawn);
         clearVanillaPotionEffects(player);
-        HeroKitSupportService.clearHeroKitStateOnRespawn(state, playerId);
+        HeroKitSupportService.endHeroKitState(server, state, playerId, gameTick);
+        state.getHeroKitLoadoutResetPendingPlayers().remove(playerId);
         loadoutService.applySpawnLoadout(state, player);
         if (pendingVehicleDeploy != null) {
             playerStateService.applyRespawnState(room, playerId, gameTick);

@@ -41,20 +41,20 @@ public final class VehicleRoomCommands {
         return Commands.literal("vehicle")
             .requires(source -> source.hasPermission(2))
             .then(Commands.literal("list")
-                .then(Commands.argument("gameplay", StringArgumentType.word())
+                .then(Commands.argument("gameplay", StringArgumentType.string())
                     .suggests(VehicleRoomCommands::suggestGameplayIds)
                     .executes(VehicleRoomCommands::executeList)))
             .then(Commands.literal("add")
                 .then(buildAddConquestTree())
                 .then(buildAddBreakthroughTree()))
             .then(Commands.literal("remove")
-                .then(Commands.argument("gameplay", StringArgumentType.word())
+                .then(Commands.argument("gameplay", StringArgumentType.string())
                     .suggests(VehicleRoomCommands::suggestGameplayIds)
-                    .then(Commands.argument("entryId", StringArgumentType.word())
+                    .then(Commands.argument("entryId", StringArgumentType.string())
                         .suggests(VehicleRoomCommands::suggestConfiguredEntryIds)
                         .executes(VehicleRoomCommands::executeRemove))))
             .then(Commands.literal("resync")
-                .then(Commands.argument("gameplay", StringArgumentType.word())
+                .then(Commands.argument("gameplay", StringArgumentType.string())
                     .suggests(VehicleRoomCommands::suggestGameplayIds)
                     .executes(VehicleRoomCommands::executeResync)));
     }
@@ -88,7 +88,7 @@ public final class VehicleRoomCommands {
         );
         requiredTeamSize.then(teamWideDeployEnabled);
 
-        RequiredArgumentBuilder<CommandSourceStack, String> team = Commands.argument("team", StringArgumentType.word())
+        RequiredArgumentBuilder<CommandSourceStack, String> team = Commands.argument("team", StringArgumentType.string())
             .suggests(VehicleRoomCommands::suggestTeamIds);
         team.then(requiredTeamSize);
 
@@ -104,7 +104,7 @@ public final class VehicleRoomCommands {
         );
         respawnSeconds.then(vehicleId);
 
-        RequiredArgumentBuilder<CommandSourceStack, String> entryId = Commands.argument("entryId", StringArgumentType.word());
+        RequiredArgumentBuilder<CommandSourceStack, String> entryId = Commands.argument("entryId", StringArgumentType.string());
         entryId.then(respawnSeconds);
 
         return Commands.literal("conquest").then(entryId);
@@ -145,7 +145,7 @@ public final class VehicleRoomCommands {
         );
         stageIndex.then(requiredTeamSize);
 
-        RequiredArgumentBuilder<CommandSourceStack, String> team = Commands.argument("team", StringArgumentType.word())
+        RequiredArgumentBuilder<CommandSourceStack, String> team = Commands.argument("team", StringArgumentType.string())
             .suggests(VehicleRoomCommands::suggestTeamIds);
         team.then(stageIndex);
 
@@ -161,7 +161,7 @@ public final class VehicleRoomCommands {
         );
         respawnSeconds.then(vehicleId);
 
-        RequiredArgumentBuilder<CommandSourceStack, String> entryId = Commands.argument("entryId", StringArgumentType.word());
+        RequiredArgumentBuilder<CommandSourceStack, String> entryId = Commands.argument("entryId", StringArgumentType.string());
         entryId.then(respawnSeconds);
 
         return Commands.literal("breakthrough").then(entryId);

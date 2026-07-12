@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.facility.support;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -10,8 +11,6 @@ import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.data.herokit.HeroKitDataModel;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
-import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
-import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.shared.inventory.PlayerInventorySanitizer;
@@ -52,8 +51,32 @@ public final class HeroKitSupportService {
         state.getActiveHeroKitTypesByPlayer().remove(playerId);
     }
 
-    public static void clearHeroKitStateOnRespawn(RunningRuntimeState state, UUID playerId) {
+    public static void endHeroKitState(MinecraftServer server, RunningRuntimeState state, UUID playerId, long gameTick) {
+        if (state == null || playerId == null) {
+            return;
+        }
+        String heroKitId = state.getActiveHeroKitIdsByPlayer().get(playerId);
+        RoomTeamId teamId = state.getRoomTeams().get(playerId);
+        boolean hadHeroKit = heroKitId != null && !heroKitId.isBlank();
         clearHeroKitState(state, playerId);
+        if (hadHeroKit) {
+            state.getHeroKitLoadoutResetPendingPlayers().add(playerId);
+        }
+        if (server == null || heroKitId == null || heroKitId.isBlank() || teamId == null) {
+            return;
+        }
+        HeroKitDataModel.HeroKitEntry entry = ConquestDataManager.of(server)
+            .heroKits()
+            .get()
+            .getHeroKitsById()
+            .get(heroKitId);
+        String scopedKey = buildScopedHeroKitKey(teamId, heroKitId);
+        int cooldownSeconds = entry == null ? 0 : entry.getCooldownSeconds();
+        if (cooldownSeconds <= 0) {
+            state.getHeroKitCooldownExpireTicksByScopedKey().remove(scopedKey);
+            return;
+        }
+        state.getHeroKitCooldownExpireTicksByScopedKey().put(scopedKey, gameTick + cooldownSeconds * 20L);
     }
 
     public static boolean canRefillFromAmmoBox(RunningRuntimeState state, UUID playerId) {
@@ -102,6 +125,27 @@ public final class HeroKitSupportService {
             SupportUiService.sendSnapshot(player);
             return;
         }
+        long gameTick = player.server.getTickCount();
+        HeroKitOccupancy occupancy = resolveHeroKitOccupancy(state, teamId, heroKitId, player.getUUID(), gameTick);
+        if (occupancy.occupied()) {
+            String holderName = resolvePlayerName(player, occupancy.occupiedByPlayerId());
+            String message = holderName.isBlank()
+                ? "同阵营已有玩家正在使用该精英兵"
+                : holderName + " 正在使用该精英兵";
+            ServerMessageSender.system(player, "阵地支援", message, ChatFormatting.RED);
+            SupportUiService.sendSnapshot(player);
+            return;
+        }
+        if (occupancy.coolingDown()) {
+            ServerMessageSender.system(
+                player,
+                "阵地支援",
+                "该精英兵冷却中，还需 " + occupancy.remainingCooldownSeconds() + " 秒",
+                ChatFormatting.RED
+            );
+            SupportUiService.sendSnapshot(player);
+            return;
+        }
         SupportScoreService.ConsumptionResult result = roomManager.tryConsumePlayerSupportScore(player.getUUID(), Math.max(0, entry.getCost()));
         if (!result.success()) {
             ServerMessageSender.system(player, "阵地支援", "剩余分数不足", ChatFormatting.RED);
@@ -111,6 +155,8 @@ public final class HeroKitSupportService {
         applyHeroKitInventory(player, entry);
         state.getActiveHeroKitIdsByPlayer().put(player.getUUID(), entry.getId());
         state.getActiveHeroKitTypesByPlayer().put(player.getUUID(), entry.getType());
+        state.getHeroKitLoadoutResetPendingPlayers().remove(player.getUUID());
+        state.getHeroKitCooldownExpireTicksByScopedKey().remove(buildScopedHeroKitKey(teamId, entry.getId()));
         SupportHudSubtitleService.broadcastHeroKitDeployed(state, teamId, player, resolveDisplayName(entry));
         playDeployVoice(player, entry.getType());
         ServerMessageSender.system(
@@ -149,6 +195,59 @@ public final class HeroKitSupportService {
 
     private static String normalizeHeroKitId(String rawHeroKitId) {
         return rawHeroKitId == null ? "" : rawHeroKitId.trim();
+    }
+
+    public static HeroKitOccupancy resolveHeroKitOccupancy(
+        RunningRuntimeState state,
+        RoomTeamId teamId,
+        String heroKitId,
+        UUID requesterId,
+        long gameTick
+    ) {
+        if (state == null || teamId == null || heroKitId == null || heroKitId.isBlank()) {
+            return HeroKitOccupancy.idle();
+        }
+        UUID occupiedByPlayerId = findActiveHeroKitOwner(state, teamId, heroKitId, requesterId);
+        if (occupiedByPlayerId != null) {
+            return new HeroKitOccupancy(true, occupiedByPlayerId, false, 0);
+        }
+        String scopedKey = buildScopedHeroKitKey(teamId, heroKitId);
+        Long cooldownExpireTick = state.getHeroKitCooldownExpireTicksByScopedKey().get(scopedKey);
+        if (cooldownExpireTick == null || cooldownExpireTick <= gameTick) {
+            state.getHeroKitCooldownExpireTicksByScopedKey().remove(scopedKey);
+            return HeroKitOccupancy.idle();
+        }
+        int remainingSeconds = Math.max(1, (int) Math.ceil((cooldownExpireTick - gameTick) / 20.0D));
+        return new HeroKitOccupancy(false, null, true, remainingSeconds);
+    }
+
+    private static UUID findActiveHeroKitOwner(
+        RunningRuntimeState state,
+        RoomTeamId teamId,
+        String heroKitId,
+        UUID requesterId
+    ) {
+        if (state == null || teamId == null || heroKitId == null || heroKitId.isBlank()) {
+            return null;
+        }
+        for (Map.Entry<UUID, String> entry : state.getActiveHeroKitIdsByPlayer().entrySet()) {
+            UUID ownerId = entry.getKey();
+            if (ownerId == null || ownerId.equals(requesterId)) {
+                continue;
+            }
+            if (teamId != state.getRoomTeams().get(ownerId)) {
+                continue;
+            }
+            if (heroKitId.equalsIgnoreCase(entry.getValue())) {
+                return ownerId;
+            }
+        }
+        return null;
+    }
+
+    private static String buildScopedHeroKitKey(RoomTeamId teamId, String heroKitId) {
+        String normalizedId = heroKitId == null ? "" : heroKitId.trim().toLowerCase(java.util.Locale.ROOT);
+        return (teamId == null ? "" : teamId.name()) + "::" + normalizedId;
     }
 
     private static void applyHeroKitInventory(ServerPlayer player, HeroKitDataModel.HeroKitEntry entry) {
@@ -225,5 +324,27 @@ public final class HeroKitSupportService {
             return;
         }
         NetworkManager.sendToPlayer(player, ClientShortSoundPacket.oneShot(soundId, 1.0F, 1.0F));
+    }
+
+    private static String resolvePlayerName(ServerPlayer requester, UUID playerId) {
+        if (requester == null || requester.server == null || playerId == null) {
+            return "";
+        }
+        ServerPlayer holder = requester.server.getPlayerList().getPlayer(playerId);
+        if (holder == null || holder.getGameProfile() == null || holder.getGameProfile().getName() == null) {
+            return "";
+        }
+        return holder.getGameProfile().getName();
+    }
+
+    public record HeroKitOccupancy(
+        boolean occupied,
+        UUID occupiedByPlayerId,
+        boolean coolingDown,
+        int remainingCooldownSeconds
+    ) {
+        public static HeroKitOccupancy idle() {
+            return new HeroKitOccupancy(false, null, false, 0);
+        }
     }
 }

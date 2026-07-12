@@ -161,6 +161,7 @@ public final class RoomDefinitionGroupConfigEditor {
             common.enableKnifeDuel(),
             common.enableGoatHorn(),
             common.enablePlayerDowned(),
+            common.enableRespawnCountdownWhileDowned(),
             common.enableBackAgainstWall(),
             common.enableRandomLoadout(),
             common.enableRandomAttachments(),

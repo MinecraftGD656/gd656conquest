@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.room.config;
 
 import org.mods.gd656conquest.common.block.ConquestBlocks;
+import org.mods.gd656conquest.server.room.model.RoomVehicleBackend;
 import org.mods.gd656conquest.server.room.model.RoomTroopBalanceReference;
 import org.mods.gd656conquest.server.room.model.RoomVoicePack;
 
@@ -71,14 +72,25 @@ public final class RoomConfigDescriptorRegistry {
 
         common(descriptors, RoomConfigCategory.ROOM, "gameplayId", "玩法类型", "gameplayId", RoomConfigValueType.STRING, List.of("CONQUEST", "BREAKTHROUGH"), "gameplayType");
         common(descriptors, RoomConfigCategory.ROOM, "displayName", "房间名称", "displayName", RoomConfigValueType.STRING, List.of());
+        common(descriptors, RoomConfigCategory.ROOM, "dimensionId", "房间维度ID", "commonConfig.dimensionId", RoomConfigValueType.STRING, List.of());
         common(descriptors, RoomConfigCategory.MATCHING, "minStartPlayers", "最低开局人数", "commonConfig.matchingConfig.minStartPlayers", RoomConfigValueType.NUMBER, List.of(), "queueMinStartPlayers");
         common(descriptors, RoomConfigCategory.MATCHING, "queueMaxPlayers", "匹配最大人数", "commonConfig.matchingConfig.totalMaxPlayers", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.MATCHING, "waitAfterMinSeconds", "最低人数后最短等待", "commonConfig.matchingConfig.waitAfterMinSeconds", RoomConfigValueType.NUMBER, List.of(), "queueWaitAfterMinSeconds");
         common(descriptors, RoomConfigCategory.MATCHING, "waitAfterMaxSeconds", "最低人数后最长等待", "commonConfig.matchingConfig.waitAfterMaxSeconds", RoomConfigValueType.NUMBER, List.of(), "queueWaitAfterMaxSeconds");
         common(descriptors, RoomConfigCategory.TRANSPORT, "queueSpawn", "排队出生点", "commonConfig.queueSpawn", RoomConfigValueType.POSITION, List.of("here"));
+        common(descriptors, RoomConfigCategory.TRANSPORT, "vehicleBackend", "载具后端", "commonConfig.vehicleBackend", RoomConfigValueType.STRING, RoomVehicleBackend.suggestions(), "backend");
         common(descriptors, RoomConfigCategory.PLAYER_STATE, "respawnDelaySeconds", "重生等待秒数", "commonConfig.respawnDelaySeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "progressSpeed", "占领速度", "commonConfig.progressSpeed", RoomConfigValueType.NUMBER, List.of(), "captureProgressSpeed");
         common(descriptors, RoomConfigCategory.RULES, "enablePlayerDowned", "启用倒地", "commonConfig.enablePlayerDowned", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnablePlayerDowned");
+        common(
+            descriptors,
+            RoomConfigCategory.PLAYER_STATE,
+            "enableRespawnCountdownWhileDowned",
+            "倒地时开始部署倒计时",
+            "commonConfig.enableRespawnCountdownWhileDowned",
+            RoomConfigValueType.BOOLEAN,
+            List.of("true", "false")
+        );
         common(descriptors, RoomConfigCategory.RULES, "enableBackAgainstWall", "启用背水一战", "commonConfig.enableBackAgainstWall", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableBackAgainstWall");
         common(descriptors, RoomConfigCategory.RULES, "enableRandomLoadout", "启用随机配备", "commonConfig.enableRandomLoadout", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomLoadout");
         common(descriptors, RoomConfigCategory.RULES, "enableRandomAttachments", "启用房间随机配件", "commonConfig.enableRandomAttachments", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomAttachments");
@@ -115,10 +127,13 @@ public final class RoomConfigDescriptorRegistry {
             "disableInventoryEdit"
         );
         common(descriptors, RoomConfigCategory.RULES, "enableKnifeDuel", "是否启用刀战", "commonConfig.enableKnifeDuel", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableKnifeDuel");
+        common(descriptors, RoomConfigCategory.RULES, "outsideBoundaryDeathSeconds", "玩家出界死亡秒数", "commonConfig.outsideBoundaryDeathSeconds", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "aircraftOutsideBoundaryCleanupSeconds", "载具出界清理秒数", "commonConfig.aircraftOutsideBoundaryCleanupSeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "playerMaxY", "玩家最大Y轴", "commonConfig.playerMaxY", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "aircraftPassengerMaxY", "空中载具乘员最大Y轴", "commonConfig.aircraftPassengerMaxY", RoomConfigValueType.NUMBER, List.of());
         conquest(descriptors, RoomConfigCategory.TRANSPORT, "teamDeployIconCampA", "阵营A部署图标", "conquestConfig.teamDeployIcons[CAMP_A]", RoomConfigValueType.POSITION, List.of("here"), "campADeployIconPosition");
         conquest(descriptors, RoomConfigCategory.TRANSPORT, "teamDeployIconCampB", "阵营B部署图标", "conquestConfig.teamDeployIcons[CAMP_B]", RoomConfigValueType.POSITION, List.of("here"), "campBDeployIconPosition");
+        conquest(descriptors, RoomConfigCategory.TRANSPORT, "deployViewPosition", "部署界面视角", "conquestConfig.deployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"), "deployPagePosition");
         conquestGroup(descriptors, RoomConfigCategory.RULES, "sharedBoundary", "公共边界", "conquestConfig.sharedBoundary", RoomConfigValueType.POSITION_GROUP, "gameBoundary");
         conquestGroup(descriptors, RoomConfigCategory.RULES, "campABoundary", "阵营A边界", "conquestConfig.campABoundary", RoomConfigValueType.POSITION_GROUP, "campAGameBoundary");
         conquestGroup(descriptors, RoomConfigCategory.RULES, "campBBoundary", "阵营B边界", "conquestConfig.campBBoundary", RoomConfigValueType.POSITION_GROUP, "campBGameBoundary");
@@ -276,6 +291,7 @@ public final class RoomConfigDescriptorRegistry {
             if (scope == RoomConfigScope.CONQUEST) {
                 values.add(dynamicDescriptor(scope, code, "outer").preferredLegacyId());
             } else {
+                values.add(dynamicDescriptor(scope, code, "stage").preferredLegacyId());
                 values.add(dynamicDescriptor(scope, code, "outerA").preferredLegacyId());
                 values.add(dynamicDescriptor(scope, code, "outerB").preferredLegacyId());
             }
@@ -304,7 +320,7 @@ public final class RoomConfigDescriptorRegistry {
     private static List<String> dynamicKinds(RoomConfigScope scope) {
         return scope == RoomConfigScope.CONQUEST
             ? List.of("display", "center", "inner", "outer")
-            : List.of("display", "center", "inner", "outerA", "outerB");
+            : List.of("display", "center", "inner", "stage", "outerA", "outerB");
     }
 
     private static RoomConfigDescriptor dynamicDescriptor(RoomConfigScope scope, String captureCode, String kind) {
@@ -322,6 +338,7 @@ public final class RoomConfigDescriptorRegistry {
             case "display" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureDisplayName_" + code, "突破据点 " + code + " 名称", "breakthroughConfig.points[" + code + "].displayName", RoomConfigValueType.STRING, List.of("ALPHA", "BRAVO", "CHARLIE"), false, RoomConfigGroupOperationMode.NONE, null, "btCaptureName_" + code);
             case "center" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureCenterPosition_" + code, "突破据点 " + code + " 中心点", "breakthroughConfig.points[" + code + "].centerPosition", RoomConfigValueType.POSITION, List.of("here"), false, RoomConfigGroupOperationMode.NONE, null, "btCaptureCenter_" + code);
             case "inner" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureInnerSpawnGroup_" + code, "突破据点 " + code + " 内圈出生组", "breakthroughConfig.points[" + code + "].innerSpawnGroup", RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "btCaptureSpawns_" + code, "btCaptureRespawn_" + code);
+            case "stage" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureStageIndex_" + code, "突破据点 " + code + " 阶段", "breakthroughConfig.points[" + code + "].stageIndex", RoomConfigValueType.NUMBER, List.of("1", "2", "3", "4", "5", "6"), false, RoomConfigGroupOperationMode.NONE, null, "btCaptureStage_" + code);
             case "outerA" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureCampAOuterSpawnGroup_" + code, "突破据点 " + code + " 攻方外圈出生组", "breakthroughConfig.points[" + code + "].teamOuterSpawnGroups[CAMP_A]", RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "btCaptureCampAOuterSpawns_" + code, "btCaptureAttackerSpawns_" + code);
             case "outerB" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureCampBOuterSpawnGroup_" + code, "突破据点 " + code + " 守方外圈出生组", "breakthroughConfig.points[" + code + "].teamOuterSpawnGroups[CAMP_B]", RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "btCaptureCampBOuterSpawns_" + code, "btCaptureDefenderSpawns_" + code);
             default -> throw new IllegalArgumentException("未知动态突破配置类型: " + kind);

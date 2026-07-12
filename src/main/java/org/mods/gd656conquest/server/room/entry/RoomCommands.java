@@ -62,14 +62,14 @@ public final class RoomCommands {
             .then(Commands.literal("leave").executes(RoomCommands::executeLeave))
             .then(Commands.literal("copy")
                 .requires(source -> source.hasPermission(2))
-                .then(Commands.argument("templateRoomId", StringArgumentType.word())
+                .then(Commands.argument("templateRoomId", StringArgumentType.string())
                     .suggests(RoomCommands::suggestRoomIds)
-                    .then(Commands.argument("targetRoomId", StringArgumentType.word())
+                    .then(Commands.argument("targetRoomId", StringArgumentType.string())
                         .suggests(RoomCommands::suggestRoomIds)
                         .executes(RoomCommands::executeCopyRoomConfig))))
             .then(Commands.literal("delete")
                 .requires(source -> source.hasPermission(2))
-                .then(Commands.argument("targetRoomId", StringArgumentType.word())
+                .then(Commands.argument("targetRoomId", StringArgumentType.string())
                     .suggests(RoomCommands::suggestRoomIds)
                     .executes(RoomCommands::executeDeleteRoom)))
             .then(buildCurrentTeamTree())
@@ -84,7 +84,7 @@ public final class RoomCommands {
         return Commands.literal("camp")
             .then(Commands.literal("join")
                 .requires(source -> source.hasPermission(2))
-                .then(Commands.argument("teamId", StringArgumentType.word())
+                .then(Commands.argument("teamId", StringArgumentType.string())
                     .suggests(RoomCommands::suggestTeamIds)
                     .then(Commands.argument("target", EntityArgument.player())
                         .executes(RoomCommands::executeCurrentCampJoin))))
@@ -93,7 +93,7 @@ public final class RoomCommands {
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildRoomScopedTree() {
-        return Commands.argument("roomId", StringArgumentType.word())
+        return Commands.argument("roomId", StringArgumentType.string())
             .suggests(RoomCommands::suggestRoomIds)
             .then(Commands.literal("get").executes(RoomCommands::executeGet))
             .then(Commands.literal("join").executes(RoomCommands::executeJoin))
@@ -116,7 +116,7 @@ public final class RoomCommands {
             .then(Commands.literal("camp")
                 .then(Commands.literal("join")
                     .requires(source -> source.hasPermission(2))
-                    .then(Commands.argument("teamId", StringArgumentType.word())
+                    .then(Commands.argument("teamId", StringArgumentType.string())
                         .suggests(RoomCommands::suggestTeamIds)
                         .then(Commands.argument("target", EntityArgument.player())
                             .executes(RoomCommands::executeCampJoin))))
@@ -151,9 +151,9 @@ public final class RoomCommands {
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildConfigCommonBranch() {
         return Commands.literal("common")
-            .then(Commands.argument("configId", StringArgumentType.word())
+            .then(Commands.argument("configId", StringArgumentType.string())
                 .suggests(RoomCommands::suggestCommonConfigIds)
-                .then(Commands.argument("actionOrValue", StringArgumentType.word())
+                .then(Commands.argument("actionOrValue", StringArgumentType.string())
                     .suggests(RoomCommands::suggestCommonActionOrValue)
                     .then(Commands.argument("value", StringArgumentType.greedyString())
                         .suggests(RoomCommands::suggestCommonActionValue)
@@ -166,9 +166,9 @@ public final class RoomCommands {
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildConfigConquestBranch(String literalName) {
         return Commands.literal(literalName)
-            .then(Commands.argument("configId", StringArgumentType.word())
+            .then(Commands.argument("configId", StringArgumentType.string())
                 .suggests(RoomCommands::suggestPrivateConfigIds)
-                .then(Commands.argument("actionOrValue", StringArgumentType.word())
+                .then(Commands.argument("actionOrValue", StringArgumentType.string())
                     .suggests(RoomCommands::suggestPrivateActionOrValue)
                     .then(Commands.argument("value", StringArgumentType.greedyString())
                         .suggests(RoomCommands::suggestPrivateActionValue)
@@ -181,9 +181,9 @@ public final class RoomCommands {
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildConfigBreakthroughBranch(String literalName) {
         return Commands.literal(literalName)
-            .then(Commands.argument("configId", StringArgumentType.word())
+            .then(Commands.argument("configId", StringArgumentType.string())
                 .suggests(RoomCommands::suggestBreakthroughConfigIds)
-                .then(Commands.argument("actionOrValue", StringArgumentType.word())
+                .then(Commands.argument("actionOrValue", StringArgumentType.string())
                     .suggests(RoomCommands::suggestBreakthroughActionOrValue)
                     .then(Commands.argument("value", StringArgumentType.greedyString())
                         .suggests(RoomCommands::suggestBreakthroughActionValue)

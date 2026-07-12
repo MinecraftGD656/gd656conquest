@@ -10,6 +10,7 @@ import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.model.RoomTroopBalanceReference;
+import org.mods.gd656conquest.server.room.model.RoomVehicleBackend;
 import org.mods.gd656conquest.server.room.model.RoomViewPosition;
 import org.mods.gd656conquest.server.room.model.RoomVoicePack;
 
@@ -119,6 +120,10 @@ public final class RoomDefinitionScalarConfigEditor {
         if (centerCode != null) {
             return updateBreakthroughPoint(definition, centerCode, point -> point.withCenterPosition(parsePosition(rawValue, editor)));
         }
+        String stageCode = extractCode(configId, "btcapturestageindex_");
+        if (stageCode != null) {
+            return updateBreakthroughPoint(definition, stageCode, point -> point.withStageIndex(parsePositiveInt(rawValue)));
+        }
         throw new IllegalArgumentException("不支持的动态突破配置项: " + configId);
     }
 
@@ -132,6 +137,11 @@ public final class RoomDefinitionScalarConfigEditor {
         if (centerCode != null) {
             RoomCapturePointDefinition defaults = defaultBreakthroughPoint(centerCode);
             return updateBreakthroughPoint(definition, centerCode, point -> point.withCenterPosition(defaults.centerPosition()));
+        }
+        String stageCode = extractCode(configId, "btcapturestageindex_");
+        if (stageCode != null) {
+            RoomCapturePointDefinition defaults = defaultBreakthroughPoint(stageCode);
+            return updateBreakthroughPoint(definition, stageCode, point -> point.withStageIndex(defaults.stageIndex()));
         }
         throw new IllegalArgumentException("不支持的动态突破配置项: " + configId);
     }
@@ -216,6 +226,7 @@ public final class RoomDefinitionScalarConfigEditor {
         return switch (normalizedConfigId(descriptor)) {
             case "gameplayid" -> parseGameplayId(rawValue);
             case "gamemode" -> parseGameMode(rawValue);
+            case "vehiclebackend" -> RoomVehicleBackend.of(rawValue);
             case "campavoicepack", "campbvoicepack" -> RoomVoicePack.normalizeOrThrow(rawValue);
             case "troopbalancereference" -> RoomTroopBalanceReference.of(rawValue);
             case "scoremethod" -> parseScoreMethod(rawValue);
@@ -233,7 +244,9 @@ public final class RoomDefinitionScalarConfigEditor {
     }
 
     private static boolean isDynamicBreakthroughPoint(String configId) {
-        return configId.startsWith("btcapturedisplayname_") || configId.startsWith("btcapturecenterposition_");
+        return configId.startsWith("btcapturedisplayname_")
+            || configId.startsWith("btcapturecenterposition_")
+            || configId.startsWith("btcapturestageindex_");
     }
 
     private static String extractCode(String configId, String prefix) {

@@ -34,6 +34,12 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public final class HeroKitCommands {
+    private static final List<String> HERO_KIT_EDIT_FIELDS = List.of(
+        "displayName",
+        "cost",
+        "type",
+        "cooldownSeconds"
+    );
     private static final List<String> HERO_KIT_TYPES = List.of(
         "antivehicle",
         "flametrooper",
@@ -53,6 +59,9 @@ public final class HeroKitCommands {
     private static final DynamicCommandExceptionType INVALID_TYPE = new DynamicCommandExceptionType(
         value -> Component.literal("非法精英兵类型: " + value)
     );
+    private static final DynamicCommandExceptionType INVALID_FIELD = new DynamicCommandExceptionType(
+        value -> Component.literal("不支持修改的精英兵配置项: " + value)
+    );
     private static final SimpleCommandExceptionType EMPTY_DISPLAY_NAME = new SimpleCommandExceptionType(
         Component.literal("显示名称不能为空")
     );
@@ -63,25 +72,37 @@ public final class HeroKitCommands {
     public static ArgumentBuilder<CommandSourceStack, ?> buildTree() {
         return Commands.literal("herokits")
             .requires(source -> source.hasPermission(2))
-            .then(Commands.literal("add")
-                .then(Commands.argument("id", StringArgumentType.word())
-                    .then(Commands.argument("displayName", StringArgumentType.string())
-                        .then(Commands.argument("cost", IntegerArgumentType.integer(0))
-                            .then(Commands.argument("type", StringArgumentType.word())
-                                .suggests(HeroKitCommands::suggestTypes)
-                                .executes(HeroKitCommands::executeAdd))))))
+            .then(buildAddTree())
             .then(Commands.literal("edit")
-                .then(Commands.argument("id", StringArgumentType.word())
+                .then(Commands.argument("id", StringArgumentType.string())
                     .suggests(HeroKitCommands::suggestIds)
                     .executes(HeroKitCommands::executeEdit)))
             .then(Commands.literal("del")
-                .then(Commands.argument("id", StringArgumentType.word())
+                .then(Commands.argument("id", StringArgumentType.string())
                     .suggests(HeroKitCommands::suggestIds)
                     .executes(HeroKitCommands::executeDelete)))
             .then(Commands.literal("list")
                 .executes(HeroKitCommands::executeList))
             .then(Commands.literal("reload")
-                .executes(HeroKitCommands::executeReload));
+                .executes(HeroKitCommands::executeReload))
+            .then(Commands.argument("id", StringArgumentType.string())
+                .suggests(HeroKitCommands::suggestIds)
+                .then(Commands.argument("field", StringArgumentType.string())
+                    .suggests(HeroKitCommands::suggestEditFields)
+                    .then(Commands.argument("value", StringArgumentType.greedyString())
+                        .suggests(HeroKitCommands::suggestEditValues)
+                        .executes(HeroKitCommands::executeSetField))));
+    }
+
+    private static ArgumentBuilder<CommandSourceStack, ?> buildAddTree() {
+        return Commands.literal("add")
+            .then(Commands.argument("id", StringArgumentType.string())
+                .then(Commands.argument("displayName", StringArgumentType.string())
+                    .then(Commands.argument("cost", IntegerArgumentType.integer(0))
+                        .then(Commands.argument("type", StringArgumentType.string())
+                            .suggests(HeroKitCommands::suggestTypes)
+                                .then(Commands.argument("cooldownSeconds", IntegerArgumentType.integer(0))
+                                    .executes(HeroKitCommands::executeAdd))))));
     }
 
     private static int executeAdd(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -90,16 +111,25 @@ public final class HeroKitCommands {
         String displayName = normalizeDisplayName(StringArgumentType.getString(context, "displayName"));
         int cost = IntegerArgumentType.getInteger(context, "cost");
         String type = normalizeHeroKitType(StringArgumentType.getString(context, "type"));
+        int cooldownSeconds = IntegerArgumentType.getInteger(context, "cooldownSeconds");
         HeroKitDataStore store = ConquestDataManager.of(context.getSource().getServer()).heroKits();
         HeroKitDataModel data = store.get();
         if (data.getHeroKitsById().containsKey(id)) {
             throw HERO_KIT_EXISTS.create(id);
         }
-        data.getHeroKitsById().put(id, captureHeroKitEntry(player, id, displayName, cost, type));
+        data.getHeroKitsById().put(id, captureHeroKitEntry(player, id, displayName, cost, type, cooldownSeconds));
         persistHeroKits(context.getSource(), store, data);
         return CommandFeedbacks.info(
             context.getSource(),
-            String.format(Locale.ROOT, "已新增精英兵 %s，名称=%s，分数=%d，类型=%s", id, displayName, cost, type)
+            String.format(
+                Locale.ROOT,
+                "已新增精英兵 %s，名称=%s，分数=%d，类型=%s，冷却=%ds",
+                id,
+                displayName,
+                cost,
+                type,
+                cooldownSeconds
+            )
         );
     }
 
@@ -119,7 +149,8 @@ public final class HeroKitCommands {
                 id,
                 existing.getDisplayName(),
                 existing.getCost(),
-                existing.getType()
+                existing.getType(),
+                existing.getCooldownSeconds()
             )
         );
         persistHeroKits(context.getSource(), store, data);
@@ -153,11 +184,12 @@ public final class HeroKitCommands {
                 ServerText.colored(
                     String.format(
                         Locale.ROOT,
-                        "%s | 名称=%s | 分数=%d | 类型=%s",
+                        "%s | 名称=%s | 分数=%d | 类型=%s | 冷却=%ds",
                         entry.getId(),
                         entry.getDisplayName().isBlank() ? "<empty>" : entry.getDisplayName(),
                         entry.getCost(),
-                        entry.getType().isBlank() ? "<empty>" : entry.getType()
+                        entry.getType().isBlank() ? "<empty>" : entry.getType(),
+                        entry.getCooldownSeconds()
                     ),
                     ChatFormatting.AQUA
                 )
@@ -171,6 +203,30 @@ public final class HeroKitCommands {
         return CommandFeedbacks.info(context.getSource(), "已从磁盘重载精英兵数据，当前条目数: " + data.getHeroKitsById().size());
     }
 
+    private static int executeSetField(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        String id = normalizeHeroKitId(StringArgumentType.getString(context, "id"));
+        String field = normalizeEditField(StringArgumentType.getString(context, "field"));
+        String rawValue = unwrapQuotedValue(StringArgumentType.getString(context, "value"));
+        HeroKitDataStore store = ConquestDataManager.of(context.getSource().getServer()).heroKits();
+        HeroKitDataModel data = store.get();
+        HeroKitDataModel.HeroKitEntry entry = data.getHeroKitsById().get(id);
+        if (entry == null) {
+            throw HERO_KIT_NOT_FOUND.create(id);
+        }
+        switch (field) {
+            case "displayname" -> entry.setDisplayName(normalizeDisplayName(rawValue));
+            case "cost" -> entry.setCost(parseNonNegativeInteger(field, rawValue));
+            case "type" -> entry.setType(normalizeHeroKitType(rawValue));
+            case "cooldownseconds" -> entry.setCooldownSeconds(parseNonNegativeInteger(field, rawValue));
+            default -> throw INVALID_FIELD.create(field);
+        }
+        persistHeroKits(context.getSource(), store, data);
+        return CommandFeedbacks.info(
+            context.getSource(),
+            String.format(Locale.ROOT, "已更新精英兵 %s 的 %s = %s", id, field, rawValue)
+        );
+    }
+
     private static CompletableFuture<Suggestions> suggestIds(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         HeroKitDataModel data = ConquestDataManager.of(context.getSource().getServer()).heroKits().get();
         List<String> ids = new ArrayList<>(data.getHeroKitsById().keySet());
@@ -180,6 +236,18 @@ public final class HeroKitCommands {
 
     private static CompletableFuture<Suggestions> suggestTypes(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         return SharedSuggestionProvider.suggest(HERO_KIT_TYPES, builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestEditFields(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return SharedSuggestionProvider.suggest(HERO_KIT_EDIT_FIELDS, builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestEditValues(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        String field = normalizeEditField(StringArgumentType.getString(context, "field"));
+        if ("type".equals(field)) {
+            return SharedSuggestionProvider.suggest(HERO_KIT_TYPES, builder);
+        }
+        return Suggestions.empty();
     }
 
     private static String normalizeHeroKitId(String raw) throws CommandSyntaxException {
@@ -206,18 +274,40 @@ public final class HeroKitCommands {
         return normalized;
     }
 
+    private static String normalizeEditField(String raw) {
+        return raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String unwrapQuotedValue(String raw) {
+        String normalized = raw == null ? "" : raw.trim();
+        if (normalized.length() >= 2 && normalized.startsWith("\"") && normalized.endsWith("\"")) {
+            return normalized.substring(1, normalized.length() - 1);
+        }
+        return normalized;
+    }
+
+    private static int parseNonNegativeInteger(String field, String rawValue) throws CommandSyntaxException {
+        try {
+            return Math.max(0, Integer.parseInt(rawValue));
+        } catch (NumberFormatException exception) {
+            throw new SimpleCommandExceptionType(Component.literal("配置项 " + field + " 需要非负整数")).create();
+        }
+    }
+
     private static HeroKitDataModel.HeroKitEntry captureHeroKitEntry(
         ServerPlayer player,
         String id,
         String displayName,
         int cost,
-        String type
+        String type,
+        int cooldownSeconds
     ) {
         HeroKitDataModel.HeroKitEntry entry = new HeroKitDataModel.HeroKitEntry();
         entry.setId(id);
         entry.setDisplayName(displayName);
         entry.setCost(cost);
         entry.setType(type);
+        entry.setCooldownSeconds(cooldownSeconds);
         entry.setHotbarBySlot(captureHotbar(player));
         entry.setInventoryBySlot(captureInventory(player));
         entry.setOffhandItemSnbt(ItemStackSnbtCodec.serialize(player == null ? ItemStack.EMPTY : player.getOffhandItem()));

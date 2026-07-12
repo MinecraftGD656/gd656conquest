@@ -4,15 +4,15 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class HeroKitDataModel {
-    private Integer version = 1;
+    private Integer version = 2;
     private Map<String, HeroKitEntry> heroKitsById = new LinkedHashMap<>();
 
     public Integer getVersion() {
-        return version == null || version <= 0 ? 1 : version;
+        return version == null || version <= 0 ? 2 : version;
     }
 
     public void setVersion(Integer version) {
-        this.version = version == null || version <= 0 ? 1 : version;
+        this.version = version == null || version <= 0 ? 2 : version;
     }
 
     public Map<String, HeroKitEntry> getHeroKitsById() {
@@ -31,6 +31,7 @@ public final class HeroKitDataModel {
         private String displayName = "";
         private Integer cost = 0;
         private String type = "";
+        private Integer cooldownSeconds = 0;
         private Map<String, String> hotbarBySlot = new LinkedHashMap<>();
         private Map<String, String> inventoryBySlot = new LinkedHashMap<>();
         private String offhandItemSnbt = "";
@@ -66,6 +67,14 @@ public final class HeroKitDataModel {
 
         public void setType(String type) {
             this.type = type == null ? "" : type.trim().toLowerCase(java.util.Locale.ROOT);
+        }
+
+        public Integer getCooldownSeconds() {
+            return cooldownSeconds == null || cooldownSeconds < 0 ? 0 : cooldownSeconds;
+        }
+
+        public void setCooldownSeconds(Integer cooldownSeconds) {
+            this.cooldownSeconds = cooldownSeconds == null || cooldownSeconds < 0 ? 0 : cooldownSeconds;
         }
 
         public Map<String, String> getHotbarBySlot() {

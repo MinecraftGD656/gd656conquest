@@ -27,6 +27,7 @@ public record RoomCommonConfig(
     boolean enableKnifeDuel,
     boolean enableGoatHorn,
     boolean enablePlayerDowned,
+    boolean enableRespawnCountdownWhileDowned,
     boolean enableBackAgainstWall,
     boolean enableRandomLoadout,
     boolean enableRandomAttachments,
@@ -77,6 +78,7 @@ public record RoomCommonConfig(
             "",
             40.0D,
             RoomResultConfig.defaults(),
+            false,
             false,
             false,
             false,
@@ -158,14 +160,7 @@ public record RoomCommonConfig(
             false,
             false,
             false,
-            false,
-            false,
-            true,
-            true,
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of()
+            false
         );
     }
 
@@ -214,14 +209,7 @@ public record RoomCommonConfig(
             false,
             false,
             false,
-            false,
-            false,
-            true,
-            true,
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of()
+            false
         );
     }
 
@@ -247,6 +235,7 @@ public record RoomCommonConfig(
         boolean disableInventoryChange,
         boolean enableGoatHorn,
         boolean enablePlayerDowned,
+        boolean enableRespawnCountdownWhileDowned,
         boolean enableBackAgainstWall,
         boolean enableRandomLoadout
     ) {
@@ -273,6 +262,7 @@ public record RoomCommonConfig(
             false,
             enableGoatHorn,
             enablePlayerDowned,
+            enableRespawnCountdownWhileDowned,
             enableBackAgainstWall,
             enableRandomLoadout,
             false,
@@ -307,6 +297,7 @@ public record RoomCommonConfig(
         boolean disableInventoryChange,
         boolean enableGoatHorn,
         boolean enablePlayerDowned,
+        boolean enableRespawnCountdownWhileDowned,
         boolean enableBackAgainstWall,
         boolean enableRandomLoadout,
         boolean enableRandomAttachments
@@ -334,6 +325,7 @@ public record RoomCommonConfig(
             false,
             enableGoatHorn,
             enablePlayerDowned,
+            enableRespawnCountdownWhileDowned,
             enableBackAgainstWall,
             enableRandomLoadout,
             enableRandomAttachments,
@@ -368,6 +360,7 @@ public record RoomCommonConfig(
         boolean disableInventoryChange,
         boolean enableGoatHorn,
         boolean enablePlayerDowned,
+        boolean enableRespawnCountdownWhileDowned,
         boolean enableBackAgainstWall,
         boolean enableRandomLoadout,
         boolean enableRandomAttachments,
@@ -396,6 +389,7 @@ public record RoomCommonConfig(
             false,
             enableGoatHorn,
             enablePlayerDowned,
+            enableRespawnCountdownWhileDowned,
             enableBackAgainstWall,
             enableRandomLoadout,
             enableRandomAttachments,

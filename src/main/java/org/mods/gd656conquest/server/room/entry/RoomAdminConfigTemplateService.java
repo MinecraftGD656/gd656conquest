@@ -147,6 +147,7 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.enableKnifeDuel(),
             sourceCommon.enableGoatHorn(),
             sourceCommon.enablePlayerDowned(),
+            sourceCommon.enableRespawnCountdownWhileDowned(),
             sourceCommon.enableBackAgainstWall(),
             sourceCommon.enableRandomLoadout(),
             sourceCommon.enableRandomAttachments(),

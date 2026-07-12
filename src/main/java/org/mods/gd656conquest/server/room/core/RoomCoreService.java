@@ -1017,8 +1017,9 @@ public final class RoomCoreService {
         return findRunningSlotByPlayer(player.getUUID())
             .filter(slot -> slot.runtime().getRunningState().getRoomPlayers().contains(player.getUUID()))
             .map(slot -> {
-                HeroKitSupportService.clearHeroKitStateOnRespawn(slot.runtime().getRunningState(), player.getUUID());
+                HeroKitSupportService.endHeroKitState(server, slot.runtime().getRunningState(), player.getUUID(), server.getTickCount());
                 playerLoadoutService.applySpawnLoadout(slot.runtime().getRunningState(), player);
+                slot.runtime().getRunningState().getHeroKitLoadoutResetPendingPlayers().remove(player.getUUID());
                 return true;
             })
             .orElse(false);
@@ -1657,6 +1658,7 @@ public final class RoomCoreService {
         RunningRuntimeState runningState = slot.runtime().getRunningState();
         playerRejoinService.markRejoinable(slot.room(), runningState, playerId, gameTick);
         ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
+        HeroKitSupportService.endHeroKitState(server, runningState, playerId, gameTick);
         shellingRuntimeService.abortShellingRequest(
             slot.room(),
             runningState,
@@ -1709,6 +1711,7 @@ public final class RoomCoreService {
             return;
         }
         ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
+        HeroKitSupportService.endHeroKitState(server, runningState, playerId, server.getTickCount());
         shellingRuntimeService.abortShellingRequest(
             slot.room(),
             runningState,
