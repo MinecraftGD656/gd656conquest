@@ -56,6 +56,11 @@ public final class ClientEventListener {
     }
 
     @SubscribeEvent
+    public void onComputeFov(ViewportEvent.ComputeFov event) {
+        eventHandler.handleComputeFov(event);
+    }
+
+    @SubscribeEvent
     public void onBlockHighlight(RenderHighlightEvent.Block event) {
         eventHandler.handleBlockHighlight(event);
     }

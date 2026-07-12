@@ -13,8 +13,9 @@ public final class ClientHudVisibilityCycleService {
 
     public static void onF1Pressed() {
         currentMode = switch (currentMode) {
-            case NORMAL -> Mode.HUD_ONLY;
-            case HUD_ONLY -> Mode.FULL_HIDE;
+            case NORMAL -> Mode.CINEMATIC_HUD;
+            case CINEMATIC_HUD -> Mode.HAND_ONLY;
+            case HAND_ONLY -> Mode.FULL_HIDE;
             case FULL_HIDE -> Mode.NORMAL;
         };
         applyModeToClient();
@@ -26,15 +27,19 @@ public final class ClientHudVisibilityCycleService {
     }
 
     public static boolean shouldHideHudOnly() {
-        return resolveEffectiveMode() == Mode.HUD_ONLY;
+        return resolveEffectiveMode() == Mode.CINEMATIC_HUD;
     }
 
     public static boolean shouldApplyForcedHudOnlyFilter() {
         return !forcedVisible && forcedHudOnly;
     }
 
+    public static boolean shouldHideTopHudOnly() {
+        return !forcedVisible && !forcedHudOnly && currentMode == Mode.CINEMATIC_HUD;
+    }
+
     public static boolean shouldHideAllHudButKeepHand() {
-        return !forcedVisible && !forcedHudOnly && currentMode == Mode.HUD_ONLY;
+        return !forcedVisible && !forcedHudOnly && currentMode == Mode.HAND_ONLY;
     }
 
     public static boolean shouldHideAllHudAndHand() {
@@ -76,7 +81,7 @@ public final class ClientHudVisibilityCycleService {
         if (minecraft == null || minecraft.options == null) {
             return;
         }
-        minecraft.options.hideGui = shouldHideAllHudButKeepHand() || shouldHideAllHudAndHand();
+        minecraft.options.hideGui = shouldHideAllHudAndHand();
     }
 
     private static Mode resolveEffectiveMode() {
@@ -84,14 +89,15 @@ public final class ClientHudVisibilityCycleService {
             return Mode.NORMAL;
         }
         if (forcedHudOnly) {
-            return Mode.HUD_ONLY;
+            return Mode.CINEMATIC_HUD;
         }
         return currentMode;
     }
 
     private enum Mode {
         NORMAL,
-        HUD_ONLY,
+        CINEMATIC_HUD,
+        HAND_ONLY,
         FULL_HIDE
     }
 }

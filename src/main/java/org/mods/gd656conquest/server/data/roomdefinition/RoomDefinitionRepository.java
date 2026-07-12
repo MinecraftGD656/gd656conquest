@@ -40,7 +40,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class RoomDefinitionRepository extends JsonDataStoreSupport {
-    private static final int DEFAULT_ROOM_COUNT = 16;
+    private static final int DEFAULT_ROOM_COUNT = 24;
     private static final int STORAGE_VERSION = 14;
 
     private final MinecraftServer server;

@@ -36,9 +36,40 @@ public final class ClientHudVisibilityCycleListener {
 
     @SubscribeEvent
     public void onRenderHudPre(RenderGuiOverlayEvent.Pre event) {
+        if (event == null || event.getOverlay() == null) {
+            return;
+        }
+
+        ResourceLocation id = event.getOverlay().id();
+
         if (ClientHudVisibilityCycleService.shouldApplyForcedHudOnlyFilter() && shouldHideOverlay(event)) {
             event.setCanceled(true);
+            return;
         }
+
+        if (ClientHudVisibilityCycleService.shouldHideAllHudButKeepHand()) {
+            event.setCanceled(true);
+            return;
+        }
+
+        if (ClientHudVisibilityCycleService.shouldHideTopHudOnly()) {
+            if (!isBottomHudOverlay(id)) {
+                event.setCanceled(true);
+            }
+        }
+    }
+
+    private boolean isBottomHudOverlay(ResourceLocation id) {
+        return id.equals(VanillaGuiOverlay.HOTBAR.id())
+            || id.equals(VanillaGuiOverlay.PLAYER_HEALTH.id())
+            || id.equals(VanillaGuiOverlay.ARMOR_LEVEL.id())
+            || id.equals(VanillaGuiOverlay.FOOD_LEVEL.id())
+            || id.equals(VanillaGuiOverlay.AIR_LEVEL.id())
+            || id.equals(VanillaGuiOverlay.MOUNT_HEALTH.id())
+            || id.equals(VanillaGuiOverlay.JUMP_BAR.id())
+            || id.equals(VanillaGuiOverlay.EXPERIENCE_BAR.id())
+            || id.equals(VanillaGuiOverlay.ITEM_NAME.id())
+            || id.equals(SIMPLE_HEALTH_BAR_OVERLAY);
     }
 
     private boolean shouldHideOverlay(RenderGuiOverlayEvent.Pre event) {

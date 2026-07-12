@@ -71,6 +71,7 @@ public final class ClientEventHandler {
         if (event.phase != TickEvent.Phase.END) {
             return;
         }
+        org.mods.gd656conquest.client.input.ClientFovScrollService.onClientTick();
         AudioManager.getInstance().tickClient();
         ClientMusicTriggerService.tick();
         ClientPlayerAnimatorDebugState.tick();
@@ -133,6 +134,10 @@ public final class ClientEventHandler {
         event.setPitch(ClientDeathFlowState.getInterpolatedCameraPitch(partialTick));
     }
 
+    public void handleComputeFov(ViewportEvent.ComputeFov event) {
+        org.mods.gd656conquest.client.input.ClientFovScrollService.onComputeFov(event);
+    }
+
     public void handleBlockHighlight(RenderHighlightEvent.Block event) {
         if (event.getTarget().getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) {
             return;
@@ -175,7 +180,8 @@ public final class ClientEventHandler {
 
     public void renderMainHud(net.minecraftforge.client.gui.overlay.ForgeGui gui, net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
         if (org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideAllHudButKeepHand()
-            || org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideAllHudAndHand()) {
+            || org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideAllHudAndHand()
+            || org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideTopHudOnly()) {
             return;
         }
         RenderSystem.enableBlend();
@@ -239,6 +245,12 @@ public final class ClientEventHandler {
     }
 
     public void handleClientKeyInput(InputEvent.Key event) {
+        if (org.mods.gd656conquest.client.input.ClientFovScrollService.handleKeyInput(event)) {
+            if (event.isCancelable()) {
+                event.setCanceled(true);
+            }
+            return;
+        }
         if (superbWarfareShellingHook.handleKeyInput(Minecraft.getInstance(), event)) {
             if (event != null && event.isCancelable()) {
                 event.setCanceled(true);
@@ -268,6 +280,9 @@ public final class ClientEventHandler {
     }
 
     public void handleMouseScroll(InputEvent.MouseScrollingEvent event) {
+        if (org.mods.gd656conquest.client.input.ClientFovScrollService.handleMouseScroll(event)) {
+            return;
+        }
         roomSessionController.handleMouseScroll(event);
     }
 
