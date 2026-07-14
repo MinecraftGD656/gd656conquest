@@ -1,5 +1,7 @@
 package org.mods.gd656conquest.server.room.model;
 
+import org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidationResult;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -33,4 +35,6 @@ public interface IRoomGameplayConfig {
     default boolean hasConfiguredObjectivePoints() {
         return !configuredObjectivePoints().isEmpty();
     }
+
+    void validate(RoomConfigValidationResult result, RoomDefinition definition);
 }

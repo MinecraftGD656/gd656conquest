@@ -29,7 +29,6 @@ import org.mods.gd656conquest.network.packet.RoomDownedStatePacket;
 import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.data.playerdata.LegacySurvivalDataExportService;
-import org.mods.gd656conquest.server.data.roomdefinition.LegacyRoomDefinitionsUpdateService;
 import org.mods.gd656conquest.server.data.serverconfig.ServerConfigDataModel;
 import org.mods.gd656conquest.server.data.serverconfig.ServerConfigStore;
 import org.mods.gd656conquest.server.compat.tacz.TaczShellingTestService;
@@ -204,7 +203,7 @@ public final class ConquestServerCommands {
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildDebugRoomTree() {
         return Commands.literal("room")
-            .then(Commands.literal("updateConfig").executes(ConquestServerCommands::executeUpdate));
+            .then(Commands.literal("updateConfig").executes(context -> CommandFeedbacks.failure(context.getSource(), "此命令已被废弃，请使用 /gdc room config migrate")));
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildDebugDataTree() {
@@ -439,29 +438,7 @@ public final class ConquestServerCommands {
         return CommandFeedbacks.info(context.getSource(), message);
     }
 
-    private static int executeUpdate(CommandContext<CommandSourceStack> context) {
-        LegacyRoomDefinitionsUpdateService.UpdateResult result = new LegacyRoomDefinitionsUpdateService(context.getSource().getServer())
-            .updateAll(context.getSource().getServer().getTickCount());
-        CommandFeedbacks.line(
-            context.getSource(),
-            ServerText.colored("正在从旧目录更新房间配置: " + result.sourceDirectory(), net.minecraft.ChatFormatting.YELLOW)
-        );
-        for (String message : result.messages()) {
-            CommandFeedbacks.line(
-                context.getSource(),
-                ServerText.colored(
-                    message,
-                    message.startsWith("更新失败") ? net.minecraft.ChatFormatting.RED : net.minecraft.ChatFormatting.AQUA
-                )
-            );
-        }
-        String summary = "update 完成，扫描=" + result.scannedCount()
-            + "，成功=" + result.successCount()
-            + "，失败=" + result.failureCount();
-        return result.success()
-            ? CommandFeedbacks.info(context.getSource(), summary)
-            : CommandFeedbacks.failure(context.getSource(), summary);
-    }
+
 
     private static int executeConfigGetAll(CommandContext<CommandSourceStack> context) {
         ServerConfigStore store = ConquestDataManager.of(context.getSource().getServer()).serverConfig();

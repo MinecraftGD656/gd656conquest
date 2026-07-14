@@ -212,4 +212,126 @@ public record RoomBreakthroughConfig(
     private static String normalizeMapId(String mapId) {
         return mapId == null ? "" : mapId.trim();
     }
+
+    private static String breakthroughStageBoundaryConfigId(int stageIndex) {
+        return switch (stageIndex) {
+            case 1 -> "btStageABoundary";
+            case 2 -> "btStageBBoundary";
+            case 3 -> "btStageCBoundary";
+            case 4 -> "btStageDBoundary";
+            case 5 -> "btStageEBoundary";
+            case 6 -> "btStageFBoundary";
+            default -> "btStageBoundary";
+        };
+    }
+
+    private static String breakthroughStageViewConfigId(int stageIndex) {
+        return switch (stageIndex) {
+            case 1 -> "btStageDeployViewA";
+            case 2 -> "btStageDeployViewB";
+            case 3 -> "btStageDeployViewC";
+            case 4 -> "btStageDeployViewD";
+            case 5 -> "btStageDeployViewE";
+            case 6 -> "btStageDeployViewF";
+            default -> "btStageDeployView";
+        };
+    }
+
+    @Override
+    public void validate(org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidationResult result, RoomDefinition definition) {
+        if (definition == null) {
+            return;
+        }
+        var breakthrough = this;
+        if (breakthrough.mapId() == null || breakthrough.mapId().isBlank() || !org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.MAP_ID_PATTERN.matcher(breakthrough.mapId()).matches()) {
+            result.addMissing("breakthrough.mapId", "btMapID");
+        }
+        if (breakthrough.campADisplayName() == null || breakthrough.campADisplayName().isBlank()) {
+            result.addMissing("breakthrough.campADisplayName", "btCampADisplayName");
+        }
+        if (breakthrough.campBDisplayName() == null || breakthrough.campBDisplayName().isBlank()) {
+            result.addMissing("breakthrough.campBDisplayName", "btCampBDisplayName");
+        }
+        if (breakthrough.stageCount() <= 0 || breakthrough.stageCount() > 6) {
+            result.addMissing("breakthrough.stageCount", "btStageCount");
+        }
+        org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateBoundaryGroup(result, "breakthrough.campABaseBoundary", "btCampABaseBoundary", breakthrough.campABaseBoundary());
+        org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateBoundaryGroup(result, "breakthrough.campBBaseBoundary", "btCampBBaseBoundary", breakthrough.campBBaseBoundary());
+        org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(result, "breakthrough.campABaseSpawnGroup", "btCampABaseSpawnGroup", breakthrough.campABaseSpawnGroup(), true);
+        org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(result, "breakthrough.campBBaseSpawnGroup", "btCampBBaseSpawnGroup", breakthrough.campBBaseSpawnGroup(), true);
+        org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomPosition(result, "breakthrough.campABaseDeployIconPosition", "btCampABaseDeployIconPosition", breakthrough.campABaseDeployIconPosition());
+        org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomPosition(result, "breakthrough.campBBaseDeployIconPosition", "btCampBBaseDeployIconPosition", breakthrough.campBBaseDeployIconPosition());
+        if (breakthrough.stageDurationMinutes() <= 0) {
+            result.addMissing("breakthrough.stageDurationMinutes", "btStageDurationMinutes");
+        }
+        if (breakthrough.defenderRetreatSeconds() <= 0) {
+            result.addMissing("breakthrough.defenderRetreatSeconds", "btDefenderRetreatSeconds");
+        }
+        if (breakthrough.troopGainPerDefenderKill() <= 0) {
+            result.addMissing("breakthrough.troopGainPerDefenderKill", "btTroopGainPerDefenderKill");
+        }
+        if (breakthrough.maxAttackTroopsAt12Players() <= 0) {
+            result.addMissing("breakthrough.maxAttackTroopsAt12Players", "btMaxAttackTroopsAt12Players");
+        }
+        for (int stageIndex = 1; stageIndex <= breakthrough.stageCount(); stageIndex++) {
+            org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateBoundaryGroup(
+                result,
+                "breakthrough.stage" + stageIndex + "Boundary",
+                breakthroughStageBoundaryConfigId(stageIndex),
+                breakthrough.stageBoundary(stageIndex)
+            );
+            org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomViewPosition(
+                result,
+                "breakthrough.stage" + stageIndex + "DeployViewPosition",
+                breakthroughStageViewConfigId(stageIndex),
+                breakthrough.stageDeployViewPosition(stageIndex)
+            );
+        }
+        boolean hasActivePoint = false;
+        for (RoomCapturePointDefinition point : breakthrough.points().values()) {
+            if (point == null) {
+                continue;
+            }
+            String code = point.code();
+            if (point.centerPosition() != null) {
+                hasActivePoint = true;
+            }
+            if (point.displayName() == null || point.displayName().isBlank()) {
+                result.addMissing("breakthrough.points[" + code + "].displayName", "btCaptureDisplayName_" + code);
+            }
+            org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomPosition(
+                result,
+                "breakthrough.points[" + code + "].centerPosition",
+                "btCaptureCenterPosition_" + code,
+                point.centerPosition()
+            );
+            org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(
+                result,
+                "breakthrough.points[" + code + "].innerSpawnGroup",
+                "btCaptureInnerSpawnGroup_" + code,
+                point.innerSpawnGroup(),
+                true
+            );
+            org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(
+                result,
+                "breakthrough.points[" + code + "].teamOuterSpawnGroups[CAMP_A]",
+                "btCaptureCampAOuterSpawnGroup_" + code,
+                point.teamOuterSpawnGroups().get(RoomTeamId.CAMP_A),
+                true
+            );
+            org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(
+                result,
+                "breakthrough.points[" + code + "].teamOuterSpawnGroups[CAMP_B]",
+                "btCaptureCampBOuterSpawnGroup_" + code,
+                point.teamOuterSpawnGroups().get(RoomTeamId.CAMP_B),
+                true
+            );
+            if (point.stageIndex() <= 0 || point.stageIndex() > breakthrough.stageCount()) {
+                result.addMissing("breakthrough.points[" + code + "].stageIndex");
+            }
+        }
+        if (!hasActivePoint) {
+            result.addMissing("breakthrough.activePoints");
+        }
+    }
 }

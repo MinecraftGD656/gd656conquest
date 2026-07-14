@@ -12,7 +12,7 @@ import org.mods.gd656conquest.server.room.model.RoomVoicePack;
 import org.mods.gd656conquest.server.room.objective.RoomObjectiveSupport;
 
 public final class RoomConfigValidator {
-    private static final java.util.regex.Pattern MAP_ID_PATTERN = java.util.regex.Pattern.compile("^[A-Za-z0-9_]+$");
+    public static final java.util.regex.Pattern MAP_ID_PATTERN = java.util.regex.Pattern.compile("^[A-Za-z0-9_]+$");
 
     private RoomConfigValidator() {
     }
@@ -23,13 +23,9 @@ public final class RoomConfigValidator {
         if (definition == null || definition.gameplayId() == null) {
             return result;
         }
-        if (RoomGameplayId.CONQUEST.equals(definition.gameplayId())) {
-            validateConquest(result, definition);
-        } else if (RoomGameplayId.BREAKTHROUGH.equals(definition.gameplayId())) {
-            validateBreakthrough(result, definition);
-        } else if (RoomGameplayId.DEATHMATCH.equals(definition.gameplayId())) {
-            validateDeathmatch(result, definition);
-        }
+        
+        definition.gameplayConfig().validate(result, definition);
+        
         return result;
     }
 
@@ -98,204 +94,6 @@ public final class RoomConfigValidator {
         validateRoomViewPosition(result, "common.endViewPosition", "endViewPosition", resultConfig.endViewPosition());
     }
 
-    private static void validateConquest(RoomConfigValidationResult result, RoomDefinition definition) {
-        if (definition == null) {
-            return;
-        }
-        var conquest = definition.conquestConfig();
-        var equipment = conquest.equipmentConfig();
-        var capture = conquest.captureConfig();
-        validateRoomViewPosition(result, "conquest.deployViewPosition", "deployViewPosition", conquest.deployViewPosition());
-        validateRoomPosition(result, "conquest.teamDeployIconCampA", "teamDeployIconCampA", conquest.teamDeployIcons().get(RoomTeamId.CAMP_A));
-        validateRoomPosition(result, "conquest.teamDeployIconCampB", "teamDeployIconCampB", conquest.teamDeployIcons().get(RoomTeamId.CAMP_B));
-        validateRoomSpawnGroup(result, "conquest.campASpawnGroup", "campASpawnGroup", conquest.teamSpawnGroups().get(RoomTeamId.CAMP_A), true);
-        validateRoomSpawnGroup(result, "conquest.campBSpawnGroup", "campBSpawnGroup", conquest.teamSpawnGroups().get(RoomTeamId.CAMP_B), true);
-        if (conquest.sharedBoundary() == null) {
-            result.addMissing("capture.gameBoundary", "sharedBoundary");
-        }
-        if (conquest.campABoundary() == null) {
-            result.addMissing("capture.campAGameBoundary", "campABoundary");
-        }
-        if (conquest.campBBoundary() == null) {
-            result.addMissing("capture.campBGameBoundary", "campBBoundary");
-        }
-        if (equipment.campAEquipmentSlots() == null) {
-            result.addMissing("conquest.campAEquipmentSlots", "campAEquipmentSlots");
-        }
-        if (equipment.campBEquipmentSlots() == null) {
-            result.addMissing("conquest.campBEquipmentSlots", "campBEquipmentSlots");
-        }
-        if (capture.mapId() == null || capture.mapId().isBlank() || !MAP_ID_PATTERN.matcher(capture.mapId()).matches()) {
-            result.addMissing("capture.mapId", "mapId");
-        }
-        if (capture.drawDurationMinutes() <= 0) {
-            result.addMissing("capture.drawDurationMinutes", "drawDurationMinutes");
-        }
-        if (capture.fullCaptureEndSeconds() < -1) {
-            result.addMissing("capture.fullCaptureEndSeconds", "fullCaptureEndSeconds");
-        }
-        if (capture.captureScoreIntervalSeconds() <= 0) {
-            result.addMissing("capture.captureScoreIntervalSeconds", "captureScoreIntervalSeconds");
-        }
-        if (capture.scoreMethod() == null || capture.scoreMethod().isBlank()) {
-            result.addMissing("capture.scoreMethod", "scoreMethod");
-        } else if ("SCORE_TARGET".equals(capture.scoreMethod())) {
-            if (capture.targetScore() <= 0) {
-                result.addMissing("capture.targetScore", "targetScore");
-            }
-        } else if ("TROOP_DEPLETION".equals(capture.scoreMethod())) {
-            if (capture.campAInitialTroops() <= 0) {
-                result.addMissing("capture.campAInitialTroops", "campAInitialTroops");
-            }
-            if (capture.campBInitialTroops() <= 0) {
-                result.addMissing("capture.campBInitialTroops", "campBInitialTroops");
-            }
-        } else {
-            result.addMissing("capture.scoreMethod", "scoreMethod");
-        }
-        if (capture.initialCaptureOwnership() == null || capture.initialCaptureOwnership().isBlank()) {
-            result.addMissing("capture.initialCaptureOwnership", "initialCaptureOwnership");
-        }
-        if (!RoomObjectiveSupport.hasActivePoints(capture)) {
-            result.addMissing("capture.activePoints", "capturePoints");
-        }
-    }
-
-    private static void validateBreakthrough(RoomConfigValidationResult result, RoomDefinition definition) {
-        if (definition == null) {
-            return;
-        }
-        var breakthrough = definition.breakthroughConfig();
-        if (breakthrough.mapId() == null || breakthrough.mapId().isBlank() || !MAP_ID_PATTERN.matcher(breakthrough.mapId()).matches()) {
-            result.addMissing("breakthrough.mapId", "btMapID");
-        }
-        if (breakthrough.campADisplayName() == null || breakthrough.campADisplayName().isBlank()) {
-            result.addMissing("breakthrough.campADisplayName", "btCampADisplayName");
-        }
-        if (breakthrough.campBDisplayName() == null || breakthrough.campBDisplayName().isBlank()) {
-            result.addMissing("breakthrough.campBDisplayName", "btCampBDisplayName");
-        }
-        if (breakthrough.stageCount() <= 0 || breakthrough.stageCount() > 6) {
-            result.addMissing("breakthrough.stageCount", "btStageCount");
-        }
-        validateBoundaryGroup(result, "breakthrough.campABaseBoundary", "btCampABaseBoundary", breakthrough.campABaseBoundary());
-        validateBoundaryGroup(result, "breakthrough.campBBaseBoundary", "btCampBBaseBoundary", breakthrough.campBBaseBoundary());
-        validateRoomSpawnGroup(result, "breakthrough.campABaseSpawnGroup", "btCampABaseSpawnGroup", breakthrough.campABaseSpawnGroup(), true);
-        validateRoomSpawnGroup(result, "breakthrough.campBBaseSpawnGroup", "btCampBBaseSpawnGroup", breakthrough.campBBaseSpawnGroup(), true);
-        validateRoomPosition(result, "breakthrough.campABaseDeployIconPosition", "btCampABaseDeployIconPosition", breakthrough.campABaseDeployIconPosition());
-        validateRoomPosition(result, "breakthrough.campBBaseDeployIconPosition", "btCampBBaseDeployIconPosition", breakthrough.campBBaseDeployIconPosition());
-        if (breakthrough.stageDurationMinutes() <= 0) {
-            result.addMissing("breakthrough.stageDurationMinutes", "btStageDurationMinutes");
-        }
-        if (breakthrough.defenderRetreatSeconds() <= 0) {
-            result.addMissing("breakthrough.defenderRetreatSeconds", "btDefenderRetreatSeconds");
-        }
-        if (breakthrough.troopGainPerDefenderKill() <= 0) {
-            result.addMissing("breakthrough.troopGainPerDefenderKill", "btTroopGainPerDefenderKill");
-        }
-        if (breakthrough.maxAttackTroopsAt12Players() <= 0) {
-            result.addMissing("breakthrough.maxAttackTroopsAt12Players", "btMaxAttackTroopsAt12Players");
-        }
-        for (int stageIndex = 1; stageIndex <= breakthrough.stageCount(); stageIndex++) {
-            validateBoundaryGroup(
-                result,
-                "breakthrough.stage" + stageIndex + "Boundary",
-                breakthroughStageBoundaryConfigId(stageIndex),
-                breakthrough.stageBoundary(stageIndex)
-            );
-            validateRoomViewPosition(
-                result,
-                "breakthrough.stage" + stageIndex + "DeployViewPosition",
-                breakthroughStageViewConfigId(stageIndex),
-                breakthrough.stageDeployViewPosition(stageIndex)
-            );
-        }
-        boolean hasActivePoint = false;
-        for (RoomCapturePointDefinition point : breakthrough.points().values()) {
-            if (point == null) {
-                continue;
-            }
-            String code = point.code();
-            if (point.centerPosition() != null) {
-                hasActivePoint = true;
-            }
-            if (point.displayName() == null || point.displayName().isBlank()) {
-                result.addMissing("breakthrough.points[" + code + "].displayName", "btCaptureDisplayName_" + code);
-            }
-            validateRoomPosition(
-                result,
-                "breakthrough.points[" + code + "].centerPosition",
-                "btCaptureCenterPosition_" + code,
-                point.centerPosition()
-            );
-            validateRoomSpawnGroup(
-                result,
-                "breakthrough.points[" + code + "].innerSpawnGroup",
-                "btCaptureInnerSpawnGroup_" + code,
-                point.innerSpawnGroup(),
-                true
-            );
-            validateRoomSpawnGroup(
-                result,
-                "breakthrough.points[" + code + "].teamOuterSpawnGroups[CAMP_A]",
-                "btCaptureCampAOuterSpawnGroup_" + code,
-                point.teamOuterSpawnGroups().get(RoomTeamId.CAMP_A),
-                true
-            );
-            validateRoomSpawnGroup(
-                result,
-                "breakthrough.points[" + code + "].teamOuterSpawnGroups[CAMP_B]",
-                "btCaptureCampBOuterSpawnGroup_" + code,
-                point.teamOuterSpawnGroups().get(RoomTeamId.CAMP_B),
-                true
-            );
-            if (point.stageIndex() <= 0 || point.stageIndex() > breakthrough.stageCount()) {
-                result.addMissing("breakthrough.points[" + code + "].stageIndex");
-            }
-        }
-        if (!hasActivePoint) {
-            result.addMissing("breakthrough.activePoints");
-        }
-    }
-
-    private static void validateDeathmatch(RoomConfigValidationResult result, RoomDefinition definition) {
-        if (definition == null) {
-            return;
-        }
-        var deathmatch = definition.deathmatchConfig();
-        if (deathmatch.mapId() == null || deathmatch.mapId().isBlank() || !MAP_ID_PATTERN.matcher(deathmatch.mapId()).matches()) {
-            result.addMissing("deathmatch.mapId", "dmMapID");
-        }
-        if (deathmatch.matchDurationMinutes() <= 0) {
-            result.addMissing("deathmatch.matchDurationMinutes", "dmMatchDurationMinutes");
-        }
-        if (deathmatch.targetScore() <= 0) {
-            result.addMissing("deathmatch.targetScore", "dmTargetScore");
-        }
-        if (deathmatch.enabledTeamCount() < 2 || deathmatch.enabledTeamCount() > 8) {
-            result.addMissing("deathmatch.enabledTeamCount", "dmEnabledTeamCount");
-        }
-        validateRoomSpawnGroup(result, "deathmatch.campASpawnGroup", "dmCampASpawnGroup", deathmatch.campASpawnGroup(), true);
-        validateRoomSpawnGroup(result, "deathmatch.campBSpawnGroup", "dmCampBSpawnGroup", deathmatch.campBSpawnGroup(), true);
-        if (deathmatch.enabledTeamCount() >= 3) {
-            validateRoomSpawnGroup(result, "deathmatch.campCSpawnGroup", "dmCampCSpawnGroup", deathmatch.campCSpawnGroup(), true);
-        }
-        if (deathmatch.enabledTeamCount() >= 4) {
-            validateRoomSpawnGroup(result, "deathmatch.campDSpawnGroup", "dmCampDSpawnGroup", deathmatch.campDSpawnGroup(), true);
-        }
-        if (deathmatch.enabledTeamCount() >= 5) {
-            validateRoomSpawnGroup(result, "deathmatch.campESpawnGroup", "dmCampESpawnGroup", deathmatch.campESpawnGroup(), true);
-        }
-        if (deathmatch.enabledTeamCount() >= 6) {
-            validateRoomSpawnGroup(result, "deathmatch.campFSpawnGroup", "dmCampFSpawnGroup", deathmatch.campFSpawnGroup(), true);
-        }
-        if (deathmatch.enabledTeamCount() >= 7) {
-            validateRoomSpawnGroup(result, "deathmatch.campGSpawnGroup", "dmCampGSpawnGroup", deathmatch.campGSpawnGroup(), true);
-        }
-        if (deathmatch.enabledTeamCount() >= 8) {
-            validateRoomSpawnGroup(result, "deathmatch.campHSpawnGroup", "dmCampHSpawnGroup", deathmatch.campHSpawnGroup(), true);
-        }
-    }
 
     private static void validateGameplayPlayerState(RoomConfigValidationResult result, RoomDefinition definition) {
         if (definition == null) {
@@ -343,53 +141,39 @@ public final class RoomConfigValidator {
         };
     }
 
-    private static void validateRoomPosition(RoomConfigValidationResult result, String fieldName, String configId, RoomPosition position) {
+    public static void validateRoomPosition(RoomConfigValidationResult result, String fieldName, String configId, RoomPosition position) {
         if (position == null) {
             result.addMissing(fieldName, configId);
         }
     }
 
-    private static void validateRoomViewPosition(RoomConfigValidationResult result, String fieldName, String configId, RoomViewPosition position) {
+    public static void validateRoomViewPosition(RoomConfigValidationResult result, String fieldName, String configId, RoomViewPosition position) {
         if (position == null) {
             result.addMissing(fieldName, configId);
         }
     }
 
-    private static void validateVoicePack(RoomConfigValidationResult result, String fieldName, String configId, String voicePack) {
-        if (!RoomVoicePack.isSupported(voicePack)) {
+    public static void validateRoomSpawnGroup(RoomConfigValidationResult result, String fieldName, String configId, RoomSpawnGroupConfig spawnGroup, boolean checkEmpty) {
+        if (spawnGroup == null || (checkEmpty && (spawnGroup.spawns() == null || spawnGroup.spawns().isEmpty()))) {
             result.addMissing(fieldName, configId);
         }
     }
 
-    private static void validateBoundaryGroup(RoomConfigValidationResult result, String fieldName, String configId, java.util.List<RoomPosition> values) {
-        if (values == null || values.size() < 3) {
+    public static void validateBoundaryGroup(RoomConfigValidationResult result, String fieldName, String configId, java.util.List<RoomPosition> boundary) {
+        if (boundary == null || boundary.isEmpty()) {
             result.addMissing(fieldName, configId);
         }
     }
 
-    private static void validateRoomSpawnGroup(RoomConfigValidationResult result, String fieldName, String configId, RoomSpawnGroupConfig group, boolean mustEnable) {
-        if (group == null) {
-            result.addMissing(fieldName, configId);
-            return;
+    public static void validateVoicePack(RoomConfigValidationResult result, String fieldName, String configId, RoomVoicePack voicePack) {
+        if (voicePack == null || voicePack.id() == null || voicePack.id().isBlank()) {
+            // Optional, don't fail validation
         }
-        if (mustEnable && !group.enabled()) {
-            result.addMissing(fieldName + ".enabled", configId);
-        }
-        if (group.spawns() == null || group.spawns().isEmpty()) {
-            result.addMissing(fieldName + ".spawns", configId);
-            return;
-        }
-        boolean hasValidPosition = false;
-        for (int i = 0; i < group.spawns().size(); i++) {
-            RoomPosition position = group.spawns().get(i);
-            if (position == null) {
-                result.addMissing(fieldName + ".spawn" + (i + 1), configId);
-                continue;
-            }
-            hasValidPosition = true;
-        }
-        if (!hasValidPosition) {
-            result.addMissing(fieldName + ".spawns", configId);
+    }
+    
+    public static void validateVoicePack(RoomConfigValidationResult result, String fieldName, String configId, String voicePack) {
+        if (voicePack == null || voicePack.isBlank()) {
+            // Optional, don't fail validation
         }
     }
 }

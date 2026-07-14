@@ -26,6 +26,72 @@ public record RoomConquestConfig(
         campABoundary = copyBoundary(campABoundary);
         campBBoundary = copyBoundary(campBBoundary);
     }
+    
+    @Override
+    public void validate(org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidationResult result, RoomDefinition definition) {
+        if (definition == null) {
+            return;
+        }
+        var conquest = this;
+        var equipment = conquest.equipmentConfig();
+        var capture = conquest.captureConfig();
+        org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomViewPosition(result, "conquest.deployViewPosition", "deployViewPosition", conquest.deployViewPosition());
+        org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomPosition(result, "conquest.teamDeployIconCampA", "teamDeployIconCampA", conquest.teamDeployIcons().get(RoomTeamId.CAMP_A));
+        org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomPosition(result, "conquest.teamDeployIconCampB", "teamDeployIconCampB", conquest.teamDeployIcons().get(RoomTeamId.CAMP_B));
+        org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(result, "conquest.campASpawnGroup", "campASpawnGroup", conquest.teamSpawnGroups().get(RoomTeamId.CAMP_A), true);
+        org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(result, "conquest.campBSpawnGroup", "campBSpawnGroup", conquest.teamSpawnGroups().get(RoomTeamId.CAMP_B), true);
+        if (conquest.sharedBoundary() == null) {
+            result.addMissing("capture.gameBoundary", "sharedBoundary");
+        }
+        if (conquest.campABoundary() == null) {
+            result.addMissing("capture.campAGameBoundary", "campABoundary");
+        }
+        if (conquest.campBBoundary() == null) {
+            result.addMissing("capture.campBGameBoundary", "campBBoundary");
+        }
+        if (equipment.campAEquipmentSlots() == null) {
+            result.addMissing("conquest.campAEquipmentSlots", "campAEquipmentSlots");
+        }
+        if (equipment.campBEquipmentSlots() == null) {
+            result.addMissing("conquest.campBEquipmentSlots", "campBEquipmentSlots");
+        }
+        if (capture.mapId() == null || capture.mapId().isBlank() || !org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.MAP_ID_PATTERN.matcher(capture.mapId()).matches()) {
+            result.addMissing("capture.mapId", "mapId");
+        }
+        if (capture.drawDurationMinutes() <= 0) {
+            result.addMissing("capture.drawDurationMinutes", "drawDurationMinutes");
+        }
+        if (capture.fullCaptureEndSeconds() < -1) {
+            result.addMissing("capture.fullCaptureEndSeconds", "fullCaptureEndSeconds");
+        }
+        if (capture.captureScoreIntervalSeconds() <= 0) {
+            result.addMissing("capture.captureScoreIntervalSeconds", "captureScoreIntervalSeconds");
+        }
+        if (capture.scoreMethod() == null || capture.scoreMethod().isBlank()) {
+            result.addMissing("capture.scoreMethod", "scoreMethod");
+        } else if ("SCORE_TARGET".equals(capture.scoreMethod())) {
+            if (capture.targetScore() <= 0) {
+                result.addMissing("capture.targetScore", "targetScore");
+            }
+        } else if ("TROOP_DEPLETION".equals(capture.scoreMethod())) {
+            if (capture.campAInitialTroops() <= 0) {
+                result.addMissing("capture.campAInitialTroops", "campAInitialTroops");
+            }
+            if (capture.campBInitialTroops() <= 0) {
+                result.addMissing("capture.campBInitialTroops", "campBInitialTroops");
+            }
+        } else {
+            result.addMissing("capture.scoreMethod", "scoreMethod");
+        }
+        if (capture.initialCaptureOwnership() == null || capture.initialCaptureOwnership().isBlank()) {
+            result.addMissing("capture.initialCaptureOwnership", "initialCaptureOwnership");
+        }
+        if (!org.mods.gd656conquest.server.room.objective.RoomObjectiveSupport.hasActivePoints(capture)) {
+            result.addMissing("capture.activePoints", "capturePoints");
+        }
+    }
+
+
 
     public static RoomConquestConfig defaults() {
         return new RoomConquestConfig(
