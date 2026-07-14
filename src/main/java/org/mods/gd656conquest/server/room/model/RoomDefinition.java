@@ -1,6 +1,5 @@
 package org.mods.gd656conquest.server.room.model;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -12,8 +11,7 @@ public record RoomDefinition(
     RoomGameplayId gameplayId,
     RoomLifecycleState lifecycleState,
     RoomCommonConfig commonConfig,
-    RoomConquestConfig conquestConfig,
-    RoomBreakthroughConfig breakthroughConfig
+    IRoomGameplayConfig gameplayConfig
 ) {
     public RoomDefinition {
         Objects.requireNonNull(roomId, "roomId");
@@ -21,8 +19,7 @@ public record RoomDefinition(
         Objects.requireNonNull(gameplayId, "gameplayId");
         Objects.requireNonNull(lifecycleState, "lifecycleState");
         commonConfig = commonConfig == null ? RoomCommonConfig.defaults() : commonConfig;
-        conquestConfig = conquestConfig == null ? RoomConquestConfig.defaults() : conquestConfig;
-        breakthroughConfig = breakthroughConfig == null ? RoomBreakthroughConfig.defaults() : breakthroughConfig;
+        gameplayConfig = gameplayConfig == null ? RoomConquestConfig.defaults() : gameplayConfig;
         roomId = roomId.trim().toLowerCase(Locale.ROOT);
         if (roomId.isEmpty()) {
             throw new IllegalArgumentException("房间ID不能为空");
@@ -36,8 +33,7 @@ public record RoomDefinition(
             gameplayId,
             lifecycleState,
             RoomCommonConfig.defaults(),
-            RoomConquestConfig.defaults(),
-            RoomBreakthroughConfig.defaults()
+            defaultGameplayConfig(gameplayId)
         );
     }
 
@@ -48,28 +44,20 @@ public record RoomDefinition(
             gameplayId,
             nextState,
             commonConfig,
-            conquestConfig,
-            breakthroughConfig
+            gameplayConfig
         );
     }
 
     public String gameplayMapId() {
-        if (RoomGameplayId.BREAKTHROUGH.equals(gameplayId)) {
-            return breakthroughConfig.mapId();
-        }
-        return conquestConfig.captureConfig().mapId();
+        return gameplayConfig.mapId();
     }
 
     public String gameplayTeamDisplayName(RoomTeamId teamId) {
         if (teamId == RoomTeamId.CAMP_A) {
-            return RoomGameplayId.BREAKTHROUGH.equals(gameplayId)
-                ? breakthroughConfig.campADisplayName()
-                : commonConfig.campADisplayName();
+            return gameplayConfig.campADisplayName(commonConfig);
         }
         if (teamId == RoomTeamId.CAMP_B) {
-            return RoomGameplayId.BREAKTHROUGH.equals(gameplayId)
-                ? breakthroughConfig.campBDisplayName()
-                : commonConfig.campBDisplayName();
+            return gameplayConfig.campBDisplayName(commonConfig);
         }
         return "";
     }
@@ -87,32 +75,41 @@ public record RoomDefinition(
     }
 
     public List<RoomCapturePointDefinition> configuredObjectivePoints() {
-        return definedObjectivePoints().stream()
-            .filter(RoomCapturePointDefinition::isRuntimeActive)
-            .toList();
+        return gameplayConfig.configuredObjectivePoints();
     }
 
     public List<RoomCapturePointDefinition> definedObjectivePoints() {
-        List<RoomCapturePointDefinition> points = RoomGameplayId.BREAKTHROUGH.equals(gameplayId)
-            ? new ArrayList<>(breakthroughConfig.points().values())
-            : new ArrayList<>(conquestConfig.captureConfig().points().values());
-        return points.stream()
-            .filter(Objects::nonNull)
-            .toList();
+        return gameplayConfig.definedObjectivePoints();
     }
 
     public Optional<RoomCapturePointDefinition> findConfiguredObjectivePoint(String code) {
-        if (code == null || code.isBlank()) {
-            return Optional.empty();
-        }
-        String normalized = code.trim().toUpperCase(Locale.ROOT);
-        return definedObjectivePoints().stream()
-            .filter(point -> normalized.equals(point.code()))
-            .findFirst();
+        return gameplayConfig.findConfiguredObjectivePoint(code);
     }
 
     public boolean hasConfiguredObjectivePoints() {
-        return !configuredObjectivePoints().isEmpty();
+        return gameplayConfig.hasConfiguredObjectivePoints();
+    }
+
+    public RoomConquestConfig conquestConfig() {
+        return gameplayConfig instanceof RoomConquestConfig cq ? cq : RoomConquestConfig.defaults();
+    }
+
+    public RoomBreakthroughConfig breakthroughConfig() {
+        return gameplayConfig instanceof RoomBreakthroughConfig bt ? bt : RoomBreakthroughConfig.defaults();
+    }
+
+    public RoomDeathmatchConfig deathmatchConfig() {
+        return gameplayConfig instanceof RoomDeathmatchConfig dm ? dm : RoomDeathmatchConfig.defaults();
+    }
+
+    private static IRoomGameplayConfig defaultGameplayConfig(RoomGameplayId gameplayId) {
+        if (RoomGameplayId.BREAKTHROUGH.equals(gameplayId)) {
+            return RoomBreakthroughConfig.defaults();
+        }
+        if (RoomGameplayId.DEATHMATCH.equals(gameplayId)) {
+            return RoomDeathmatchConfig.defaults();
+        }
+        return RoomConquestConfig.defaults();
     }
 
     private static String normalizeDisplayName(String displayName, String roomId) {

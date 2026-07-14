@@ -136,6 +136,7 @@ public final class RoomCommands {
         return Commands.literal("config")
             .requires(source -> source.hasPermission(2))
             .then(Commands.literal("reload").executes(RoomCommands::executeConfigReload))
+            .then(Commands.literal("migrate").executes(RoomCommands::executeConfigMigrate))
             .then(Commands.literal("campAEquipmentSlots")
                 .then(Commands.argument("value", StringArgumentType.greedyString())
                     .suggests((context, builder) -> SharedSuggestionProvider.suggest(List.of("now"), builder))
@@ -146,7 +147,8 @@ public final class RoomCommands {
                     .executes(ctx -> executeConfigCommonAlias(ctx, "campBEquipmentSlots"))))
             .then(buildConfigCommonBranch())
             .then(buildConfigConquestBranch("conquest"))
-            .then(buildConfigBreakthroughBranch("breakthrough"));
+            .then(buildConfigBreakthroughBranch("breakthrough"))
+            .then(buildConfigDeathmatchBranch("deathmatch"));
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildConfigCommonBranch() {
@@ -192,6 +194,21 @@ public final class RoomCommands {
                 .then(Commands.argument("actionOrValue", StringArgumentType.greedyString())
                     .suggests(RoomCommands::suggestBreakthroughActionOrValue)
                     .executes(RoomCommands::executeConfigBreakthroughActionOrValue)));
+    }
+
+    private static ArgumentBuilder<CommandSourceStack, ?> buildConfigDeathmatchBranch(String literalName) {
+        return Commands.literal(literalName)
+            .then(Commands.argument("configId", StringArgumentType.string())
+                .suggests(RoomCommands::suggestDeathmatchConfigIds)
+                .then(Commands.argument("actionOrValue", StringArgumentType.string())
+                    .suggests(RoomCommands::suggestDeathmatchActionOrValue)
+                    .then(Commands.argument("value", StringArgumentType.greedyString())
+                        .suggests(RoomCommands::suggestDeathmatchActionValue)
+                        .executes(RoomCommands::executeConfigDeathmatchActionWithValue))
+                    .executes(RoomCommands::executeConfigDeathmatchActionOrValue))
+                .then(Commands.argument("actionOrValue", StringArgumentType.greedyString())
+                    .suggests(RoomCommands::suggestDeathmatchActionOrValue)
+                    .executes(RoomCommands::executeConfigDeathmatchActionOrValue)));
     }
 
     private static int executeList(CommandContext<CommandSourceStack> context) {
@@ -572,6 +589,25 @@ public final class RoomCommands {
         };
     }
 
+    private static int executeConfigMigrate(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        if (!source.hasPermission(2)) {
+            return replyFailure(source, "需要管理员权限");
+        }
+        
+        sendLine(source, Component.literal("开始迁移房间配置数据到新目录 (roomdata)...").withStyle(ChatFormatting.YELLOW));
+        
+        org.mods.gd656conquest.server.data.roomdefinition.RoomDefinitionMigrator.MigrationResult result = 
+            org.mods.gd656conquest.server.data.roomdefinition.RoomDefinitionMigrator.migrateLegacyRooms(source.getServer());
+            
+        sendLine(source, Component.literal("迁移完成! 成功: " + result.successCount() + ", 失败: " + result.failureCount()).withStyle(ChatFormatting.GREEN));
+        for (String msg : result.messages()) {
+            sendLine(source, Component.literal("- " + msg).withStyle(msg.startsWith("已迁移") ? ChatFormatting.GRAY : ChatFormatting.RED));
+        }
+        
+        return result.successCount() > 0 ? 1 : 0;
+    }
+
     private static int executeConfigCommonAlias(CommandContext<CommandSourceStack> context, String configId) {
         return executeConfigSetById(context, configId, StringArgumentType.getString(context, "value"), RoomConfigScope.CONQUEST);
     }
@@ -631,6 +667,35 @@ public final class RoomCommands {
             case "add" -> executeConfigGroupMutation(context, configId, value, true, RoomConfigScope.BREAKTHROUGH);
             case "del" -> executeConfigGroupMutation(context, configId, value, false, RoomConfigScope.BREAKTHROUGH);
             default -> executeConfigSetById(context, configId, value, RoomConfigScope.BREAKTHROUGH);
+        };
+    }
+
+    private static int executeConfigDeathmatchActionOrValue(CommandContext<CommandSourceStack> context) {
+        String configId = StringArgumentType.getString(context, "configId");
+        String actionOrValue = StringArgumentType.getString(context, "actionOrValue");
+        RoomConfigDescriptor descriptor = resolveDescriptor(configId);
+        if (descriptor == null) {
+            return replyFailure(context.getSource(), "未找到配置项: " + configId);
+        }
+        if (descriptor.supportsGroupOperations()) {
+            String action = actionOrValue == null ? "" : actionOrValue.trim().toLowerCase(Locale.ROOT);
+            if ("list".equals(action)) {
+                return executeConfigGroupListById(context, configId, RoomConfigScope.DEATHMATCH);
+            }
+            return replyFailure(context.getSource(), "组配置仅支持 list / add / del");
+        }
+        return executeConfigSetById(context, configId, actionOrValue, RoomConfigScope.DEATHMATCH);
+    }
+
+    private static int executeConfigDeathmatchActionWithValue(CommandContext<CommandSourceStack> context) {
+        String configId = StringArgumentType.getString(context, "configId");
+        String action = StringArgumentType.getString(context, "actionOrValue");
+        String value = StringArgumentType.getString(context, "value");
+        String normalized = action == null ? "" : action.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "add" -> executeConfigGroupMutation(context, configId, value, true, RoomConfigScope.DEATHMATCH);
+            case "del" -> executeConfigGroupMutation(context, configId, value, false, RoomConfigScope.DEATHMATCH);
+            default -> executeConfigSetById(context, configId, value, RoomConfigScope.DEATHMATCH);
         };
     }
 
@@ -862,6 +927,10 @@ public final class RoomCommands {
         return SharedSuggestionProvider.suggest(RoomConfigDescriptorRegistry.legacyBreakthroughCommandIds(), builder);
     }
 
+    private static CompletableFuture<Suggestions> suggestDeathmatchConfigIds(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return SharedSuggestionProvider.suggest(RoomConfigDescriptorRegistry.legacyDeathmatchCommandIds(), builder);
+    }
+
     private static CompletableFuture<Suggestions> suggestPrivateActionOrValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         RoomConfigDescriptor descriptor = resolveDescriptor(StringArgumentType.getString(context, "configId"));
         if (descriptor == null) {
@@ -874,6 +943,10 @@ public final class RoomCommands {
     }
 
     private static CompletableFuture<Suggestions> suggestBreakthroughActionOrValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return suggestPrivateActionOrValue(context, builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestDeathmatchActionOrValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         return suggestPrivateActionOrValue(context, builder);
     }
 
@@ -897,6 +970,10 @@ public final class RoomCommands {
     }
 
     private static CompletableFuture<Suggestions> suggestBreakthroughActionValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return suggestPrivateActionValue(context, builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestDeathmatchActionValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         return suggestPrivateActionValue(context, builder);
     }
 
@@ -1034,6 +1111,7 @@ public final class RoomCommands {
         }
         return "mapId".equalsIgnoreCase(descriptor.configId())
             || "btMapID".equalsIgnoreCase(descriptor.configId())
+            || "dmMapID".equalsIgnoreCase(descriptor.configId())
             || descriptor.newPath().endsWith(".mapId");
     }
 

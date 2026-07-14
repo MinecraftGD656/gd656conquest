@@ -36,8 +36,12 @@ public final class RoomConfigDescriptorRegistry {
         return legacyCommandIds(RoomConfigScope.BREAKTHROUGH);
     }
 
+    public static List<String> legacyDeathmatchCommandIds() {
+        return legacyCommandIds(RoomConfigScope.DEATHMATCH);
+    }
+
     public static List<RoomConfigScope> guiScopes() {
-        return List.of(RoomConfigScope.COMMON, RoomConfigScope.CONQUEST, RoomConfigScope.BREAKTHROUGH);
+        return List.of(RoomConfigScope.COMMON, RoomConfigScope.CONQUEST, RoomConfigScope.BREAKTHROUGH, RoomConfigScope.DEATHMATCH);
     }
 
     public static RoomConfigScope scopeOf(RoomConfigDescriptor descriptor) {
@@ -70,7 +74,7 @@ public final class RoomConfigDescriptorRegistry {
     private static List<RoomConfigDescriptor> buildDescriptors() {
         List<RoomConfigDescriptor> descriptors = new ArrayList<>();
 
-        common(descriptors, RoomConfigCategory.ROOM, "gameplayId", "玩法类型", "gameplayId", RoomConfigValueType.STRING, List.of("CONQUEST", "BREAKTHROUGH"), "gameplayType");
+        common(descriptors, RoomConfigCategory.ROOM, "gameplayId", "玩法类型", "gameplayId", RoomConfigValueType.STRING, List.of("CONQUEST", "BREAKTHROUGH", "DEATHMATCH"), "gameplayType");
         common(descriptors, RoomConfigCategory.ROOM, "displayName", "房间名称", "displayName", RoomConfigValueType.STRING, List.of());
         common(descriptors, RoomConfigCategory.ROOM, "dimensionId", "房间维度ID", "commonConfig.dimensionId", RoomConfigValueType.STRING, List.of());
         common(descriptors, RoomConfigCategory.MATCHING, "minStartPlayers", "最低开局人数", "commonConfig.matchingConfig.minStartPlayers", RoomConfigValueType.NUMBER, List.of(), "queueMinStartPlayers");
@@ -180,6 +184,27 @@ public final class RoomConfigDescriptorRegistry {
         breakthrough(descriptors, RoomConfigCategory.RULES, "btMaxAttackTroopsAt12Players", "12人进攻方最大兵力", "breakthroughConfig.maxAttackTroopsAt12Players", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopBalanceReference", "突破兵力计算基准", "breakthroughConfig.troopBalanceReference", RoomConfigValueType.STRING, RoomTroopBalanceReference.suggestions(), "troopBalanceReference");
 
+        deathmatch(descriptors, RoomConfigCategory.CAPTURE, "dmMapID", "团队死斗地图ID", "deathmatchConfig.mapId", RoomConfigValueType.STRING, List.of());
+        deathmatch(descriptors, RoomConfigCategory.RULES, "dmMatchDurationMinutes", "团队死斗对局时长(分钟)", "deathmatchConfig.matchDurationMinutes", RoomConfigValueType.NUMBER, List.of());
+        deathmatch(descriptors, RoomConfigCategory.RULES, "dmTargetScore", "团队死斗目标分数", "deathmatchConfig.targetScore", RoomConfigValueType.NUMBER, List.of());
+        deathmatch(descriptors, RoomConfigCategory.ROOM, "dmEnabledTeamCount", "团队死斗启用阵营数量", "deathmatchConfig.enabledTeamCount", RoomConfigValueType.NUMBER, List.of());
+        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampABoundary", "团队A活动范围", "deathmatchConfig.campABoundary", RoomConfigValueType.POSITION_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampBBoundary", "团队B活动范围", "deathmatchConfig.campBBoundary", RoomConfigValueType.POSITION_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampCBoundary", "团队C活动范围", "deathmatchConfig.campCBoundary", RoomConfigValueType.POSITION_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampDBoundary", "团队D活动范围", "deathmatchConfig.campDBoundary", RoomConfigValueType.POSITION_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampEBoundary", "团队E活动范围", "deathmatchConfig.campEBoundary", RoomConfigValueType.POSITION_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampFBoundary", "团队F活动范围", "deathmatchConfig.campFBoundary", RoomConfigValueType.POSITION_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampGBoundary", "团队G活动范围", "deathmatchConfig.campGBoundary", RoomConfigValueType.POSITION_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampHBoundary", "团队H活动范围", "deathmatchConfig.campHBoundary", RoomConfigValueType.POSITION_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampASpawnGroup", "团队A出生组", "deathmatchConfig.campASpawnGroup", RoomConfigValueType.DATA_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampBSpawnGroup", "团队B出生组", "deathmatchConfig.campBSpawnGroup", RoomConfigValueType.DATA_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampCSpawnGroup", "团队C出生组", "deathmatchConfig.campCSpawnGroup", RoomConfigValueType.DATA_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampDSpawnGroup", "团队D出生组", "deathmatchConfig.campDSpawnGroup", RoomConfigValueType.DATA_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampESpawnGroup", "团队E出生组", "deathmatchConfig.campESpawnGroup", RoomConfigValueType.DATA_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampFSpawnGroup", "团队F出生组", "deathmatchConfig.campFSpawnGroup", RoomConfigValueType.DATA_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampGSpawnGroup", "团队G出生组", "deathmatchConfig.campGSpawnGroup", RoomConfigValueType.DATA_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampHSpawnGroup", "团队H出生组", "deathmatchConfig.campHSpawnGroup", RoomConfigValueType.DATA_GROUP);
+
         return List.copyOf(descriptors);
     }
 
@@ -205,6 +230,14 @@ public final class RoomConfigDescriptorRegistry {
 
     private static void breakthroughGroup(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, String... aliases) {
         out.add(descriptor(RoomConfigScope.BREAKTHROUGH, category, id, name, path, type, List.of(), true, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, aliases));
+    }
+
+    private static void deathmatch(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, List<String> suggestions, String... aliases) {
+        out.add(descriptor(RoomConfigScope.DEATHMATCH, category, id, name, path, type, suggestions, true, RoomConfigGroupOperationMode.NONE, null, aliases));
+    }
+
+    private static void deathmatchGroup(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, String... aliases) {
+        out.add(descriptor(RoomConfigScope.DEATHMATCH, category, id, name, path, type, List.of(), true, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, aliases));
     }
 
     private static void conquestSpecial(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, List<String> suggestions, String handlerId, String... aliases) {

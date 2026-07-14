@@ -36,6 +36,10 @@ public final class RoomDefinitionGroupConfigEditor {
             RoomPosition point = parseBoundaryPosition(rawValue, editor);
             return replaceBreakthroughBoundary(definition, canonical, point, false, false);
         }
+        if (isDeathmatchBoundaryGroup(canonical)) {
+            RoomPosition point = parseBoundaryPosition(rawValue, editor);
+            return replaceDeathmatchBoundary(definition, canonical, point, false, false);
+        }
         RoomPosition position = parsePosition(rawValue, editor);
         return replaceSpawnGroup(definition, canonical, group -> addSpawn(group, position));
     }
@@ -59,6 +63,11 @@ public final class RoomDefinitionGroupConfigEditor {
             return clearAll
                 ? replaceBreakthroughBoundary(definition, canonical, null, true, false)
                 : replaceBreakthroughBoundary(definition, canonical, parseBoundaryPosition(rawValue, editor), false, true);
+        }
+        if (isDeathmatchBoundaryGroup(canonical)) {
+            return clearAll
+                ? replaceDeathmatchBoundary(definition, canonical, null, true, false)
+                : replaceDeathmatchBoundary(definition, canonical, parseBoundaryPosition(rawValue, editor), false, true);
         }
         RoomSpawnGroupConfig updatedGroup = clearAll
             ? new RoomSpawnGroupConfig(resolveSpawnGroup(definition, canonical).enabled(), List.of())
@@ -89,6 +98,13 @@ public final class RoomDefinitionGroupConfigEditor {
             List<RoomPosition> boundary = resolveBreakthroughBoundary(definition.breakthroughConfig(), canonical);
             List<String> lines = new ArrayList<>();
             for (RoomPosition position : boundary) {
+                lines.add(formatPosition(position));
+            }
+            return lines;
+        }
+        if (isDeathmatchBoundaryGroup(canonical)) {
+            List<String> lines = new ArrayList<>();
+            for (RoomPosition position : resolveDeathmatchBoundary(definition, canonical)) {
                 lines.add(formatPosition(position));
             }
             return lines;
@@ -360,6 +376,9 @@ public final class RoomDefinitionGroupConfigEditor {
             String code = canonical.substring("btcapturecampbouterspawngroup_".length()).toUpperCase(Locale.ROOT);
             return replaceBreakthroughCapturePointSpawnGroup(definition, code, RoomTeamId.CAMP_B, updatedGroup);
         }
+        if (canonical.startsWith("dmcamp") && canonical.endsWith("spawngroup")) {
+            return RoomConfigBindingAccess.write(definition, deathmatchSpawnGroupPath(canonical), updatedGroup);
+        }
         throw new IllegalArgumentException("未知出生组配置: " + canonical);
     }
 
@@ -499,6 +518,10 @@ public final class RoomDefinitionGroupConfigEditor {
                 new RoomCapturePointDefinition(code, code, null, RoomSpawnGroupConfig.defaults(), RoomSpawnGroupConfig.defaults(), Map.of(), 0)
             ).outerSpawnGroup(RoomTeamId.CAMP_B);
         }
+        if (canonical.startsWith("dmcamp") && canonical.endsWith("spawngroup")) {
+            Object current = RoomConfigBindingAccess.resolve(definition, deathmatchSpawnGroupPath(canonical));
+            return current instanceof RoomSpawnGroupConfig group ? group : RoomSpawnGroupConfig.defaults();
+        }
         throw new IllegalArgumentException("未知出生组配�? " + canonical);
     }
 
@@ -593,7 +616,6 @@ public final class RoomDefinitionGroupConfigEditor {
             definition.gameplayId(),
             definition.lifecycleState(),
             definition.commonConfig(),
-            definition.conquestConfig(),
             breakthroughConfig
         );
     }
@@ -605,8 +627,7 @@ public final class RoomDefinitionGroupConfigEditor {
             definition.gameplayId(),
             definition.lifecycleState(),
             commonConfig,
-            conquestConfig,
-            definition.breakthroughConfig()
+            conquestConfig
         );
     }
 
@@ -630,6 +651,73 @@ public final class RoomDefinitionGroupConfigEditor {
             || "btstagedboundary".equals(canonical)
             || "btstageeboundary".equals(canonical)
             || "btstagefboundary".equals(canonical);
+    }
+
+    private static boolean isDeathmatchBoundaryGroup(String canonical) {
+        return canonical.startsWith("dmcamp") && canonical.endsWith("boundary");
+    }
+
+    private static RoomDefinition replaceDeathmatchBoundary(
+        RoomDefinition definition,
+        String canonical,
+        RoomPosition point,
+        boolean clearAll,
+        boolean remove
+    ) {
+        String path = deathmatchBoundaryPath(canonical);
+        Object current = RoomConfigBindingAccess.resolve(definition, path);
+        List<RoomPosition> target = new ArrayList<>(current instanceof List<?> list ? castBoundaryList(list) : List.of());
+        if (clearAll) {
+            target.clear();
+        } else if (remove) {
+            target.removeIf(existing -> sameBoundaryPoint(existing, point));
+        } else if (target.stream().noneMatch(existing -> sameBoundaryPoint(existing, point))) {
+            target.add(point);
+        }
+        return RoomConfigBindingAccess.write(definition, path, List.copyOf(target));
+    }
+
+    private static List<RoomPosition> resolveDeathmatchBoundary(RoomDefinition definition, String canonical) {
+        Object current = RoomConfigBindingAccess.resolve(definition, deathmatchBoundaryPath(canonical));
+        return current instanceof List<?> list ? castBoundaryList(list) : List.of();
+    }
+
+    private static List<RoomPosition> castBoundaryList(List<?> raw) {
+        List<RoomPosition> values = new ArrayList<>();
+        for (Object entry : raw) {
+            if (entry instanceof RoomPosition position) {
+                values.add(position);
+            }
+        }
+        return values;
+    }
+
+    private static String deathmatchBoundaryPath(String canonical) {
+        return switch (canonical) {
+            case "dmcampaboundary" -> "deathmatchConfig.campABoundary";
+            case "dmcampbboundary" -> "deathmatchConfig.campBBoundary";
+            case "dmcampcboundary" -> "deathmatchConfig.campCBoundary";
+            case "dmcampdboundary" -> "deathmatchConfig.campDBoundary";
+            case "dmcampeboundary" -> "deathmatchConfig.campEBoundary";
+            case "dmcampfboundary" -> "deathmatchConfig.campFBoundary";
+            case "dmcampgboundary" -> "deathmatchConfig.campGBoundary";
+            case "dmcamphboundary" -> "deathmatchConfig.campHBoundary";
+            default -> throw new IllegalArgumentException("未知团队死斗边界: " + canonical);
+        };
+    }
+
+    private static String deathmatchSpawnGroupPath(String canonical) {
+        return switch (canonical) {
+            case "dmcampaspawngroup" -> "deathmatchConfig.campASpawnGroup";
+            case "dmcampbspawngroup" -> "deathmatchConfig.campBSpawnGroup";
+            case "dmcampcspawngroup" -> "deathmatchConfig.campCSpawnGroup";
+            case "dmcampdspawngroup" -> "deathmatchConfig.campDSpawnGroup";
+            case "dmcampespawngroup" -> "deathmatchConfig.campESpawnGroup";
+            case "dmcampfspawngroup" -> "deathmatchConfig.campFSpawnGroup";
+            case "dmcampgspawngroup" -> "deathmatchConfig.campGSpawnGroup";
+            case "dmcamphspawngroup" -> "deathmatchConfig.campHSpawnGroup";
+            default -> throw new IllegalArgumentException("未知团队死斗出生组: " + canonical);
+        };
     }
 
     private static String normalizeConfigId(String configId) {

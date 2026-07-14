@@ -71,11 +71,15 @@ public final class ServerDataPaths {
     }
 
     public static Path getRoomDefinitionFile(MinecraftServer server, String roomId) {
-        return getRoomDefinitionDirectory(server).resolve(roomId + ".json");
+        return getRoomDataDirectory(server).resolve(roomId + ".json");
+    }
+
+    public static Path getRoomDataDirectory(MinecraftServer server) {
+        return getModRoot(server).resolve("roomdata");
     }
 
     public static Path getLegacyRoomDataDirectory(MinecraftServer server) {
-        return getModRoot(server).resolve("roomdata");
+        return getModRoot(server).resolve("roomdata_legacy");
     }
 
     public static Path getLegacyRoomDataFile(MinecraftServer server, String roomId) {

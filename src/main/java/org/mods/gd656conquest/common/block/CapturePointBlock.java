@@ -151,8 +151,7 @@ public final class CapturePointBlock extends Block {
             room.gameplayId(),
             room.lifecycleState(),
             room.commonConfig(),
-            room.conquestConfig().withCaptureConfig(updatedCapture),
-            room.breakthroughConfig()
+            room.conquestConfig().withCaptureConfig(updatedCapture)
         );
     }
 
@@ -196,7 +195,6 @@ public final class CapturePointBlock extends Block {
             room.gameplayId(),
             room.lifecycleState(),
             room.commonConfig(),
-            room.conquestConfig(),
             updatedConfig
         );
     }

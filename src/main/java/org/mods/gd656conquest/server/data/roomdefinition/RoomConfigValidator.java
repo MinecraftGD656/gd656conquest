@@ -27,6 +27,8 @@ public final class RoomConfigValidator {
             validateConquest(result, definition);
         } else if (RoomGameplayId.BREAKTHROUGH.equals(definition.gameplayId())) {
             validateBreakthrough(result, definition);
+        } else if (RoomGameplayId.DEATHMATCH.equals(definition.gameplayId())) {
+            validateDeathmatch(result, definition);
         }
         return result;
     }
@@ -253,6 +255,45 @@ public final class RoomConfigValidator {
         }
         if (!hasActivePoint) {
             result.addMissing("breakthrough.activePoints");
+        }
+    }
+
+    private static void validateDeathmatch(RoomConfigValidationResult result, RoomDefinition definition) {
+        if (definition == null) {
+            return;
+        }
+        var deathmatch = definition.deathmatchConfig();
+        if (deathmatch.mapId() == null || deathmatch.mapId().isBlank() || !MAP_ID_PATTERN.matcher(deathmatch.mapId()).matches()) {
+            result.addMissing("deathmatch.mapId", "dmMapID");
+        }
+        if (deathmatch.matchDurationMinutes() <= 0) {
+            result.addMissing("deathmatch.matchDurationMinutes", "dmMatchDurationMinutes");
+        }
+        if (deathmatch.targetScore() <= 0) {
+            result.addMissing("deathmatch.targetScore", "dmTargetScore");
+        }
+        if (deathmatch.enabledTeamCount() < 2 || deathmatch.enabledTeamCount() > 8) {
+            result.addMissing("deathmatch.enabledTeamCount", "dmEnabledTeamCount");
+        }
+        validateRoomSpawnGroup(result, "deathmatch.campASpawnGroup", "dmCampASpawnGroup", deathmatch.campASpawnGroup(), true);
+        validateRoomSpawnGroup(result, "deathmatch.campBSpawnGroup", "dmCampBSpawnGroup", deathmatch.campBSpawnGroup(), true);
+        if (deathmatch.enabledTeamCount() >= 3) {
+            validateRoomSpawnGroup(result, "deathmatch.campCSpawnGroup", "dmCampCSpawnGroup", deathmatch.campCSpawnGroup(), true);
+        }
+        if (deathmatch.enabledTeamCount() >= 4) {
+            validateRoomSpawnGroup(result, "deathmatch.campDSpawnGroup", "dmCampDSpawnGroup", deathmatch.campDSpawnGroup(), true);
+        }
+        if (deathmatch.enabledTeamCount() >= 5) {
+            validateRoomSpawnGroup(result, "deathmatch.campESpawnGroup", "dmCampESpawnGroup", deathmatch.campESpawnGroup(), true);
+        }
+        if (deathmatch.enabledTeamCount() >= 6) {
+            validateRoomSpawnGroup(result, "deathmatch.campFSpawnGroup", "dmCampFSpawnGroup", deathmatch.campFSpawnGroup(), true);
+        }
+        if (deathmatch.enabledTeamCount() >= 7) {
+            validateRoomSpawnGroup(result, "deathmatch.campGSpawnGroup", "dmCampGSpawnGroup", deathmatch.campGSpawnGroup(), true);
+        }
+        if (deathmatch.enabledTeamCount() >= 8) {
+            validateRoomSpawnGroup(result, "deathmatch.campHSpawnGroup", "dmCampHSpawnGroup", deathmatch.campHSpawnGroup(), true);
         }
     }
 

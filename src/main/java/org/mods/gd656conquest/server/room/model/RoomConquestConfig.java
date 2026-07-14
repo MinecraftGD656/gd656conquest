@@ -16,7 +16,7 @@ public record RoomConquestConfig(
     List<RoomPosition> campABoundary,
     List<RoomPosition> campBBoundary,
     RoomCaptureConfig captureConfig
-) {
+) implements IRoomGameplayConfig {
     public RoomConquestConfig {
         equipmentConfig = equipmentConfig == null ? RoomEquipmentConfig.defaults() : equipmentConfig;
         captureConfig = captureConfig == null ? RoomCaptureConfig.defaults() : captureConfig;
@@ -38,6 +38,28 @@ public record RoomConquestConfig(
             List.of(),
             RoomCaptureConfig.defaults()
         );
+    }
+
+    @Override
+    public String mapId() {
+        return captureConfig.mapId();
+    }
+
+    @Override
+    public String campADisplayName(RoomCommonConfig commonConfig) {
+        return commonConfig.campADisplayName();
+    }
+
+    @Override
+    public String campBDisplayName(RoomCommonConfig commonConfig) {
+        return commonConfig.campBDisplayName();
+    }
+
+    @Override
+    public List<RoomCapturePointDefinition> definedObjectivePoints() {
+        return new java.util.ArrayList<>(captureConfig.points().values()).stream()
+            .filter(Objects::nonNull)
+            .toList();
     }
 
     public Optional<RoomPosition> findTeamSpawn(RoomTeamId teamId) {

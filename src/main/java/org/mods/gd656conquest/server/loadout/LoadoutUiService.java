@@ -590,8 +590,7 @@ public final class LoadoutUiService {
                     room.gameplayId(),
                     room.lifecycleState(),
                     room.commonConfig(),
-                    room.conquestConfig(),
-                    room.breakthroughConfig()
+                    room.gameplayConfig()
                 );
             } else if ("room.state".equalsIgnoreCase(normalizedKey)) {
                 RoomLifecycleState targetState = parseRoomState(rawValue);
@@ -2020,8 +2019,7 @@ public final class LoadoutUiService {
                 campABoundary,
                 campBBoundary,
                 definition.conquestConfig().captureConfig()
-            ),
-            definition.breakthroughConfig()
+            )
         );
     }
 
@@ -2041,8 +2039,7 @@ public final class LoadoutUiService {
                 definition.conquestConfig().campABoundary(),
                 definition.conquestConfig().campBBoundary(),
                 definition.conquestConfig().captureConfig()
-            ),
-            definition.breakthroughConfig()
+            )
         );
     }
 
@@ -2053,8 +2050,7 @@ public final class LoadoutUiService {
             definition.gameplayId(),
             definition.lifecycleState(),
             definition.commonConfig(),
-            definition.conquestConfig().withCaptureConfig(captureConfig),
-            definition.breakthroughConfig()
+            definition.conquestConfig().withCaptureConfig(captureConfig)
         );
     }
 

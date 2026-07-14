@@ -5,7 +5,8 @@ import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 public enum RoomConfigScope {
     COMMON,
     CONQUEST,
-    BREAKTHROUGH;
+    BREAKTHROUGH,
+    DEATHMATCH;
 
     public String displayName() {
         return name();
@@ -22,6 +23,7 @@ public enum RoomConfigScope {
             case COMMON -> true;
             case CONQUEST -> RoomGameplayId.CONQUEST.equals(gameplayId);
             case BREAKTHROUGH -> RoomGameplayId.BREAKTHROUGH.equals(gameplayId);
+            case DEATHMATCH -> RoomGameplayId.DEATHMATCH.equals(gameplayId);
         };
     }
 }

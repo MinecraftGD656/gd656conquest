@@ -1,5 +1,6 @@
 package org.mods.gd656conquest.server.data.roomdefinition;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minecraft.server.MinecraftServer;
@@ -12,6 +13,7 @@ import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
 import org.mods.gd656conquest.server.room.model.RoomBreakthroughConfig;
 import org.mods.gd656conquest.server.room.model.RoomCommonConfig;
 import org.mods.gd656conquest.server.room.model.RoomConquestConfig;
+import org.mods.gd656conquest.server.room.model.RoomDeathmatchConfig;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomEquipmentConfig;
 import org.mods.gd656conquest.server.room.model.RoomGameplayId;
@@ -41,7 +43,7 @@ import java.util.Optional;
 
 public final class RoomDefinitionRepository extends JsonDataStoreSupport {
     private static final int DEFAULT_ROOM_COUNT = 24;
-    private static final int STORAGE_VERSION = 14;
+    private static final int STORAGE_VERSION = 15;
 
     private final MinecraftServer server;
     private final DelayedJsonWriteService delayedJsonWriteService;
@@ -253,24 +255,51 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().supportCampAShellings(),
             base.commonConfig().supportCampBShellings()
         );
-        RoomConquestConfig conquestConfig = new RoomConquestConfig(
-            base.conquestConfig().equipmentConfig(),
-            base.conquestConfig().teamSpawnGroups(),
-            base.conquestConfig().teamDeployIcons(),
-            base.conquestConfig().deployViewPosition(),
-            base.conquestConfig().sharedBoundary(),
-            base.conquestConfig().campABoundary(),
-            base.conquestConfig().campBBoundary(),
-            normalizeCaptureConfig(base.conquestConfig().captureConfig())
-        );
+        org.mods.gd656conquest.server.room.model.IRoomGameplayConfig gameplayConfig;
+        if (base.gameplayConfig() instanceof RoomConquestConfig conquest) {
+            gameplayConfig = new RoomConquestConfig(
+                conquest.equipmentConfig(),
+                conquest.teamSpawnGroups(),
+                conquest.teamDeployIcons(),
+                conquest.deployViewPosition(),
+                conquest.sharedBoundary(),
+                conquest.campABoundary(),
+                conquest.campBBoundary(),
+                normalizeCaptureConfig(conquest.captureConfig())
+            );
+        } else if (base.gameplayConfig() instanceof RoomDeathmatchConfig deathmatch) {
+            gameplayConfig = new RoomDeathmatchConfig(
+                deathmatch.mapId(),
+                deathmatch.matchDurationMinutes(),
+                deathmatch.targetScore(),
+                deathmatch.enabledTeamCount(),
+                deathmatch.campABoundary(),
+                deathmatch.campBBoundary(),
+                deathmatch.campCBoundary(),
+                deathmatch.campDBoundary(),
+                deathmatch.campEBoundary(),
+                deathmatch.campFBoundary(),
+                deathmatch.campGBoundary(),
+                deathmatch.campHBoundary(),
+                deathmatch.campASpawnGroup(),
+                deathmatch.campBSpawnGroup(),
+                deathmatch.campCSpawnGroup(),
+                deathmatch.campDSpawnGroup(),
+                deathmatch.campESpawnGroup(),
+                deathmatch.campFSpawnGroup(),
+                deathmatch.campGSpawnGroup(),
+                deathmatch.campHSpawnGroup()
+            );
+        } else {
+            gameplayConfig = base.gameplayConfig();
+        }
         return new RoomDefinition(
             roomId,
             base.displayName(),
             base.gameplayId(),
             base.lifecycleState(),
             commonConfig,
-            conquestConfig,
-            base.breakthroughConfig() == null ? RoomBreakthroughConfig.defaults() : base.breakthroughConfig()
+            gameplayConfig
         );
     }
 
@@ -356,8 +385,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             RoomGameplayId.CONQUEST,
             RoomLifecycleState.DISABLED,
             commonConfig,
-            conquestConfig,
-            RoomBreakthroughConfig.defaults()
+            conquestConfig
         );
         return new RoomDefinition(
             base.roomId(),
@@ -365,8 +393,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             RoomGameplayId.CONQUEST,
             base.lifecycleState(),
             base.commonConfig(),
-            base.conquestConfig(),
-            base.breakthroughConfig()
+            base.gameplayConfig()
         );
     }
 
@@ -437,23 +464,80 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
         private CommonConfig commonConfig;
         private ConquestConfig conquestConfig;
         private RoomBreakthroughConfig breakthroughConfig;
-        private RoomDefinition definition;
+        private RoomDeathmatchConfig deathmatchConfig;
+        private com.google.gson.JsonElement definition;
 
         public static StoredRoomDefinition from(RoomDefinition definition) {
             StoredRoomDefinition stored = new StoredRoomDefinition();
             stored.version = STORAGE_VERSION;
-            stored.definition = definition;
+            JsonObject defObj = new JsonObject();
+            defObj.addProperty("roomId", definition.roomId());
+            defObj.addProperty("displayName", definition.displayName());
+            defObj.addProperty("gameplayId", definition.gameplayId().value());
+            defObj.addProperty("lifecycleState", definition.lifecycleState().name());
+            defObj.add("commonConfig", GSON.toJsonTree(definition.commonConfig()));
+            
+            if (definition.gameplayConfig() instanceof RoomConquestConfig cq) {
+                defObj.add("conquestConfig", GSON.toJsonTree(cq));
+                defObj.add("breakthroughConfig", GSON.toJsonTree(RoomBreakthroughConfig.defaults()));
+                defObj.add("deathmatchConfig", GSON.toJsonTree(RoomDeathmatchConfig.defaults()));
+            } else if (definition.gameplayConfig() instanceof RoomBreakthroughConfig bt) {
+                defObj.add("conquestConfig", GSON.toJsonTree(RoomConquestConfig.defaults()));
+                defObj.add("breakthroughConfig", GSON.toJsonTree(bt));
+                defObj.add("deathmatchConfig", GSON.toJsonTree(RoomDeathmatchConfig.defaults()));
+            } else if (definition.gameplayConfig() instanceof RoomDeathmatchConfig dm) {
+                defObj.add("conquestConfig", GSON.toJsonTree(RoomConquestConfig.defaults()));
+                defObj.add("breakthroughConfig", GSON.toJsonTree(RoomBreakthroughConfig.defaults()));
+                defObj.add("deathmatchConfig", GSON.toJsonTree(dm));
+            } else {
+                defObj.add("conquestConfig", GSON.toJsonTree(RoomConquestConfig.defaults()));
+                defObj.add("breakthroughConfig", GSON.toJsonTree(RoomBreakthroughConfig.defaults()));
+                defObj.add("deathmatchConfig", GSON.toJsonTree(RoomDeathmatchConfig.defaults()));
+            }
+            stored.definition = defObj;
             return stored;
         }
 
         public RoomDefinition toDefinition(String fallbackRoomId, ProgressSpeedMigrationData progressSpeedMigration) {
-            if (definition != null) {
+            if (definition != null && definition.isJsonObject()) {
+                JsonObject defObj = definition.getAsJsonObject();
+                String roomId = readJsonString(defObj.get("roomId"), fallbackRoomId);
+                String displayName = readJsonString(defObj.get("displayName"), roomId);
+                RoomGameplayId gameplayId = readGameplayId(defObj.get("gameplayId"));
+                RoomLifecycleState lifecycleState = RoomLifecycleState.DISABLED;
+                String lifecycleName = readJsonString(defObj.get("lifecycleState"), "");
+                if (!lifecycleName.isBlank()) {
+                    try {
+                        lifecycleState = RoomLifecycleState.valueOf(lifecycleName);
+                    } catch (Exception ignored) {}
+                }
+                
+                RoomCommonConfig common = defObj.has("commonConfig") && !defObj.get("commonConfig").isJsonNull()
+                    ? GSON.fromJson(defObj.get("commonConfig"), RoomCommonConfig.class)
+                    : RoomCommonConfig.defaults();
+                
+                org.mods.gd656conquest.server.room.model.IRoomGameplayConfig gameplayConfig;
+                if (RoomGameplayId.BREAKTHROUGH.equals(gameplayId)) {
+                    gameplayConfig = defObj.has("breakthroughConfig") && !defObj.get("breakthroughConfig").isJsonNull()
+                        ? GSON.fromJson(defObj.get("breakthroughConfig"), RoomBreakthroughConfig.class)
+                        : RoomBreakthroughConfig.defaults();
+                } else if (RoomGameplayId.DEATHMATCH.equals(gameplayId)) {
+                    gameplayConfig = defObj.has("deathmatchConfig") && !defObj.get("deathmatchConfig").isJsonNull()
+                        ? GSON.fromJson(defObj.get("deathmatchConfig"), RoomDeathmatchConfig.class)
+                        : RoomDeathmatchConfig.defaults();
+                } else {
+                    gameplayConfig = defObj.has("conquestConfig") && !defObj.get("conquestConfig").isJsonNull()
+                        ? GSON.fromJson(defObj.get("conquestConfig"), RoomConquestConfig.class)
+                        : RoomConquestConfig.defaults();
+                }
+                
+                RoomDefinition parsed = new RoomDefinition(roomId, displayName, gameplayId, lifecycleState, common, gameplayConfig);
                 return upgradeLegacyRevivedInvulnerabilityIfNeeded(
-                    upgradeLegacyProgressSpeedIfNeeded(definition, version),
+                    upgradeLegacyProgressSpeedIfNeeded(parsed, version),
                     version
                 );
             }
-            if (commonConfig != null || conquestConfig != null || breakthroughConfig != null) {
+            if (commonConfig != null || conquestConfig != null || breakthroughConfig != null || deathmatchConfig != null) {
                 CommonConfig normalizedCommon = commonConfig == null
                     ? CommonConfig.defaults(fallbackRoomId)
                     : commonConfig.normalized(fallbackRoomId);
@@ -463,14 +547,37 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 RoomBreakthroughConfig normalizedBreakthrough = breakthroughConfig == null
                     ? RoomBreakthroughConfig.defaults()
                     : breakthroughConfig;
+                RoomDeathmatchConfig normalizedDeathmatch = deathmatchConfig == null
+                    ? RoomDeathmatchConfig.defaults()
+                    : deathmatchConfig;
                 double resolvedProgressSpeed = upgradeLegacyProgressSpeedIfNeeded(
                     progressSpeedMigration.resolve(normalizedCommon.progressSpeed()),
                     version
                 );
+                
+                RoomGameplayId gameplayId = normalizedCommon.gameplayId();
+                org.mods.gd656conquest.server.room.model.IRoomGameplayConfig gameplayConfig;
+                if (RoomGameplayId.BREAKTHROUGH.equals(gameplayId)) {
+                    gameplayConfig = normalizedBreakthrough;
+                } else if (RoomGameplayId.DEATHMATCH.equals(gameplayId)) {
+                    gameplayConfig = normalizedDeathmatch;
+                } else {
+                    gameplayConfig = new RoomConquestConfig(
+                        normalizedConquest.equipmentConfig(),
+                        normalizedConquest.teamSpawnGroups(),
+                        normalizedConquest.teamDeployIcons(),
+                        normalizedCommon.deployViewPosition(),
+                        normalizedConquest.sharedBoundary(),
+                        normalizedConquest.campABoundary(),
+                        normalizedConquest.campBBoundary(),
+                        normalizedConquest.captureConfig()
+                    );
+                }
+                
                 return new RoomDefinition(
                     normalizedCommon.roomId(),
                     normalizedCommon.displayName(),
-                    normalizedCommon.gameplayId(),
+                    gameplayId,
                     normalizedCommon.lifecycleState(),
                     new RoomCommonConfig(
                         normalizedCommon.matchingConfig(),
@@ -506,17 +613,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                         normalizedCommon.supportCampAShellings(),
                         normalizedCommon.supportCampBShellings()
                     ),
-                    new RoomConquestConfig(
-                        normalizedConquest.equipmentConfig(),
-                        normalizedConquest.teamSpawnGroups(),
-                        normalizedConquest.teamDeployIcons(),
-                        normalizedCommon.deployViewPosition(),
-                        normalizedConquest.sharedBoundary(),
-                        normalizedConquest.campABoundary(),
-                        normalizedConquest.campBBoundary(),
-                        normalizedConquest.captureConfig()
-                    ),
-                    normalizedBreakthrough
+                    gameplayConfig
                 );
             }
             return fallbackRoomId == null || fallbackRoomId.isBlank() ? null : new RoomDefinition(
@@ -524,6 +621,40 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 RoomGameplayId.CONQUEST,
                 RoomLifecycleState.DISABLED
             );
+        }
+
+        private String readJsonString(JsonElement element, String fallback) {
+            if (element == null || element.isJsonNull()) {
+                return fallback;
+            }
+            if (element.isJsonPrimitive()) {
+                try {
+                    return element.getAsString();
+                } catch (Exception ignored) {
+                    return fallback;
+                }
+            }
+            if (element.isJsonObject()) {
+                JsonObject object = element.getAsJsonObject();
+                String nested = readJsonString(object.get("value"), null);
+                if (nested != null) {
+                    return nested;
+                }
+                nested = readJsonString(object.get("name"), null);
+                if (nested != null) {
+                    return nested;
+                }
+            }
+            return fallback;
+        }
+
+        private RoomGameplayId readGameplayId(JsonElement element) {
+            String raw = readJsonString(element, RoomGameplayId.CONQUEST.value());
+            try {
+                return RoomGameplayId.of(raw);
+            } catch (Exception ignored) {
+                return RoomGameplayId.CONQUEST;
+            }
         }
 
         public boolean shouldRewrite() {
@@ -598,8 +729,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 gameplayId,
                 lifecycleState,
                 commonConfig,
-                conquestConfig,
-                RoomBreakthroughConfig.defaults()
+                conquestConfig
             );
         }
 
@@ -621,9 +751,14 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             if (value == null || value.isBlank()) {
                 return RoomGameplayId.CONQUEST;
             }
-            return "BREAKTHROUGH".equalsIgnoreCase(value.trim())
-                ? RoomGameplayId.BREAKTHROUGH
-                : RoomGameplayId.CONQUEST;
+            String normalized = value.trim();
+            if ("BREAKTHROUGH".equalsIgnoreCase(normalized)) {
+                return RoomGameplayId.BREAKTHROUGH;
+            }
+            if ("DEATHMATCH".equalsIgnoreCase(normalized)) {
+                return RoomGameplayId.DEATHMATCH;
+            }
+            return RoomGameplayId.CONQUEST;
         }
 
         private RoomLifecycleState parseLegacyLifecycleState(String value) {
@@ -1193,8 +1328,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.gameplayId(),
             definition.lifecycleState(),
             upgradedCommon,
-            definition.conquestConfig(),
-            definition.breakthroughConfig()
+            definition.gameplayConfig()
         );
     }
 
@@ -1251,8 +1385,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             definition.gameplayId(),
             definition.lifecycleState(),
             upgradedCommon,
-            definition.conquestConfig(),
-            definition.breakthroughConfig()
+            definition.gameplayConfig()
         );
     }
 

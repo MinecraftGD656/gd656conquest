@@ -368,7 +368,7 @@ public class LoadoutRoomEditorScreen extends Screen {
         if (selected == null) {
             return;
         }
-        List<String> scopes = List.of("COMMON", "CONQUEST", "BREAKTHROUGH");
+        List<String> scopes = List.of("COMMON", "CONQUEST", "BREAKTHROUGH", "DEATHMATCH");
         for (String scope : scopes) {
             rightRows.add(RightRow.header(scope, scope));
             if (!isCategoryExpanded(scope)) {

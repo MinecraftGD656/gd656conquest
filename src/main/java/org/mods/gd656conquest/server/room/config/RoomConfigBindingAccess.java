@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.room.config;
 
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
 import java.lang.reflect.Constructor;
@@ -60,6 +61,9 @@ final class RoomConfigBindingAccess {
     }
 
     private static Object writeSegment(Object current, PathSegment segment, Object value) {
+        if (current instanceof RoomDefinition definition && isGameplayConfigAlias(segment.name())) {
+            return rebuildRoomDefinitionGameplayConfig(definition, segment.name(), value);
+        }
         if (segment.index() == null) {
             return rebuildRecord(current, segment.name(), value);
         }
@@ -104,6 +108,23 @@ final class RoomConfigBindingAccess {
         } catch (ReflectiveOperationException exception) {
             throw new IllegalArgumentException("无法读取配置路径: " + target.getClass().getSimpleName() + "." + name, exception);
         }
+    }
+
+    private static boolean isGameplayConfigAlias(String name) {
+        return "conquestConfig".equals(name) || "breakthroughConfig".equals(name) || "deathmatchConfig".equals(name);
+    }
+
+    private static Object rebuildRoomDefinitionGameplayConfig(RoomDefinition definition, String alias, Object replacement) {
+        if ("conquestConfig".equals(alias) && !RoomGameplayId.CONQUEST.equals(definition.gameplayId())) {
+            throw new IllegalArgumentException("当前房间玩法不是 conquest，无法写入征服配置");
+        }
+        if ("breakthroughConfig".equals(alias) && !RoomGameplayId.BREAKTHROUGH.equals(definition.gameplayId())) {
+            throw new IllegalArgumentException("当前房间玩法不是 breakthrough，无法写入突破配置");
+        }
+        if ("deathmatchConfig".equals(alias) && !RoomGameplayId.DEATHMATCH.equals(definition.gameplayId())) {
+            throw new IllegalArgumentException("当前房间玩法不是 deathmatch，无法写入团队死斗配置");
+        }
+        return rebuildRecord(definition, "gameplayConfig", replacement);
     }
 
     private static Object normalizeMapKey(String raw) {

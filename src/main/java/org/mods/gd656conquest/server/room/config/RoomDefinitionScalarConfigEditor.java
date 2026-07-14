@@ -217,7 +217,8 @@ public final class RoomDefinitionScalarConfigEditor {
     private static boolean requiresPositiveInt(String configId) {
         return switch (configId) {
             case "minstartplayers", "queuemaxplayers", "outsideboundarydeathseconds", "btoutsideboundarydeathseconds",
-                "aircraftoutsideboundarycleanupseconds", "playermaxy", "aircraftpassengermaxy" -> true;
+                "aircraftoutsideboundarycleanupseconds", "playermaxy", "aircraftpassengermaxy",
+                "dmmatchdurationminutes", "dmtargetscore", "dmenabledteamcount" -> true;
             default -> false;
         };
     }
@@ -290,7 +291,8 @@ public final class RoomDefinitionScalarConfigEditor {
         return switch (normalized) {
             case "conquest" -> RoomGameplayId.CONQUEST;
             case "breakthrough" -> RoomGameplayId.BREAKTHROUGH;
-            default -> throw new IllegalArgumentException("当前仅支持 CONQUEST / BREAKTHROUGH");
+            case "deathmatch" -> RoomGameplayId.DEATHMATCH;
+            default -> throw new IllegalArgumentException("当前仅支持 CONQUEST / BREAKTHROUGH / DEATHMATCH");
         };
     }
 

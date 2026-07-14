@@ -37,7 +37,7 @@ public record RoomBreakthroughConfig(
     int troopGainPerDefenderKill,
     int maxAttackTroopsAt12Players,
     RoomTroopBalanceReference troopBalanceReference
-) {
+) implements IRoomGameplayConfig {
     public RoomBreakthroughConfig {
         Objects.requireNonNull(points, "points");
         points = Map.copyOf(new LinkedHashMap<>(points));
@@ -95,6 +95,28 @@ public record RoomBreakthroughConfig(
             0,
             RoomTroopBalanceReference.defaultValue()
         );
+    }
+
+    @Override
+    public String mapId() {
+        return mapId;
+    }
+
+    @Override
+    public String campADisplayName(RoomCommonConfig commonConfig) {
+        return campADisplayName;
+    }
+
+    @Override
+    public String campBDisplayName(RoomCommonConfig commonConfig) {
+        return campBDisplayName;
+    }
+
+    @Override
+    public List<RoomCapturePointDefinition> definedObjectivePoints() {
+        return new java.util.ArrayList<>(points.values()).stream()
+            .filter(Objects::nonNull)
+            .toList();
     }
 
     public Optional<RoomCapturePointDefinition> findPoint(String code) {

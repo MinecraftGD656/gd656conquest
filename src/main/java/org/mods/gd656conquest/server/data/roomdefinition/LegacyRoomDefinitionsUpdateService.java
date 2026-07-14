@@ -256,8 +256,7 @@ public final class LegacyRoomDefinitionsUpdateService {
                 parseGameplayId(gameplayId),
                 parseLifecycleState(lifecycleState),
                 commonConfig,
-                conquestConfig,
-                RoomBreakthroughConfig.defaults()
+                conquestConfig
             );
         }
     }

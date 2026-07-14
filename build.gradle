@@ -249,6 +249,7 @@ def registerClientBypassResourceTask = { String taskName, Provider<Directory> ou
             targetFile.text =
                     "bypassDeathFlowPackets=${enabled}\n" +
                     "bypassDownedStatePackets=${enabled}\n" +
+                    "bypassSupportUiPackets=${enabled}\n" +
                     "bypassLoadoutUiPackets=${enabled}\n" +
                     "bypassRoomEditorPackets=${enabled}\n" +
                     "bypassVehicleAdminEditorPackets=${enabled}\n"
