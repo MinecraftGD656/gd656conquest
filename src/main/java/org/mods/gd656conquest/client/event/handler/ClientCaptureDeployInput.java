@@ -11,6 +11,7 @@ import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.Tea
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.client.room.ClientRoomLockState;
 import org.mods.gd656conquest.network.NetworkManager;
+import org.mods.gd656conquest.network.packet.RoomDeathmatchDeployViewRequestPacket;
 import org.mods.gd656conquest.network.packet.RoomDeploySelectPacket;
 
 import java.util.ArrayList;
@@ -79,6 +80,17 @@ final class ClientCaptureDeployInput {
         
         if (!isSpace && !isCycle) {
             return false;
+        }
+
+        if (isSpace && ClientDeathFlowState.isRespawnHoldActive() && !ClientRoomLockState.isDeployUiActive() && minecraft.screen == null) {
+            if (event.isCancelable()) {
+                event.setCanceled(true);
+            }
+            if (minecraft.player != null) {
+                minecraft.player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+            }
+            NetworkManager.getChannel().sendToServer(new RoomDeathmatchDeployViewRequestPacket());
+            return true;
         }
         
         if (!ClientRoomLockState.shouldReleaseMouseForUi()

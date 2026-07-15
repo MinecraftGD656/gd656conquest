@@ -36,9 +36,11 @@ public final class RunningRuntimeState {
     private final Set<UUID> deployAutoStartOnReadyPlayers = new LinkedHashSet<>();
     private final Set<UUID> deployAllowFallbackOnMissingSelectionPlayers = new LinkedHashSet<>();
     private final Set<UUID> deployExplicitConfirmRequiredPlayers = new LinkedHashSet<>();
+    private final Set<UUID> deployViewActivePlayers = new LinkedHashSet<>();
     private final Map<UUID, Integer> deathKillerEntityIds = new LinkedHashMap<>();
     private final Set<UUID> initialMovementLockedPlayers = new LinkedHashSet<>();
     private final Map<UUID, Integer> initialMovementLockLastShownSeconds = new LinkedHashMap<>();
+    private final Map<UUID, Integer> respawnCountdownLastShownSeconds = new LinkedHashMap<>();
     private final Map<UUID, String> squadLabelsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Long> combatUntilTicks = new LinkedHashMap<>();
     private final Set<UUID> doubledRespawnPending = new LinkedHashSet<>();
@@ -182,6 +184,10 @@ public final class RunningRuntimeState {
         return deployExplicitConfirmRequiredPlayers;
     }
 
+    public Set<UUID> getDeployViewActivePlayers() {
+        return deployViewActivePlayers;
+    }
+
     public Map<UUID, Integer> getDeathKillerEntityIds() {
         return deathKillerEntityIds;
     }
@@ -192,6 +198,10 @@ public final class RunningRuntimeState {
 
     public Map<UUID, Integer> getInitialMovementLockLastShownSeconds() {
         return initialMovementLockLastShownSeconds;
+    }
+
+    public Map<UUID, Integer> getRespawnCountdownLastShownSeconds() {
+        return respawnCountdownLastShownSeconds;
     }
 
     public long getInitialMovementUnlockTick() {
@@ -540,6 +550,7 @@ public final class RunningRuntimeState {
         randomizedLoadoutSelectionIdsByPlayerSlot.remove(playerId);
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.remove(playerId);
         outsideBoundarySinceTicks.remove(playerId);
+        respawnCountdownLastShownSeconds.remove(playerId);
         boundaryPenaltyLastShownSeconds.remove(playerId);
         boundaryPenaltyVisualApplied.remove(playerId);
         boundaryDeathPendingPlayers.remove(playerId);
@@ -576,6 +587,7 @@ public final class RunningRuntimeState {
         deathKillerEntityIds.clear();
         initialMovementLockedPlayers.clear();
         initialMovementLockLastShownSeconds.clear();
+        respawnCountdownLastShownSeconds.clear();
         squadLabelsByPlayer.clear();
         combatUntilTicks.clear();
         doubledRespawnPending.clear();
@@ -641,6 +653,7 @@ public final class RunningRuntimeState {
         deployAutoStartOnReadyPlayers.remove(playerId);
         deployAllowFallbackOnMissingSelectionPlayers.remove(playerId);
         deployExplicitConfirmRequiredPlayers.remove(playerId);
+        respawnCountdownLastShownSeconds.remove(playerId);
         if (killerEntityId >= 0) {
             deathKillerEntityIds.put(playerId, killerEntityId);
         } else {
@@ -668,6 +681,7 @@ public final class RunningRuntimeState {
         deployAutoStartOnReadyPlayers.remove(playerId);
         deployAllowFallbackOnMissingSelectionPlayers.remove(playerId);
         deployExplicitConfirmRequiredPlayers.remove(playerId);
+        respawnCountdownLastShownSeconds.remove(playerId);
         if (killerEntityId >= 0) {
             deathKillerEntityIds.put(playerId, killerEntityId);
         } else {
@@ -695,6 +709,7 @@ public final class RunningRuntimeState {
         deployAutoStartOnReadyPlayers.remove(playerId);
         deployAllowFallbackOnMissingSelectionPlayers.remove(playerId);
         deployExplicitConfirmRequiredPlayers.remove(playerId);
+        respawnCountdownLastShownSeconds.remove(playerId);
         if (killerEntityId >= 0) {
             deathKillerEntityIds.put(playerId, killerEntityId);
         } else {
@@ -783,7 +798,9 @@ public final class RunningRuntimeState {
         deployAutoStartOnReadyPlayers.remove(playerId);
         deployAllowFallbackOnMissingSelectionPlayers.remove(playerId);
         deployExplicitConfirmRequiredPlayers.remove(playerId);
+        deployViewActivePlayers.remove(playerId);
         deathKillerEntityIds.remove(playerId);
+        respawnCountdownLastShownSeconds.remove(playerId);
         doubledRespawnPending.remove(playerId);
         boundaryDeathPendingPlayers.remove(playerId);
     }

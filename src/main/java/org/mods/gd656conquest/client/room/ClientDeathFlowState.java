@@ -42,6 +42,9 @@ public final class ClientDeathFlowState {
     private static int killerEntityId;
     private static int deployConfirmDelayTicks;
     private static int deployTicksSinceOpen;
+    private static int respawnHoldTotalTicks;
+    private static int respawnHoldElapsedTicks;
+    private static boolean respawnHoldDarknessActive;
     private static int travelTotalTicks;
     private static int travelElapsedTicks;
     private static double deathX;
@@ -115,6 +118,9 @@ public final class ClientDeathFlowState {
         killerEntityId = killerId;
         deployConfirmDelayTicks = 0;
         deployTicksSinceOpen = 0;
+        respawnHoldTotalTicks = 0;
+        respawnHoldElapsedTicks = 0;
+        respawnHoldDarknessActive = false;
         travelTotalTicks = 0;
         travelElapsedTicks = 0;
         deathX = deathXValue;
@@ -198,6 +204,9 @@ public final class ClientDeathFlowState {
         TaczClientInputCompat.suppressCombatInputUntilRelease(minecraft);
         phase = PHASE_RESPAWN_TRAVEL;
         phaseTicks = 0L;
+        respawnHoldTotalTicks = 0;
+        respawnHoldElapsedTicks = 0;
+        respawnHoldDarknessActive = false;
         travelTotalTicks = Math.max(1, transitionTicks);
         travelElapsedTicks = 0;
         travelFromX = currentCameraX;
@@ -240,6 +249,37 @@ public final class ClientDeathFlowState {
         setCameraPose(targetX, targetY, targetZ, targetYaw, targetPitch, true);
     }
 
+    public static void openRespawnWaitInstant(double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int countdownTicks) {
+        Minecraft minecraft = Minecraft.getInstance();
+        LocalPlayer player = minecraft.player;
+        if (player == null) {
+            return;
+        }
+        TaczClientInputCompat.suppressCombatInputUntilRelease(minecraft);
+        active = true;
+        deathVisualsActive = false;
+        phase = PHASE_RESPAWN_HOLD;
+        phaseTicks = 0L;
+        killerEntityId = -1;
+        deployConfirmDelayTicks = 0;
+        deployTicksSinceOpen = 0;
+        respawnHoldTotalTicks = Math.max(0, countdownTicks);
+        respawnHoldElapsedTicks = 0;
+        respawnHoldDarknessActive = respawnHoldTotalTicks > 0;
+        travelTotalTicks = 0;
+        travelElapsedTicks = 0;
+        currentDesaturation = 0.0F;
+        targetDesaturation = 0.0F;
+        deathDesaturationTarget = 0.0F;
+        disableDesaturate(minecraft);
+        transitionTargetX = targetX;
+        transitionTargetY = targetY;
+        transitionTargetZ = targetZ;
+        transitionTargetYaw = targetYaw;
+        transitionTargetPitch = targetPitch;
+        setCameraPose(targetX, targetY, targetZ, targetYaw, targetPitch, true);
+    }
+
     public static void tick() {
         if (!active) {
             return;
@@ -257,6 +297,9 @@ public final class ClientDeathFlowState {
             return;
         }
         if (phase == PHASE_RESPAWN_HOLD) {
+            if (respawnHoldTotalTicks > 0 && respawnHoldElapsedTicks < respawnHoldTotalTicks) {
+                respawnHoldElapsedTicks++;
+            }
             setCameraPose(transitionTargetX, transitionTargetY, transitionTargetZ, transitionTargetYaw, transitionTargetPitch, false);
             return;
         }
@@ -363,6 +406,10 @@ public final class ClientDeathFlowState {
         return active && phase == PHASE_DEPLOY_OPEN && deployTicksSinceOpen >= deployConfirmDelayTicks;
     }
 
+    public static boolean isRespawnHoldActive() {
+        return active && phase == PHASE_RESPAWN_HOLD;
+    }
+
     public static int currentDeployCountdownRemainingTicks() {
         if (!active || (phase != PHASE_DEPLOY_TRAVEL && phase != PHASE_DEPLOY_OPEN)) {
             return -1;
@@ -407,6 +454,9 @@ public final class ClientDeathFlowState {
         killerEntityId = -1;
         deployConfirmDelayTicks = 0;
         deployTicksSinceOpen = 0;
+        respawnHoldTotalTicks = 0;
+        respawnHoldElapsedTicks = 0;
+        respawnHoldDarknessActive = false;
         travelTotalTicks = 0;
         travelElapsedTicks = 0;
         previousCameraX = 0.0D;
@@ -442,6 +492,9 @@ public final class ClientDeathFlowState {
         phase = PHASE_IDLE;
         currentDeployIconAlpha = 0.0F;
         targetDeployIconAlpha = 0.0F;
+        respawnHoldTotalTicks = 0;
+        respawnHoldElapsedTicks = 0;
+        respawnHoldDarknessActive = false;
         downedBlackoutTarget = 0.0F;
         downedEntryFadeElapsedSeconds = 0.0F;
     }
@@ -461,6 +514,9 @@ public final class ClientDeathFlowState {
         killerEntityId = -1;
         deployConfirmDelayTicks = 0;
         deployTicksSinceOpen = 0;
+        respawnHoldTotalTicks = 0;
+        respawnHoldElapsedTicks = 0;
+        respawnHoldDarknessActive = false;
         travelTotalTicks = 0;
         travelElapsedTicks = 0;
         transitionTargetX = targetX;
@@ -495,7 +551,9 @@ public final class ClientDeathFlowState {
         }
         boolean deployPhase = phase == PHASE_DEPLOY_TRAVEL || phase == PHASE_DEPLOY_OPEN;
         boolean respawnPhase = phase == PHASE_RESPAWN_TRAVEL || phase == PHASE_RESPAWN_HOLD;
-        if (deployPhase || respawnPhase) {
+        if (respawnHoldDarknessActive && phase == PHASE_RESPAWN_HOLD) {
+            targetDarkness = resolveRespawnHoldDarkness();
+        } else if (deployPhase || respawnPhase) {
             targetDarkness = 0.0F;
         } else if (phase == PHASE_DOWNED_HOLD) {
             targetDarkness = resolveDownedEntryDarkness();
@@ -533,6 +591,18 @@ public final class ClientDeathFlowState {
         float baseDarkness = Math.min(downedBlackoutTarget, STANDARD_DEATH_VIEW_DARKNESS);
         float extraDarkness = Math.max(0.0F, downedBlackoutTarget - STANDARD_DEATH_VIEW_DARKNESS);
         return Mth.clamp((baseDarkness * fadeProgress) + extraDarkness, 0.0F, 0.992F);
+    }
+
+    private static float resolveRespawnHoldDarkness() {
+        if (respawnHoldTotalTicks <= 0) {
+            return 0.0F;
+        }
+        float remainingRatio = Mth.clamp(
+            (respawnHoldTotalTicks - respawnHoldElapsedTicks) / (float) respawnHoldTotalTicks,
+            0.0F,
+            1.0F
+        );
+        return STANDARD_DEATH_VIEW_DARKNESS * remainingRatio;
     }
 
     private static float exponentialApproach(float current, float target, float deltaSeconds, float sharpness) {

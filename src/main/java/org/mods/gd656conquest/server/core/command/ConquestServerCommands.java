@@ -121,6 +121,18 @@ public final class ConquestServerCommands {
         root.then(buildLevelAliasTree());
         root.then(RoomCommands.buildRedeployTree());
         root.then(LoadoutCommands.buildCompatibilityTree());
+        
+        root.then(Commands.literal("migrate")
+            .requires(source -> source.hasPermission(2))
+            .executes(context -> {
+                var result = org.mods.gd656conquest.server.data.roomdefinition.RoomDefinitionMigrator.migrateLegacyRooms(context.getSource().getServer());
+                for (String msg : result.messages()) {
+                    context.getSource().sendSuccess(() -> Component.literal(msg), false);
+                }
+                context.getSource().sendSuccess(() -> Component.literal("迁移完成: 成功 " + result.successCount() + " 个, 失败 " + result.failureCount() + " 个"), true);
+                return result.successCount();
+            })
+        );
         return root;
     }
 

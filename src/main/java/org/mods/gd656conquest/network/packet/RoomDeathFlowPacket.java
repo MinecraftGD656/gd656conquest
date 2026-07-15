@@ -23,6 +23,7 @@ public final class RoomDeathFlowPacket {
     private static final int ACTION_MATCH_END_VIEW_LOCK_OFF = 7;
     private static final int ACTION_MATCH_END_TRAVEL = 8;
     private static final int ACTION_OPEN_DEPLOY_INSTANT = 9;
+    private static final int ACTION_OPEN_RESPAWN_WAIT = 10;
     private final int action;
     private final double sourceX;
     private final double sourceY;
@@ -69,6 +70,10 @@ public final class RoomDeathFlowPacket {
 
     public static RoomDeathFlowPacket startRespawnTransition(double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int transitionTicks) {
         return new RoomDeathFlowPacket(ACTION_START_RESPAWN, 0.0D, 0.0D, 0.0D, targetX, targetY, targetZ, targetYaw, targetPitch, -1, 0, transitionTicks);
+    }
+
+    public static RoomDeathFlowPacket openRespawnWaitInstant(double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int countdownTicks) {
+        return new RoomDeathFlowPacket(ACTION_OPEN_RESPAWN_WAIT, targetX, targetY, targetZ, targetX, targetY, targetZ, targetYaw, targetPitch, -1, countdownTicks, 0);
     }
 
     public static RoomDeathFlowPacket clear() {
@@ -145,6 +150,10 @@ public final class RoomDeathFlowPacket {
                 AudioManager.getInstance().playSound(SOUND_DEPLOY_SELECT_READY, 1.0F, 1.0F);
                 ClientMusicTriggerService.onRespawnTransitionStarted();
                 ClientDeathFlowState.startRespawnTransition(message.targetX, message.targetY, message.targetZ, message.targetYaw, message.targetPitch, message.transitionTicks);
+                return;
+            }
+            if (message.action == ACTION_OPEN_RESPAWN_WAIT) {
+                ClientDeathFlowState.openRespawnWaitInstant(message.targetX, message.targetY, message.targetZ, message.targetYaw, message.targetPitch, message.deployCountdownTicks);
                 return;
             }
             if (message.action == ACTION_BOUNDARY_ON) {

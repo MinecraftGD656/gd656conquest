@@ -10,6 +10,7 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.lwjgl.glfw.GLFW;
 import org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService;
+import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 
 public final class ClientHudVisibilityCycleListener {
     private static final ResourceLocation SIMPLE_HEALTH_BAR_OVERLAY = new ResourceLocation("simplehealthbar", "health_bar");
@@ -76,22 +77,28 @@ public final class ClientHudVisibilityCycleListener {
         if (event == null || event.getOverlay() == null) {
             return false;
         }
-        return event.getOverlay().id().equals(VanillaGuiOverlay.HOTBAR.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.CROSSHAIR.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.BOSS_EVENT_PROGRESS.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.PLAYER_HEALTH.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.ARMOR_LEVEL.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.FOOD_LEVEL.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.AIR_LEVEL.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.MOUNT_HEALTH.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.JUMP_BAR.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.EXPERIENCE_BAR.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.ITEM_NAME.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.POTION_ICONS.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.SCOREBOARD.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.TITLE_TEXT.id())
-            || event.getOverlay().id().equals(VanillaGuiOverlay.SUBTITLES.id())
-            || event.getOverlay().id().equals(SIMPLE_HEALTH_BAR_OVERLAY);
+        ResourceLocation overlayId = event.getOverlay().id();
+        if (ClientDeathFlowState.isRespawnHoldActive()
+            && (overlayId.equals(VanillaGuiOverlay.TITLE_TEXT.id())
+            || overlayId.equals(VanillaGuiOverlay.SUBTITLES.id()))) {
+            return false;
+        }
+        return overlayId.equals(VanillaGuiOverlay.HOTBAR.id())
+            || overlayId.equals(VanillaGuiOverlay.CROSSHAIR.id())
+            || overlayId.equals(VanillaGuiOverlay.BOSS_EVENT_PROGRESS.id())
+            || overlayId.equals(VanillaGuiOverlay.PLAYER_HEALTH.id())
+            || overlayId.equals(VanillaGuiOverlay.ARMOR_LEVEL.id())
+            || overlayId.equals(VanillaGuiOverlay.FOOD_LEVEL.id())
+            || overlayId.equals(VanillaGuiOverlay.AIR_LEVEL.id())
+            || overlayId.equals(VanillaGuiOverlay.MOUNT_HEALTH.id())
+            || overlayId.equals(VanillaGuiOverlay.JUMP_BAR.id())
+            || overlayId.equals(VanillaGuiOverlay.EXPERIENCE_BAR.id())
+            || overlayId.equals(VanillaGuiOverlay.ITEM_NAME.id())
+            || overlayId.equals(VanillaGuiOverlay.POTION_ICONS.id())
+            || overlayId.equals(VanillaGuiOverlay.SCOREBOARD.id())
+            || overlayId.equals(VanillaGuiOverlay.TITLE_TEXT.id())
+            || overlayId.equals(VanillaGuiOverlay.SUBTITLES.id())
+            || overlayId.equals(SIMPLE_HEALTH_BAR_OVERLAY);
     }
 
     @SubscribeEvent

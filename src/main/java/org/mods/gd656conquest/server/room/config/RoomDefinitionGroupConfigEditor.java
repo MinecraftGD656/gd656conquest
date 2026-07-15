@@ -183,6 +183,8 @@ public final class RoomDefinitionGroupConfigEditor {
             common.enableRandomAttachments(),
             common.enableParachute(),
             common.enableDeathSupportDrop(),
+            common.enableSniperRoom(),
+            common.disableUndyingTotem(),
             "supportcampaherokits".equals(canonical) ? updatedValues : common.supportCampAHeroKits(),
             "supportcampbherokits".equals(canonical) ? updatedValues : common.supportCampBHeroKits(),
             "supportcampashellings".equals(canonical) ? updatedValues : common.supportCampAShellings(),
@@ -696,12 +698,6 @@ public final class RoomDefinitionGroupConfigEditor {
         return switch (canonical) {
             case "dmcampaboundary" -> "deathmatchConfig.campABoundary";
             case "dmcampbboundary" -> "deathmatchConfig.campBBoundary";
-            case "dmcampcboundary" -> "deathmatchConfig.campCBoundary";
-            case "dmcampdboundary" -> "deathmatchConfig.campDBoundary";
-            case "dmcampeboundary" -> "deathmatchConfig.campEBoundary";
-            case "dmcampfboundary" -> "deathmatchConfig.campFBoundary";
-            case "dmcampgboundary" -> "deathmatchConfig.campGBoundary";
-            case "dmcamphboundary" -> "deathmatchConfig.campHBoundary";
             default -> throw new IllegalArgumentException("未知团队死斗边界: " + canonical);
         };
     }
@@ -710,12 +706,6 @@ public final class RoomDefinitionGroupConfigEditor {
         return switch (canonical) {
             case "dmcampaspawngroup" -> "deathmatchConfig.campASpawnGroup";
             case "dmcampbspawngroup" -> "deathmatchConfig.campBSpawnGroup";
-            case "dmcampcspawngroup" -> "deathmatchConfig.campCSpawnGroup";
-            case "dmcampdspawngroup" -> "deathmatchConfig.campDSpawnGroup";
-            case "dmcampespawngroup" -> "deathmatchConfig.campESpawnGroup";
-            case "dmcampfspawngroup" -> "deathmatchConfig.campFSpawnGroup";
-            case "dmcampgspawngroup" -> "deathmatchConfig.campGSpawnGroup";
-            case "dmcamphspawngroup" -> "deathmatchConfig.campHSpawnGroup";
             default -> throw new IllegalArgumentException("未知团队死斗出生组: " + canonical);
         };
     }

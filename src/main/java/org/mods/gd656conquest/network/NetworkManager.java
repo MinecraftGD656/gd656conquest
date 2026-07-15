@@ -29,6 +29,7 @@ import org.mods.gd656conquest.network.packet.VehicleAdminEditorRequestPacket;
 import org.mods.gd656conquest.network.packet.VehicleAdminEditorSnapshotPacket;
 import org.mods.gd656conquest.network.packet.VehicleAdminEditorUpdatePacket;
 import org.mods.gd656conquest.network.packet.RoomDeathFlowPacket;
+import org.mods.gd656conquest.network.packet.RoomDeathmatchDeployViewRequestPacket;
 import org.mods.gd656conquest.network.packet.RoomDeploySelectPacket;
 import org.mods.gd656conquest.network.packet.RoomHudSubtitlePacket;
 import org.mods.gd656conquest.network.packet.RoomHudSyncPacket;
@@ -59,7 +60,7 @@ import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "091";
+    private static final String PROTOCOL_VERSION = "092";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -120,6 +121,13 @@ public final class NetworkManager {
                 RoomDeploySelectPacket::encode,
                 RoomDeploySelectPacket::decode,
                 RoomDeploySelectPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                RoomDeathmatchDeployViewRequestPacket.class,
+                RoomDeathmatchDeployViewRequestPacket::encode,
+                RoomDeathmatchDeployViewRequestPacket::decode,
+                RoomDeathmatchDeployViewRequestPacket::handle
         );
         CHANNEL.registerMessage(
                 packetId++,

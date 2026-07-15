@@ -13,6 +13,7 @@ import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.matching.MatchingRuntimeState;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 
 import java.util.LinkedHashMap;
@@ -134,12 +135,22 @@ public final class ServerPlayerLockService {
             return buildSnapshot(PlayerLockStrength.MOVEMENT, "being_revived", false, true, false, false, false, false, false);
         }
         if (runningState != null && runningState.getDeployReadyTicks().containsKey(playerId)) {
+            if (RoomGameplayId.DEATHMATCH.equals(context.room().gameplayId())
+                && !runningState.getDeployViewActivePlayers().contains(playerId)) {
+                return buildSnapshot(PlayerLockStrength.MOVEMENT, "deathmatch_respawn_wait", true, true, false, false, false, false, false);
+            }
             return buildSnapshot(PlayerLockStrength.UI_CURSOR, "deploy_ui", false, false, true, true, false, false, false);
         }
         if (runningState != null && runningState.getRespawnFinalizeTicks().containsKey(playerId)) {
+            if (RoomGameplayId.DEATHMATCH.equals(context.room().gameplayId())) {
+                return buildSnapshot(PlayerLockStrength.MOVEMENT, "deathmatch_respawn_finalize", true, true, false, false, false, false, false);
+            }
             return buildSnapshot(PlayerLockStrength.HARD_LOCK, "respawn_finalize", false, false, false, false, false, false, false);
         }
         if (runningState != null && runningState.isInRespawnFlow(playerId)) {
+            if (RoomGameplayId.DEATHMATCH.equals(context.room().gameplayId())) {
+                return buildSnapshot(PlayerLockStrength.MOVEMENT, "deathmatch_respawn_flow", true, true, false, false, false, false, false);
+            }
             return buildSnapshot(PlayerLockStrength.HARD_LOCK, "respawn_flow", true, true, false, false, false, false, false);
         }
         if (player.hasPermissions(2)) {

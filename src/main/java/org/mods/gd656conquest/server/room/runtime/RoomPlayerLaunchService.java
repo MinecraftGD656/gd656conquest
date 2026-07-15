@@ -10,11 +10,13 @@ import org.mods.gd656conquest.server.room.model.RoomViewPosition;
 import org.mods.gd656conquest.server.room.matching.MatchingRuntimeState;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
+import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.UUID;
 
 public final class RoomPlayerLaunchService {
@@ -133,6 +135,20 @@ public final class RoomPlayerLaunchService {
 
     private RoomPosition resolveSpawn(RoomDefinition room, RoomTeamId teamId) {
         if (teamId != null) {
+            if (room != null && org.mods.gd656conquest.server.room.model.RoomGameplayId.DEATHMATCH.equals(room.gameplayId())) {
+                if (teamId == RoomTeamId.CAMP_A) {
+                    RoomPosition spawn = pickSpawnFromGroup(room.deathmatchConfig().campASpawnGroup());
+                    if (spawn != null) {
+                        return spawn;
+                    }
+                }
+                if (teamId == RoomTeamId.CAMP_B) {
+                    RoomPosition spawn = pickSpawnFromGroup(room.deathmatchConfig().campBSpawnGroup());
+                    if (spawn != null) {
+                        return spawn;
+                    }
+                }
+            }
             RoomPosition randomTeamSpawn = room.conquestConfig().pickRandomTeamSpawn(teamId).orElse(null);
             if (randomTeamSpawn != null) {
                 return randomTeamSpawn;
@@ -142,6 +158,19 @@ public final class RoomPlayerLaunchService {
             return room.commonConfig().queueSpawn();
         }
         return new RoomPosition(0, 100.0D, 0);
+    }
+
+    private RoomPosition pickSpawnFromGroup(RoomSpawnGroupConfig group) {
+        if (group == null || !group.enabled() || group.spawns().isEmpty()) {
+            return null;
+        }
+        var candidates = group.spawns().stream()
+            .filter(Objects::nonNull)
+            .toList();
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
     }
 
     private boolean teleportTo(ServerPlayer player, ServerLevel level, RoomPosition position) {

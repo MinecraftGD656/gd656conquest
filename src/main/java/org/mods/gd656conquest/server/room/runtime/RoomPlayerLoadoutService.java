@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class RoomPlayerLoadoutService {
     private static final String RANDOM_ATTACHMENT_NONE_SELECTION_ID = "__none__";
@@ -153,7 +154,8 @@ public final class RoomPlayerLoadoutService {
             playerData,
             player,
             playerLevel,
-            refreshRandomSelection
+            refreshRandomSelection,
+            true
         );
         PlayerClassType classType = selection.classType();
 
@@ -195,7 +197,15 @@ public final class RoomPlayerLoadoutService {
         if (grantArmor && teamId != null) {
             applyArmorLoadout(player, equipmentData, classType, teamId);
         }
-        if (moveTotemToOffhand) {
+        if (roomContext.room() != null && roomContext.room().commonConfig().disableUndyingTotem()) {
+            if (removeTotems(player)) {
+                org.mods.gd656conquest.server.shared.log.ServerLogger.sendToClient(
+                    player,
+                    org.mods.gd656conquest.common.log.ClientMessageType.WARNING,
+                    "当前房间已禁用不死图腾"
+                );
+            }
+        } else if (moveTotemToOffhand) {
             moveConfiguredTotemToOffhand(player);
         }
         applyOptionalRoomGoatHorn(player);
@@ -229,6 +239,7 @@ public final class RoomPlayerLoadoutService {
             playerData,
             player,
             playerLevel,
+            false,
             false
         );
         Map<Integer, ItemStack> snapshots = new HashMap<>();
@@ -585,6 +596,7 @@ public final class RoomPlayerLoadoutService {
             playerData,
             player,
             playerLevel,
+            false,
             false
         );
         Map<CustomLoadoutSlot, ResolvedLoadoutItem> resolved = new EnumMap<>(CustomLoadoutSlot.class);
@@ -860,6 +872,7 @@ public final class RoomPlayerLoadoutService {
             playerData,
             player,
             playerLevel,
+            false,
             false
         );
         EquipmentDataModel.EquipmentEntry selectedEntry = selection.entriesBySlot().get(slot);
@@ -916,13 +929,14 @@ public final class RoomPlayerLoadoutService {
         PlayerDataModel playerData,
         ServerPlayer player,
         int playerLevel,
-        boolean refreshRandomSelection
+        boolean refreshRandomSelection,
+        boolean notifyPlayer
     ) {
         if (equipmentData == null || player == null) {
             return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), false, false);
         }
         if (isRandomizedLoadoutEnabled(roomContext)) {
-            return resolveRandomizedLoadoutSelection(roomContext.state(), equipmentData, player, refreshRandomSelection);
+            return resolveRandomizedLoadoutSelection(roomContext, equipmentData, player, refreshRandomSelection, notifyPlayer);
         }
         PlayerClassType classType = CustomLoadoutService.resolveCurrentClass(playerData);
         Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entriesBySlot = new EnumMap<>(CustomLoadoutSlot.class);
@@ -952,15 +966,17 @@ public final class RoomPlayerLoadoutService {
             }
             entriesBySlot.put(slot, selectedEntry);
         }
-        return applyRoomLoadoutRestrictions(roomContext, new ActiveLoadoutSelection(classType, entriesBySlot, false, playerDataChanged));
+        return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, new ActiveLoadoutSelection(classType, entriesBySlot, false, playerDataChanged), notifyPlayer);
     }
 
     private ActiveLoadoutSelection resolveRandomizedLoadoutSelection(
-        RunningRuntimeState state,
+        RoomRuntimeContext roomContext,
         EquipmentDataModel equipmentData,
         ServerPlayer player,
-        boolean refreshRandomSelection
+        boolean refreshRandomSelection,
+        boolean notifyPlayer
     ) {
+        RunningRuntimeState state = roomContext == null ? null : roomContext.state();
         if (state == null || equipmentData == null || player == null) {
             return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false);
         }
@@ -968,7 +984,7 @@ public final class RoomPlayerLoadoutService {
         if (!refreshRandomSelection) {
             ActiveLoadoutSelection existing = resolveStoredRandomizedLoadoutSelection(state, equipmentData, playerId);
             if (!existing.entriesBySlot().isEmpty()) {
-                return applyRoomLoadoutRestrictions(resolveRoomRuntimeContext(player), existing);
+                return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, existing, notifyPlayer);
             }
         }
         List<PlayerClassType> fullCoverageClasses = new ArrayList<>();
@@ -987,20 +1003,29 @@ public final class RoomPlayerLoadoutService {
             }
         }
         List<PlayerClassType> candidates = !fullCoverageClasses.isEmpty() ? fullCoverageClasses : partialCoverageClasses;
+        if (roomContext.room() != null && roomContext.room().commonConfig().enableSniperRoom()) {
+            candidates = List.of(PlayerClassType.RECON);
+        }
         if (candidates.isEmpty()) {
             state.getRandomizedLoadoutClassKeysByPlayer().remove(playerId);
             state.getRandomizedLoadoutSelectionIdsByPlayerSlot().remove(playerId);
             return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false);
         }
-        PlayerClassType chosenClass = candidates.get(player.getRandom().nextInt(candidates.size()));
+        PlayerClassType chosenClass = candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
         Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entriesBySlot = new EnumMap<>(CustomLoadoutSlot.class);
         Map<String, String> storedSelectionIds = new LinkedHashMap<>();
         for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
             List<EquipmentDataModel.EquipmentEntry> candidatesBySlot = CustomLoadoutService.listEntriesByClassAndSlot(equipmentData, chosenClass, slot);
+            if (roomContext.room() != null && roomContext.room().commonConfig().enableSniperRoom() && slot == CustomLoadoutSlot.PRIMARY_WEAPON) {
+                candidatesBySlot = candidatesBySlot.stream().filter(entry -> {
+                    ItemStack stack = deserializeEquipmentItem(entry.getItemSnbt());
+                    return "sniper".equals(TaczAttachmentCompatService.getInstance().resolveGunType(stack));
+                }).toList();
+            }
             if (candidatesBySlot.isEmpty()) {
                 continue;
             }
-            EquipmentDataModel.EquipmentEntry selectedEntry = candidatesBySlot.get(player.getRandom().nextInt(candidatesBySlot.size()));
+            EquipmentDataModel.EquipmentEntry selectedEntry = candidatesBySlot.get(ThreadLocalRandom.current().nextInt(candidatesBySlot.size()));
             if (selectedEntry == null) {
                 continue;
             }
@@ -1009,7 +1034,7 @@ public final class RoomPlayerLoadoutService {
         }
         state.getRandomizedLoadoutClassKeysByPlayer().put(playerId, chosenClass.getKey());
         state.getRandomizedLoadoutSelectionIdsByPlayerSlot().put(playerId, storedSelectionIds);
-        return applyRoomLoadoutRestrictions(resolveRoomRuntimeContext(player), new ActiveLoadoutSelection(chosenClass, entriesBySlot, true, false));
+        return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, new ActiveLoadoutSelection(chosenClass, entriesBySlot, true, false), notifyPlayer);
     }
 
     private ActiveLoadoutSelection resolveStoredRandomizedLoadoutSelection(
@@ -1049,14 +1074,70 @@ public final class RoomPlayerLoadoutService {
             && roomContext.room().commonConfig().enableRandomLoadout();
     }
 
-    private ActiveLoadoutSelection applyRoomLoadoutRestrictions(RoomRuntimeContext roomContext, ActiveLoadoutSelection selection) {
-        if (selection == null || selection.entriesBySlot().isEmpty() || !isKnifeDuelEnabled(roomContext)) {
+    private ActiveLoadoutSelection applyRoomLoadoutRestrictions(RoomRuntimeContext roomContext, EquipmentDataModel equipmentData, ServerPlayer player, ActiveLoadoutSelection selection, boolean notifyPlayer) {
+        if (selection == null || selection.entriesBySlot().isEmpty() || roomContext == null || roomContext.room() == null) {
             return selection;
         }
-        Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> filteredEntries = new EnumMap<>(CustomLoadoutSlot.class);
-        filteredEntries.putAll(selection.entriesBySlot());
-        filteredEntries.keySet().removeIf(KNIFE_DUEL_BLOCKED_SLOTS::contains);
-        return new ActiveLoadoutSelection(selection.classType(), filteredEntries, selection.randomized(), selection.playerDataChanged());
+
+        PlayerClassType classType = selection.classType();
+        Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entries = new EnumMap<>(CustomLoadoutSlot.class);
+        entries.putAll(selection.entriesBySlot());
+        boolean changed = selection.playerDataChanged();
+
+        if (roomContext.room().commonConfig().enableSniperRoom()) {
+            boolean classChanged = classType != PlayerClassType.RECON;
+            classType = PlayerClassType.RECON;
+            
+            EquipmentDataModel.EquipmentEntry primaryEntry = entries.get(CustomLoadoutSlot.PRIMARY_WEAPON);
+            boolean isSniper = false;
+            
+            if (primaryEntry != null) {
+                ItemStack gunStack = deserializeEquipmentItem(primaryEntry.getItemSnbt());
+                String gunType = TaczAttachmentCompatService.getInstance().resolveGunType(gunStack);
+                if ("sniper".equals(gunType)) {
+                    isSniper = true;
+                }
+            }
+            
+            if (!isSniper) {
+                EquipmentDataModel.EquipmentEntry fallbackSniper = findDefaultSniper(equipmentData);
+                if (fallbackSniper != null) {
+                    entries.put(CustomLoadoutSlot.PRIMARY_WEAPON, fallbackSniper);
+                    if (player != null && notifyPlayer && !selection.randomized()) {
+                        org.mods.gd656conquest.server.shared.log.ServerLogger.sendToClient(
+                            player,
+                            org.mods.gd656conquest.common.log.ClientMessageType.WARNING,
+                            "当前房间已开启狙击房模式，您的兵种已被强制设为侦察兵，且主武器已自动替换为基础狙击枪"
+                        );
+                    }
+                }
+            } else if (classChanged && player != null && notifyPlayer && !selection.randomized()) {
+                org.mods.gd656conquest.server.shared.log.ServerLogger.sendToClient(
+                    player,
+                    org.mods.gd656conquest.common.log.ClientMessageType.WARNING,
+                    "当前房间已开启狙击房模式，您的兵种已被强制设为侦察兵"
+                );
+            }
+        }
+
+        if (isKnifeDuelEnabled(roomContext)) {
+            entries.keySet().removeIf(KNIFE_DUEL_BLOCKED_SLOTS::contains);
+        }
+
+        return new ActiveLoadoutSelection(classType, entries, selection.randomized(), changed);
+    }
+
+    private EquipmentDataModel.EquipmentEntry findDefaultSniper(EquipmentDataModel equipmentData) {
+        if (equipmentData == null) return null;
+        for (EquipmentDataModel.EquipmentEntry entry : CustomLoadoutService.listEntriesBySlot(equipmentData, CustomLoadoutSlot.PRIMARY_WEAPON)) {
+            if (entry.getUnlockLevel() <= 0 && CustomLoadoutService.isEntryAvailableForClass(entry, PlayerClassType.RECON)) {
+                ItemStack stack = deserializeEquipmentItem(entry.getItemSnbt());
+                if ("sniper".equals(TaczAttachmentCompatService.getInstance().resolveGunType(stack))) {
+                    return entry;
+                }
+            }
+        }
+        return null;
     }
 
     private boolean isKnifeDuelEnabled(RoomRuntimeContext roomContext) {
@@ -1176,6 +1257,24 @@ public final class RoomPlayerLoadoutService {
         }
         player.getInventory().add(stack.copy());
         return stack;
+    }
+
+    private boolean removeTotems(ServerPlayer player) {
+        boolean removed = false;
+        if (player == null) return false;
+        ItemStack offhand = player.getOffhandItem();
+        if (!offhand.isEmpty() && offhand.is(Items.TOTEM_OF_UNDYING)) {
+            player.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+            removed = true;
+        }
+        for (int slot = 0; slot < player.getInventory().items.size(); slot++) {
+            ItemStack stack = player.getInventory().items.get(slot);
+            if (stack != null && !stack.isEmpty() && stack.is(Items.TOTEM_OF_UNDYING)) {
+                player.getInventory().items.set(slot, ItemStack.EMPTY);
+                removed = true;
+            }
+        }
+        return removed;
     }
 
     private void moveConfiguredTotemToOffhand(ServerPlayer player) {

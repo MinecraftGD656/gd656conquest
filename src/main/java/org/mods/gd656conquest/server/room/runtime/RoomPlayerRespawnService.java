@@ -45,6 +45,7 @@ import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentatio
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployViewKind;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployViewRequest;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.vehicle.RoomVehicleDeployExecutionService;
@@ -94,6 +95,7 @@ public final class RoomPlayerRespawnService {
     private static final double DOWNED_RESCUE_HINT_DISTANCE_SQR = 3.5D * 3.5D;
     private static final String ACTIONBAR_SOURCE_DEPLOY_WAIT = "room_deploy_wait";
     private static final String ACTIONBAR_SOURCE_DEPLOY_NOTICE = "room_deploy_notice";
+    private static final String ACTIONBAR_SOURCE_DEPLOY_HINT = "room_deploy_hint";
     private static final String ACTIONBAR_SOURCE_DOWNED = "room_downed_wait";
     private static final String ACTIONBAR_SOURCE_DOWNED_RESCUE_TARGET = "room_downed_rescue_target";
     private static final String ACTIONBAR_SOURCE_DOWNED_RESCUE_PROMPT = "room_downed_rescue_prompt";
@@ -150,15 +152,22 @@ public final class RoomPlayerRespawnService {
         if (playerId == null || deathPosition == null) {
             return;
         }
-        long countdownStartTick = gameTick + (killerEntityId >= 0
-            ? DEATH_WITH_KILLER_OPEN_DEPLOY_TICKS
-            : DEATH_NO_KILLER_OPEN_DEPLOY_TICKS);
+        boolean deathmatch = isDeathmatch(room);
+        long countdownStartTick = deathmatch
+            ? gameTick
+            : gameTick + (killerEntityId >= 0
+                ? DEATH_WITH_KILLER_OPEN_DEPLOY_TICKS
+                : DEATH_NO_KILLER_OPEN_DEPLOY_TICKS);
         HeroKitSupportService.endHeroKitState(server, state, playerId, gameTick);
         state.markPlayerDead(playerId, deathPosition, countdownStartTick, killerEntityId);
         notifyNearbyTeammatesManDown(state, playerId, deathPosition, killerEntityId, false);
         ServerPlayer player = server.getPlayerList().getPlayer(playerId);
         if (player != null) {
             prepareRespawnAnchor(room, state, player);
+            if (deathmatch) {
+                beginDeathmatchRespawnHold(room, state, player, gameTick, resolveDeployDelayTicks(room, state, 1), false, true);
+                return;
+            }
             NetworkManager.sendToPlayer(
                 player,
                 RoomDeathFlowPacket.startDeath(deathPosition.x(), deathPosition.y(), deathPosition.z(), killerEntityId)
@@ -349,6 +358,26 @@ public final class RoomPlayerRespawnService {
             return;
         }
         UUID playerId = player.getUUID();
+        if (isDeathmatch(room)) {
+            int deployDelayTicks = INITIAL_DEPLOY_DELAY_SECONDS * 20;
+            state.setInitialMovementUnlockTick(gameTick + initialCombatUnlockDelayTicks(room));
+            state.clearRespawnFlow(playerId);
+            state.getDeployReadyTicks().put(playerId, gameTick + deployDelayTicks);
+            state.getDeployAutoStartOnReadyPlayers().add(playerId);
+            state.getDeployAllowFallbackOnMissingSelectionPlayers().add(playerId);
+            RoomTeamId teamId = state.getRoomTeams().get(playerId);
+            if (teamId == RoomTeamId.CAMP_A || teamId == RoomTeamId.CAMP_B) {
+                deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
+            }
+            enterDeployHoldingState(room, state, player, false);
+            openDeployView(room, state, player, new RoomGameplayDeployViewRequest(
+                RoomGameplayDeployViewKind.INITIAL,
+                gameTick,
+                deployDelayTicks,
+                false
+            ));
+            return;
+        }
         int deployDelayTicks = INITIAL_DEPLOY_DELAY_SECONDS * 20;
         state.setInitialMovementUnlockTick(gameTick + deployDelayTicks + RESPAWN_TRAVEL_TICKS + INITIAL_MOVEMENT_LOCK_SECONDS * 20L);
         state.clearRespawnFlow(playerId);
@@ -394,6 +423,16 @@ public final class RoomPlayerRespawnService {
         if (tryBeginAlignedOpeningJoinDeploy(room, state, player, gameTick, RoomGameplayDeployViewKind.RECONNECT)) {
             return;
         }
+        if (isDeathmatch(room)) {
+            enterDeployHoldingState(room, state, player, false);
+            openDeployView(room, state, player, new RoomGameplayDeployViewRequest(
+                RoomGameplayDeployViewKind.RECONNECT,
+                gameTick,
+                deployDelayTicks,
+                false
+            ));
+            return;
+        }
         enterDeployHoldingState(room, state, player, false);
         openDeployView(room, state, player, new RoomGameplayDeployViewRequest(
             RoomGameplayDeployViewKind.RECONNECT,
@@ -421,6 +460,20 @@ public final class RoomPlayerRespawnService {
             return;
         }
         deploySelectionService.clearSelection(state, playerId);
+        if (isDeathmatch(room)) {
+            RoomTeamId teamId = state.getRoomTeams().get(playerId);
+            if (teamId == RoomTeamId.CAMP_A || teamId == RoomTeamId.CAMP_B) {
+                deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
+            }
+            enterDeployHoldingState(room, state, player, false);
+            openDeployView(room, state, player, new RoomGameplayDeployViewRequest(
+                RoomGameplayDeployViewKind.MIDJOIN,
+                gameTick,
+                deployDelayTicks,
+                true
+            ));
+            return;
+        }
         enterDeployHoldingState(room, state, player, false);
         openDeployView(room, state, player, new RoomGameplayDeployViewRequest(
             RoomGameplayDeployViewKind.MIDJOIN,
@@ -489,6 +542,43 @@ public final class RoomPlayerRespawnService {
         return started;
     }
 
+    public boolean requestDeathmatchDeployView(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player,
+        long gameTick
+    ) {
+        if (!isDeathmatch(room) || state == null || player == null || !player.isAlive()) {
+            return false;
+        }
+        UUID playerId = player.getUUID();
+        Long deployReadyTick = state.getDeployReadyTicks().get(playerId);
+        if (deployReadyTick == null || state.getRespawnFinalizeTicks().containsKey(playerId)) {
+            return false;
+        }
+        RoomTeamId teamId = state.getRoomTeams().get(playerId);
+        if (teamId != RoomTeamId.CAMP_A && teamId != RoomTeamId.CAMP_B) {
+            return false;
+        }
+        long remainTicks = Math.max(0L, deployReadyTick - gameTick);
+        deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
+        state.getDeployAutoStartOnReadyPlayers().remove(playerId);
+        state.getDeployAllowFallbackOnMissingSelectionPlayers().add(playerId);
+        state.getDeployExplicitConfirmRequiredPlayers().add(playerId);
+        state.getRespawnCountdownLastShownSeconds().remove(playerId);
+        ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
+        clearInitialCombatCountdownTitle(player);
+        enterDeployHoldingState(room, state, player, false);
+        openDeployView(room, state, player, new RoomGameplayDeployViewRequest(
+            RoomGameplayDeployViewKind.RESPAWN,
+            gameTick,
+            (int) remainTicks,
+            false
+        ));
+        LoadoutUiService.sendSnapshot(player, false, true);
+        return true;
+    }
+
     public void tick(RoomDefinition room, RunningRuntimeState state, long gameTick) {
         Objects.requireNonNull(room, "room");
         Objects.requireNonNull(state, "state");
@@ -512,13 +602,17 @@ public final class RoomPlayerRespawnService {
             state.getDeployReadyTicks().put(playerId, gameTick + deployDelayTicks);
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player != null) {
-                enterDeployHoldingState(room, state, player, false);
-                openDeployView(room, state, player, new RoomGameplayDeployViewRequest(
-                    RoomGameplayDeployViewKind.RESPAWN,
-                    gameTick,
-                    deployDelayTicks,
-                    false
-                ));
+                if (isDeathmatch(room)) {
+                    beginDeathmatchRespawnHold(room, state, player, gameTick, deployDelayTicks, false, true);
+                } else {
+                    enterDeployHoldingState(room, state, player, false);
+                    openDeployView(room, state, player, new RoomGameplayDeployViewRequest(
+                        RoomGameplayDeployViewKind.RESPAWN,
+                        gameTick,
+                        deployDelayTicks,
+                        false
+                    ));
+                }
             }
             countdownStarted.add(playerId);
         }
@@ -534,7 +628,22 @@ public final class RoomPlayerRespawnService {
             if (remainTicks > 0 && player != null) {
                 playerStateService.setSpectator(player);
                 int remainSeconds = (int) Math.ceil(remainTicks / 20.0D);
-                showDeployCountdown(player, remainSeconds);
+                if (isDeathmatch(room)) {
+                    if (state.getDeployViewActivePlayers().contains(playerId)) {
+                        clearInitialCombatCountdownTitle(player);
+                        state.getRespawnCountdownLastShownSeconds().remove(playerId);
+                        ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
+                    } else {
+                        int lastShown = state.getRespawnCountdownLastShownSeconds().getOrDefault(playerId, -1);
+                        if (lastShown != remainSeconds) {
+                            sendRespawnCountdownTitle(player, remainSeconds, lastShown < 0);
+                            state.getRespawnCountdownLastShownSeconds().put(playerId, remainSeconds);
+                        }
+                        showDeathmatchDeployHint(player);
+                    }
+                } else {
+                    showDeployCountdown(player, remainSeconds);
+                }
             }
             if (gameTick < entry.getValue()) {
                 continue;
@@ -542,6 +651,15 @@ public final class RoomPlayerRespawnService {
             if (player != null) {
                 ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_WAIT);
                 playerStateService.setSpectator(player);
+                if (isDeathmatch(room)) {
+                    clearInitialCombatCountdownTitle(player);
+                    state.getRespawnCountdownLastShownSeconds().remove(playerId);
+                    ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
+                    if (!state.getDeployViewActivePlayers().contains(playerId)
+                        && startDeathmatchRespawnTransition(room, state, player, gameTick, false)) {
+                        continue;
+                    }
+                }
                 boolean allowFallbackOnMissingSelection = state.getDeployAllowFallbackOnMissingSelectionPlayers().contains(playerId);
                 boolean shouldAutoStart = state.getDeployAutoStartOnReadyPlayers().contains(playerId);
                 if (!shouldAutoStart) {
@@ -878,6 +996,8 @@ public final class RoomPlayerRespawnService {
             return false;
         }
         long openingReadyTick = unlockTick - RESPAWN_TRAVEL_TICKS - INITIAL_MOVEMENT_LOCK_SECONDS * 20L;
+        long openingLockTicks = resolveInitialMovementLockTicks(room);
+        openingReadyTick = unlockTick - RESPAWN_TRAVEL_TICKS - openingLockTicks;
         if (openingReadyTick <= 0L) {
             return false;
         }
@@ -1012,6 +1132,10 @@ public final class RoomPlayerRespawnService {
         notifyGameplayConfirmedDeath(room, state, playerId, killerEntityId, gameTick);
         if (state.getDoubledRespawnPending().remove(playerId)) {
             deployDelayTicks *= 2;
+        }
+        if (isDeathmatch(room)) {
+            beginDeathmatchRespawnHold(room, state, player, gameTick, deployDelayTicks, false, true);
+            return;
         }
         state.getDeployReadyTicks().put(playerId, gameTick + deployDelayTicks);
         enterDeployHoldingState(room, state, player, false);
@@ -1247,9 +1371,12 @@ public final class RoomPlayerRespawnService {
         state.getDeployReadyTicks().remove(playerId);
         state.getDeployAutoStartOnReadyPlayers().remove(playerId);
         state.getDeployAllowFallbackOnMissingSelectionPlayers().remove(playerId);
+        state.getDeployExplicitConfirmRequiredPlayers().remove(playerId);
+        state.getDeployViewActivePlayers().remove(playerId);
         state.getRespawnTargetPositions().put(playerId, spawn);
         state.getRespawnFinalizeTicks().put(playerId, gameTick + RESPAWN_TRAVEL_TICKS);
         ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_WAIT);
+        ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
         playerStateService.setSpectator(player);
         playerLaunchService.teleportToRoomPosition(player, room, spawn);
         NetworkManager.sendToPlayer(
@@ -1288,10 +1415,13 @@ public final class RoomPlayerRespawnService {
         state.getDeployReadyTicks().remove(playerId);
         state.getDeployAutoStartOnReadyPlayers().remove(playerId);
         state.getDeployAllowFallbackOnMissingSelectionPlayers().remove(playerId);
+        state.getDeployExplicitConfirmRequiredPlayers().remove(playerId);
+        state.getDeployViewActivePlayers().remove(playerId);
         state.getRespawnTargetPositions().put(playerId, transitionPosition);
         state.getPendingVehicleDeployResolutions().put(playerId, resolution);
         state.getRespawnFinalizeTicks().put(playerId, gameTick + RESPAWN_TRAVEL_TICKS);
         ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_WAIT);
+        ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
         playerStateService.setSpectator(player);
         playerLaunchService.teleportToRoomPosition(player, room, transitionPosition);
         float transitionYaw = vehicleDeployExecutionService.resolveTransitionYaw(room, resolution, player);
@@ -1626,6 +1756,7 @@ public final class RoomPlayerRespawnService {
 
     private boolean finalizeRespawn(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long gameTick) {
         UUID playerId = player.getUUID();
+        boolean deathmatchRespawn = isDeathmatch(room) && state.getDeathPositions().containsKey(playerId);
         PlayerAnimatorDebugDimensionsState.clearPlayer(player);
         RoomPosition spawn = state.getRespawnTargetPositions().get(playerId);
         RoomTeamId teamId = state.getRoomTeams().get(playerId);
@@ -1651,6 +1782,9 @@ public final class RoomPlayerRespawnService {
                 return returnPlayerToDeployAfterVehicleFailure(room, state, player, gameTick, executionResult.message());
             }
             applyPostDeploySelectedHotbarSlot(room, player, true);
+            if (deathmatchRespawn) {
+                applyReviveBlindEffect(player);
+            }
             if (state.getInitialMovementUnlockTick() > gameTick) {
                 markInitialMovementLocked(state, playerId);
                 NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
@@ -1661,6 +1795,9 @@ public final class RoomPlayerRespawnService {
         }
         playerStateService.applyRespawnState(room, playerId, gameTick);
         applyPostDeploySelectedHotbarSlot(room, player, false);
+        if (deathmatchRespawn) {
+            applyReviveBlindEffect(player);
+        }
         if (state.getInitialMovementUnlockTick() > gameTick) {
             markInitialMovementLocked(state, playerId);
             NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
@@ -1719,7 +1856,7 @@ public final class RoomPlayerRespawnService {
                 }
                 int lastShown = state.getInitialMovementLockLastShownSeconds().getOrDefault(playerId, -1);
                 if (lastShown != remainingSeconds) {
-                    sendInitialCombatCountdownTitle(player, state.getRoomTeams().get(playerId), remainingSeconds, lastShown < 0);
+                    sendInitialCombatCountdownTitle(room, player, state.getRoomTeams().get(playerId), remainingSeconds, lastShown < 0);
                     state.getInitialMovementLockLastShownSeconds().put(playerId, remainingSeconds);
                 }
             }
@@ -1743,6 +1880,129 @@ public final class RoomPlayerRespawnService {
         }
         state.getInitialMovementLockedPlayers().add(playerId);
         state.getInitialMovementLockLastShownSeconds().remove(playerId);
+    }
+
+    private boolean isDeathmatch(RoomDefinition room) {
+        return room != null && RoomGameplayId.DEATHMATCH.equals(room.gameplayId());
+    }
+
+    private void beginDeathmatchRespawnHold(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player,
+        long gameTick,
+        int deployDelayTicks,
+        boolean applyBlindEffect,
+        boolean showRespawnWaitVisuals
+    ) {
+        if (room == null || state == null || player == null) {
+            return;
+        }
+        UUID playerId = player.getUUID();
+        state.getDeployViewActivePlayers().remove(playerId);
+        state.getRespawnCountdownStartTicks().remove(playerId);
+        state.getDeployReadyTicks().put(playerId, gameTick + Math.max(0, deployDelayTicks));
+        state.getDeployAutoStartOnReadyPlayers().add(playerId);
+        state.getDeployAllowFallbackOnMissingSelectionPlayers().remove(playerId);
+        state.getDeployExplicitConfirmRequiredPlayers().remove(playerId);
+        state.getRespawnCountdownLastShownSeconds().remove(playerId);
+        RoomPosition lockedRespawnTarget = resolveLockedDeathmatchRespawnTarget(room, state, player);
+        enterDeployHoldingState(room, state, player, false);
+        if (applyBlindEffect) {
+            applyReviveBlindEffect(player);
+        }
+        if (lockedRespawnTarget != null) {
+            playerLaunchService.teleportToRoomPosition(player, room, lockedRespawnTarget);
+            player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+        }
+        if (showRespawnWaitVisuals) {
+            RoomPosition holdingPosition = lockedRespawnTarget == null
+                ? RoomGameplayDeployPresentationSupport.resolveRespawnHoldingPosition(room, state, player)
+                : lockedRespawnTarget;
+            if (holdingPosition != null) {
+                NetworkManager.sendToPlayer(
+                    player,
+                    RoomDeathFlowPacket.openRespawnWaitInstant(
+                        holdingPosition.x() + 0.5D,
+                        holdingPosition.y() + player.getEyeHeight(),
+                        holdingPosition.z() + 0.5D,
+                        player.getYRot(),
+                        0.0F,
+                        Math.max(0, deployDelayTicks)
+                    )
+                );
+                return;
+            }
+        }
+        NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
+    }
+
+    private boolean startDeathmatchRespawnTransition(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player,
+        long gameTick,
+        boolean instant
+    ) {
+        if (room == null || state == null || player == null) {
+            return false;
+        }
+        UUID playerId = player.getUUID();
+        RoomPosition spawn = resolveLockedDeathmatchRespawnTarget(room, state, player);
+        if (spawn == null) {
+            return false;
+        }
+        state.getDeployReadyTicks().remove(playerId);
+        state.getDeployAutoStartOnReadyPlayers().remove(playerId);
+        state.getDeployAllowFallbackOnMissingSelectionPlayers().remove(playerId);
+        state.getDeployExplicitConfirmRequiredPlayers().remove(playerId);
+        state.getDeployViewActivePlayers().remove(playerId);
+        state.getRespawnCountdownLastShownSeconds().remove(playerId);
+        state.getRespawnTargetPositions().put(playerId, spawn);
+        
+        if (instant) {
+            playerLaunchService.teleportToRoomPosition(player, room, spawn);
+            player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+            finalizeRespawn(room, state, player, gameTick);
+            refreshVehicleLoadoutSnapshots(state);
+            return true;
+        }
+
+        int travelTicks = RESPAWN_TRAVEL_TICKS;
+        state.getRespawnFinalizeTicks().put(playerId, gameTick + travelTicks);
+        playerStateService.setSpectator(player);
+        NetworkManager.sendToPlayer(
+            player,
+            RoomDeathFlowPacket.startRespawnTransition(
+                spawn.x() + 0.5D,
+                spawn.y() + player.getEyeHeight(),
+                spawn.z() + 0.5D,
+                player.getYRot(),
+                0.0F,
+                travelTicks
+            )
+        );
+        return true;
+    }
+
+    private RoomPosition resolveLockedDeathmatchRespawnTarget(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player
+    ) {
+        if (room == null || state == null || player == null) {
+            return null;
+        }
+        UUID playerId = player.getUUID();
+        RoomPosition existing = state.getRespawnTargetPositions().get(playerId);
+        if (existing != null) {
+            return existing;
+        }
+        RoomPosition resolved = RoomGameplayDeployPresentationSupport.resolveRespawnAnchorPosition(room, state, player);
+        if (resolved != null) {
+            state.getRespawnTargetPositions().put(playerId, resolved);
+        }
+        return resolved;
     }
 
     private void applyPostDeploySelectedHotbarSlot(RoomDefinition room, ServerPlayer player, boolean vehicleDeploy) {
@@ -1782,7 +2042,7 @@ public final class RoomPlayerRespawnService {
         player.removeAllEffects();
     }
 
-    private void sendInitialCombatCountdownTitle(ServerPlayer player, RoomTeamId teamId, int remainingSeconds, boolean firstShow) {
+    private void sendInitialCombatCountdownTitle(RoomDefinition room, ServerPlayer player, RoomTeamId teamId, int remainingSeconds, boolean firstShow) {
         if (player == null || player.connection == null) {
             return;
         }
@@ -1792,7 +2052,23 @@ public final class RoomPlayerRespawnService {
             firstShow ? TITLE_FADE_OUT_TICKS : TITLE_REFRESH_FADE_OUT_TICKS
         ));
         player.connection.send(new ClientboundSetTitleTextPacket(buildInitialCombatCountdownTitle(remainingSeconds)));
-        player.connection.send(new ClientboundSetSubtitleTextPacket(buildInitialCombatCountdownSubtitle(teamId)));
+        player.connection.send(new ClientboundSetSubtitleTextPacket(buildInitialCombatCountdownSubtitle(room, teamId)));
+    }
+
+    private void sendRespawnCountdownTitle(ServerPlayer player, int remainingSeconds, boolean firstShow) {
+        if (player == null || player.connection == null) {
+            return;
+        }
+        player.connection.send(new ClientboundSetTitlesAnimationPacket(
+            firstShow ? TITLE_FADE_IN_TICKS : TITLE_REFRESH_FADE_IN_TICKS,
+            firstShow ? TITLE_STAY_TICKS : TITLE_REFRESH_STAY_TICKS,
+            firstShow ? TITLE_FADE_OUT_TICKS : TITLE_REFRESH_FADE_OUT_TICKS
+        ));
+        player.connection.send(new ClientboundSetTitleTextPacket(buildInitialCombatCountdownTitle(remainingSeconds)));
+        player.connection.send(new ClientboundSetSubtitleTextPacket(
+            Component.literal("等待重新部署")
+                .withStyle(style -> style.withColor(INITIAL_SUBTITLE_COLOR).withBold(true))
+        ));
     }
 
     private Component buildInitialCombatCountdownTitle(int remainingSeconds) {
@@ -1800,7 +2076,11 @@ public final class RoomPlayerRespawnService {
             .withStyle(style -> style.withBold(true).withColor(resolveInitialCountdownColor(remainingSeconds)));
     }
 
-    private Component buildInitialCombatCountdownSubtitle(RoomTeamId teamId) {
+    private Component buildInitialCombatCountdownSubtitle(RoomDefinition room, RoomTeamId teamId) {
+        if (isDeathmatch(room)) {
+            return Component.literal("击杀敌人为团队夺得更高的分数")
+                .withStyle(style -> style.withColor(INITIAL_SUBTITLE_COLOR).withBold(true));
+        }
         boolean attacker = teamId == RoomTeamId.CAMP_A;
         MutableComponent subtitle = Component.literal(attacker ? "逐个占领全部据点" : "准备防守全部区域");
         return subtitle.withStyle(style -> style.withColor(INITIAL_SUBTITLE_COLOR).withBold(true));
@@ -1841,6 +2121,9 @@ public final class RoomPlayerRespawnService {
         RoomViewPosition view = RoomGameplayDeployPresentationSupport.resolveDeployViewPosition(room, state, player, request);
         if (view == null) {
             return;
+        }
+        if (state != null) {
+            state.getDeployViewActivePlayers().add(player.getUUID());
         }
         long gameTick = request.gameTick() > 0L ? request.gameTick() : server.getTickCount();
         if (request.instantView()) {
@@ -1894,6 +2177,21 @@ public final class RoomPlayerRespawnService {
         ServerActionBarService.showText(player, ACTIONBAR_SOURCE_DEPLOY_NOTICE, "§6" + text, 50);
     }
 
+    private void showDeathmatchDeployHint(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        ServerActionBarService.showBuilder(
+            player,
+            ACTIONBAR_SOURCE_DEPLOY_HINT,
+            ServerActionBarService.builder()
+                .text("按下", ChatFormatting.WHITE)
+                .key("空格")
+                .text(" 以进入部署界面修改配装", ChatFormatting.WHITE),
+            30
+        );
+    }
+
     private void refreshVehicleLoadoutSnapshots(RunningRuntimeState state) {
         if (state == null) {
             return;
@@ -1943,8 +2241,22 @@ public final class RoomPlayerRespawnService {
         return (int) (seconds * 20L) * Math.max(1, multiplier);
     }
 
+    public static int initialCombatUnlockDelayTicks(RoomDefinition room) {
+        if (room != null && RoomGameplayId.DEATHMATCH.equals(room.gameplayId())) {
+            return INITIAL_DEPLOY_DELAY_SECONDS * 20 + RESPAWN_TRAVEL_TICKS + resolveInitialMovementLockTicks(room);
+        }
+        return initialCombatUnlockDelayTicks();
+    }
+
     public static int initialCombatUnlockDelayTicks() {
         return INITIAL_DEPLOY_DELAY_SECONDS * 20 + RESPAWN_TRAVEL_TICKS + INITIAL_MOVEMENT_LOCK_SECONDS * 20;
+    }
+
+    private static int resolveInitialMovementLockTicks(RoomDefinition room) {
+        if (room != null && RoomGameplayId.DEATHMATCH.equals(room.gameplayId())) {
+            return Math.max(1, room.deathmatchConfig().startCountdownSeconds()) * 20;
+        }
+        return INITIAL_MOVEMENT_LOCK_SECONDS * 20;
     }
 
     private record DownedRescueHint(UUID targetId, String targetName, String prompt, boolean canRevive, boolean assault) {

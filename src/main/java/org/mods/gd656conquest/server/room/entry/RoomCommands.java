@@ -136,7 +136,6 @@ public final class RoomCommands {
         return Commands.literal("config")
             .requires(source -> source.hasPermission(2))
             .then(Commands.literal("reload").executes(RoomCommands::executeConfigReload))
-            .then(Commands.literal("migrate").executes(RoomCommands::executeConfigMigrate))
             .then(Commands.literal("campAEquipmentSlots")
                 .then(Commands.argument("value", StringArgumentType.greedyString())
                     .suggests((context, builder) -> SharedSuggestionProvider.suggest(List.of("now"), builder))
@@ -587,25 +586,6 @@ public final class RoomCommands {
             case "del" -> executeConfigGroupMutation(context, configId, value, false, RoomConfigScope.COMMON);
             default -> executeConfigSetById(context, configId, value, RoomConfigScope.COMMON);
         };
-    }
-
-    private static int executeConfigMigrate(CommandContext<CommandSourceStack> context) {
-        CommandSourceStack source = context.getSource();
-        if (!source.hasPermission(2)) {
-            return replyFailure(source, "需要管理员权限");
-        }
-        
-        sendLine(source, Component.literal("开始迁移房间配置数据到新目录 (roomdata)...").withStyle(ChatFormatting.YELLOW));
-        
-        org.mods.gd656conquest.server.data.roomdefinition.RoomDefinitionMigrator.MigrationResult result = 
-            org.mods.gd656conquest.server.data.roomdefinition.RoomDefinitionMigrator.migrateLegacyRooms(source.getServer());
-            
-        sendLine(source, Component.literal("迁移完成! 成功: " + result.successCount() + ", 失败: " + result.failureCount()).withStyle(ChatFormatting.GREEN));
-        for (String msg : result.messages()) {
-            sendLine(source, Component.literal("- " + msg).withStyle(msg.startsWith("已迁移") ? ChatFormatting.GRAY : ChatFormatting.RED));
-        }
-        
-        return result.successCount() > 0 ? 1 : 0;
     }
 
     private static int executeConfigCommonAlias(CommandContext<CommandSourceStack> context, String configId) {

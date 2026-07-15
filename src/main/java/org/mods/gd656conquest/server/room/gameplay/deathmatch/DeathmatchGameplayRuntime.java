@@ -1,14 +1,357 @@
 package org.mods.gd656conquest.server.room.gameplay.deathmatch;
 
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
+import org.mods.gd656conquest.server.room.core.RoomPlayerInvalidationReason;
 import org.mods.gd656conquest.server.room.gameplay.IRoomGameplayRuntime;
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayBoundaryHudProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayBoundaryPolicyProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentationProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayHudState;
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.server.room.model.RoomPosition;
+import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
+import org.mods.gd656conquest.server.room.model.RoomTeamId;
+import org.mods.gd656conquest.server.room.model.RoomViewPosition;
+import org.mods.gd656conquest.server.room.runtime.RoomBoundaryRuleEvaluator;
+import org.mods.gd656conquest.server.room.runtime.RoomDeployHudBuildContext;
+import org.mods.gd656conquest.server.room.runtime.RoomDeployHudElement;
+import org.mods.gd656conquest.server.room.runtime.RoomPlayerRespawnService;
+import org.mods.gd656conquest.server.room.runtime.RoomSpawnCandidateSelectionService;
 
-public final class DeathmatchGameplayRuntime implements IRoomGameplayRuntime {
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+
+public final class DeathmatchGameplayRuntime implements
+    IRoomGameplayRuntime,
+    RoomGameplayBoundaryHudProvider,
+    RoomGameplayBoundaryPolicyProvider,
+    RoomGameplayPresentationProvider,
+    RoomGameplayDeployPresentationProvider {
+    private final MinecraftServer server;
+    private final RunningRuntimeState runningState;
+    private long enteredTick = -1L;
+    private int campAScore;
+    private int campBScore;
+    private RoomMatchEndRequest pendingEndRequest;
+
+    public DeathmatchGameplayRuntime(MinecraftServer server, RunningRuntimeState runningState) {
+        this.server = Objects.requireNonNull(server, "server");
+        this.runningState = Objects.requireNonNull(runningState, "runningState");
+    }
+
     @Override
     public void onEnterMainPhase(RoomDefinition room, long gameTick) {
+        enteredTick = gameTick + RoomPlayerRespawnService.initialCombatUnlockDelayTicks(room);
+        campAScore = 0;
+        campBScore = 0;
+        pendingEndRequest = null;
     }
 
     @Override
     public void tick(RoomDefinition room, long gameTick) {
+        if (pendingEndRequest != null || room == null || enteredTick < 0L) {
+            return;
+        }
+        int durationMinutes = room.deathmatchConfig().matchDurationMinutes();
+        if (durationMinutes <= 0) {
+            return;
+        }
+        long endTick = enteredTick + durationMinutes * 60L * 20L;
+        if (gameTick >= endTick) {
+            pendingEndRequest = buildTimeLimitEndRequest();
+        }
+    }
+
+    @Override
+    public void onPlayerInvalidated(
+        RoomDefinition room,
+        UUID playerId,
+        RoomTeamId teamId,
+        RoomPlayerInvalidationReason reason,
+        int killerEntityId,
+        long gameTick
+    ) {
+        if (room == null || playerId == null || reason != RoomPlayerInvalidationReason.DEATH || pendingEndRequest != null) {
+            return;
+        }
+        ServerPlayer deadPlayer = runningState.getRoomPlayers().contains(playerId)
+            ? findOnlinePlayer(playerId)
+            : null;
+        ServerPlayer killerPlayer = resolveKillerPlayer(deadPlayer, killerEntityId);
+        if (killerPlayer == null || killerPlayer.getUUID().equals(playerId)) {
+            return;
+        }
+        RoomTeamId killerTeam = runningState.getRoomTeams().get(killerPlayer.getUUID());
+        if (killerTeam == null || killerTeam == teamId) {
+            return;
+        }
+        if (killerTeam == RoomTeamId.CAMP_A) {
+            campAScore++;
+            if (campAScore >= room.deathmatchConfig().targetScore()) {
+                pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, "蓝队达到目标得分");
+            }
+        } else if (killerTeam == RoomTeamId.CAMP_B) {
+            campBScore++;
+            if (campBScore >= room.deathmatchConfig().targetScore()) {
+                pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, "红队达到目标得分");
+            }
+        }
+    }
+
+    @Override
+    public Optional<RoomMatchEndRequest> pollMatchEndRequest() {
+        RoomMatchEndRequest request = pendingEndRequest;
+        pendingEndRequest = null;
+        return Optional.ofNullable(request);
+    }
+
+    @Override
+    public RoomGameplayHudState buildHudState(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player,
+        boolean inDeployFlow,
+        long gameTick
+    ) {
+        if (room == null) {
+            return RoomGameplayHudState.defaults();
+        }
+        boolean initialLockActive = state != null && player != null && state.isInitialMovementLockActive(player.getUUID(), gameTick);
+        return new RoomGameplayHudState(
+            campAScore,
+            campBScore,
+            matchDurationSeconds(gameTick),
+            "SCORE_TARGET",
+            room.deathmatchConfig().targetScore(),
+            room.deathmatchConfig().targetScore(),
+            resolveRemainSeconds(room, state, gameTick),
+            resolveTopStatus(room, inDeployFlow),
+            "击杀敌人为团队夺得更高的分数",
+            "-",
+            room.lifecycleState() == org.mods.gd656conquest.server.room.model.RoomLifecycleState.ENDING
+                ? "ENDING"
+                : initialLockActive ? "INITIAL_STAGE_BEGIN" : "RUNNING"
+        );
+    }
+
+    @Override
+    public int matchDurationSeconds(long gameTick) {
+        if (enteredTick < 0L || gameTick <= enteredTick) {
+            return 0;
+        }
+        return (int) ((gameTick - enteredTick) / 20L);
+    }
+
+    @Override
+    public int boundaryPenaltySeconds(RoomDefinition room) {
+        return room == null ? 0 : room.gameplayBoundaryPenaltySeconds();
+    }
+
+    @Override
+    public boolean hasConfiguredBoundary(RoomDefinition room, RunningRuntimeState state) {
+        return RoomBoundaryRuleEvaluator.hasConfiguredBoundary(resolveConfiguredBoundaries(room));
+    }
+
+    @Override
+    public List<List<RoomPosition>> resolveAllowedBoundaries(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        RoomTeamId teamId
+    ) {
+        if (room == null || teamId == null) {
+            return List.of();
+        }
+        List<List<RoomPosition>> boundaries = new ArrayList<>();
+        if (teamId == RoomTeamId.CAMP_A) {
+            addBoundaryIfValid(boundaries, room.deathmatchConfig().campABoundary());
+        } else if (teamId == RoomTeamId.CAMP_B) {
+            addBoundaryIfValid(boundaries, room.deathmatchConfig().campBBoundary());
+        }
+        return boundaries;
+    }
+
+    @Override
+    public void collectBoundaryElements(List<RoomDeployHudElement> elements, RoomDeployHudBuildContext context) {
+        if (elements == null || context == null || context.room() == null) {
+            return;
+        }
+        appendBoundaryRows(elements, context.room().deathmatchConfig().campABoundary(), "T", "dm_camp_a");
+        appendBoundaryRows(elements, context.room().deathmatchConfig().campBBoundary(), "S", "dm_camp_b");
+    }
+
+    @Override
+    public RoomPosition resolveRespawnAnchorPosition(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player
+    ) {
+        if (room == null || state == null || player == null) {
+            return null;
+        }
+        RoomPosition lockedTarget = state.getRespawnTargetPositions().get(player.getUUID());
+        if (lockedTarget != null) {
+            return lockedTarget;
+        }
+        RoomTeamId teamId = state.getRoomTeams().get(player.getUUID());
+        if (teamId == RoomTeamId.CAMP_A) {
+            return new RoomSpawnCandidateSelectionService(player.server).pickSpawn(room.deathmatchConfig().campASpawnGroup(), state, teamId);
+        }
+        if (teamId == RoomTeamId.CAMP_B) {
+            return new RoomSpawnCandidateSelectionService(player.server).pickSpawn(room.deathmatchConfig().campBSpawnGroup(), state, teamId);
+        }
+        return room.commonConfig().queueSpawn();
+    }
+
+    @Override
+    public RoomPosition resolveRespawnHoldingPosition(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player
+    ) {
+        if (state != null && player != null) {
+            RoomPosition lockedTarget = state.getRespawnTargetPositions().get(player.getUUID());
+            if (lockedTarget != null) {
+                return lockedTarget;
+            }
+        }
+        return resolveRespawnAnchorPosition(room, state, player);
+    }
+
+    @Override
+    public RoomViewPosition resolveDeployViewPosition(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player,
+        org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployViewRequest request
+    ) {
+        return room == null ? null : room.deathmatchConfig().deployViewPosition();
+    }
+
+    @Override
+    public RoomPosition resolveTeamDeployIconPosition(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        RoomTeamId teamId
+    ) {
+        if (room == null || teamId == null) {
+            return null;
+        }
+        RoomSpawnGroupConfig group = teamId == RoomTeamId.CAMP_A
+            ? room.deathmatchConfig().campASpawnGroup()
+            : room.deathmatchConfig().campBSpawnGroup();
+        return firstSpawn(group);
+    }
+
+    @Override
+    public Integer resolveRespawnDelaySeconds(RoomDefinition room, RunningRuntimeState state) {
+        return room == null ? null : room.deathmatchConfig().respawnSeconds();
+    }
+
+    private ServerPlayer findOnlinePlayer(UUID playerId) {
+        if (playerId == null) {
+            return null;
+        }
+        return server.getPlayerList().getPlayer(playerId);
+    }
+
+    private ServerPlayer resolveKillerPlayer(ServerPlayer deadPlayer, int killerEntityId) {
+        if (killerEntityId < 0) {
+            return null;
+        }
+        for (UUID playerId : runningState.getRoomPlayers()) {
+            ServerPlayer candidate = server.getPlayerList().getPlayer(playerId);
+            if (candidate != null && candidate.getId() == killerEntityId) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private int resolveRemainSeconds(RoomDefinition room, RunningRuntimeState state, long gameTick) {
+        if (room != null
+            && room.lifecycleState() == org.mods.gd656conquest.server.room.model.RoomLifecycleState.ENDING
+            && state != null
+            && state.getResultSequenceEndTick() > 0) {
+            return (int) Math.max(0L, (state.getResultSequenceEndTick() - gameTick + 19L) / 20L);
+        }
+        if (room == null || enteredTick < 0L || room.deathmatchConfig().matchDurationMinutes() <= 0) {
+            return 0;
+        }
+        long endTick = enteredTick + room.deathmatchConfig().matchDurationMinutes() * 60L * 20L;
+        return (int) Math.max(0L, (endTick - gameTick + 19L) / 20L);
+    }
+
+    private String resolveTopStatus(RoomDefinition room, boolean inDeployFlow) {
+        if (room == null) {
+            return "-";
+        }
+        if (room.lifecycleState() == org.mods.gd656conquest.server.room.model.RoomLifecycleState.ENDING) {
+            return "结算中";
+        }
+        if (inDeployFlow) {
+            return "重生中";
+        }
+        return "进行中";
+    }
+
+    private RoomMatchEndRequest buildTimeLimitEndRequest() {
+        if (campAScore > campBScore) {
+            return new RoomMatchEndRequest(RoomTeamId.CAMP_A, "达到时长，蓝队得分领先");
+        }
+        if (campBScore > campAScore) {
+            return new RoomMatchEndRequest(RoomTeamId.CAMP_B, "达到时长，红队得分领先");
+        }
+        return new RoomMatchEndRequest(null, "达到时长，判定平局");
+    }
+
+    private List<List<RoomPosition>> resolveConfiguredBoundaries(RoomDefinition room) {
+        if (room == null) {
+            return List.of();
+        }
+        List<List<RoomPosition>> boundaries = new ArrayList<>();
+        addBoundaryIfValid(boundaries, room.deathmatchConfig().campABoundary());
+        addBoundaryIfValid(boundaries, room.deathmatchConfig().campBBoundary());
+        return boundaries;
+    }
+
+    private void addBoundaryIfValid(List<List<RoomPosition>> boundaries, List<RoomPosition> boundary) {
+        if (boundary != null && boundary.size() >= 3) {
+            boundaries.add(boundary);
+        }
+    }
+
+    private void appendBoundaryRows(
+        List<RoomDeployHudElement> elements,
+        List<RoomPosition> boundary,
+        String teamToken,
+        String polygonId
+    ) {
+        if (elements == null || boundary == null || boundary.size() < 3) {
+            return;
+        }
+        for (RoomPosition position : boundary) {
+            if (position != null) {
+                elements.add(RoomDeployHudElement.boundary(teamToken, position, polygonId));
+            }
+        }
+    }
+
+    private RoomPosition firstSpawn(RoomSpawnGroupConfig group) {
+        if (group == null || !group.enabled() || group.spawns().isEmpty()) {
+            return null;
+        }
+        for (RoomPosition spawn : group.spawns()) {
+            if (spawn != null) {
+                return spawn;
+            }
+        }
+        return null;
     }
 }

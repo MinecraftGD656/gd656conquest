@@ -261,6 +261,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().enableRandomAttachments(),
             base.commonConfig().enableParachute(),
             base.commonConfig().enableDeathSupportDrop(),
+            base.commonConfig().enableSniperRoom(),
+            base.commonConfig().disableUndyingTotem(),
             base.commonConfig().supportCampAHeroKits(),
             base.commonConfig().supportCampBHeroKits(),
             base.commonConfig().supportCampAShellings(),
@@ -283,23 +285,13 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 deathmatch.mapId(),
                 deathmatch.matchDurationMinutes(),
                 deathmatch.targetScore(),
-                deathmatch.enabledTeamCount(),
+                deathmatch.startCountdownSeconds(),
+                deathmatch.respawnSeconds(),
+                deathmatch.deployViewPosition(),
                 deathmatch.campABoundary(),
                 deathmatch.campBBoundary(),
-                deathmatch.campCBoundary(),
-                deathmatch.campDBoundary(),
-                deathmatch.campEBoundary(),
-                deathmatch.campFBoundary(),
-                deathmatch.campGBoundary(),
-                deathmatch.campHBoundary(),
                 deathmatch.campASpawnGroup(),
-                deathmatch.campBSpawnGroup(),
-                deathmatch.campCSpawnGroup(),
-                deathmatch.campDSpawnGroup(),
-                deathmatch.campESpawnGroup(),
-                deathmatch.campFSpawnGroup(),
-                deathmatch.campGSpawnGroup(),
-                deathmatch.campHSpawnGroup()
+                deathmatch.campBSpawnGroup()
             );
         } else {
             gameplayConfig = base.gameplayConfig();
@@ -372,18 +364,20 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             "",
             40.0D,
             RoomResultConfig.defaults(),
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            true,
-            true,
+            false, // disableHunger
+            false, // enableAutoTeamSwitchPrompt
+            false, // disableInventoryChange
+            false, // enableKnifeDuel
+            false, // enableGoatHorn
+            false, // enablePlayerDowned
+            false, // enableRespawnCountdownWhileDowned
+            false, // enableBackAgainstWall
+            false, // enableRandomLoadout
+            false, // enableRandomAttachments
+            false, // enableParachute
+            true,  // enableDeathSupportDrop
+            false, // enableSniperRoom
+            false, // disableUndyingTotem
             List.of(),
             List.of(),
             List.of(),

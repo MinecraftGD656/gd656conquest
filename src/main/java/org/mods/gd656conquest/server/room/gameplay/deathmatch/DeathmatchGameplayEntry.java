@@ -10,8 +10,10 @@ import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import java.util.Objects;
 
 public final class DeathmatchGameplayEntry implements IRoomGameplayEntry {
+    private final MinecraftServer server;
+
     public DeathmatchGameplayEntry(MinecraftServer server) {
-        Objects.requireNonNull(server, "server");
+        this.server = Objects.requireNonNull(server, "server");
     }
 
     @Override
@@ -21,6 +23,6 @@ public final class DeathmatchGameplayEntry implements IRoomGameplayEntry {
 
     @Override
     public IRoomGameplayRuntime createRuntime(RoomDefinition room, RunningRuntimeState state) {
-        return new DeathmatchGameplayRuntime();
+        return new DeathmatchGameplayRuntime(server, state);
     }
 }

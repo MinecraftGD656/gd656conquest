@@ -98,6 +98,8 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "enableBackAgainstWall", "启用背水一战", "commonConfig.enableBackAgainstWall", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableBackAgainstWall");
         common(descriptors, RoomConfigCategory.RULES, "enableRandomLoadout", "启用随机配备", "commonConfig.enableRandomLoadout", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomLoadout");
         common(descriptors, RoomConfigCategory.RULES, "enableRandomAttachments", "启用房间随机配件", "commonConfig.enableRandomAttachments", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomAttachments");
+        common(descriptors, RoomConfigCategory.RULES, "enableSniperRoom", "启用狙击房", "commonConfig.enableSniperRoom", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableSniperRoom");
+        common(descriptors, RoomConfigCategory.RULES, "disableUndyingTotem", "是否禁用不死图腾", "commonConfig.disableUndyingTotem", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolDisableUndyingTotem");
         common(descriptors, RoomConfigCategory.RULES, "enableParachute", "启用对局降落伞", "commonConfig.enableParachute", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableParachute");
         common(descriptors, RoomConfigCategory.RULES, "enableDeathSupportDrop", "启用死亡掉落补给包", "commonConfig.enableDeathSupportDrop", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
         commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampAHeroKits", "阵地支援-campA可用精英兵", "commonConfig.supportCampAHeroKits", RoomConfigValueType.DATA_GROUP);
@@ -187,23 +189,13 @@ public final class RoomConfigDescriptorRegistry {
         deathmatch(descriptors, RoomConfigCategory.CAPTURE, "dmMapID", "团队死斗地图ID", "deathmatchConfig.mapId", RoomConfigValueType.STRING, List.of());
         deathmatch(descriptors, RoomConfigCategory.RULES, "dmMatchDurationMinutes", "团队死斗对局时长(分钟)", "deathmatchConfig.matchDurationMinutes", RoomConfigValueType.NUMBER, List.of());
         deathmatch(descriptors, RoomConfigCategory.RULES, "dmTargetScore", "团队死斗目标分数", "deathmatchConfig.targetScore", RoomConfigValueType.NUMBER, List.of());
-        deathmatch(descriptors, RoomConfigCategory.ROOM, "dmEnabledTeamCount", "团队死斗启用阵营数量", "deathmatchConfig.enabledTeamCount", RoomConfigValueType.NUMBER, List.of());
+        deathmatch(descriptors, RoomConfigCategory.RULES, "dmStartCountdownSeconds", "团队死斗开局倒计时秒数", "deathmatchConfig.startCountdownSeconds", RoomConfigValueType.NUMBER, List.of());
+        deathmatch(descriptors, RoomConfigCategory.PLAYER_STATE, "dmRespawnSeconds", "团队死斗玩家重生秒数", "deathmatchConfig.respawnSeconds", RoomConfigValueType.NUMBER, List.of());
+        deathmatch(descriptors, RoomConfigCategory.TRANSPORT, "dmDeployViewPosition", "团队死斗部署界面视角", "deathmatchConfig.deployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
         deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampABoundary", "团队A活动范围", "deathmatchConfig.campABoundary", RoomConfigValueType.POSITION_GROUP);
         deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampBBoundary", "团队B活动范围", "deathmatchConfig.campBBoundary", RoomConfigValueType.POSITION_GROUP);
-        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampCBoundary", "团队C活动范围", "deathmatchConfig.campCBoundary", RoomConfigValueType.POSITION_GROUP);
-        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampDBoundary", "团队D活动范围", "deathmatchConfig.campDBoundary", RoomConfigValueType.POSITION_GROUP);
-        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampEBoundary", "团队E活动范围", "deathmatchConfig.campEBoundary", RoomConfigValueType.POSITION_GROUP);
-        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampFBoundary", "团队F活动范围", "deathmatchConfig.campFBoundary", RoomConfigValueType.POSITION_GROUP);
-        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampGBoundary", "团队G活动范围", "deathmatchConfig.campGBoundary", RoomConfigValueType.POSITION_GROUP);
-        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampHBoundary", "团队H活动范围", "deathmatchConfig.campHBoundary", RoomConfigValueType.POSITION_GROUP);
         deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampASpawnGroup", "团队A出生组", "deathmatchConfig.campASpawnGroup", RoomConfigValueType.DATA_GROUP);
         deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampBSpawnGroup", "团队B出生组", "deathmatchConfig.campBSpawnGroup", RoomConfigValueType.DATA_GROUP);
-        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampCSpawnGroup", "团队C出生组", "deathmatchConfig.campCSpawnGroup", RoomConfigValueType.DATA_GROUP);
-        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampDSpawnGroup", "团队D出生组", "deathmatchConfig.campDSpawnGroup", RoomConfigValueType.DATA_GROUP);
-        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampESpawnGroup", "团队E出生组", "deathmatchConfig.campESpawnGroup", RoomConfigValueType.DATA_GROUP);
-        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampFSpawnGroup", "团队F出生组", "deathmatchConfig.campFSpawnGroup", RoomConfigValueType.DATA_GROUP);
-        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampGSpawnGroup", "团队G出生组", "deathmatchConfig.campGSpawnGroup", RoomConfigValueType.DATA_GROUP);
-        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampHSpawnGroup", "团队H出生组", "deathmatchConfig.campHSpawnGroup", RoomConfigValueType.DATA_GROUP);
 
         return List.copyOf(descriptors);
     }

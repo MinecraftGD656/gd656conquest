@@ -380,6 +380,13 @@ public final class RoomCoreRuntimeManager {
         return coreService.handleDeploySelection(player, action, kind, targetId, gameTick);
     }
 
+    public boolean requestDeathmatchDeployView(ServerPlayer player, long gameTick) {
+        if (coreService == null) {
+            return false;
+        }
+        return coreService.requestDeathmatchDeployView(player, gameTick);
+    }
+
     public boolean handleMarkerAction(ServerPlayer player, String action, String kind, BlockPos blockPos, UUID targetPlayerId, long gameTick) {
         if (coreService == null) {
             return false;

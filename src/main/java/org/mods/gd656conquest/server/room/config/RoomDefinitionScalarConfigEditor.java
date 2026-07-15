@@ -183,7 +183,7 @@ public final class RoomDefinitionScalarConfigEditor {
     }
 
     private static RoomDefinition defaultDefinition(RoomDefinition definition) {
-        return new RoomDefinition(definition.roomId(), RoomGameplayId.CONQUEST, definition.lifecycleState());
+        return new RoomDefinition(definition.roomId(), definition.gameplayId(), definition.lifecycleState());
     }
 
     private static Object parseValue(RoomConfigDescriptor descriptor, String rawValue, ServerPlayer editor) {
@@ -218,7 +218,7 @@ public final class RoomDefinitionScalarConfigEditor {
         return switch (configId) {
             case "minstartplayers", "queuemaxplayers", "outsideboundarydeathseconds", "btoutsideboundarydeathseconds",
                 "aircraftoutsideboundarycleanupseconds", "playermaxy", "aircraftpassengermaxy",
-                "dmmatchdurationminutes", "dmtargetscore", "dmenabledteamcount" -> true;
+                "dmmatchdurationminutes", "dmtargetscore", "dmstartcountdownseconds", "dmrespawnseconds" -> true;
             default -> false;
         };
     }

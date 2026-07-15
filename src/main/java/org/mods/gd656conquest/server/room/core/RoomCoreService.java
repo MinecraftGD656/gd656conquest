@@ -1489,6 +1489,22 @@ public final class RoomCoreService {
             ));
     }
 
+    public boolean requestDeathmatchDeployView(ServerPlayer player, long gameTick) {
+        if (player == null) {
+            return false;
+        }
+        return playerSessionService.findRoomId(player.getUUID())
+            .flatMap(runtimeRepository::find)
+            .filter(slot -> slot.room().lifecycleState() == RoomLifecycleState.RUNNING)
+            .map(slot -> playerRespawnService.requestDeathmatchDeployView(
+                slot.room(),
+                slot.runtime().getRunningState(),
+                player,
+                gameTick
+            ))
+            .orElse(false);
+    }
+
     public boolean updateShellingTarget(ServerPlayer player, BlockPos targetBlockPos) {
         if (player == null || targetBlockPos == null) {
             return false;
