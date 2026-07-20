@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.client.input;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -27,18 +28,16 @@ public final class ClientFovScrollService {
             return false;
         }
 
-        long window = minecraft.getWindow().getWindow();
-        boolean isLeftCtrlDown = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_LEFT_CONTROL);
-        if (!isLeftCtrlDown) {
+        if (!isControlBindingDown(minecraft)) {
             return false;
         }
 
         int key = event.getKey();
-        if (ClientKeyMappings.FOV_STEP_INCREASE.matches(key, event.getScanCode())) {
+        if (key == GLFW.GLFW_KEY_UP) {
             step += 1.0;
             displayStepMessage(minecraft);
             return true;
-        } else if (ClientKeyMappings.FOV_STEP_DECREASE.matches(key, event.getScanCode())) {
+        } else if (key == GLFW.GLFW_KEY_DOWN) {
             step -= 1.0;
             if (step < 0.5) {
                 step = 0.5;
@@ -62,9 +61,7 @@ public final class ClientFovScrollService {
             return false;
         }
 
-        long window = minecraft.getWindow().getWindow();
-        boolean isLeftCtrlDown = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_LEFT_CONTROL);
-        if (!isLeftCtrlDown) {
+        if (!isControlBindingDown(minecraft)) {
             return false;
         }
 
@@ -121,5 +118,21 @@ public final class ClientFovScrollService {
         // 我们通过除以原版基础FOV得到修饰符，然后乘上我们精确的小数FOV
         double modifier = event.getFOV() / (double) optionFov;
         event.setFOV(interpolatedFov * modifier);
+    }
+
+    private static boolean isControlBindingDown(Minecraft minecraft) {
+        if (minecraft == null) {
+            return false;
+        }
+        KeyMapping keyMapping = ClientKeyMappings.FOV_SCROLL_CONTROL;
+        InputConstants.Key key = keyMapping.getKey();
+        if (key == null || key == InputConstants.UNKNOWN) {
+            return false;
+        }
+        long window = minecraft.getWindow().getWindow();
+        return switch (key.getType()) {
+            case KEYSYM, SCANCODE -> InputConstants.isKeyDown(window, key.getValue());
+            case MOUSE -> GLFW.glfwGetMouseButton(window, key.getValue()) == GLFW.GLFW_PRESS;
+        };
     }
 }

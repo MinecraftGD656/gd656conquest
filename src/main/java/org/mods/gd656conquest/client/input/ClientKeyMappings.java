@@ -36,16 +36,10 @@ public final class ClientKeyMappings {
             InputConstants.KEY_LALT,
             CATEGORY
     );
-    public static final KeyMapping FOV_STEP_INCREASE = new KeyMapping(
-            "key.gd656conquest.fov_step_increase",
+    public static final KeyMapping FOV_SCROLL_CONTROL = new KeyMapping(
+            "key.gd656conquest.fov_scroll_control",
             InputConstants.Type.KEYSYM,
-            InputConstants.KEY_UP,
-            CATEGORY
-    );
-    public static final KeyMapping FOV_STEP_DECREASE = new KeyMapping(
-            "key.gd656conquest.fov_step_decrease",
-            InputConstants.Type.KEYSYM,
-            InputConstants.KEY_DOWN,
+            InputConstants.KEY_LCONTROL,
             CATEGORY
     );
 
@@ -61,7 +55,6 @@ public final class ClientKeyMappings {
         event.register(COMMON_USE);
         event.register(COMMON_CANCEL);
         event.register(CYCLE_DEPLOY_TARGET);
-        event.register(FOV_STEP_INCREASE);
-        event.register(FOV_STEP_DECREASE);
+        event.register(FOV_SCROLL_CONTROL);
     }
 }
