@@ -5,6 +5,7 @@ import org.mods.gd656conquest.server.data.herokit.HeroKitDataStore;
 import org.mods.gd656conquest.server.data.parkour.ParkourDataStore;
 import org.mods.gd656conquest.server.data.pack.PackAuditLogStore;
 import org.mods.gd656conquest.server.data.pack.PackWhitelistStore;
+import org.mods.gd656conquest.server.data.equipmentset.EquipmentSetDataStore;
 import org.mods.gd656conquest.server.data.shelling.ShellingDataStore;
 import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataStore;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataStore;
@@ -28,6 +29,7 @@ public final class ConquestDataManager {
     private final RoomDefinitionRepository roomDefinitionRepository;
     private final RoomTemplateRepository roomTemplateRepository;
     private final EquipmentDataStore equipmentDataStore;
+    private final EquipmentSetDataStore equipmentSetDataStore;
     private final HeroKitDataStore heroKitDataStore;
     private final ShellingDataStore shellingDataStore;
     private final WeaponAttachmentDataStore weaponAttachmentDataStore;
@@ -46,6 +48,7 @@ public final class ConquestDataManager {
         this.roomDefinitionRepository = new RoomDefinitionRepository(server, delayedJsonWriteService);
         this.roomTemplateRepository = new RoomTemplateRepository(server);
         this.equipmentDataStore = new EquipmentDataStore(server, delayedJsonWriteService);
+        this.equipmentSetDataStore = new EquipmentSetDataStore(server, delayedJsonWriteService);
         this.heroKitDataStore = new HeroKitDataStore(server, delayedJsonWriteService);
         this.shellingDataStore = new ShellingDataStore(server, delayedJsonWriteService);
         this.weaponAttachmentDataStore = new WeaponAttachmentDataStore(server, delayedJsonWriteService);
@@ -79,6 +82,7 @@ public final class ConquestDataManager {
         playerTitleRegistryStore.initialize();
         roomDefinitionRepository.initialize();
         equipmentDataStore.initialize();
+        equipmentSetDataStore.initialize();
         heroKitDataStore.initialize();
         shellingDataStore.initialize();
         weaponAttachmentDataStore.initialize();
@@ -120,6 +124,11 @@ public final class ConquestDataManager {
     public EquipmentDataStore equipmentData() {
         initialize();
         return equipmentDataStore;
+    }
+
+    public EquipmentSetDataStore equipmentSets() {
+        initialize();
+        return equipmentSetDataStore;
     }
 
     public HeroKitDataStore heroKits() {

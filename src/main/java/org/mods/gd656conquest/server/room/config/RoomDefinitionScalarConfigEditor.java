@@ -34,9 +34,6 @@ public final class RoomDefinitionScalarConfigEditor {
         if (isDeleteToken(rawValue)) {
             return clear(definition, descriptor);
         }
-        if (descriptor.isSpecialCase()) {
-            return applySpecialCase(definition, descriptor, rawValue, editor);
-        }
 
         String configId = normalizedConfigId(descriptor);
         if ("queuemaxplayers".equals(configId)) {
@@ -71,18 +68,6 @@ public final class RoomDefinitionScalarConfigEditor {
 
         Object defaultValue = RoomConfigBindingAccess.resolve(defaultDefinition(definition), descriptor.newPath());
         return RoomConfigBindingAccess.write(definition, descriptor.newPath(), defaultValue);
-    }
-
-    private static RoomDefinition applySpecialCase(RoomDefinition definition, RoomConfigDescriptor descriptor, String rawValue, ServerPlayer editor) {
-        String handlerId = descriptor.specialHandlerId();
-        if (handlerId == null || handlerId.isBlank()) {
-            throw new IllegalArgumentException("未配置 special handler: " + descriptor.configId());
-        }
-        Object value = switch (handlerId) {
-            case "capture-current-equipment-camp-a", "capture-current-equipment-camp-b" -> captureEquipmentSlots(rawValue, editor);
-            default -> throw new IllegalArgumentException("不支持的 special handler: " + handlerId);
-        };
-        return RoomConfigBindingAccess.write(definition, descriptor.newPath(), value);
     }
 
     private static RoomDefinition applyDynamicConquestPoint(RoomDefinition definition, String configId, String rawValue, ServerPlayer editor) {
@@ -386,17 +371,6 @@ public final class RoomDefinitionScalarConfigEditor {
             case "CAMP_B", "阵营B" -> "CAMP_B";
             default -> throw new IllegalArgumentException("无效 initialCaptureOwnership: " + rawValue);
         };
-    }
-
-    private static List<String> captureEquipmentSlots(String rawValue, ServerPlayer editor) {
-        String normalized = normalizeRawValue(rawValue);
-        if (!"now".equalsIgnoreCase(normalized)) {
-            throw new IllegalArgumentException("该配置仅支持 value=now");
-        }
-        if (editor == null) {
-            throw new IllegalArgumentException("该配置需要由玩家执行");
-        }
-        return RoomEquipmentConfigService.captureCurrentEquipmentSlots(editor);
     }
 
     private static RoomPosition parsePosition(String rawValue, ServerPlayer editor) {

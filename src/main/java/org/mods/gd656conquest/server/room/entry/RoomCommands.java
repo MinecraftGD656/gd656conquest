@@ -136,14 +136,6 @@ public final class RoomCommands {
         return Commands.literal("config")
             .requires(source -> source.hasPermission(2))
             .then(Commands.literal("reload").executes(RoomCommands::executeConfigReload))
-            .then(Commands.literal("campAEquipmentSlots")
-                .then(Commands.argument("value", StringArgumentType.greedyString())
-                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(List.of("now"), builder))
-                    .executes(ctx -> executeConfigCommonAlias(ctx, "campAEquipmentSlots"))))
-            .then(Commands.literal("campBEquipmentSlots")
-                .then(Commands.argument("value", StringArgumentType.greedyString())
-                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(List.of("now"), builder))
-                    .executes(ctx -> executeConfigCommonAlias(ctx, "campBEquipmentSlots"))))
             .then(buildConfigCommonBranch())
             .then(buildConfigConquestBranch("conquest"))
             .then(buildConfigBreakthroughBranch("breakthrough"))
@@ -586,10 +578,6 @@ public final class RoomCommands {
             case "del" -> executeConfigGroupMutation(context, configId, value, false, RoomConfigScope.COMMON);
             default -> executeConfigSetById(context, configId, value, RoomConfigScope.COMMON);
         };
-    }
-
-    private static int executeConfigCommonAlias(CommandContext<CommandSourceStack> context, String configId) {
-        return executeConfigSetById(context, configId, StringArgumentType.getString(context, "value"), RoomConfigScope.CONQUEST);
     }
 
     private static int executeConfigConquestActionOrValue(CommandContext<CommandSourceStack> context) {
@@ -1077,6 +1065,11 @@ public final class RoomCommands {
             heroKitIds.sort(String.CASE_INSENSITIVE_ORDER);
             return SharedSuggestionProvider.suggest(heroKitIds, builder);
         }
+        if (supportsEquipmentSetSuggestions(descriptor)) {
+            List<String> equipmentSetIds = new ArrayList<>(ConquestDataManager.of(source.getServer()).equipmentSets().get().getEntriesById().keySet());
+            equipmentSetIds.sort(String.CASE_INSENSITIVE_ORDER);
+            return SharedSuggestionProvider.suggest(equipmentSetIds, builder);
+        }
         if (supportsShellingSuggestions(descriptor)) {
             List<String> shellingIds = new ArrayList<>(ConquestDataManager.of(source.getServer()).shellings().get().getShellingsById().keySet());
             shellingIds.sort(String.CASE_INSENSITIVE_ORDER);
@@ -1111,6 +1104,15 @@ public final class RoomCommands {
         String configId = descriptor.configId();
         return "supportCampAShellings".equalsIgnoreCase(configId)
             || "supportCampBShellings".equalsIgnoreCase(configId);
+    }
+
+    private static boolean supportsEquipmentSetSuggestions(RoomConfigDescriptor descriptor) {
+        if (descriptor == null) {
+            return false;
+        }
+        String configId = descriptor.configId();
+        return "campAEquipmentSetId".equalsIgnoreCase(configId)
+            || "campBEquipmentSetId".equalsIgnoreCase(configId);
     }
 
     private static String stringifyConfigValue(Object value) {

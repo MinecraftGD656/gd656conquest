@@ -8,7 +8,6 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 public record RoomConquestConfig(
-    RoomEquipmentConfig equipmentConfig,
     Map<RoomTeamId, RoomSpawnGroupConfig> teamSpawnGroups,
     Map<RoomTeamId, RoomPosition> teamDeployIcons,
     RoomViewPosition deployViewPosition,
@@ -20,7 +19,6 @@ public record RoomConquestConfig(
     List<RoomPosition> medicalBoxPositions
 ) implements IRoomGameplayConfig {
     public RoomConquestConfig {
-        equipmentConfig = equipmentConfig == null ? RoomEquipmentConfig.defaults() : equipmentConfig;
         captureConfig = captureConfig == null ? RoomCaptureConfig.defaults() : captureConfig;
         teamSpawnGroups = normalizeSpawnGroups(teamSpawnGroups);
         teamDeployIcons = normalizeDeployIcons(teamDeployIcons);
@@ -37,7 +35,6 @@ public record RoomConquestConfig(
             return;
         }
         var conquest = this;
-        var equipment = conquest.equipmentConfig();
         var capture = conquest.captureConfig();
         org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomViewPosition(result, "conquest.deployViewPosition", "deployViewPosition", conquest.deployViewPosition());
         org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomPosition(result, "conquest.teamDeployIconCampA", "teamDeployIconCampA", conquest.teamDeployIcons().get(RoomTeamId.CAMP_A));
@@ -52,12 +49,6 @@ public record RoomConquestConfig(
         }
         if (conquest.campBBoundary() == null) {
             result.addMissing("capture.campBGameBoundary", "campBBoundary");
-        }
-        if (equipment.campAEquipmentSlots() == null) {
-            result.addMissing("conquest.campAEquipmentSlots", "campAEquipmentSlots");
-        }
-        if (equipment.campBEquipmentSlots() == null) {
-            result.addMissing("conquest.campBEquipmentSlots", "campBEquipmentSlots");
         }
         if (capture.mapId() == null || capture.mapId().isBlank() || !org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.MAP_ID_PATTERN.matcher(capture.mapId()).matches()) {
             result.addMissing("capture.mapId", "mapId");
@@ -99,7 +90,6 @@ public record RoomConquestConfig(
 
     public static RoomConquestConfig defaults() {
         return new RoomConquestConfig(
-            RoomEquipmentConfig.defaults(),
             Map.of(),
             Map.of(),
             null,
@@ -209,7 +199,6 @@ public record RoomConquestConfig(
 
     public RoomConquestConfig withCaptureConfig(RoomCaptureConfig value) {
         return new RoomConquestConfig(
-            equipmentConfig,
             teamSpawnGroups,
             teamDeployIcons,
             deployViewPosition,

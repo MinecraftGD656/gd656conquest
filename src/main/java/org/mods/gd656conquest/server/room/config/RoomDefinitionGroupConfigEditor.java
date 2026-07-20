@@ -156,7 +156,6 @@ public final class RoomDefinitionGroupConfigEditor {
             target.add(point);
         }
         RoomConquestConfig conquest = new RoomConquestConfig(
-            definition.conquestConfig().equipmentConfig(),
             definition.conquestConfig().teamSpawnGroups(),
             definition.conquestConfig().teamDeployIcons(),
             definition.conquestConfig().deployViewPosition(),
@@ -206,7 +205,9 @@ public final class RoomDefinitionGroupConfigEditor {
             "supportcampaherokits".equals(canonical) ? updatedValues : common.supportCampAHeroKits(),
             "supportcampbherokits".equals(canonical) ? updatedValues : common.supportCampBHeroKits(),
             "supportcampashellings".equals(canonical) ? updatedValues : common.supportCampAShellings(),
-            "supportcampbshellings".equals(canonical) ? updatedValues : common.supportCampBShellings()
+            "supportcampbshellings".equals(canonical) ? updatedValues : common.supportCampBShellings(),
+            common.campAEquipmentSetId(),
+            common.campBEquipmentSetId()
         );
         return rebuild(definition, updatedCommon, definition.conquestConfig());
     }
@@ -284,7 +285,6 @@ public final class RoomDefinitionGroupConfigEditor {
             Map<RoomTeamId, RoomSpawnGroupConfig> groups = new LinkedHashMap<>(definition.conquestConfig().teamSpawnGroups());
             groups.put(RoomTeamId.CAMP_A, updatedGroup);
             RoomConquestConfig conquest = new RoomConquestConfig(
-                definition.conquestConfig().equipmentConfig(),
                 groups,
                 definition.conquestConfig().teamDeployIcons(),
                 definition.conquestConfig().deployViewPosition(),
@@ -301,7 +301,6 @@ public final class RoomDefinitionGroupConfigEditor {
             Map<RoomTeamId, RoomSpawnGroupConfig> groups = new LinkedHashMap<>(definition.conquestConfig().teamSpawnGroups());
             groups.put(RoomTeamId.CAMP_B, updatedGroup);
             RoomConquestConfig conquest = new RoomConquestConfig(
-                definition.conquestConfig().equipmentConfig(),
                 groups,
                 definition.conquestConfig().teamDeployIcons(),
                 definition.conquestConfig().deployViewPosition(),

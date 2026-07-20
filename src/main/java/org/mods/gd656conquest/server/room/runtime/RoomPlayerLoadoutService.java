@@ -24,6 +24,7 @@ import org.mods.gd656conquest.server.compat.curios.CuriosCompatBridge;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataModel;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataStore;
+import org.mods.gd656conquest.server.data.equipmentset.EquipmentSetDataModel;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataModel;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataModel;
@@ -195,7 +196,7 @@ public final class RoomPlayerLoadoutService {
             }
         }
         if (grantArmor && teamId != null) {
-            applyArmorLoadout(player, equipmentData, classType, teamId);
+            applyArmorLoadout(player, roomContext.room(), equipmentData, classType, teamId);
         }
         if (roomContext.room() != null && roomContext.room().commonConfig().disableUndyingTotem()) {
             if (removeTotems(player)) {
@@ -283,8 +284,11 @@ public final class RoomPlayerLoadoutService {
         player.containerMenu.broadcastChanges();
     }
 
-    private void applyArmorLoadout(ServerPlayer player, EquipmentDataModel equipmentData, PlayerClassType classType, RoomTeamId teamId) {
+    private void applyArmorLoadout(ServerPlayer player, RoomDefinition room, EquipmentDataModel equipmentData, PlayerClassType classType, RoomTeamId teamId) {
         if (player == null || equipmentData == null || classType == null || teamId == null) {
+            return;
+        }
+        if (applyRoomEquipmentSet(player, room, teamId)) {
             return;
         }
         EquipmentDataModel.ArmorEntry entry = CustomLoadoutService.resolveArmorByCampClass(equipmentData, teamId, classType);
@@ -295,6 +299,29 @@ public final class RoomPlayerLoadoutService {
         player.setItemSlot(EquipmentSlot.CHEST, deserializeEquipmentItem(entry.getChestplateSnbt()));
         player.setItemSlot(EquipmentSlot.LEGS, deserializeEquipmentItem(entry.getLeggingsSnbt()));
         player.setItemSlot(EquipmentSlot.FEET, deserializeEquipmentItem(entry.getBootsSnbt()));
+    }
+
+    private boolean applyRoomEquipmentSet(ServerPlayer player, RoomDefinition room, RoomTeamId teamId) {
+        if (player == null || room == null || teamId == null) {
+            return false;
+        }
+        String equipmentSetId = switch (teamId) {
+            case CAMP_A -> room.commonConfig().campAEquipmentSetId();
+            case CAMP_B -> room.commonConfig().campBEquipmentSetId();
+        };
+        if (equipmentSetId == null || equipmentSetId.isBlank()) {
+            return false;
+        }
+        EquipmentSetDataModel data = ConquestDataManager.of(server).equipmentSets().get();
+        EquipmentSetDataModel.EquipmentSetEntry entry = data.getEntriesById().get(equipmentSetId);
+        if (entry == null) {
+            return false;
+        }
+        player.setItemSlot(EquipmentSlot.HEAD, deserializeEquipmentItem(entry.getHeadItemSnbt()));
+        player.setItemSlot(EquipmentSlot.CHEST, deserializeEquipmentItem(entry.getChestItemSnbt()));
+        player.setItemSlot(EquipmentSlot.LEGS, deserializeEquipmentItem(entry.getLegsItemSnbt()));
+        player.setItemSlot(EquipmentSlot.FEET, deserializeEquipmentItem(entry.getFeetItemSnbt()));
+        return true;
     }
 
     private ItemStack deserializeEquipmentItem(String itemSnbt) {

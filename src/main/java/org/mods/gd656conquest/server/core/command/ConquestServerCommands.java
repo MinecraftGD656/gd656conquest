@@ -36,6 +36,7 @@ import org.mods.gd656conquest.server.core.command.debug.VehicleDebugCommands;
 import org.mods.gd656conquest.server.facility.parkour.ParkourCommands;
 import org.mods.gd656conquest.server.facility.parkour.ParkourRuntimeManager;
 import org.mods.gd656conquest.server.facility.range.RangeCommands;
+import org.mods.gd656conquest.server.facility.support.EquipmentSetCommands;
 import org.mods.gd656conquest.server.facility.support.HeroKitCommands;
 import org.mods.gd656conquest.server.facility.support.ShellingCommands;
 import org.mods.gd656conquest.server.loadout.LoadoutCommands;
@@ -108,6 +109,7 @@ public final class ConquestServerCommands {
         root.then(RangeCommands.buildTree());
         root.then(RoomCommands.buildTree());
         root.then(LoadoutCommands.buildTree());
+        root.then(EquipmentSetCommands.buildTree());
         root.then(HeroKitCommands.buildTree());
         root.then(ShellingCommands.buildTree());
         root.then(PlayerTitleCommands.buildTree());

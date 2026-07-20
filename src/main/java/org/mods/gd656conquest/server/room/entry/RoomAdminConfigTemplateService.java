@@ -158,7 +158,9 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.supportCampAHeroKits(),
             sourceCommon.supportCampBHeroKits(),
             sourceCommon.supportCampAShellings(),
-            sourceCommon.supportCampBShellings()
+            sourceCommon.supportCampBShellings(),
+            sourceCommon.campAEquipmentSetId(),
+            sourceCommon.campBEquipmentSetId()
         );
         return new RoomDefinition(
             target.roomId(),

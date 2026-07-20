@@ -47,7 +47,6 @@ import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.entry.RoomSessionTransitionService;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
-import org.mods.gd656conquest.server.room.model.RoomEquipmentConfig;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
@@ -2011,7 +2010,6 @@ public final class LoadoutUiService {
             definition.lifecycleState(),
             definition.commonConfig(),
             new org.mods.gd656conquest.server.room.model.RoomConquestConfig(
-                definition.conquestConfig().equipmentConfig(),
                 definition.conquestConfig().teamSpawnGroups(),
                 definition.conquestConfig().teamDeployIcons(),
                 definition.conquestConfig().deployViewPosition(),
@@ -2033,7 +2031,6 @@ public final class LoadoutUiService {
             definition.lifecycleState(),
             definition.commonConfig(),
             new org.mods.gd656conquest.server.room.model.RoomConquestConfig(
-                definition.conquestConfig().equipmentConfig(),
                 replaceSpawnGroupMap(definition.conquestConfig().teamSpawnGroups(), teamId, spawnGroupConfig),
                 definition.conquestConfig().teamDeployIcons(),
                 definition.conquestConfig().deployViewPosition(),

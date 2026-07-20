@@ -46,6 +46,10 @@ public final class ServerDataPaths {
         return getModRoot(server).resolve("equipmentData.json");
     }
 
+    public static Path getEquipmentSetDataFile(MinecraftServer server) {
+        return getModRoot(server).resolve("equipmentSets.json");
+    }
+
     public static Path getHeroKitDataFile(MinecraftServer server) {
         return getModRoot(server).resolve("herokits.json");
     }

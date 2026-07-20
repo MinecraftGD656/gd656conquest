@@ -38,7 +38,9 @@ public record RoomCommonConfig(
     List<String> supportCampAHeroKits,
     List<String> supportCampBHeroKits,
     List<String> supportCampAShellings,
-    List<String> supportCampBShellings
+    List<String> supportCampBShellings,
+    String campAEquipmentSetId,
+    String campBEquipmentSetId
 ) {
     public RoomCommonConfig {
         matchingConfig = matchingConfig == null ? RoomMatchingConfig.defaults() : matchingConfig;
@@ -60,6 +62,8 @@ public record RoomCommonConfig(
         supportCampBHeroKits = normalizeSupportIds(supportCampBHeroKits);
         supportCampAShellings = normalizeSupportIds(supportCampAShellings);
         supportCampBShellings = normalizeSupportIds(supportCampBShellings);
+        campAEquipmentSetId = normalizeEquipmentSetId(campAEquipmentSetId);
+        campBEquipmentSetId = normalizeEquipmentSetId(campBEquipmentSetId);
     }
 
     public static RoomCommonConfig defaults() {
@@ -97,7 +101,9 @@ public record RoomCommonConfig(
             List.of(),
             List.of(),
             List.of(),
-            List.of()
+            List.of(),
+            "",
+            ""
         );
     }
 
@@ -164,7 +170,19 @@ public record RoomCommonConfig(
             false,
             false,
             false,
-            false
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            "",
+            ""
         );
     }
 
@@ -213,7 +231,19 @@ public record RoomCommonConfig(
             false,
             false,
             false,
-            false
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            "",
+            ""
         );
     }
 
@@ -277,7 +307,9 @@ public record RoomCommonConfig(
             List.of(),
             List.of(),
             List.of(),
-            List.of()
+            List.of(),
+            "",
+            ""
         );
     }
 
@@ -342,7 +374,9 @@ public record RoomCommonConfig(
             List.of(),
             List.of(),
             List.of(),
-            List.of()
+            List.of(),
+            "",
+            ""
         );
     }
 
@@ -408,8 +442,14 @@ public record RoomCommonConfig(
             List.of(),
             List.of(),
             List.of(),
-            List.of()
+            List.of(),
+            "",
+            ""
         );
+    }
+
+    private static String normalizeEquipmentSetId(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private static List<String> normalizeSupportIds(List<String> rawValues) {

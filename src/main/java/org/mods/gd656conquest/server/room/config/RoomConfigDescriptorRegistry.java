@@ -106,6 +106,8 @@ public final class RoomConfigDescriptorRegistry {
         commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampBHeroKits", "阵地支援-campB可用精英兵", "commonConfig.supportCampBHeroKits", RoomConfigValueType.DATA_GROUP);
         commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampAShellings", "阵地支援-campA可用炮击", "commonConfig.supportCampAShellings", RoomConfigValueType.DATA_GROUP);
         commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampBShellings", "阵地支援-campB可用炮击", "commonConfig.supportCampBShellings", RoomConfigValueType.DATA_GROUP);
+        common(descriptors, RoomConfigCategory.EQUIPMENT, "campAEquipmentSetId", "campA穿戴护甲", "commonConfig.campAEquipmentSetId", RoomConfigValueType.STRING, List.of(), "campAEquipment");
+        common(descriptors, RoomConfigCategory.EQUIPMENT, "campBEquipmentSetId", "campB穿戴护甲", "commonConfig.campBEquipmentSetId", RoomConfigValueType.STRING, List.of(), "campBEquipment");
         common(descriptors, RoomConfigCategory.RESULT, "endViewPosition", "结算视角", "commonConfig.resultConfig.endViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"), "matchEndViewPosition");
 
         common(descriptors, RoomConfigCategory.PLAYER_STATE, "gameMode", "玩家游戏模式", "commonConfig.playerStateConfig.gameMode", RoomConfigValueType.STRING, List.of("SURVIVAL", "ADVENTURE", "CREATIVE", "SPECTATOR"), "playerGameMode");
@@ -145,8 +147,6 @@ public final class RoomConfigDescriptorRegistry {
         conquestGroup(descriptors, RoomConfigCategory.RULES, "sharedBoundary", "公共边界", "conquestConfig.sharedBoundary", RoomConfigValueType.POSITION_GROUP, "gameBoundary");
         conquestGroup(descriptors, RoomConfigCategory.RULES, "campABoundary", "阵营A边界", "conquestConfig.campABoundary", RoomConfigValueType.POSITION_GROUP, "campAGameBoundary");
         conquestGroup(descriptors, RoomConfigCategory.RULES, "campBBoundary", "阵营B边界", "conquestConfig.campBBoundary", RoomConfigValueType.POSITION_GROUP, "campBGameBoundary");
-        conquestSpecial(descriptors, RoomConfigCategory.EQUIPMENT, "campAEquipmentSlots", "阵营A配装槽位", "conquestConfig.equipmentConfig.campAEquipmentSlots", RoomConfigValueType.DATA_GROUP, List.of("now"), "capture-current-equipment-camp-a");
-        conquestSpecial(descriptors, RoomConfigCategory.EQUIPMENT, "campBEquipmentSlots", "阵营B配装槽位", "conquestConfig.equipmentConfig.campBEquipmentSlots", RoomConfigValueType.DATA_GROUP, List.of("now"), "capture-current-equipment-camp-b");
         conquest(descriptors, RoomConfigCategory.CAPTURE, "mapId", "征服地图ID", "conquestConfig.captureConfig.mapId", RoomConfigValueType.STRING, List.of());
         conquestGroup(descriptors, RoomConfigCategory.TRANSPORT, "campASpawnGroup", "阵营A出生组", "conquestConfig.teamSpawnGroups[CAMP_A]", RoomConfigValueType.DATA_GROUP, "campASpawns", "campACoalition");
         conquestGroup(descriptors, RoomConfigCategory.TRANSPORT, "campBSpawnGroup", "阵营B出生组", "conquestConfig.teamSpawnGroups[CAMP_B]", RoomConfigValueType.DATA_GROUP, "campBSpawns", "campBMilitia");

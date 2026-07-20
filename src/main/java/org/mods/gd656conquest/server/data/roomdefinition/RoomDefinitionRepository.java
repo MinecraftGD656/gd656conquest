@@ -17,7 +17,6 @@ import org.mods.gd656conquest.server.room.model.RoomCommonConfig;
 import org.mods.gd656conquest.server.room.model.RoomConquestConfig;
 import org.mods.gd656conquest.server.room.model.RoomDeathmatchConfig;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
-import org.mods.gd656conquest.server.room.model.RoomEquipmentConfig;
 import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomMatchingConfig;
@@ -266,12 +265,13 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().supportCampAHeroKits(),
             base.commonConfig().supportCampBHeroKits(),
             base.commonConfig().supportCampAShellings(),
-            base.commonConfig().supportCampBShellings()
+            base.commonConfig().supportCampBShellings(),
+            base.commonConfig().campAEquipmentSetId(),
+            base.commonConfig().campBEquipmentSetId()
         );
         org.mods.gd656conquest.server.room.model.IRoomGameplayConfig gameplayConfig;
         if (base.gameplayConfig() instanceof RoomConquestConfig conquest) {
             gameplayConfig = new RoomConquestConfig(
-                conquest.equipmentConfig(),
                 conquest.teamSpawnGroups(),
                 conquest.teamDeployIcons(),
                 conquest.deployViewPosition(),
@@ -385,7 +385,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             List.of(),
             List.of(),
             List.of(),
-            List.of()
+            List.of(),
+            "",
+            ""
         );
         return new RoomDefinition(
             normalized,
