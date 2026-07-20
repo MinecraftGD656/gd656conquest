@@ -18,6 +18,10 @@ import java.util.Set;
 
 public final class ClientRoomTeamMirror {
     private static String lastRoomId = "";
+    private static String campADisplayName = "CampA";
+    private static String campBDisplayName = "CampB";
+    private static int campAPlayerCount;
+    private static int campBPlayerCount;
     private static final Map<String, TeamToken> TEAM_BY_PLAYER = new LinkedHashMap<>();
     private static final Map<String, String> SQUAD_BY_PLAYER = new LinkedHashMap<>();
 
@@ -64,8 +68,12 @@ public final class ClientRoomTeamMirror {
         }
         String campATeamName = buildTeamName(normalizedRoomId, "camp_a");
         String campBTeamName = buildTeamName(normalizedRoomId, "camp_b");
-        PlayerTeam campATeam = ensureTeam(scoreboard, campATeamName, campADisplayName, ChatFormatting.WHITE);
-        PlayerTeam campBTeam = ensureTeam(scoreboard, campBTeamName, campBDisplayName, ChatFormatting.WHITE);
+        ClientRoomTeamMirror.campADisplayName = campADisplayName == null || campADisplayName.isBlank() ? "CampA" : campADisplayName;
+        ClientRoomTeamMirror.campBDisplayName = campBDisplayName == null || campBDisplayName.isBlank() ? "CampB" : campBDisplayName;
+        ClientRoomTeamMirror.campAPlayerCount = campAPlayers == null ? 0 : campAPlayers.size();
+        ClientRoomTeamMirror.campBPlayerCount = campBPlayers == null ? 0 : campBPlayers.size();
+        PlayerTeam campATeam = ensureTeam(scoreboard, campATeamName, ClientRoomTeamMirror.campADisplayName, ChatFormatting.WHITE);
+        PlayerTeam campBTeam = ensureTeam(scoreboard, campBTeamName, ClientRoomTeamMirror.campBDisplayName, ChatFormatting.WHITE);
         syncTeamMembers(scoreboard, campATeam, toNameSet(campAPlayers));
         syncTeamMembers(scoreboard, campBTeam, toNameSet(campBPlayers));
         rebuildMirrorState(campAPlayers, campBPlayers, squadEntries, classEntries);
@@ -83,6 +91,10 @@ public final class ClientRoomTeamMirror {
         }
         clearRoom(minecraft.level.getScoreboard(), lastRoomId);
         lastRoomId = "";
+            campADisplayName = "CampA";
+            campBDisplayName = "CampB";
+            campAPlayerCount = 0;
+            campBPlayerCount = 0;
         TEAM_BY_PLAYER.clear();
         SQUAD_BY_PLAYER.clear();
         CLASS_BY_PLAYER.clear();
@@ -116,6 +128,30 @@ public final class ClientRoomTeamMirror {
             return "";
         }
         return CLASS_BY_PLAYER.getOrDefault(normalizePlayerName(targetPlayer.getScoreboardName()), "");
+    }
+
+    public static int getSelfTeamPlayerCount() {
+        return switch (resolveSelfTeamToken()) {
+            case CAMP_A -> campAPlayerCount;
+            case CAMP_B -> campBPlayerCount;
+            case UNKNOWN -> 0;
+        };
+    }
+
+    public static int getOppositeTeamPlayerCount() {
+        return switch (resolveSelfTeamToken()) {
+            case CAMP_A -> campBPlayerCount;
+            case CAMP_B -> campAPlayerCount;
+            case UNKNOWN -> 0;
+        };
+    }
+
+    public static String getOppositeTeamDisplayNameForSelf() {
+        return switch (resolveSelfTeamToken()) {
+            case CAMP_A -> campBDisplayName;
+            case CAMP_B -> campADisplayName;
+            case UNKNOWN -> "";
+        };
     }
 
     private static PlayerTeam ensureTeam(Scoreboard scoreboard, String teamName, String displayName, ChatFormatting color) {
@@ -241,6 +277,14 @@ public final class ClientRoomTeamMirror {
             return "";
         }
         return SQUAD_BY_PLAYER.getOrDefault(selfName, "");
+    }
+
+    private static TeamToken resolveSelfTeamToken() {
+        String selfName = resolveSelfPlayerName();
+        if (selfName.isBlank()) {
+            return TeamToken.UNKNOWN;
+        }
+        return TEAM_BY_PLAYER.getOrDefault(selfName, TeamToken.UNKNOWN);
     }
 
     private static String normalizePlayerName(String playerName) {

@@ -2,6 +2,7 @@ package org.mods.gd656conquest.server.room.runtime;
 
 import org.mods.gd656conquest.server.room.core.RoomRuntimeState;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
+import org.mods.gd656conquest.server.room.gameplay.RoomTeamPresentationSupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
@@ -34,6 +35,50 @@ public final class RoomTeamSwitchService {
             return RoomTeamId.CAMP_A;
         }
         return null;
+    }
+
+    public TeamSwitchEligibility evaluateSelfSwitchEligibility(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        UUID playerId,
+        boolean operatorAdmin
+    ) {
+        if (state == null || playerId == null) {
+            return TeamSwitchEligibility.invalid("当前不在可切换队伍");
+        }
+        RoomTeamId currentTeam = state.getRoomTeams().get(playerId);
+        RoomTeamId targetTeam = resolveOppositePlayableTeam(currentTeam);
+        if (targetTeam == null) {
+            return TeamSwitchEligibility.invalid("当前不在可切换队伍");
+        }
+        int currentCount = countPlayersInTeam(state, currentTeam);
+        int targetCount = countPlayersInTeam(state, targetTeam);
+        String targetDisplayName = RoomTeamPresentationSupport.resolveTeamDisplayName(room, state, targetTeam);
+        if (operatorAdmin) {
+            return TeamSwitchEligibility.allowed(currentTeam, targetTeam, currentCount, targetCount, targetDisplayName);
+        }
+        if (room != null && !room.commonConfig().allowPlayerCampSwitch()) {
+            return TeamSwitchEligibility.denied(
+                currentTeam,
+                targetTeam,
+                currentCount,
+                targetCount,
+                targetDisplayName,
+                "当前房间已关闭玩家主动切换阵营"
+            );
+        }
+        boolean allowed = targetCount < currentCount && currentCount - targetCount > 1;
+        if (!allowed) {
+            return TeamSwitchEligibility.denied(
+                currentTeam,
+                targetTeam,
+                currentCount,
+                targetCount,
+                targetDisplayName,
+                "当前仅允许切换到人数更少且差距至少为 2 的敌方阵营"
+            );
+        }
+        return TeamSwitchEligibility.allowed(currentTeam, targetTeam, currentCount, targetCount, targetDisplayName);
     }
 
     public TeamSwitchResult applyRequestedTeam(
@@ -91,14 +136,20 @@ public final class RoomTeamSwitchService {
     }
 
     private void clearTeamSensitiveRuntimeState(RunningRuntimeState state, UUID playerId) {
-        state.getTeammateDeployKillWindowUntilTicks().remove(playerId);
-        state.getBeaconOwnerByDeployer().remove(playerId);
-        state.getBeaconOwnerKillWindowUntilTicksByDeployer().remove(playerId);
-        state.getBeaconOwnerByDeployer().entrySet().removeIf(entry -> playerId.equals(entry.getValue()));
-        state.getOutsideBoundarySinceTicks().remove(playerId);
-        state.getBoundaryPenaltyLastShownSeconds().remove(playerId);
-        state.getBoundaryPenaltyVisualApplied().remove(playerId);
-        state.getCombatUntilTicks().remove(playerId);
+        state.clearTeamSensitiveStateForTeamChange(playerId);
+    }
+
+    private int countPlayersInTeam(RunningRuntimeState state, RoomTeamId teamId) {
+        if (state == null || teamId == null) {
+            return 0;
+        }
+        int count = 0;
+        for (UUID playerId : state.getRoomPlayers()) {
+            if (state.getRoomTeams().get(playerId) == teamId) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public record TeamSwitchResult(boolean changed, boolean valid, RoomTeamId previousTeam, RoomTeamId currentTeam) {
@@ -112,6 +163,60 @@ public final class RoomTeamSwitchService {
 
         public static TeamSwitchResult invalid() {
             return new TeamSwitchResult(false, false, null, null);
+        }
+    }
+
+    public record TeamSwitchEligibility(
+        boolean valid,
+        boolean allowed,
+        RoomTeamId currentTeam,
+        RoomTeamId targetTeam,
+        int currentTeamCount,
+        int targetTeamCount,
+        String targetDisplayName,
+        String deniedMessage
+    ) {
+        public static TeamSwitchEligibility invalid(String deniedMessage) {
+            return new TeamSwitchEligibility(false, false, null, null, 0, 0, "", deniedMessage);
+        }
+
+        public static TeamSwitchEligibility denied(
+            RoomTeamId currentTeam,
+            RoomTeamId targetTeam,
+            int currentTeamCount,
+            int targetTeamCount,
+            String targetDisplayName,
+            String deniedMessage
+        ) {
+            return new TeamSwitchEligibility(
+                true,
+                false,
+                currentTeam,
+                targetTeam,
+                currentTeamCount,
+                targetTeamCount,
+                targetDisplayName == null ? "" : targetDisplayName,
+                deniedMessage
+            );
+        }
+
+        public static TeamSwitchEligibility allowed(
+            RoomTeamId currentTeam,
+            RoomTeamId targetTeam,
+            int currentTeamCount,
+            int targetTeamCount,
+            String targetDisplayName
+        ) {
+            return new TeamSwitchEligibility(
+                true,
+                true,
+                currentTeam,
+                targetTeam,
+                currentTeamCount,
+                targetTeamCount,
+                targetDisplayName == null ? "" : targetDisplayName,
+                ""
+            );
         }
     }
 }

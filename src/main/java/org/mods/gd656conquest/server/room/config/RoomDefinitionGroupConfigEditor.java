@@ -202,6 +202,7 @@ public final class RoomDefinitionGroupConfigEditor {
             common.enableDeathSupportDrop(),
             common.enableSniperRoom(),
             common.disableUndyingTotem(),
+            common.allowPlayerCampSwitch(),
             "supportcampaherokits".equals(canonical) ? updatedValues : common.supportCampAHeroKits(),
             "supportcampbherokits".equals(canonical) ? updatedValues : common.supportCampBHeroKits(),
             "supportcampashellings".equals(canonical) ? updatedValues : common.supportCampAShellings(),

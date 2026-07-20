@@ -24,16 +24,17 @@ public final class RoomHudSyncPacket {
     private final int remainSeconds;
     private final int playerMaxY;
     private final int aircraftPassengerMaxY;
+    private final boolean allowPlayerCampSwitch;
     private final String captureStatus;
     private final String captureIcons;
     private final String captureEvent;
     private final String captureFocus;
 
-    public RoomHudSyncPacket(String roomId, String roomState, String selfTeam, String selfClass, int campAScore, int campBScore, int runningSeconds, String scoreMethod, int campAGoal, int campBGoal, int remainSeconds, int playerMaxY, int aircraftPassengerMaxY, String captureStatus, String captureIcons, String captureEvent, String captureFocus) {
-        this(roomId, roomState, "-", selfTeam, selfClass, campAScore, campBScore, runningSeconds, scoreMethod, campAGoal, campBGoal, remainSeconds, playerMaxY, aircraftPassengerMaxY, captureStatus, captureIcons, captureEvent, captureFocus);
+    public RoomHudSyncPacket(String roomId, String roomState, String selfTeam, String selfClass, int campAScore, int campBScore, int runningSeconds, String scoreMethod, int campAGoal, int campBGoal, int remainSeconds, int playerMaxY, int aircraftPassengerMaxY, boolean allowPlayerCampSwitch, String captureStatus, String captureIcons, String captureEvent, String captureFocus) {
+        this(roomId, roomState, "-", selfTeam, selfClass, campAScore, campBScore, runningSeconds, scoreMethod, campAGoal, campBGoal, remainSeconds, playerMaxY, aircraftPassengerMaxY, allowPlayerCampSwitch, captureStatus, captureIcons, captureEvent, captureFocus);
     }
 
-    public RoomHudSyncPacket(String roomId, String roomState, String audioState, String selfTeam, String selfClass, int campAScore, int campBScore, int runningSeconds, String scoreMethod, int campAGoal, int campBGoal, int remainSeconds, int playerMaxY, int aircraftPassengerMaxY, String captureStatus, String captureIcons, String captureEvent, String captureFocus) {
+    public RoomHudSyncPacket(String roomId, String roomState, String audioState, String selfTeam, String selfClass, int campAScore, int campBScore, int runningSeconds, String scoreMethod, int campAGoal, int campBGoal, int remainSeconds, int playerMaxY, int aircraftPassengerMaxY, boolean allowPlayerCampSwitch, String captureStatus, String captureIcons, String captureEvent, String captureFocus) {
         this.roomId = roomId;
         this.roomState = roomState;
         this.audioState = audioState;
@@ -48,6 +49,7 @@ public final class RoomHudSyncPacket {
         this.remainSeconds = remainSeconds;
         this.playerMaxY = playerMaxY;
         this.aircraftPassengerMaxY = aircraftPassengerMaxY;
+        this.allowPlayerCampSwitch = allowPlayerCampSwitch;
         this.captureStatus = captureStatus;
         this.captureIcons = captureIcons;
         this.captureEvent = captureEvent;
@@ -69,6 +71,7 @@ public final class RoomHudSyncPacket {
         buffer.writeInt(message.remainSeconds);
         buffer.writeInt(message.playerMaxY);
         buffer.writeInt(message.aircraftPassengerMaxY);
+        buffer.writeBoolean(message.allowPlayerCampSwitch);
         buffer.writeUtf(message.captureStatus);
         buffer.writeUtf(message.captureIcons);
         buffer.writeUtf(message.captureEvent);
@@ -91,6 +94,7 @@ public final class RoomHudSyncPacket {
                 buffer.readInt(),
                 buffer.readInt(),
                 buffer.readInt(),
+                buffer.readBoolean(),
                 buffer.readUtf(),
                 buffer.readUtf(),
                 buffer.readUtf(),
@@ -116,6 +120,7 @@ public final class RoomHudSyncPacket {
                     message.remainSeconds,
                     message.playerMaxY,
                     message.aircraftPassengerMaxY,
+                    message.allowPlayerCampSwitch,
                     message.captureStatus,
                     message.captureIcons,
                     message.captureEvent,
@@ -141,6 +146,7 @@ public final class RoomHudSyncPacket {
             Integer.toString(remainSeconds),
             Integer.toString(playerMaxY),
             Integer.toString(aircraftPassengerMaxY),
+            Boolean.toString(allowPlayerCampSwitch),
             safe(captureStatus),
             safe(captureIcons),
             safe(captureEvent),
@@ -164,6 +170,7 @@ public final class RoomHudSyncPacket {
             && remainSeconds == other.remainSeconds
             && playerMaxY == other.playerMaxY
             && aircraftPassengerMaxY == other.aircraftPassengerMaxY
+            && allowPlayerCampSwitch == other.allowPlayerCampSwitch
             && Objects.equals(roomId, other.roomId)
             && Objects.equals(roomState, other.roomState)
             && Objects.equals(audioState, other.audioState)

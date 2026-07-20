@@ -262,6 +262,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().enableDeathSupportDrop(),
             base.commonConfig().enableSniperRoom(),
             base.commonConfig().disableUndyingTotem(),
+            base.commonConfig().allowPlayerCampSwitch(),
             base.commonConfig().supportCampAHeroKits(),
             base.commonConfig().supportCampBHeroKits(),
             base.commonConfig().supportCampAShellings(),
@@ -382,6 +383,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             true,  // enableDeathSupportDrop
             false, // enableSniperRoom
             false, // disableUndyingTotem
+            true,  // allowPlayerCampSwitch
             List.of(),
             List.of(),
             List.of(),

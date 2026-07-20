@@ -805,6 +805,35 @@ public final class RunningRuntimeState {
         boundaryDeathPendingPlayers.remove(playerId);
     }
 
+    public void clearTeamSensitiveStateForTeamChange(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
+        respawnTargetPositions.remove(playerId);
+        pendingVehicleDeployResolutions.remove(playerId);
+        deploySelectionKinds.remove(playerId);
+        deploySelectionTargetIds.remove(playerId);
+        deploySelectionChangedTicks.remove(playerId);
+        deployAutoStartOnReadyPlayers.remove(playerId);
+        deployAllowFallbackOnMissingSelectionPlayers.remove(playerId);
+        deployExplicitConfirmRequiredPlayers.remove(playerId);
+        deployViewActivePlayers.remove(playerId);
+        deathKillerEntityIds.remove(playerId);
+        teammateDeployKillWindowUntilTicks.remove(playerId);
+        beaconOwnerByDeployer.remove(playerId);
+        beaconOwnerKillWindowUntilTicksByDeployer.remove(playerId);
+        beaconOwnerByDeployer.entrySet().removeIf(entry -> playerId.equals(entry.getValue()));
+        outsideBoundarySinceTicks.remove(playerId);
+        aircraftOutsideBoundarySinceTicks.remove(playerId);
+        boundaryPenaltyLastShownSeconds.remove(playerId);
+        boundaryPenaltyVisualApplied.remove(playerId);
+        boundaryDeathPendingPlayers.remove(playerId);
+        boundaryHeightReportTicks.remove(playerId);
+        boundaryPlayerMaxYReportedPlayers.remove(playerId);
+        boundaryAircraftMaxYReportedPlayers.remove(playerId);
+        combatUntilTicks.remove(playerId);
+    }
+
     public void startRevive(UUID reviverId, UUID targetId, long startTick) {
         if (reviverId == null || targetId == null || reviverId.equals(targetId)) {
             return;

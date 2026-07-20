@@ -15,6 +15,7 @@ public final class ClientHudDebugState {
     private static int remainSeconds;
     private static int playerMaxY;
     private static int aircraftPassengerMaxY;
+    private static boolean allowPlayerCampSwitch = true;
     private static String captureStatus = "-";
     private static String captureIcons = "-";
     private static String captureEvent = "-";
@@ -24,7 +25,7 @@ public final class ClientHudDebugState {
     private ClientHudDebugState() {
     }
 
-    public static void update(String roomIdValue, String roomStateValue, String audioStateValue, String selfTeamValue, String selfClassValue, int campA, int campB, int seconds, String scoreMethodValue, int campAGoalValue, int campBGoalValue, int remainSecondsValue, int playerMaxYValue, int aircraftPassengerMaxYValue, String captureStatusValue, String captureIconsValue, String captureEventValue, String captureFocusValue) {
+    public static void update(String roomIdValue, String roomStateValue, String audioStateValue, String selfTeamValue, String selfClassValue, int campA, int campB, int seconds, String scoreMethodValue, int campAGoalValue, int campBGoalValue, int remainSecondsValue, int playerMaxYValue, int aircraftPassengerMaxYValue, boolean allowPlayerCampSwitchValue, String captureStatusValue, String captureIconsValue, String captureEventValue, String captureFocusValue) {
         roomId = roomIdValue;
         roomState = roomStateValue;
         audioState = audioStateValue == null || audioStateValue.isBlank() ? "-" : audioStateValue;
@@ -39,6 +40,7 @@ public final class ClientHudDebugState {
         remainSeconds = remainSecondsValue;
         playerMaxY = playerMaxYValue;
         aircraftPassengerMaxY = aircraftPassengerMaxYValue;
+        allowPlayerCampSwitch = allowPlayerCampSwitchValue;
         captureStatus = captureStatusValue;
         captureIcons = captureIconsValue;
         captureEvent = captureEventValue;
@@ -101,6 +103,10 @@ public final class ClientHudDebugState {
         return aircraftPassengerMaxY;
     }
 
+    public static boolean isPlayerCampSwitchAllowed() {
+        return allowPlayerCampSwitch;
+    }
+
     public static String getCaptureStatus() {
         return captureStatus;
     }
@@ -130,7 +136,7 @@ public final class ClientHudDebugState {
     }
 
     public static void reset() {
-        update("-", "未加入房间", "-", "-", "-", 0, 0, 0, "SCORE_TARGET", 0, 0, 0, 0, 0, "-", "-", "-", "-");
+        update("-", "未加入房间", "-", "-", "-", 0, 0, 0, "SCORE_TARGET", 0, 0, 0, 0, 0, true, "-", "-", "-", "-");
         adminDebugOverlay = "-";
     }
 }

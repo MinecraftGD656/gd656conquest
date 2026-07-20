@@ -205,6 +205,13 @@ public final class RoomCoreRuntimeManager {
         return coreService.switchPlayerToOppositeTeam(roomId, targetPlayerId, operatorName, gameTick);
     }
 
+    public String requestActivePlayerCampSwitch(String roomId, UUID playerId, String operatorName, boolean operatorAdmin, long gameTick) {
+        if (coreService == null) {
+            return ROOM_SERVICE_NOT_INITIALIZED;
+        }
+        return coreService.requestActivePlayerCampSwitch(roomId, playerId, operatorName, operatorAdmin, gameTick);
+    }
+
     public String acceptAutoTeamSwitch(String roomId, UUID playerId, long gameTick) {
         if (coreService == null) {
             return ROOM_SERVICE_NOT_INITIALIZED;

@@ -35,6 +35,7 @@ public record RoomCommonConfig(
     boolean enableDeathSupportDrop,
     boolean enableSniperRoom,
     boolean disableUndyingTotem,
+    Boolean allowPlayerCampSwitch,
     List<String> supportCampAHeroKits,
     List<String> supportCampBHeroKits,
     List<String> supportCampAShellings,
@@ -58,6 +59,7 @@ public record RoomCommonConfig(
         campAVoicePack = normalizeVoicePack(campAVoicePack);
         campBVoicePack = normalizeVoicePack(campBVoicePack);
         progressSpeed = Double.isFinite(progressSpeed) && progressSpeed > 0.0D ? progressSpeed : 40.0D;
+        allowPlayerCampSwitch = allowPlayerCampSwitch == null ? Boolean.TRUE : allowPlayerCampSwitch;
         supportCampAHeroKits = normalizeSupportIds(supportCampAHeroKits);
         supportCampBHeroKits = normalizeSupportIds(supportCampBHeroKits);
         supportCampAShellings = normalizeSupportIds(supportCampAShellings);
@@ -98,6 +100,7 @@ public record RoomCommonConfig(
             true,
             false,
             false,
+            true,
             List.of(),
             List.of(),
             List.of(),
@@ -177,6 +180,7 @@ public record RoomCommonConfig(
             true,
             false,
             false,
+            true,
             List.of(),
             List.of(),
             List.of(),
@@ -238,6 +242,7 @@ public record RoomCommonConfig(
             true,
             false,
             false,
+            true,
             List.of(),
             List.of(),
             List.of(),
@@ -304,6 +309,7 @@ public record RoomCommonConfig(
             true,
             false,
             false,
+            true,
             List.of(),
             List.of(),
             List.of(),
@@ -371,6 +377,7 @@ public record RoomCommonConfig(
             true,
             false,
             false,
+            true,
             List.of(),
             List.of(),
             List.of(),
@@ -439,6 +446,7 @@ public record RoomCommonConfig(
             true,
             false,
             false,
+            true,
             List.of(),
             List.of(),
             List.of(),

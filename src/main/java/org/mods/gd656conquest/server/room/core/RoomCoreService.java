@@ -555,6 +555,37 @@ public final class RoomCoreService {
         return queueTeamJoinChange(roomId, targetPlayerId, targetTeam, operatorName, gameTick);
     }
 
+    public String requestActivePlayerCampSwitch(String roomId, UUID playerId, String operatorName, boolean operatorAdmin, long gameTick) {
+        if (playerId == null) {
+            return "未找到目标玩家";
+        }
+        Optional<RoomRuntimeSlot<RoomRuntimeState>> slotOptional = runtimeRepository.find(roomId);
+        if (slotOptional.isEmpty()) {
+            return "房间不存在: " + roomId;
+        }
+        RoomRuntimeSlot<RoomRuntimeState> slot = slotOptional.get();
+        if (slot.room().lifecycleState() != RoomLifecycleState.RUNNING) {
+            return "当前不在进行中的对局";
+        }
+        RunningRuntimeState state = slot.runtime().getRunningState();
+        if (!state.getRoomPlayers().contains(playerId)) {
+            return "你不在该房间内";
+        }
+        RoomTeamSwitchService.TeamSwitchEligibility eligibility = teamSwitchService.evaluateSelfSwitchEligibility(
+            slot.room(),
+            state,
+            playerId,
+            operatorAdmin
+        );
+        if (!eligibility.valid()) {
+            return eligibility.deniedMessage();
+        }
+        if (!eligibility.allowed()) {
+            return eligibility.deniedMessage();
+        }
+        return switchPlayerToOppositeTeam(roomId, playerId, operatorName, gameTick);
+    }
+
     public String acceptAutoTeamSwitch(String roomId, UUID playerId, long gameTick) {
         if (playerId == null) {
             return "无法确认换队";

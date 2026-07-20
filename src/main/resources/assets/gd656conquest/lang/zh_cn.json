@@ -89,6 +89,7 @@
   "gd656conquest.client.gui.loadout.loading": "正在获取配装数据...",
   "gd656conquest.client.gui.support.title": "阵地支援",
   "gd656conquest.client.gui.deploy.open_loadout": "打开配装界面",
+  "gd656conquest.client.gui.deploy.switch_team": "切换阵营（%s）",
   "gd656conquest.client.gui.deploy.leave_room": "退出房间",
   "gd656conquest.client.gui.pause.leave_room": "离开对局",
   "gd656conquest.client.gui.pause.redeploy": "重新部署",

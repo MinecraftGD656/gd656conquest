@@ -40,6 +40,10 @@ public final class LoadoutUiActionPacket {
         return new LoadoutUiActionPacket("leave_session", "", 0, "", "", "");
     }
 
+    public static LoadoutUiActionPacket switchCamp() {
+        return new LoadoutUiActionPacket("switch_camp", "", 0, "", "", "");
+    }
+
     public static void encode(LoadoutUiActionPacket packet, FriendlyByteBuf buffer) {
         buffer.writeUtf(packet.action);
         buffer.writeUtf(packet.classKey);

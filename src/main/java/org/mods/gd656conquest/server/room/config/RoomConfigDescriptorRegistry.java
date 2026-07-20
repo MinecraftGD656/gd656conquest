@@ -100,6 +100,7 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "enableRandomAttachments", "启用房间随机配件", "commonConfig.enableRandomAttachments", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomAttachments");
         common(descriptors, RoomConfigCategory.RULES, "enableSniperRoom", "启用狙击房", "commonConfig.enableSniperRoom", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableSniperRoom");
         common(descriptors, RoomConfigCategory.RULES, "disableUndyingTotem", "是否禁用不死图腾", "commonConfig.disableUndyingTotem", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolDisableUndyingTotem");
+        common(descriptors, RoomConfigCategory.RULES, "allowPlayerCampSwitch", "是否允许玩家切换阵营", "commonConfig.allowPlayerCampSwitch", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
         common(descriptors, RoomConfigCategory.RULES, "enableParachute", "启用对局降落伞", "commonConfig.enableParachute", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableParachute");
         common(descriptors, RoomConfigCategory.RULES, "enableDeathSupportDrop", "启用死亡掉落补给包", "commonConfig.enableDeathSupportDrop", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
         commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampAHeroKits", "阵地支援-campA可用精英兵", "commonConfig.supportCampAHeroKits", RoomConfigValueType.DATA_GROUP);

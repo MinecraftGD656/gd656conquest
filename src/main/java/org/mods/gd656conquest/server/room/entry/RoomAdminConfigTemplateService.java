@@ -155,6 +155,7 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.enableDeathSupportDrop(),
             sourceCommon.enableSniperRoom(),
             sourceCommon.disableUndyingTotem(),
+            sourceCommon.allowPlayerCampSwitch(),
             sourceCommon.supportCampAHeroKits(),
             sourceCommon.supportCampBHeroKits(),
             sourceCommon.supportCampAShellings(),

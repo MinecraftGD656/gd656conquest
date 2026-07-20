@@ -104,6 +104,7 @@ public final class LoadoutUiService {
                 }
             }
             case "leave_session" -> leaveSession(player);
+            case "switch_camp" -> switchCamp(player);
             default -> {
             }
         }
@@ -1079,6 +1080,37 @@ public final class LoadoutUiService {
             return;
         }
         sendError(player, "当前不在房间或靶场中");
+    }
+
+    private static void switchCamp(ServerPlayer player) {
+        if (player == null || player.server == null) {
+            return;
+        }
+        RoomCoreRuntimeManager coreManager = RoomCoreRuntimeManager.of(player.server);
+        if (!coreManager.isInitialized()) {
+            sendError(player, "房间服务尚未初始化");
+            return;
+        }
+        String roomId = coreManager.findPlayerRoomId(player.getUUID()).orElse(null);
+        if (roomId == null || roomId.isBlank()) {
+            sendError(player, "当前不在房间中");
+            return;
+        }
+        String result = coreManager.requestActivePlayerCampSwitch(
+            roomId,
+            player.getUUID(),
+            player.getScoreboardName(),
+            player.hasPermissions(2),
+            player.server.getTickCount()
+        );
+        if (result == null || result.isBlank()) {
+            return;
+        }
+        if (result.startsWith("已")) {
+            sendInfo(player, result);
+            return;
+        }
+        sendError(player, result);
     }
 
     private static boolean isRandomLoadoutEnabledInCurrentRoom(ServerPlayer player) {

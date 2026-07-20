@@ -240,8 +240,10 @@ public final class RoomGroupPlacementService {
             return false;
         }
         if (targetTeam != null) {
+            RoomTeamId previousTeam = runningState.getRoomTeams().get(playerId);
             runningState.getRoomTeams().put(playerId, targetTeam);
-            if (lifecycleState == RoomLifecycleState.RUNNING) {
+            if (lifecycleState == RoomLifecycleState.RUNNING && previousTeam != targetTeam) {
+                runningState.clearTeamSensitiveStateForTeamChange(playerId);
                 deploySelectionService.replaceSelectionWithTeamFallback(runningState, playerId, targetTeam);
             }
         }

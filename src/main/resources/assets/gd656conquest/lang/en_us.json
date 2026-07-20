@@ -87,6 +87,7 @@
   "gd656conquest.client.gui.loadout.loading": "Loading loadout data...",
   "gd656conquest.client.gui.support.title": "Support",
   "gd656conquest.client.gui.deploy.open_loadout": "Open Loadout",
+  "gd656conquest.client.gui.deploy.switch_team": "Switch Team (%s)",
   "gd656conquest.client.gui.deploy.leave_room": "Leave Room",
   "gd656conquest.client.gui.pause.leave_room": "Leave Room",
   "gd656conquest.client.gui.pause.redeploy": "Redeploy",

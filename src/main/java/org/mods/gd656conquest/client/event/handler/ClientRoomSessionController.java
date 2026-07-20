@@ -31,6 +31,7 @@ import org.mods.gd656conquest.client.loadout.screen.LoadoutConfigScreen;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.client.room.ClientDownedState;
 import org.mods.gd656conquest.client.room.ClientRoomLockState;
+import org.mods.gd656conquest.client.room.ClientRoomTeamMirror;
 import org.mods.gd656conquest.client.room.ClientReviveState;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.LoadoutUiActionPacket;
@@ -62,6 +63,7 @@ final class ClientRoomSessionController {
     private String lastTeamColorRoomPrefix = "";
     private boolean wasDeployUiOpen;
     private GDButton deployLoadoutButton;
+    private GDButton deployTeamSwitchButton;
     private GDButton matchEndExitButton;
     private boolean deployFovActive;
     private boolean deployFovRestoreActive;
@@ -869,11 +871,23 @@ final class ClientRoomSessionController {
         boolean ending = isEndingState();
         boolean deployOpen = ClientRoomLockState.isDeployUiActive() && !ending;
         if (deployOpen) {
+            CampSwitchButtonState switchState = resolveCampSwitchButtonState(minecraft);
+            if (deployTeamSwitchButton == null) {
+                deployTeamSwitchButton = new GDButton(0, 0, UI_BUTTON_WIDTH, UI_BUTTON_HEIGHT, Component.empty(), btn -> NetworkManager.getChannel().sendToServer(LoadoutUiActionPacket.switchCamp()));
+                deployTeamSwitchButton.setAutoScaleTextToFit(true);
+                deployTeamSwitchButton.setMinAutoScale(0.52F);
+            }
             if (deployLoadoutButton == null) {
                 deployLoadoutButton = new GDButton(0, 0, UI_BUTTON_WIDTH, UI_BUTTON_HEIGHT, Component.translatable("gd656conquest.client.gui.deploy.open_loadout"), btn -> loadoutUiController.requestOpenConfigScreen());
             }
+            deployTeamSwitchButton.setMessage(Component.translatable("gd656conquest.client.gui.deploy.switch_team", switchState.targetDisplayName()));
+            deployTeamSwitchButton.setTextColor(switchState.textColor());
+            deployTeamSwitchButton.active = switchState.clickable();
+            deployTeamSwitchButton.setX(width - UI_BUTTON_WIDTH - UI_BUTTON_MARGIN);
+            deployTeamSwitchButton.setY(height - UI_BUTTON_HEIGHT - UI_BUTTON_MARGIN - UI_BUTTON_HEIGHT - UI_BUTTON_GAP);
             deployLoadoutButton.setX(width - UI_BUTTON_WIDTH - UI_BUTTON_MARGIN);
             deployLoadoutButton.setY(height - UI_BUTTON_HEIGHT - UI_BUTTON_MARGIN);
+            deployTeamSwitchButton.render(guiGraphics, mouseX, mouseY, partialTick);
             deployLoadoutButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
         if (ending) {
@@ -898,10 +912,36 @@ final class ClientRoomSessionController {
         }
         boolean ending = isEndingState();
         boolean deployOpen = ClientRoomLockState.isDeployUiActive() && !ending;
+        if (deployOpen && deployTeamSwitchButton != null && deployTeamSwitchButton.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
         if (deployOpen && deployLoadoutButton != null && deployLoadoutButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
         return ending && matchEndExitButton != null && matchEndExitButton.mouseClicked(mouseX, mouseY, button);
+    }
+
+    private CampSwitchButtonState resolveCampSwitchButtonState(Minecraft minecraft) {
+        boolean admin = isAdmin(minecraft);
+        boolean configAllowed = ClientHudDebugState.isPlayerCampSwitchAllowed();
+        int selfCount = ClientRoomTeamMirror.getSelfTeamPlayerCount();
+        int oppositeCount = ClientRoomTeamMirror.getOppositeTeamPlayerCount();
+        boolean allowed = admin || (configAllowed && oppositeCount < selfCount && selfCount - oppositeCount > 1);
+        String targetDisplayName = ClientRoomTeamMirror.getOppositeTeamDisplayNameForSelf();
+        if (targetDisplayName == null || targetDisplayName.isBlank()) {
+            String selfTeam = ClientHudDebugState.getSelfTeam();
+            if (selfTeam != null && (selfTeam.contains("CampA") || selfTeam.contains("阵营A"))) {
+                targetDisplayName = "CampB";
+            } else if (selfTeam != null && (selfTeam.contains("CampB") || selfTeam.contains("阵营B"))) {
+                targetDisplayName = "CampA";
+            } else {
+                targetDisplayName = "敌方";
+            }
+        }
+        int textColor = admin
+            ? 0xFFFFD34D
+            : allowed ? 0xFFFFFFFF : 0xFF8A8A8A;
+        return new CampSwitchButtonState(targetDisplayName, allowed, textColor);
     }
 
     private boolean isEndingState() {
@@ -930,5 +970,8 @@ final class ClientRoomSessionController {
     }
 
     private record TeamSide(String roomPrefix, int campIndex) {
+    }
+
+    private record CampSwitchButtonState(String targetDisplayName, boolean clickable, int textColor) {
     }
 }

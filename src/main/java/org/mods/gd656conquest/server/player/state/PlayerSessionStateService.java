@@ -104,6 +104,7 @@ public final class PlayerSessionStateService {
             0,
             0,
             0,
+            true,
             "-",
             "-",
             "-",
