@@ -1,5 +1,6 @@
 package org.mods.gd656conquest.server.room.gameplay.breakthrough;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.game.ClientboundClearTitlesPacket;
@@ -11,12 +12,14 @@ import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
+import org.mods.gd656conquest.server.social.chat.ServerActionBarService;
 
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.UUID;
 
 public final class BreakthroughStageTransitionTitleService {
+    private static final String ACTIONBAR_SOURCE_RETREAT = "breakthrough_retreat";
     private static final int TITLE_FADE_IN_TICKS = 5;
     private static final int TITLE_STAY_TICKS = 20;
     private static final int TITLE_FADE_OUT_TICKS = 10;
@@ -80,6 +83,7 @@ public final class BreakthroughStageTransitionTitleService {
         if (room == null || state == null || runtimeState == null || captureRuntimeService == null || runtimeState.getRetreatDeadlineTick() <= 0L) {
             return;
         }
+        boolean useRetreatActionbar = room.breakthroughConfig().defenderRetreatSeconds() > 30;
         int remainingSeconds = (int) Math.max(1L, (runtimeState.getRetreatDeadlineTick() - gameTick + 19L) / 20L);
         int retreatStageIndex = runtimeState.getRetreatStageIndex();
         for (UUID playerId : state.getRoomPlayers()) {
@@ -95,13 +99,20 @@ public final class BreakthroughStageTransitionTitleService {
                 && captureRuntimeService.isInsideStageBoundary(room, player, retreatStageIndex);
             if (!shouldShow) {
                 clearSingleTitle(player, runtimeState.getRetreatCountdownLastShownSecondsByPlayer().remove(playerId) != null);
+                ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_RETREAT);
                 continue;
             }
             int lastShown = runtimeState.getRetreatCountdownLastShownSecondsByPlayer().getOrDefault(playerId, -1);
             if (lastShown == remainingSeconds) {
                 continue;
             }
-            sendRetreatTitle(player, remainingSeconds, lastShown < 0);
+            if (useRetreatActionbar) {
+                clearSingleTitle(player, lastShown >= 0);
+                sendRetreatActionbar(player, remainingSeconds);
+            } else {
+                ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_RETREAT);
+                sendRetreatTitle(player, remainingSeconds, lastShown < 0);
+            }
             runtimeState.getRetreatCountdownLastShownSecondsByPlayer().put(playerId, remainingSeconds);
         }
     }
@@ -113,6 +124,7 @@ public final class BreakthroughStageTransitionTitleService {
         for (UUID playerId : new ArrayList<>(runtimeState.getRetreatCountdownLastShownSecondsByPlayer().keySet())) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             clearSingleTitle(player, true);
+            ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_RETREAT);
         }
         runtimeState.getRetreatCountdownLastShownSecondsByPlayer().clear();
     }
@@ -141,6 +153,22 @@ public final class BreakthroughStageTransitionTitleService {
         ));
         player.connection.send(new ClientboundSetTitleTextPacket(buildTitle(remainingSeconds)));
         player.connection.send(new ClientboundSetSubtitleTextPacket(buildRetreatSubtitle()));
+    }
+
+    private void sendRetreatActionbar(ServerPlayer player, int remainingSeconds) {
+        if (player == null) {
+            return;
+        }
+        ServerActionBarService.showBuilder(
+            player,
+            ACTIONBAR_SOURCE_RETREAT,
+            ServerActionBarService.builder()
+                .text("请在", ChatFormatting.GRAY)
+                .append(Component.literal(String.valueOf(remainingSeconds))
+                    .withStyle(style -> style.withColor(resolveCountdownColor(remainingSeconds)).withBold(true)))
+                .text("秒 内撤离至下一阶段", ChatFormatting.GRAY),
+            30
+        );
     }
 
     private Component buildTitle(int remainingSeconds) {

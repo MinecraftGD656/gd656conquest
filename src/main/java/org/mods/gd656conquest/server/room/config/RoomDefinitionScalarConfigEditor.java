@@ -216,7 +216,7 @@ public final class RoomDefinitionScalarConfigEditor {
 
     private static boolean requiresPositiveInt(String configId) {
         return switch (configId) {
-            case "minstartplayers", "queuemaxplayers", "outsideboundarydeathseconds", "btoutsideboundarydeathseconds",
+            case "minstartplayers", "queuemaxplayers", "outsideboundarydeathseconds",
                 "aircraftoutsideboundarycleanupseconds", "playermaxy", "aircraftpassengermaxy",
                 "dmmatchdurationminutes", "dmtargetscore", "dmstartcountdownseconds", "dmrespawnseconds" -> true;
             default -> false;
@@ -229,7 +229,7 @@ public final class RoomDefinitionScalarConfigEditor {
             case "gamemode" -> parseGameMode(rawValue);
             case "vehiclebackend" -> RoomVehicleBackend.of(rawValue);
             case "campavoicepack", "campbvoicepack" -> RoomVoicePack.normalizeOrThrow(rawValue);
-            case "troopbalancereference" -> RoomTroopBalanceReference.of(rawValue);
+            case "bttroopbalancereference" -> RoomTroopBalanceReference.of(rawValue);
             case "scoremethod" -> parseScoreMethod(rawValue);
             case "initialcaptureownership" -> parseInitialCaptureOwnership(rawValue);
             default -> parseQuotedString(rawValue);

@@ -72,8 +72,8 @@ public final class RoomDeathFlowPacket {
         return new RoomDeathFlowPacket(ACTION_START_RESPAWN, 0.0D, 0.0D, 0.0D, targetX, targetY, targetZ, targetYaw, targetPitch, -1, 0, transitionTicks);
     }
 
-    public static RoomDeathFlowPacket openRespawnWaitInstant(double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int countdownTicks) {
-        return new RoomDeathFlowPacket(ACTION_OPEN_RESPAWN_WAIT, targetX, targetY, targetZ, targetX, targetY, targetZ, targetYaw, targetPitch, -1, countdownTicks, 0);
+    public static RoomDeathFlowPacket openRespawnWaitInstant(double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int countdownTicks, int killerEntityId) {
+        return new RoomDeathFlowPacket(ACTION_OPEN_RESPAWN_WAIT, targetX, targetY, targetZ, targetX, targetY, targetZ, targetYaw, targetPitch, killerEntityId, countdownTicks, 0);
     }
 
     public static RoomDeathFlowPacket clear() {
@@ -153,7 +153,15 @@ public final class RoomDeathFlowPacket {
                 return;
             }
             if (message.action == ACTION_OPEN_RESPAWN_WAIT) {
-                ClientDeathFlowState.openRespawnWaitInstant(message.targetX, message.targetY, message.targetZ, message.targetYaw, message.targetPitch, message.deployCountdownTicks);
+                ClientDeathFlowState.openRespawnWaitInstant(
+                    message.targetX,
+                    message.targetY,
+                    message.targetZ,
+                    message.targetYaw,
+                    message.targetPitch,
+                    message.deployCountdownTicks,
+                    message.killerEntityId
+                );
                 return;
             }
             if (message.action == ACTION_BOUNDARY_ON) {

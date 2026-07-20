@@ -1239,6 +1239,7 @@ public final class RoomCoreService {
             }
         }
         runtime.onEnterMainPhase(slot.room(), gameTick);
+        supportBoxService.spawnPermanentSupportBoxes(slot.room());
         slot.runtime().getRunningState().setGameplayRuntime(runtime);
         for (UUID playerId : slot.runtime().getMatchingState().getQueuePlayers()) {
             ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
@@ -1793,6 +1794,7 @@ public final class RoomCoreService {
             runningState,
             RoomShellingRuntimeService.AbortReason.ROOM_UNAVAILABLE
         );
+        supportBoxService.clearPermanentSupportBoxes(slot.room().roomId());
         java.util.List<UUID> players = java.util.List.copyOf(runningState.getRoomPlayers());
         for (UUID playerId : players) {
             ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
@@ -1840,6 +1842,7 @@ public final class RoomCoreService {
             runningState,
             RoomShellingRuntimeService.AbortReason.ROOM_UNAVAILABLE
         );
+        supportBoxService.clearPermanentSupportBoxes(slot.room().roomId());
         runningState.getGameplayRuntime().ifPresent(runtime -> runtime.onLeaveMainPhase(slot.room(), gameTick));
         runningState.clearGameplayRuntime();
         runningState.clearRoomPlayers();

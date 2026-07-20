@@ -36,7 +36,9 @@ public record RoomBreakthroughConfig(
     int defenderRetreatSeconds,
     int troopGainPerDefenderKill,
     int maxAttackTroopsAt12Players,
-    RoomTroopBalanceReference troopBalanceReference
+    RoomTroopBalanceReference troopBalanceReference,
+    List<RoomPosition> ammoBoxPositions,
+    List<RoomPosition> medicalBoxPositions
 ) implements IRoomGameplayConfig {
     public RoomBreakthroughConfig {
         Objects.requireNonNull(points, "points");
@@ -62,6 +64,8 @@ public record RoomBreakthroughConfig(
         troopGainPerDefenderKill = Math.max(0, troopGainPerDefenderKill);
         maxAttackTroopsAt12Players = Math.max(0, maxAttackTroopsAt12Players);
         troopBalanceReference = troopBalanceReference == null ? RoomTroopBalanceReference.defaultValue() : troopBalanceReference;
+        ammoBoxPositions = copyPositions(ammoBoxPositions);
+        medicalBoxPositions = copyPositions(medicalBoxPositions);
     }
 
     public static RoomBreakthroughConfig defaults() {
@@ -93,7 +97,9 @@ public record RoomBreakthroughConfig(
             0,
             0,
             0,
-            RoomTroopBalanceReference.defaultValue()
+            RoomTroopBalanceReference.defaultValue(),
+            List.of(),
+            List.of()
         );
     }
 

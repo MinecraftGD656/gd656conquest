@@ -249,7 +249,7 @@ public final class ClientDeathFlowState {
         setCameraPose(targetX, targetY, targetZ, targetYaw, targetPitch, true);
     }
 
-    public static void openRespawnWaitInstant(double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int countdownTicks) {
+    public static void openRespawnWaitInstant(double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int countdownTicks, int killerId) {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null) {
@@ -260,7 +260,7 @@ public final class ClientDeathFlowState {
         deathVisualsActive = false;
         phase = PHASE_RESPAWN_HOLD;
         phaseTicks = 0L;
-        killerEntityId = -1;
+        killerEntityId = killerId;
         deployConfirmDelayTicks = 0;
         deployTicksSinceOpen = 0;
         respawnHoldTotalTicks = Math.max(0, countdownTicks);

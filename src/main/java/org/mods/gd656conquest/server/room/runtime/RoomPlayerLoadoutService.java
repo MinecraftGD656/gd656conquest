@@ -933,12 +933,33 @@ public final class RoomPlayerLoadoutService {
         boolean notifyPlayer
     ) {
         if (equipmentData == null || player == null) {
-            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), false, false);
+            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), false, false, false);
         }
         if (isRandomizedLoadoutEnabled(roomContext)) {
             return resolveRandomizedLoadoutSelection(roomContext, equipmentData, player, refreshRandomSelection, notifyPlayer);
         }
-        PlayerClassType classType = CustomLoadoutService.resolveCurrentClass(playerData);
+        PlayerClassType selectedClassType = CustomLoadoutService.resolveCurrentClass(playerData);
+        PlayerClassType effectiveClassType = isSniperRoomEnabled(roomContext) ? PlayerClassType.RECON : selectedClassType;
+        ActiveLoadoutSelection selection = resolveManualLoadoutSelectionForClass(
+            equipmentData,
+            playerData,
+            effectiveClassType,
+            playerLevel,
+            selectedClassType != effectiveClassType
+        );
+        return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, selection, notifyPlayer);
+    }
+
+    private ActiveLoadoutSelection resolveManualLoadoutSelectionForClass(
+        EquipmentDataModel equipmentData,
+        PlayerDataModel playerData,
+        PlayerClassType classType,
+        int playerLevel,
+        boolean classForcedByRoom
+    ) {
+        if (equipmentData == null || classType == null) {
+            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), false, false, classForcedByRoom);
+        }
         Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entriesBySlot = new EnumMap<>(CustomLoadoutSlot.class);
         boolean playerDataChanged = false;
         for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
@@ -966,7 +987,7 @@ public final class RoomPlayerLoadoutService {
             }
             entriesBySlot.put(slot, selectedEntry);
         }
-        return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, new ActiveLoadoutSelection(classType, entriesBySlot, false, playerDataChanged), notifyPlayer);
+        return new ActiveLoadoutSelection(classType, entriesBySlot, false, playerDataChanged, classForcedByRoom);
     }
 
     private ActiveLoadoutSelection resolveRandomizedLoadoutSelection(
@@ -978,7 +999,7 @@ public final class RoomPlayerLoadoutService {
     ) {
         RunningRuntimeState state = roomContext == null ? null : roomContext.state();
         if (state == null || equipmentData == null || player == null) {
-            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false);
+            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false, false);
         }
         UUID playerId = player.getUUID();
         if (!refreshRandomSelection) {
@@ -1009,7 +1030,7 @@ public final class RoomPlayerLoadoutService {
         if (candidates.isEmpty()) {
             state.getRandomizedLoadoutClassKeysByPlayer().remove(playerId);
             state.getRandomizedLoadoutSelectionIdsByPlayerSlot().remove(playerId);
-            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false);
+            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false, false);
         }
         PlayerClassType chosenClass = candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
         Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entriesBySlot = new EnumMap<>(CustomLoadoutSlot.class);
@@ -1034,7 +1055,7 @@ public final class RoomPlayerLoadoutService {
         }
         state.getRandomizedLoadoutClassKeysByPlayer().put(playerId, chosenClass.getKey());
         state.getRandomizedLoadoutSelectionIdsByPlayerSlot().put(playerId, storedSelectionIds);
-        return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, new ActiveLoadoutSelection(chosenClass, entriesBySlot, true, false), notifyPlayer);
+        return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, new ActiveLoadoutSelection(chosenClass, entriesBySlot, true, false, false), notifyPlayer);
     }
 
     private ActiveLoadoutSelection resolveStoredRandomizedLoadoutSelection(
@@ -1043,12 +1064,12 @@ public final class RoomPlayerLoadoutService {
         UUID playerId
     ) {
         if (state == null || equipmentData == null || playerId == null) {
-            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false);
+            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false, false);
         }
         PlayerClassType classType = PlayerClassType.fromInput(state.getRandomizedLoadoutClassKeysByPlayer().get(playerId));
         Map<String, String> storedIds = state.getRandomizedLoadoutSelectionIdsByPlayerSlot().get(playerId);
         if (classType == null || storedIds == null || storedIds.isEmpty()) {
-            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false);
+            return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false, false);
         }
         Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entriesBySlot = new EnumMap<>(CustomLoadoutSlot.class);
         for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
@@ -1060,11 +1081,11 @@ public final class RoomPlayerLoadoutService {
             if (entry == null
                 || entry.getSlot() != slot.getIndex()
                 || !CustomLoadoutService.isEntryAvailableForClass(entry, classType)) {
-                return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false);
+                return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), true, false, false);
             }
             entriesBySlot.put(slot, entry);
         }
-        return new ActiveLoadoutSelection(classType, entriesBySlot, true, false);
+        return new ActiveLoadoutSelection(classType, entriesBySlot, true, false, false);
     }
 
     private boolean isRandomizedLoadoutEnabled(RoomRuntimeContext roomContext) {
@@ -1072,6 +1093,12 @@ public final class RoomPlayerLoadoutService {
             && roomContext.room() != null
             && roomContext.state() != null
             && roomContext.room().commonConfig().enableRandomLoadout();
+    }
+
+    private boolean isSniperRoomEnabled(RoomRuntimeContext roomContext) {
+        return roomContext != null
+            && roomContext.room() != null
+            && roomContext.room().commonConfig().enableSniperRoom();
     }
 
     private ActiveLoadoutSelection applyRoomLoadoutRestrictions(RoomRuntimeContext roomContext, EquipmentDataModel equipmentData, ServerPlayer player, ActiveLoadoutSelection selection, boolean notifyPlayer) {
@@ -1084,10 +1111,7 @@ public final class RoomPlayerLoadoutService {
         entries.putAll(selection.entriesBySlot());
         boolean changed = selection.playerDataChanged();
 
-        if (roomContext.room().commonConfig().enableSniperRoom()) {
-            boolean classChanged = classType != PlayerClassType.RECON;
-            classType = PlayerClassType.RECON;
-            
+        if (isSniperRoomEnabled(roomContext)) {
             EquipmentDataModel.EquipmentEntry primaryEntry = entries.get(CustomLoadoutSlot.PRIMARY_WEAPON);
             boolean isSniper = false;
             
@@ -1107,15 +1131,17 @@ public final class RoomPlayerLoadoutService {
                         org.mods.gd656conquest.server.shared.log.ServerLogger.sendToClient(
                             player,
                             org.mods.gd656conquest.common.log.ClientMessageType.WARNING,
-                            "当前房间已开启狙击房模式，您的兵种已被强制设为侦察兵，且主武器已自动替换为基础狙击枪"
+                            selection.classForcedByRoom()
+                                ? "当前房间已开启狙击房模式，已自动切换为侦察兵配装，并将主武器替换为基础狙击枪"
+                                : "当前房间已开启狙击房模式，主武器已自动替换为基础狙击枪"
                         );
                     }
                 }
-            } else if (classChanged && player != null && notifyPlayer && !selection.randomized()) {
+            } else if (selection.classForcedByRoom() && player != null && notifyPlayer && !selection.randomized()) {
                 org.mods.gd656conquest.server.shared.log.ServerLogger.sendToClient(
                     player,
                     org.mods.gd656conquest.common.log.ClientMessageType.WARNING,
-                    "当前房间已开启狙击房模式，您的兵种已被强制设为侦察兵"
+                    "当前房间已开启狙击房模式，已自动切换为侦察兵配装"
                 );
             }
         }
@@ -1124,7 +1150,7 @@ public final class RoomPlayerLoadoutService {
             entries.keySet().removeIf(KNIFE_DUEL_BLOCKED_SLOTS::contains);
         }
 
-        return new ActiveLoadoutSelection(classType, entries, selection.randomized(), changed);
+        return new ActiveLoadoutSelection(classType, entries, selection.randomized(), changed, selection.classForcedByRoom());
     }
 
     private EquipmentDataModel.EquipmentEntry findDefaultSniper(EquipmentDataModel equipmentData) {
@@ -1417,7 +1443,8 @@ public final class RoomPlayerLoadoutService {
         PlayerClassType classType,
         Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entriesBySlot,
         boolean randomized,
-        boolean playerDataChanged
+        boolean playerDataChanged,
+        boolean classForcedByRoom
     ) {
     }
 

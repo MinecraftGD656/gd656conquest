@@ -7,6 +7,7 @@
   "mixins": [
     "compat.ywzjvehicle.RepairToolItemMixin",
     "compat.explosionoverhaul.ExplosionOverhaulCaveDustDisableMixin",
+    "compat.lrtactical.ThrowableItemEntityMixin",
     "server.EntityMixin",
     "server.MinecraftServerMixin",
     "server.PlayerListMixin",

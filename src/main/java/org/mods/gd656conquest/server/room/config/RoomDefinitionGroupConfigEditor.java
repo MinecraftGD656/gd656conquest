@@ -40,6 +40,10 @@ public final class RoomDefinitionGroupConfigEditor {
             RoomPosition point = parseBoundaryPosition(rawValue, editor);
             return replaceDeathmatchBoundary(definition, canonical, point, false, false);
         }
+        if (isSupportPositionGroup(canonical)) {
+            RoomPosition point = parsePosition(rawValue, editor);
+            return replaceSupportPositionGroup(definition, canonical, point, false, false);
+        }
         RoomPosition position = parsePosition(rawValue, editor);
         return replaceSpawnGroup(definition, canonical, group -> addSpawn(group, position));
     }
@@ -68,6 +72,11 @@ public final class RoomDefinitionGroupConfigEditor {
             return clearAll
                 ? replaceDeathmatchBoundary(definition, canonical, null, true, false)
                 : replaceDeathmatchBoundary(definition, canonical, parseBoundaryPosition(rawValue, editor), false, true);
+        }
+        if (isSupportPositionGroup(canonical)) {
+            return clearAll
+                ? replaceSupportPositionGroup(definition, canonical, null, true, false)
+                : replaceSupportPositionGroup(definition, canonical, parsePosition(rawValue, editor), false, true);
         }
         RoomSpawnGroupConfig updatedGroup = clearAll
             ? new RoomSpawnGroupConfig(resolveSpawnGroup(definition, canonical).enabled(), List.of())
@@ -105,6 +114,13 @@ public final class RoomDefinitionGroupConfigEditor {
         if (isDeathmatchBoundaryGroup(canonical)) {
             List<String> lines = new ArrayList<>();
             for (RoomPosition position : resolveDeathmatchBoundary(definition, canonical)) {
+                lines.add(formatPosition(position));
+            }
+            return lines;
+        }
+        if (isSupportPositionGroup(canonical)) {
+            List<String> lines = new ArrayList<>();
+            for (RoomPosition position : resolveSupportPositionGroup(definition, canonical)) {
                 lines.add(formatPosition(position));
             }
             return lines;
@@ -147,7 +163,9 @@ public final class RoomDefinitionGroupConfigEditor {
             shared,
             campA,
             campB,
-            definition.conquestConfig().captureConfig()
+            definition.conquestConfig().captureConfig(),
+            definition.conquestConfig().ammoBoxPositions(),
+            definition.conquestConfig().medicalBoxPositions()
         );
         return rebuild(definition, definition.commonConfig(), conquest);
     }
@@ -273,7 +291,9 @@ public final class RoomDefinitionGroupConfigEditor {
                 definition.conquestConfig().sharedBoundary(),
                 definition.conquestConfig().campABoundary(),
                 definition.conquestConfig().campBBoundary(),
-                definition.conquestConfig().captureConfig()
+                definition.conquestConfig().captureConfig(),
+                definition.conquestConfig().ammoBoxPositions(),
+                definition.conquestConfig().medicalBoxPositions()
             );
             return rebuild(definition, definition.commonConfig(), conquest);
         }
@@ -288,7 +308,9 @@ public final class RoomDefinitionGroupConfigEditor {
                 definition.conquestConfig().sharedBoundary(),
                 definition.conquestConfig().campABoundary(),
                 definition.conquestConfig().campBBoundary(),
-                definition.conquestConfig().captureConfig()
+                definition.conquestConfig().captureConfig(),
+                definition.conquestConfig().ammoBoxPositions(),
+                definition.conquestConfig().medicalBoxPositions()
             );
             return rebuild(definition, definition.commonConfig(), conquest);
         }
@@ -322,7 +344,9 @@ public final class RoomDefinitionGroupConfigEditor {
                 breakthrough.defenderRetreatSeconds(),
                 breakthrough.troopGainPerDefenderKill(),
                 breakthrough.maxAttackTroopsAt12Players(),
-                breakthrough.troopBalanceReference()
+                breakthrough.troopBalanceReference(),
+                breakthrough.ammoBoxPositions(),
+                breakthrough.medicalBoxPositions()
             ));
         }
         if ("btcampbbasespawngroup".equals(canonical)) {
@@ -355,7 +379,9 @@ public final class RoomDefinitionGroupConfigEditor {
                 breakthrough.defenderRetreatSeconds(),
                 breakthrough.troopGainPerDefenderKill(),
                 breakthrough.maxAttackTroopsAt12Players(),
-                breakthrough.troopBalanceReference()
+                breakthrough.troopBalanceReference(),
+                breakthrough.ammoBoxPositions(),
+                breakthrough.medicalBoxPositions()
             ));
         }
         if (canonical.startsWith("captureinnerspawngroup_")) {
@@ -468,7 +494,9 @@ public final class RoomDefinitionGroupConfigEditor {
             breakthrough.defenderRetreatSeconds(),
             breakthrough.troopGainPerDefenderKill(),
             breakthrough.maxAttackTroopsAt12Players(),
-            breakthrough.troopBalanceReference()
+            breakthrough.troopBalanceReference(),
+            breakthrough.ammoBoxPositions(),
+            breakthrough.medicalBoxPositions()
         ));
     }
 
@@ -593,7 +621,9 @@ public final class RoomDefinitionGroupConfigEditor {
             breakthrough.defenderRetreatSeconds(),
             breakthrough.troopGainPerDefenderKill(),
             breakthrough.maxAttackTroopsAt12Players(),
-            breakthrough.troopBalanceReference()
+            breakthrough.troopBalanceReference(),
+            breakthrough.ammoBoxPositions(),
+            breakthrough.medicalBoxPositions()
         ));
     }
 
@@ -659,6 +689,17 @@ public final class RoomDefinitionGroupConfigEditor {
         return canonical.startsWith("dmcamp") && canonical.endsWith("boundary");
     }
 
+    private static boolean isSupportPositionGroup(String canonical) {
+        return "ammoboxpositions".equals(canonical)
+            || "conquestammoboxpositions".equals(canonical)
+            || "medicalboxpositions".equals(canonical)
+            || "conquestmedicalboxpositions".equals(canonical)
+            || "btammoboxpositions".equals(canonical)
+            || "btmedicalboxpositions".equals(canonical)
+            || "dmammoboxpositions".equals(canonical)
+            || "dmmedicalboxpositions".equals(canonical);
+    }
+
     private static RoomDefinition replaceDeathmatchBoundary(
         RoomDefinition definition,
         String canonical,
@@ -679,8 +720,32 @@ public final class RoomDefinitionGroupConfigEditor {
         return RoomConfigBindingAccess.write(definition, path, List.copyOf(target));
     }
 
+    private static RoomDefinition replaceSupportPositionGroup(
+        RoomDefinition definition,
+        String canonical,
+        RoomPosition point,
+        boolean clearAll,
+        boolean remove
+    ) {
+        String path = supportPositionGroupPath(canonical);
+        List<RoomPosition> target = new ArrayList<>(resolveSupportPositionGroup(definition, canonical));
+        if (clearAll) {
+            target.clear();
+        } else if (remove) {
+            target.removeIf(existing -> samePosition(existing, point));
+        } else if (target.stream().noneMatch(existing -> samePosition(existing, point))) {
+            target.add(point);
+        }
+        return RoomConfigBindingAccess.write(definition, path, List.copyOf(target));
+    }
+
     private static List<RoomPosition> resolveDeathmatchBoundary(RoomDefinition definition, String canonical) {
         Object current = RoomConfigBindingAccess.resolve(definition, deathmatchBoundaryPath(canonical));
+        return current instanceof List<?> list ? castBoundaryList(list) : List.of();
+    }
+
+    private static List<RoomPosition> resolveSupportPositionGroup(RoomDefinition definition, String canonical) {
+        Object current = RoomConfigBindingAccess.resolve(definition, supportPositionGroupPath(canonical));
         return current instanceof List<?> list ? castBoundaryList(list) : List.of();
     }
 
@@ -707,6 +772,20 @@ public final class RoomDefinitionGroupConfigEditor {
             case "dmcampaspawngroup" -> "deathmatchConfig.campASpawnGroup";
             case "dmcampbspawngroup" -> "deathmatchConfig.campBSpawnGroup";
             default -> throw new IllegalArgumentException("未知团队死斗出生组: " + canonical);
+        };
+    }
+
+    private static String supportPositionGroupPath(String canonical) {
+        return switch (canonical) {
+            case "ammoboxpositions" -> "conquestConfig.ammoBoxPositions";
+            case "conquestammoboxpositions" -> "conquestConfig.ammoBoxPositions";
+            case "medicalboxpositions" -> "conquestConfig.medicalBoxPositions";
+            case "conquestmedicalboxpositions" -> "conquestConfig.medicalBoxPositions";
+            case "btammoboxpositions" -> "breakthroughConfig.ammoBoxPositions";
+            case "btmedicalboxpositions" -> "breakthroughConfig.medicalBoxPositions";
+            case "dmammoboxpositions" -> "deathmatchConfig.ammoBoxPositions";
+            case "dmmedicalboxpositions" -> "deathmatchConfig.medicalBoxPositions";
+            default -> throw new IllegalArgumentException("未知支援箱数据组: " + canonical);
         };
     }
 

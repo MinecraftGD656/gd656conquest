@@ -12,6 +12,9 @@ public final class ClientMarkerDebugPreviewState {
     private static final float ENTRY_DURATION_TICKS = 14.0F;
     private static final float MARKER_SHAPE_OPACITY = 0.90F;
     private static final float AUTO_ENEMY_SHAPE_OPACITY = 0.60F;
+    private static final float NEED_AMMO_PULSE_INTERVAL_TICKS = 24.0F;
+    private static final float HELP_PULSE_DURATION_TICKS = 10.4F;
+    private static final int PREVIEW_COLUMNS = 5;
 
     private static long previewStartedAtMs;
     private static long previewExpiresAtMs;
@@ -44,33 +47,41 @@ public final class ClientMarkerDebugPreviewState {
         float entryProgress = resolveEntryAnimationProgress(elapsedTicks);
         float pulse = 0.5F + 0.5F * Mth.sin(elapsedTicks * 0.16F);
         float helpPulse = (elapsedTicks % 18.0F) / 18.0F;
+        float needAmmoPulse = resolvePeriodicPulseProgress(elapsedTicks, NEED_AMMO_PULSE_INTERVAL_TICKS, HELP_PULSE_DURATION_TICKS);
         float baseY = gui.guiHeight() * PREVIEW_Y_RATIO;
-        float startX = gui.guiWidth() * 0.5F - 144.0F;
+        float startX = gui.guiWidth() * 0.5F - 192.0F;
         float spacing = 96.0F;
         float rowSpacing = 88.0F;
         List<PreviewEntry> entries = List.of(
-            new PreviewEntry("普通标记", TacticalMarkerRenderer.MarkerVisualType.NORMAL, false, MARKER_SHAPE_OPACITY, -1.0F, 0, ""),
-            new PreviewEntry("观察地标", TacticalMarkerRenderer.MarkerVisualType.OBSERVE_GROUND, false, MARKER_SHAPE_OPACITY, -1.0F, 0, ""),
-            new PreviewEntry("敌军地面", TacticalMarkerRenderer.MarkerVisualType.ENEMY_GROUND, false, MARKER_SHAPE_OPACITY, -1.0F, 0, ""),
-            new PreviewEntry("敌军实体", TacticalMarkerRenderer.MarkerVisualType.ENEMY_TRACKED, true, MARKER_SHAPE_OPACITY, -1.0F, 0, ""),
-            new PreviewEntry("自动敌军", TacticalMarkerRenderer.MarkerVisualType.AUTO_ENEMY, false, AUTO_ENEMY_SHAPE_OPACITY, -1.0F, 0, ""),
-            new PreviewEntry("友军永久", TacticalMarkerRenderer.MarkerVisualType.ALLY_PERSISTENT, false, 1.0F, -1.0F, 1, "assault"),
-            new PreviewEntry("小队永久", TacticalMarkerRenderer.MarkerVisualType.SQUAD_PERSISTENT, false, 1.0F, -1.0F, 1, "engineer"),
-            new PreviewEntry("倒地友军", TacticalMarkerRenderer.MarkerVisualType.DOWNED_ALLY, false, 1.0F, helpPulse, 1, "recon"),
-            new PreviewEntry("倒地小队", TacticalMarkerRenderer.MarkerVisualType.DOWNED_SQUAD, false, 1.0F, helpPulse, 1, "support"),
-            new PreviewEntry("弹药箱", TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX, false, 1.0F, -1.0F, 2, ""),
-            new PreviewEntry("医疗箱", TacticalMarkerRenderer.MarkerVisualType.MEDICAL_BOX, false, 1.0F, -1.0F, 2, "")
+            new PreviewEntry("普通标记", TacticalMarkerRenderer.MarkerVisualType.NORMAL, false, MARKER_SHAPE_OPACITY, -1.0F, false, ""),
+            new PreviewEntry("观察地标", TacticalMarkerRenderer.MarkerVisualType.OBSERVE_GROUND, false, MARKER_SHAPE_OPACITY, -1.0F, false, ""),
+            new PreviewEntry("敌军地面", TacticalMarkerRenderer.MarkerVisualType.ENEMY_GROUND, false, MARKER_SHAPE_OPACITY, -1.0F, false, ""),
+            new PreviewEntry("敌军实体", TacticalMarkerRenderer.MarkerVisualType.ENEMY_TRACKED, true, MARKER_SHAPE_OPACITY, -1.0F, false, ""),
+            new PreviewEntry("自动敌军", TacticalMarkerRenderer.MarkerVisualType.AUTO_ENEMY, false, AUTO_ENEMY_SHAPE_OPACITY, -1.0F, false, ""),
+            new PreviewEntry("友军永久", TacticalMarkerRenderer.MarkerVisualType.ALLY_PERSISTENT, false, 1.0F, -1.0F, false, "assault"),
+            new PreviewEntry("小队永久", TacticalMarkerRenderer.MarkerVisualType.SQUAD_PERSISTENT, false, 1.0F, -1.0F, false, "engineer"),
+            new PreviewEntry("倒地友军", TacticalMarkerRenderer.MarkerVisualType.DOWNED_ALLY, false, 1.0F, helpPulse, false, "recon"),
+            new PreviewEntry("倒地小队", TacticalMarkerRenderer.MarkerVisualType.DOWNED_SQUAD, false, 1.0F, helpPulse, false, "support"),
+            new PreviewEntry("需弹药友军", TacticalMarkerRenderer.MarkerVisualType.NEED_AMMO_ALLY, false, 1.0F, needAmmoPulse, false, "support"),
+            new PreviewEntry("需弹药小队", TacticalMarkerRenderer.MarkerVisualType.NEED_AMMO_SQUAD, false, 1.0F, needAmmoPulse, false, "support"),
+            new PreviewEntry("弹药箱", TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX, false, 1.0F, -1.0F, true, ""),
+            new PreviewEntry("医疗箱", TacticalMarkerRenderer.MarkerVisualType.MEDICAL_BOX, false, 1.0F, -1.0F, true, ""),
+            new PreviewEntry("弹药包", TacticalMarkerRenderer.MarkerVisualType.AMMO_BAG, false, 1.0F, -1.0F, false, ""),
+            new PreviewEntry("医疗包", TacticalMarkerRenderer.MarkerVisualType.MEDICAL_BAG, false, 1.0F, -1.0F, false, ""),
+            new PreviewEntry("自己手雷", TacticalMarkerRenderer.MarkerVisualType.GRENADE_SELF, false, 1.0F, -1.0F, true, ""),
+            new PreviewEntry("友军手雷", TacticalMarkerRenderer.MarkerVisualType.GRENADE_FRIENDLY, false, 1.0F, -1.0F, false, ""),
+            new PreviewEntry("敌军手雷", TacticalMarkerRenderer.MarkerVisualType.GRENADE_HOSTILE, false, 1.0F, -1.0F, true, ""),
+            new PreviewEntry("友军阔剑", TacticalMarkerRenderer.MarkerVisualType.CLAYMORE_FRIENDLY, false, 1.0F, -1.0F, false, ""),
+            new PreviewEntry("友军信标", TacticalMarkerRenderer.MarkerVisualType.BEACON_FRIENDLY, false, 1.0F, -1.0F, false, ""),
+            new PreviewEntry("敌军信标", TacticalMarkerRenderer.MarkerVisualType.BEACON_HOSTILE, false, 1.0F, -1.0F, true, "")
         );
         for (int i = 0; i < entries.size(); i++) {
             PreviewEntry entry = entries.get(i);
-            int column = i % 4;
-            int row = entry.row();
+            int column = i % PREVIEW_COLUMNS;
+            int row = i / PREVIEW_COLUMNS;
             float centerX = startX + spacing * column;
             float centerY = baseY + rowSpacing * row;
-            boolean supportBoxAlert =
-                (entry.visualType() == TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX
-                    || entry.visualType() == TacticalMarkerRenderer.MarkerVisualType.MEDICAL_BOX)
-                    && (elapsedTicks % 40) > 20;
+            boolean supportBoxAlert = entry.alertPreview() && (elapsedTicks % 40) > 20;
             TacticalMarkerRenderer.drawMarker(
                 gui,
                 centerX,
@@ -86,10 +97,10 @@ public final class ClientMarkerDebugPreviewState {
                 supportBoxAlert
             );
             int textRgb = switch (entry.visualType()) {
-                case ENEMY_GROUND, ENEMY_TRACKED, AUTO_ENEMY -> 0x00F1C1C1;
+                case ENEMY_GROUND, ENEMY_TRACKED, AUTO_ENEMY, GRENADE_SELF, GRENADE_HOSTILE, BEACON_HOSTILE -> 0x00F1C1C1;
                 case OBSERVE_GROUND -> 0x00F2C28D;
-                case ALLY_PERSISTENT, DOWNED_ALLY -> 0x0057F2FF;
-                case SQUAD_PERSISTENT, DOWNED_SQUAD -> 0x0079FFAF;
+                case ALLY_PERSISTENT, DOWNED_ALLY, NEED_AMMO_ALLY, AMMO_BOX, MEDICAL_BOX, AMMO_BAG, MEDICAL_BAG, BEACON_FRIENDLY -> 0x0057F2FF;
+                case SQUAD_PERSISTENT, DOWNED_SQUAD, NEED_AMMO_SQUAD, GRENADE_FRIENDLY, CLAYMORE_FRIENDLY -> 0x0079FFAF;
                 default -> 0x00E6EEF8;
             };
             CaptureDiamondRenderer.drawCenteredHudText(gui, minecraft.font, entry.label(), centerX, centerY + 24.0F, textRgb, 0.46F, false, 0.62F);
@@ -114,13 +125,24 @@ public final class ClientMarkerDebugPreviewState {
         return inverse * inverse * 10.0F;
     }
 
+    private static float resolvePeriodicPulseProgress(float elapsedTicks, float intervalTicks, float durationTicks) {
+        if (intervalTicks <= 0.0F || durationTicks <= 0.0F) {
+            return -1.0F;
+        }
+        float phase = elapsedTicks % intervalTicks;
+        if (phase >= durationTicks) {
+            return -1.0F;
+        }
+        return Mth.clamp(phase / durationTicks, 0.0F, 1.0F);
+    }
+
     private record PreviewEntry(
         String label,
         TacticalMarkerRenderer.MarkerVisualType visualType,
         boolean hovered,
         float shapeOpacity,
         float helpPulseProgress,
-        int row,
+        boolean alertPreview,
         String targetClass
     ) {
     }

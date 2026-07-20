@@ -97,6 +97,7 @@
   "key.gd656conquest.place_tactical_marker": "标记",
   "key.gd656conquest.common_use": "通用使用",
   "key.gd656conquest.common_cancel": "通用取消",
+  "key.gd656conquest.cycle_deploy_target": "切换部署点",
   "gd656conquest.client.gui.loadout.info.player": "玩家: %s",
   "gd656conquest.client.gui.loadout.info.level": "等级: %s",
   "gd656conquest.client.gui.loadout.info.class": "兵种: %s",

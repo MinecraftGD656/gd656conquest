@@ -15,7 +15,9 @@ public record RoomConquestConfig(
     List<RoomPosition> sharedBoundary,
     List<RoomPosition> campABoundary,
     List<RoomPosition> campBBoundary,
-    RoomCaptureConfig captureConfig
+    RoomCaptureConfig captureConfig,
+    List<RoomPosition> ammoBoxPositions,
+    List<RoomPosition> medicalBoxPositions
 ) implements IRoomGameplayConfig {
     public RoomConquestConfig {
         equipmentConfig = equipmentConfig == null ? RoomEquipmentConfig.defaults() : equipmentConfig;
@@ -25,6 +27,8 @@ public record RoomConquestConfig(
         sharedBoundary = copyBoundary(sharedBoundary);
         campABoundary = copyBoundary(campABoundary);
         campBBoundary = copyBoundary(campBBoundary);
+        ammoBoxPositions = copyBoundary(ammoBoxPositions);
+        medicalBoxPositions = copyBoundary(medicalBoxPositions);
     }
     
     @Override
@@ -102,7 +106,9 @@ public record RoomConquestConfig(
             List.of(),
             List.of(),
             List.of(),
-            RoomCaptureConfig.defaults()
+            RoomCaptureConfig.defaults(),
+            List.of(),
+            List.of()
         );
     }
 
@@ -210,7 +216,9 @@ public record RoomConquestConfig(
             sharedBoundary,
             campABoundary,
             campBBoundary,
-            value
+            value,
+            ammoBoxPositions,
+            medicalBoxPositions
         );
     }
 

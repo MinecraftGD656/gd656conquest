@@ -88,9 +88,20 @@ public final class RoomDeathSupportDropService {
         if (player == null || itemEntity == null) {
             return false;
         }
-        if (!itemEntity.getPersistentData().hasUUID(DEATH_SUPPORT_DROP_OWNER_UUID)) {
+        if (!isDeathSupportDrop(itemEntity)) {
             return false;
         }
         return !player.getUUID().equals(itemEntity.getPersistentData().getUUID(DEATH_SUPPORT_DROP_OWNER_UUID));
+    }
+
+    public static boolean isDeathSupportDrop(ItemEntity itemEntity) {
+        return itemEntity != null && itemEntity.getPersistentData().hasUUID(DEATH_SUPPORT_DROP_OWNER_UUID);
+    }
+
+    public static UUID getPickupOwner(ItemEntity itemEntity) {
+        if (!isDeathSupportDrop(itemEntity)) {
+            return null;
+        }
+        return itemEntity.getPersistentData().getUUID(DEATH_SUPPORT_DROP_OWNER_UUID);
     }
 }

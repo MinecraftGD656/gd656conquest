@@ -16,6 +16,7 @@ import java.util.UUID;
 public class MedicalBoxEntity extends AbstractSupportPropEntity {
     private static final EntityDataAccessor<Optional<UUID>> OWNER_UUID = SynchedEntityData.defineId(MedicalBoxEntity.class, EntityDataSerializers.OPTIONAL_UUID);
     private static final EntityDataAccessor<Integer> USE_REMAINING = SynchedEntityData.defineId(MedicalBoxEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> PERMANENT_SUPPORT = SynchedEntityData.defineId(MedicalBoxEntity.class, EntityDataSerializers.BOOLEAN);
 
     public MedicalBoxEntity(EntityType<? extends AbstractSupportPropEntity> entityType, Level level) {
         super(entityType, level);
@@ -30,10 +31,14 @@ public class MedicalBoxEntity extends AbstractSupportPropEntity {
         super.defineSynchedData();
         entityData.define(OWNER_UUID, Optional.empty());
         entityData.define(USE_REMAINING, 16);
+        entityData.define(PERMANENT_SUPPORT, false);
     }
 
     @Override
     public boolean hurt(DamageSource source, float amount) {
+        if (isPermanentSupport()) {
+            return false;
+        }
         return super.hurt(source, amount);
     }
 
@@ -45,6 +50,7 @@ public class MedicalBoxEntity extends AbstractSupportPropEntity {
             tag.putUUID("Owner", owner);
         }
         tag.putInt("UseRemaining", getUseRemaining());
+        tag.putBoolean("PermanentSupport", isPermanentSupport());
     }
 
     @Override
@@ -54,6 +60,7 @@ public class MedicalBoxEntity extends AbstractSupportPropEntity {
             setOwnerUuid(tag.getUUID("Owner"));
         }
         setUseRemaining(tag.getInt("UseRemaining"));
+        setPermanentSupport(tag.getBoolean("PermanentSupport"));
     }
 
     public UUID getOwnerUuid() {
@@ -73,9 +80,20 @@ public class MedicalBoxEntity extends AbstractSupportPropEntity {
     }
 
     public int consumeOneAndGetRemaining() {
+        if (isPermanentSupport()) {
+            return Integer.MAX_VALUE;
+        }
         int left = Math.max(0, getUseRemaining() - 1);
         setUseRemaining(left);
         return left;
+    }
+
+    public boolean isPermanentSupport() {
+        return entityData.get(PERMANENT_SUPPORT);
+    }
+
+    public void setPermanentSupport(boolean permanentSupport) {
+        entityData.set(PERMANENT_SUPPORT, permanentSupport);
     }
 
 }

@@ -3,7 +3,11 @@ package org.mods.gd656conquest.client.marker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.OwnableEntity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -14,9 +18,11 @@ import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
 import org.mods.gd656conquest.client.animation.ClientPlayerAnimatorDebugState;
+import org.mods.gd656conquest.client.compat.lrtactical.LrThrowableOwnerSyncAccess;
 import org.mods.gd656conquest.client.hud.ClientHudDebugState;
 import org.mods.gd656conquest.common.entity.AmmoBoxEntity;
 import org.mods.gd656conquest.common.entity.MedicalBoxEntity;
+import org.mods.gd656conquest.common.entity.SquadDeployBeaconEntity;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.client.room.ClientRoomTeamMirror;
 import org.mods.gd656conquest.client.render.ClientCrosshairFadeSupport;
@@ -47,6 +53,7 @@ public final class ClientRoomMarkerState {
     private static final float CROSSHAIR_LABEL_RADIUS_PIXELS = 70.0F;
     private static final float ICON_ENTRY_DURATION_TICKS = 14.0F;
     private static final long HELP_PULSE_DURATION_MS = 520L;
+    private static final long NEED_AMMO_PULSE_INTERVAL_MS = 1200L;
     private static final float WORLD_ICON_ALPHA_NEAR_CROSSHAIR = 0.05F;
     private static final float WORLD_ICON_ALPHA_FAR_CROSSHAIR = 0.40F;
     private static final float WORLD_ICON_CROSSHAIR_ALPHA_RADIUS_PIXELS = 300.0F;
@@ -61,6 +68,17 @@ public final class ClientRoomMarkerState {
     private static final float FRIENDLY_PERSISTENT_DISTANCE_SCALE_FAR = 0.72F;
     private static final float FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR_DISTANCE = 3.0F;
     private static final float FRIENDLY_PERSISTENT_DISTANCE_SCALE_FAR_DISTANCE = 30.0F;
+    private static final float PROXIMITY_ICON_SCALE_NEAR = 1.65F;
+    private static final float PROXIMITY_ICON_SCALE_FAR = 0.92F;
+    private static final float PROXIMITY_ICON_SCALE_NEAR_DISTANCE = 0.75F;
+    private static final float PROXIMITY_ICON_SCALE_FAR_DISTANCE = 7.0F;
+    private static final float GRENADE_ICON_SCALE_FAR_DISTANCE = 15.0F;
+    private static final float BEACON_ICON_SCALE_FAR_DISTANCE = 10.0F;
+    private static final double SUPPORT_BOX_MARKER_DISTANCE_SQR = 30.0D * 30.0D;
+    private static final double PROXIMITY_THREAT_DISTANCE_SQR = 7.0D * 7.0D;
+    private static final double GRENADE_MARKER_DISTANCE_SQR = 15.0D * 15.0D;
+    private static final double BEACON_FRIENDLY_MARKER_DISTANCE_SQR = 10.0D * 10.0D;
+    private static final double BEACON_HOSTILE_MARKER_DISTANCE_SQR = 2.0D * 2.0D;
     private static final long DOUBLE_CLICK_WINDOW_MS = 200L;
 
     private static List<ClientMarker> markers = List.of();
@@ -218,7 +236,7 @@ public final class ClientRoomMarkerState {
             }
             float markerAge = marker.ageTicksAt(gameTime) + minecraft.getFrameTime();
             float pulse = 0.5F + 0.5F * Mth.sin(markerAge * 0.16F);
-            float entryProgress = resolveEntryAnimationProgress(markerAge);
+            float entryProgress = resolvePresenceAnimationProgress(markerAge, remainingTicks);
             float entryOffset = resolveEntryYOffset(entryProgress);
             float shapeOpacity = resolveShapeOpacity(marker.kind()) * lifetimeAlpha;
             String targetClass = "";
@@ -239,7 +257,7 @@ public final class ClientRoomMarkerState {
                 isHovered,
                 marker.kind().toVisualType(),
                 resolveEntryScale(entryProgress) * resolveMarkerDistanceScale(marker.kind(), actualDistance),
-                resolveHelpPulseProgress(marker),
+                resolvePulseProgress(marker),
                 targetClass,
                 supportBoxAlert
             );
@@ -340,7 +358,7 @@ public final class ClientRoomMarkerState {
             return;
         }
         double distance = minecraft.player == null ? 0.0D : minecraft.player.position().distanceTo(hovered.anchor());
-        String line1 = marker.ownerName() + resolveMarkerLabelSuffix(marker.kind());
+        String line1 = resolveHoveredLabelLine1(marker);
         String line2 = String.format(Locale.ROOT, "%.0fm", distance);
         int primaryRgb = resolveMarkerLabelColor(marker.kind());
         int secondaryRgb = marker.kind().isEnemy() ? 0x00F1C1C1 : 0x00E6EEF8;
@@ -349,6 +367,17 @@ public final class ClientRoomMarkerState {
         float alpha = 0.20F;
         CaptureDiamondRenderer.drawCenteredHudText(gui, minecraft.font, line1, centerX, topY, primaryRgb, alpha, true, 0.68F);
         CaptureDiamondRenderer.drawCenteredHudText(gui, minecraft.font, line2, centerX, topY + 10.5F, secondaryRgb, alpha, false, 0.58F);
+    }
+
+    private static String resolveHoveredLabelLine1(ClientMarker marker) {
+        if (marker == null || marker.kind() == null) {
+            return "";
+        }
+        return switch (marker.kind()) {
+            case AMMO_BOX, MEDICAL_BOX, AMMO_BAG, MEDICAL_BAG, GRENADE_SELF, GRENADE_FRIENDLY, GRENADE_HOSTILE, CLAYMORE_FRIENDLY, BEACON_FRIENDLY, BEACON_HOSTILE ->
+                marker.ownerName();
+            default -> marker.ownerName() + resolveMarkerLabelSuffix(marker.kind());
+        };
     }
 
     private static HoveredMarker resolveHoveredMarker(Minecraft minecraft) {
@@ -696,19 +725,43 @@ public final class ClientRoomMarkerState {
         return Mth.clamp(ageTicks / ICON_ENTRY_DURATION_TICKS, 0.0F, 1.0F);
     }
 
+    private static float resolvePresenceAnimationProgress(float ageTicks, int remainingTicks) {
+        float enterProgress = resolveEntryAnimationProgress(ageTicks);
+        float exitProgress = remainingTicks == Integer.MAX_VALUE ? 1.0F : resolveEntryAnimationProgress(Math.max(0, remainingTicks));
+        return Math.min(enterProgress, exitProgress);
+    }
+
     private static float resolveEntryScale(float progress) {
         float x = Mth.clamp(progress, 0.0F, 1.0F);
         return 1.0F - (float) Math.pow(1.0F - x, 3.0D);
     }
 
     private static float resolveMarkerDistanceScale(MarkerKind kind, double actualDistance) {
-        if (kind != MarkerKind.ALLY_PERSISTENT && kind != MarkerKind.SQUAD_PERSISTENT) {
-            return 1.0F;
+        if (kind == MarkerKind.ALLY_PERSISTENT || kind == MarkerKind.SQUAD_PERSISTENT) {
+            float clampedDistance = Mth.clamp((float) actualDistance, FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR_DISTANCE, FRIENDLY_PERSISTENT_DISTANCE_SCALE_FAR_DISTANCE);
+            float t = (clampedDistance - FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR_DISTANCE)
+                / (FRIENDLY_PERSISTENT_DISTANCE_SCALE_FAR_DISTANCE - FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR_DISTANCE);
+            return Mth.lerp(t, FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR, FRIENDLY_PERSISTENT_DISTANCE_SCALE_FAR);
         }
-        float clampedDistance = Mth.clamp((float) actualDistance, FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR_DISTANCE, FRIENDLY_PERSISTENT_DISTANCE_SCALE_FAR_DISTANCE);
-        float t = (clampedDistance - FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR_DISTANCE)
-            / (FRIENDLY_PERSISTENT_DISTANCE_SCALE_FAR_DISTANCE - FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR_DISTANCE);
-        return Mth.lerp(t, FRIENDLY_PERSISTENT_DISTANCE_SCALE_NEAR, FRIENDLY_PERSISTENT_DISTANCE_SCALE_FAR);
+        if (kind == MarkerKind.GRENADE_SELF || kind == MarkerKind.GRENADE_FRIENDLY || kind == MarkerKind.GRENADE_HOSTILE) {
+            float clampedDistance = Mth.clamp((float) actualDistance, PROXIMITY_ICON_SCALE_NEAR_DISTANCE, GRENADE_ICON_SCALE_FAR_DISTANCE);
+            float t = (clampedDistance - PROXIMITY_ICON_SCALE_NEAR_DISTANCE)
+                / (GRENADE_ICON_SCALE_FAR_DISTANCE - PROXIMITY_ICON_SCALE_NEAR_DISTANCE);
+            return Mth.lerp(t, PROXIMITY_ICON_SCALE_NEAR, PROXIMITY_ICON_SCALE_FAR);
+        }
+        if (kind == MarkerKind.BEACON_FRIENDLY || kind == MarkerKind.BEACON_HOSTILE) {
+            float clampedDistance = Mth.clamp((float) actualDistance, PROXIMITY_ICON_SCALE_NEAR_DISTANCE, BEACON_ICON_SCALE_FAR_DISTANCE);
+            float t = (clampedDistance - PROXIMITY_ICON_SCALE_NEAR_DISTANCE)
+                / (BEACON_ICON_SCALE_FAR_DISTANCE - PROXIMITY_ICON_SCALE_NEAR_DISTANCE);
+            return Mth.lerp(t, PROXIMITY_ICON_SCALE_NEAR, PROXIMITY_ICON_SCALE_FAR);
+        }
+        if (kind == MarkerKind.CLAYMORE_FRIENDLY) {
+            float clampedDistance = Mth.clamp((float) actualDistance, PROXIMITY_ICON_SCALE_NEAR_DISTANCE, PROXIMITY_ICON_SCALE_FAR_DISTANCE);
+            float t = (clampedDistance - PROXIMITY_ICON_SCALE_NEAR_DISTANCE)
+                / (PROXIMITY_ICON_SCALE_FAR_DISTANCE - PROXIMITY_ICON_SCALE_NEAR_DISTANCE);
+            return Mth.lerp(t, PROXIMITY_ICON_SCALE_NEAR, PROXIMITY_ICON_SCALE_FAR);
+        }
+        return 1.0F;
     }
 
     private static float resolveEntryYOffset(float progress) {
@@ -771,11 +824,11 @@ public final class ClientRoomMarkerState {
         
         java.util.Set<UUID> currentFrameEntities = new java.util.HashSet<>();
 
-        // Render support boxes
-        for (net.minecraft.world.entity.Entity entity : minecraft.level.entitiesForRendering()) {
+        // Render support boxes and nearby threat/supply markers
+        for (Entity entity : minecraft.level.entitiesForRendering()) {
             if (entity == null || entity == minecraft.player) continue;
             if (entity instanceof AmmoBoxEntity ammoBox) {
-                if (!ammoBox.isAlive() || ammoBox.distanceToSqr(minecraft.player) > 30.0D * 30.0D) {
+                if (!ammoBox.isAlive() || ammoBox.distanceToSqr(minecraft.player) > SUPPORT_BOX_MARKER_DISTANCE_SQR) {
                     continue;
                 }
                 currentFrameEntities.add(ammoBox.getUUID());
@@ -794,7 +847,7 @@ public final class ClientRoomMarkerState {
                 continue;
             }
             if (entity instanceof MedicalBoxEntity medicalBox) {
-                if (!medicalBox.isAlive() || medicalBox.distanceToSqr(minecraft.player) > 30.0D * 30.0D) {
+                if (!medicalBox.isAlive() || medicalBox.distanceToSqr(minecraft.player) > SUPPORT_BOX_MARKER_DISTANCE_SQR) {
                     continue;
                 }
                 currentFrameEntities.add(medicalBox.getUUID());
@@ -812,13 +865,41 @@ public final class ClientRoomMarkerState {
                 ));
                 continue;
             }
-            
-            // Check distance (30 blocks)
-            if (entity.distanceToSqr(minecraft.player) > 30.0 * 30.0) continue;
-            
-            // Check if ammo box
-            String entityType = net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getKey(entity.getType()).toString();
-            if ("superbwarfare:ammo_box".equals(entityType) || "tacz:ammo_box".equals(entityType)) {
+            if (entity instanceof SquadDeployBeaconEntity beacon) {
+                if (!beacon.isAlive()) {
+                    continue;
+                }
+                MarkerKind beaconKind = resolveBeaconMarkerKind(minecraft, beacon);
+                if (beaconKind == null) {
+                    continue;
+                }
+                double beaconDistanceSqr = beaconKind == MarkerKind.BEACON_HOSTILE
+                    ? BEACON_HOSTILE_MARKER_DISTANCE_SQR
+                    : BEACON_FRIENDLY_MARKER_DISTANCE_SQR;
+                if (beacon.distanceToSqr(minecraft.player) > beaconDistanceSqr) {
+                    continue;
+                }
+                currentFrameEntities.add(beacon.getUUID());
+                renderMarkers.add(new ClientMarker(
+                    beacon.getUUID(),
+                    beaconKind == MarkerKind.BEACON_HOSTILE ? "敌军支援信标" : "友军支援信标",
+                    beaconKind,
+                    beacon.getX(),
+                    beacon.getY(),
+                    beacon.getZ(),
+                    null,
+                    Integer.MAX_VALUE,
+                    gameTick,
+                    dynamicEntityFirstSeen.computeIfAbsent(beacon.getUUID(), k -> gameTick)
+                ));
+                continue;
+            }
+
+            double distanceSqr = entity.distanceToSqr(minecraft.player);
+            net.minecraft.resources.ResourceLocation entityTypeKey = net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getKey(entity.getType());
+            String entityType = entityTypeKey == null ? "" : entityTypeKey.toString();
+            if (distanceSqr <= SUPPORT_BOX_MARKER_DISTANCE_SQR
+                && ("superbwarfare:ammo_box".equals(entityType) || "tacz:ammo_box".equals(entityType))) {
                 currentFrameEntities.add(entity.getUUID());
                 renderMarkers.add(new ClientMarker(
                     entity.getUUID(),
@@ -832,7 +913,10 @@ public final class ClientRoomMarkerState {
                     gameTick,
                     dynamicEntityFirstSeen.computeIfAbsent(entity.getUUID(), k -> gameTick)
                 ));
-            } else if ("superbwarfare:medical_box".equals(entityType) || "tacz:medical_box".equals(entityType)) {
+                continue;
+            }
+            if (distanceSqr <= SUPPORT_BOX_MARKER_DISTANCE_SQR
+                && ("superbwarfare:medical_box".equals(entityType) || "tacz:medical_box".equals(entityType))) {
                 currentFrameEntities.add(entity.getUUID());
                 renderMarkers.add(new ClientMarker(
                     entity.getUUID(),
@@ -846,7 +930,37 @@ public final class ClientRoomMarkerState {
                     gameTick,
                     dynamicEntityFirstSeen.computeIfAbsent(entity.getUUID(), k -> gameTick)
                 ));
+                continue;
             }
+            MarkerKind dynamicKind = resolveDynamicEntityMarkerKind(minecraft, entity, entityType);
+            if (dynamicKind == null) {
+                continue;
+            }
+            double markerDistanceSqr = (dynamicKind == MarkerKind.GRENADE_SELF
+                || dynamicKind == MarkerKind.GRENADE_FRIENDLY
+                || dynamicKind == MarkerKind.GRENADE_HOSTILE)
+                ? GRENADE_MARKER_DISTANCE_SQR
+                : dynamicKind == MarkerKind.BEACON_FRIENDLY
+                    ? BEACON_FRIENDLY_MARKER_DISTANCE_SQR
+                    : dynamicKind == MarkerKind.BEACON_HOSTILE
+                        ? BEACON_HOSTILE_MARKER_DISTANCE_SQR
+                        : PROXIMITY_THREAT_DISTANCE_SQR;
+            if (distanceSqr > markerDistanceSqr) {
+                continue;
+            }
+            currentFrameEntities.add(entity.getUUID());
+            renderMarkers.add(new ClientMarker(
+                entity.getUUID(),
+                resolveDynamicEntityMarkerName(dynamicKind),
+                dynamicKind,
+                entity.getX(),
+                entity.getY(),
+                entity.getZ(),
+                null,
+                Integer.MAX_VALUE,
+                gameTick,
+                dynamicEntityFirstSeen.computeIfAbsent(entity.getUUID(), k -> gameTick)
+            ));
         }
 
         for (Player targetPlayer : minecraft.level.players()) {
@@ -888,6 +1002,130 @@ public final class ClientRoomMarkerState {
         return renderMarkers;
     }
 
+    private static MarkerKind resolveDynamicEntityMarkerKind(Minecraft minecraft, Entity entity, String entityType) {
+        if (minecraft == null || minecraft.player == null || entity == null || entityType == null || entityType.isBlank()) {
+            return null;
+        }
+        if ("superbwarfare:claymore".equals(entityType)) {
+            Boolean friendly = isFriendlyOwnedEntity(minecraft, entity);
+            return Boolean.TRUE.equals(friendly) ? MarkerKind.CLAYMORE_FRIENDLY : null;
+        }
+        if (!isLrGrenadeEntityType(entityType)) {
+            return null;
+        }
+        Player owner = resolveOwningPlayer(minecraft, entity);
+        if (owner == null) {
+            // LR 手雷实体自身未额外同步 owner 数据，客户端在部分情况下拿不到投掷者。
+            // 这里优先保证手雷图标能渲染出来，无法判定归属时按危险目标处理。
+            return MarkerKind.GRENADE_HOSTILE;
+        }
+        if (owner == minecraft.player) {
+            return MarkerKind.GRENADE_SELF;
+        }
+        return ClientRoomTeamMirror.isTeammate(owner) ? MarkerKind.GRENADE_FRIENDLY : MarkerKind.GRENADE_HOSTILE;
+    }
+
+    private static MarkerKind resolveBeaconMarkerKind(Minecraft minecraft, SquadDeployBeaconEntity beacon) {
+        if (minecraft == null || minecraft.player == null || minecraft.level == null || beacon == null) {
+            return null;
+        }
+        String currentRoomId = ClientHudDebugState.getRoomId();
+        if (currentRoomId != null && !currentRoomId.isBlank() && !currentRoomId.equalsIgnoreCase(beacon.getRoomId())) {
+            return null;
+        }
+        TeamToken selfToken = TeamToken.fromClientDebug(ClientHudDebugState.getSelfTeam());
+        TeamToken beaconToken = TeamToken.fromBeaconToken(beacon.getTeamToken());
+        if (selfToken == TeamToken.UNKNOWN || beaconToken == TeamToken.UNKNOWN) {
+            return null;
+        }
+        Vec3 start = minecraft.player.getEyePosition(minecraft.getFrameTime());
+        Vec3 beaconAnchor = new Vec3(beacon.getX(), beacon.getY() + 0.9D, beacon.getZ());
+        if (!hasClearSightToPoint(minecraft, start, beaconAnchor)) {
+            return null;
+        }
+        return selfToken == beaconToken ? MarkerKind.BEACON_FRIENDLY : MarkerKind.BEACON_HOSTILE;
+    }
+
+    private static boolean isLrGrenadeEntityType(String entityType) {
+        return "lrtactical:explode_grenade".equals(entityType)
+            || "lrtactical:sticky_grenade_entity".equals(entityType);
+    }
+
+    private static String resolveDynamicEntityMarkerName(MarkerKind kind) {
+        if (kind == null) {
+            return "标记";
+        }
+        return switch (kind) {
+            case GRENADE_SELF -> "来源于自己手雷";
+            case GRENADE_FRIENDLY -> "友军手雷";
+            case GRENADE_HOSTILE -> "敌军手雷";
+            case CLAYMORE_FRIENDLY -> "友军阔剑地雷";
+            case BEACON_FRIENDLY -> "友军支援信标";
+            case BEACON_HOSTILE -> "敌军支援信标";
+            default -> "标记";
+        };
+    }
+
+    private static Boolean isFriendlyOwnedEntity(Minecraft minecraft, Entity entity) {
+        Player owner = resolveOwningPlayer(minecraft, entity);
+        if (minecraft == null || minecraft.player == null || owner == null) {
+            return null;
+        }
+        if (owner == minecraft.player) {
+            return true;
+        }
+        return ClientRoomTeamMirror.isTeammate(owner);
+    }
+
+    private static Player resolveOwningPlayer(Minecraft minecraft, Entity entity) {
+        if (minecraft == null || minecraft.level == null || entity == null) {
+            return null;
+        }
+        if (entity instanceof Projectile projectile && projectile.getOwner() instanceof Player ownerPlayer) {
+            return ownerPlayer;
+        }
+        UUID ownerId = null;
+        if (entity instanceof OwnableEntity ownableEntity) {
+            ownerId = ownableEntity.getOwnerUUID();
+        }
+        if (ownerId == null) {
+            ownerId = resolveOwnerUuidReflectively(entity);
+        }
+        return ownerId == null ? null : minecraft.level.getPlayerByUUID(ownerId);
+    }
+
+    private static UUID resolveOwnerUuidReflectively(Entity entity) {
+        if (entity == null) {
+            return null;
+        }
+        if (entity instanceof LrThrowableOwnerSyncAccess syncAccess) {
+            UUID syncedOwnerUuid = syncAccess.gd656conquest$getSyncedOwnerUuid();
+            if (syncedOwnerUuid != null) {
+                return syncedOwnerUuid;
+            }
+        }
+        try {
+            java.lang.reflect.Method getOwnerUuid = entity.getClass().getMethod("getOwnerUUID");
+            Object ownerUuid = getOwnerUuid.invoke(entity);
+            if (ownerUuid instanceof UUID uuid) {
+                return uuid;
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            java.lang.reflect.Method getOwner = entity.getClass().getMethod("getOwner");
+            Object owner = getOwner.invoke(entity);
+            if (owner instanceof Player player) {
+                return player.getUUID();
+            }
+            if (owner instanceof Entity ownerEntity) {
+                return ownerEntity.getUUID();
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
     private static String resolveMarkerLabelSuffix(MarkerKind kind) {
         return switch (kind) {
             case OBSERVE_GROUND -> " 地面标记";
@@ -897,6 +1135,18 @@ public final class ClientRoomMarkerState {
             case SQUAD_PERSISTENT -> " 小队队友";
             case DOWNED_ALLY -> " 倒地友军";
             case DOWNED_SQUAD -> " 倒地小队队友";
+            case NEED_AMMO_ALLY -> " 需要弹药";
+            case NEED_AMMO_SQUAD -> " 小队队友需要弹药";
+            case AMMO_BOX -> " 弹药箱";
+            case MEDICAL_BOX -> " 医疗箱";
+            case AMMO_BAG -> " 弹药包";
+            case MEDICAL_BAG -> " 医疗包";
+            case GRENADE_SELF -> " 来源于自己手雷";
+            case GRENADE_FRIENDLY -> " 友军手雷";
+            case GRENADE_HOSTILE -> " 敌军手雷";
+            case CLAYMORE_FRIENDLY -> " 友军阔剑地雷";
+            case BEACON_FRIENDLY -> " 友军支援信标";
+            case BEACON_HOSTILE -> " 敌军支援信标";
             default -> " 标记";
         };
     }
@@ -904,15 +1154,25 @@ public final class ClientRoomMarkerState {
     private static int resolveMarkerLabelColor(MarkerKind kind) {
         return switch (kind) {
             case OBSERVE_GROUND, REQUEST_STRIKE -> 0x00F28A1A;
-            case ENEMY, DIRECT_ENEMY, AUTO_ENEMY -> 0x00A61E1E;
-            case ALLY_PERSISTENT, DOWNED_ALLY -> 0x002ADFFF;
-            case SQUAD_PERSISTENT, DOWNED_SQUAD -> 0x0061FF94;
+            case ENEMY, DIRECT_ENEMY, AUTO_ENEMY, GRENADE_SELF, GRENADE_HOSTILE, BEACON_HOSTILE -> 0x00A61E1E;
+            case ALLY_PERSISTENT, DOWNED_ALLY, NEED_AMMO_ALLY, AMMO_BOX, MEDICAL_BOX, AMMO_BAG, MEDICAL_BAG, BEACON_FRIENDLY -> 0x002ADFFF;
+            case SQUAD_PERSISTENT, DOWNED_SQUAD, NEED_AMMO_SQUAD, GRENADE_FRIENDLY, CLAYMORE_FRIENDLY -> 0x0061FF94;
             default -> 0x00E7C75A;
         };
     }
 
-    private static float resolveHelpPulseProgress(ClientMarker marker) {
-        if (marker == null || !marker.kind().isDownedMarker()) {
+    private static float resolvePulseProgress(ClientMarker marker) {
+        if (marker == null || marker.kind() == null) {
+            return -1.0F;
+        }
+        if (marker.kind() == MarkerKind.NEED_AMMO_ALLY || marker.kind() == MarkerKind.NEED_AMMO_SQUAD) {
+            long phaseMs = nowMs() % NEED_AMMO_PULSE_INTERVAL_MS;
+            if (phaseMs >= HELP_PULSE_DURATION_MS) {
+                return -1.0F;
+            }
+            return Mth.clamp(phaseMs / (float) HELP_PULSE_DURATION_MS, 0.0F, 1.0F);
+        }
+        if (!marker.kind().isDownedMarker()) {
             return -1.0F;
         }
         UUID pulsePlayerId = marker.targetPlayerId() != null ? marker.targetPlayerId() : marker.ownerId();
@@ -952,10 +1212,13 @@ public final class ClientRoomMarkerState {
             return false;
         }
         MarkerKind kind = marker.kind();
-        if (kind == MarkerKind.AMMO_BOX || kind == MarkerKind.MEDICAL_BOX) {
-            return supportBoxAlert;
+        if (supportBoxAlert) {
+            return true;
         }
-        if (kind == MarkerKind.DOWNED_SQUAD || kind == MarkerKind.SQUAD_PERSISTENT) {
+        if (kind == MarkerKind.DOWNED_SQUAD || kind == MarkerKind.SQUAD_PERSISTENT || kind == MarkerKind.NEED_AMMO_SQUAD) {
+            return true;
+        }
+        if (kind == MarkerKind.NEED_AMMO_ALLY) {
             return true;
         }
         if (kind == MarkerKind.DOWNED_ALLY || kind == MarkerKind.ALLY_PERSISTENT) {
@@ -969,8 +1232,8 @@ public final class ClientRoomMarkerState {
             return 8.0D;
         }
         return switch (kind) {
-            case DOWNED_ALLY, DOWNED_SQUAD -> 9.0D;
-            case AMMO_BOX, MEDICAL_BOX -> 10.0D;
+            case DOWNED_ALLY, DOWNED_SQUAD, NEED_AMMO_ALLY, NEED_AMMO_SQUAD -> 9.0D;
+            case AMMO_BOX, MEDICAL_BOX, AMMO_BAG, MEDICAL_BAG, GRENADE_SELF, GRENADE_FRIENDLY, GRENADE_HOSTILE, CLAYMORE_FRIENDLY, BEACON_FRIENDLY, BEACON_HOSTILE -> 10.0D;
             default -> 8.0D;
         };
     }
@@ -981,6 +1244,9 @@ public final class ClientRoomMarkerState {
         }
         if (kind == MarkerKind.MEDICAL_BOX) {
             return isMedicalBoxNeeded(minecraft);
+        }
+        if (kind == MarkerKind.GRENADE_SELF || kind == MarkerKind.GRENADE_HOSTILE || kind == MarkerKind.BEACON_HOSTILE) {
+            return true;
         }
         return false;
     }
@@ -994,6 +1260,23 @@ public final class ClientRoomMarkerState {
 
     private static boolean isViewerAssault() {
         return "assault".equalsIgnoreCase(ClientHudDebugState.getSelfClass());
+    }
+
+    private static boolean hasClearSightToPoint(Minecraft minecraft, Vec3 start, Vec3 end) {
+        if (minecraft == null || minecraft.level == null || start == null || end == null) {
+            return false;
+        }
+        BlockHitResult blockHit = minecraft.level.clip(new ClipContext(
+            start,
+            end,
+            ClipContext.Block.COLLIDER,
+            ClipContext.Fluid.NONE,
+            minecraft.player
+        ));
+        if (blockHit.getType() != HitResult.Type.BLOCK) {
+            return true;
+        }
+        return start.distanceToSqr(blockHit.getLocation()) + 0.01D >= start.distanceToSqr(end);
     }
 
     private record ScreenProjection(double screenX, double screenY, boolean insideViewport) {
@@ -1044,6 +1327,15 @@ public final class ClientRoomMarkerState {
             if (kind == MarkerKind.AMMO_BOX || kind == MarkerKind.MEDICAL_BOX) {
                 return new Vec3(x, y + 0.5D, z);
             }
+            if (kind == MarkerKind.AMMO_BAG || kind == MarkerKind.MEDICAL_BAG) {
+                return new Vec3(x + 0.5D, y + 0.35D, z + 0.5D);
+            }
+            if (kind == MarkerKind.GRENADE_SELF || kind == MarkerKind.GRENADE_FRIENDLY || kind == MarkerKind.GRENADE_HOSTILE || kind == MarkerKind.CLAYMORE_FRIENDLY) {
+                return new Vec3(x, y + 0.2D, z);
+            }
+            if (kind == MarkerKind.BEACON_FRIENDLY || kind == MarkerKind.BEACON_HOSTILE) {
+                return new Vec3(x, y + 0.9D, z);
+            }
             return new Vec3((int) x + 0.5D, (int) y + ICON_WORLD_Y_OFFSET, (int) z + 0.5D);
         }
 
@@ -1079,8 +1371,18 @@ public final class ClientRoomMarkerState {
         SQUAD_PERSISTENT,
         DOWNED_ALLY,
         DOWNED_SQUAD,
+        NEED_AMMO_ALLY,
+        NEED_AMMO_SQUAD,
         AMMO_BOX,
-        MEDICAL_BOX;
+        MEDICAL_BOX,
+        AMMO_BAG,
+        MEDICAL_BAG,
+        GRENADE_SELF,
+        GRENADE_FRIENDLY,
+        GRENADE_HOSTILE,
+        CLAYMORE_FRIENDLY,
+        BEACON_FRIENDLY,
+        BEACON_HOSTILE;
 
         private static MarkerKind from(String value) {
             if (value == null || value.isBlank()) {
@@ -1094,7 +1396,7 @@ public final class ClientRoomMarkerState {
         }
 
         private boolean isEnemy() {
-            return this == ENEMY || this == DIRECT_ENEMY || this == AUTO_ENEMY;
+            return this == ENEMY || this == DIRECT_ENEMY || this == AUTO_ENEMY || this == GRENADE_SELF || this == GRENADE_HOSTILE || this == BEACON_HOSTILE;
         }
 
         private boolean usesTriangleShape() {
@@ -1107,7 +1409,9 @@ public final class ClientRoomMarkerState {
                 || this == ALLY_PERSISTENT
                 || this == SQUAD_PERSISTENT
                 || this == DOWNED_ALLY
-                || this == DOWNED_SQUAD;
+                || this == DOWNED_SQUAD
+                || this == NEED_AMMO_ALLY
+                || this == NEED_AMMO_SQUAD;
         }
 
         private boolean isDownedMarker() {
@@ -1118,7 +1422,9 @@ public final class ClientRoomMarkerState {
             return this == ALLY_PERSISTENT
                 || this == SQUAD_PERSISTENT
                 || this == DOWNED_ALLY
-                || this == DOWNED_SQUAD;
+                || this == DOWNED_SQUAD
+                || this == NEED_AMMO_ALLY
+                || this == NEED_AMMO_SQUAD;
         }
 
         private TacticalMarkerRenderer.MarkerVisualType toVisualType() {
@@ -1133,8 +1439,18 @@ public final class ClientRoomMarkerState {
                 case SQUAD_PERSISTENT -> TacticalMarkerRenderer.MarkerVisualType.SQUAD_PERSISTENT;
                 case DOWNED_ALLY -> TacticalMarkerRenderer.MarkerVisualType.DOWNED_ALLY;
                 case DOWNED_SQUAD -> TacticalMarkerRenderer.MarkerVisualType.DOWNED_SQUAD;
+                case NEED_AMMO_ALLY -> TacticalMarkerRenderer.MarkerVisualType.NEED_AMMO_ALLY;
+                case NEED_AMMO_SQUAD -> TacticalMarkerRenderer.MarkerVisualType.NEED_AMMO_SQUAD;
                 case AMMO_BOX -> TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX;
                 case MEDICAL_BOX -> TacticalMarkerRenderer.MarkerVisualType.MEDICAL_BOX;
+                case AMMO_BAG -> TacticalMarkerRenderer.MarkerVisualType.AMMO_BAG;
+                case MEDICAL_BAG -> TacticalMarkerRenderer.MarkerVisualType.MEDICAL_BAG;
+                case GRENADE_SELF -> TacticalMarkerRenderer.MarkerVisualType.GRENADE_SELF;
+                case GRENADE_FRIENDLY -> TacticalMarkerRenderer.MarkerVisualType.GRENADE_FRIENDLY;
+                case GRENADE_HOSTILE -> TacticalMarkerRenderer.MarkerVisualType.GRENADE_HOSTILE;
+                case CLAYMORE_FRIENDLY -> TacticalMarkerRenderer.MarkerVisualType.CLAYMORE_FRIENDLY;
+                case BEACON_FRIENDLY -> TacticalMarkerRenderer.MarkerVisualType.BEACON_FRIENDLY;
+                case BEACON_HOSTILE -> TacticalMarkerRenderer.MarkerVisualType.BEACON_HOSTILE;
             };
         }
     }
@@ -1167,6 +1483,20 @@ public final class ClientRoomMarkerState {
                 return CAMP_A;
             }
             if (name.contains("camp_b") || name.contains("campb")) {
+                return CAMP_B;
+            }
+            return UNKNOWN;
+        }
+
+        private static TeamToken fromBeaconToken(String token) {
+            if (token == null || token.isBlank()) {
+                return UNKNOWN;
+            }
+            String normalized = token.toLowerCase(Locale.ROOT);
+            if (normalized.contains("camp_a") || normalized.contains("campa") || "a".equals(normalized) || "t".equals(normalized)) {
+                return CAMP_A;
+            }
+            if (normalized.contains("camp_b") || normalized.contains("campb") || "b".equals(normalized) || "s".equals(normalized)) {
                 return CAMP_B;
             }
             return UNKNOWN;

@@ -65,7 +65,7 @@ public final class DeathmatchGameplayRuntime implements
         }
         long endTick = enteredTick + durationMinutes * 60L * 20L;
         if (gameTick >= endTick) {
-            pendingEndRequest = buildTimeLimitEndRequest();
+            pendingEndRequest = buildTimeLimitEndRequest(room);
         }
     }
 
@@ -95,12 +95,12 @@ public final class DeathmatchGameplayRuntime implements
         if (killerTeam == RoomTeamId.CAMP_A) {
             campAScore++;
             if (campAScore >= room.deathmatchConfig().targetScore()) {
-                pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, "蓝队达到目标得分");
+                pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, room.gameplayTeamDisplayName(RoomTeamId.CAMP_A) + "达到目标得分");
             }
         } else if (killerTeam == RoomTeamId.CAMP_B) {
             campBScore++;
             if (campBScore >= room.deathmatchConfig().targetScore()) {
-                pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, "红队达到目标得分");
+                pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, room.gameplayTeamDisplayName(RoomTeamId.CAMP_B) + "达到目标得分");
             }
         }
     }
@@ -124,6 +124,7 @@ public final class DeathmatchGameplayRuntime implements
             return RoomGameplayHudState.defaults();
         }
         boolean initialLockActive = state != null && player != null && state.isInitialMovementLockActive(player.getUUID(), gameTick);
+        RoomTeamId selfTeam = state == null || player == null ? null : state.getRoomTeams().get(player.getUUID());
         return new RoomGameplayHudState(
             campAScore,
             campBScore,
@@ -137,7 +138,7 @@ public final class DeathmatchGameplayRuntime implements
             "-",
             room.lifecycleState() == org.mods.gd656conquest.server.room.model.RoomLifecycleState.ENDING
                 ? "ENDING"
-                : initialLockActive ? "INITIAL_STAGE_BEGIN" : "RUNNING"
+                : initialLockActive ? "INITIAL_STAGE_BEGIN" : buildAudioState(room, selfTeam)
         );
     }
 
@@ -301,14 +302,59 @@ public final class DeathmatchGameplayRuntime implements
         return "进行中";
     }
 
-    private RoomMatchEndRequest buildTimeLimitEndRequest() {
+    private RoomMatchEndRequest buildTimeLimitEndRequest(RoomDefinition room) {
         if (campAScore > campBScore) {
-            return new RoomMatchEndRequest(RoomTeamId.CAMP_A, "达到时长，蓝队得分领先");
+            return new RoomMatchEndRequest(RoomTeamId.CAMP_A, "达到时长，" + safeTeamName(room, RoomTeamId.CAMP_A) + "得分领先");
         }
         if (campBScore > campAScore) {
-            return new RoomMatchEndRequest(RoomTeamId.CAMP_B, "达到时长，红队得分领先");
+            return new RoomMatchEndRequest(RoomTeamId.CAMP_B, "达到时长，" + safeTeamName(room, RoomTeamId.CAMP_B) + "得分领先");
         }
         return new RoomMatchEndRequest(null, "达到时长，判定平局");
+    }
+
+    private String buildAudioState(RoomDefinition room, RoomTeamId selfTeam) {
+        if (!isScoreNearEnd(room)) {
+            return "RUNNING";
+        }
+        RoomTeamId leadingTeam = resolveLeadingTeam();
+        if (leadingTeam == null) {
+            return "FINAL_OBJECTIVE";
+        }
+        if (selfTeam == leadingTeam) {
+            return "FINAL_OBJECTIVE_VICTORY";
+        }
+        if (selfTeam == RoomTeamId.CAMP_A || selfTeam == RoomTeamId.CAMP_B) {
+            return "FINAL_OBJECTIVE_DEFEAT";
+        }
+        return "FINAL_OBJECTIVE";
+    }
+
+    private boolean isScoreNearEnd(RoomDefinition room) {
+        if (room == null || room.deathmatchConfig().targetScore() <= 0) {
+            return false;
+        }
+        double threshold = room.deathmatchConfig().targetScore() * 0.9D;
+        return campAScore >= threshold || campBScore >= threshold;
+    }
+
+    private RoomTeamId resolveLeadingTeam() {
+        if (campAScore > campBScore) {
+            return RoomTeamId.CAMP_A;
+        }
+        if (campBScore > campAScore) {
+            return RoomTeamId.CAMP_B;
+        }
+        return null;
+    }
+
+    private String safeTeamName(RoomDefinition room, RoomTeamId teamId) {
+        if (teamId == null) {
+            return "-";
+        }
+        if (room == null) {
+            return teamId == RoomTeamId.CAMP_A ? "CampA" : "CampB";
+        }
+        return room.gameplayTeamDisplayName(teamId);
     }
 
     private List<List<RoomPosition>> resolveConfiguredBoundaries(RoomDefinition room) {

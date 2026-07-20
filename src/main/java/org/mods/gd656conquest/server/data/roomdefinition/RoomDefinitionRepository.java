@@ -278,7 +278,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 conquest.sharedBoundary(),
                 conquest.campABoundary(),
                 conquest.campBBoundary(),
-                normalizeCaptureConfig(conquest.captureConfig())
+                normalizeCaptureConfig(conquest.captureConfig()),
+                conquest.ammoBoxPositions(),
+                conquest.medicalBoxPositions()
             );
         } else if (base.gameplayConfig() instanceof RoomDeathmatchConfig deathmatch) {
             gameplayConfig = new RoomDeathmatchConfig(
@@ -291,7 +293,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 deathmatch.campABoundary(),
                 deathmatch.campBBoundary(),
                 deathmatch.campASpawnGroup(),
-                deathmatch.campBSpawnGroup()
+                deathmatch.campBSpawnGroup(),
+                deathmatch.ammoBoxPositions(),
+                deathmatch.medicalBoxPositions()
             );
         } else {
             gameplayConfig = base.gameplayConfig();

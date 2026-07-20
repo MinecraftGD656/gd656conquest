@@ -2018,7 +2018,9 @@ public final class LoadoutUiService {
                 sharedBoundary,
                 campABoundary,
                 campBBoundary,
-                definition.conquestConfig().captureConfig()
+                definition.conquestConfig().captureConfig(),
+                definition.conquestConfig().ammoBoxPositions(),
+                definition.conquestConfig().medicalBoxPositions()
             )
         );
     }
@@ -2038,7 +2040,9 @@ public final class LoadoutUiService {
                 definition.conquestConfig().sharedBoundary(),
                 definition.conquestConfig().campABoundary(),
                 definition.conquestConfig().campBBoundary(),
-                definition.conquestConfig().captureConfig()
+                definition.conquestConfig().captureConfig(),
+                definition.conquestConfig().ammoBoxPositions(),
+                definition.conquestConfig().medicalBoxPositions()
             )
         );
     }

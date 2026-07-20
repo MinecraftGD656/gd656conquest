@@ -3,12 +3,16 @@ package org.mods.gd656conquest.server.room.runtime;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.network.packet.RoomMarkerSyncPacket;
+import org.mods.gd656conquest.common.item.ConquestItems;
 import org.mods.gd656conquest.server.compat.frontlinevoice.FrontlineVoiceBridge;
 import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
@@ -29,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.nio.charset.StandardCharsets;
+import java.lang.reflect.Method;
 
 public final class RoomMarkerRuntimeService {
     private static final String MARKER_SPOT_FAIL_SOUND_ID = "gd656conquest:sfx.marker_spot_fail";
@@ -41,6 +46,13 @@ public final class RoomMarkerRuntimeService {
     private static final double MAX_MARKER_DISTANCE_SQR = 256.0D * 256.0D;
     private static final String ACTIONBAR_SOURCE_MARKER = "room_marker";
     private static final long SPOTTING_BONUS_WINDOW_MS = 60000L;
+    private static final int NEED_AMMO_MARKER_LIFETIME_TICKS = MARKER_SYNC_INTERVAL_TICKS * 3;
+    private static final int SUPPORT_DROP_MARKER_LIFETIME_TICKS = MARKER_SYNC_INTERVAL_TICKS * 3;
+    private static final double SUPPORT_DROP_MARKER_RADIUS = 30.0D;
+    private static final String NEED_AMMO_ALLY_KIND = "NEED_AMMO_ALLY";
+    private static final String NEED_AMMO_SQUAD_KIND = "NEED_AMMO_SQUAD";
+    private static final String AMMO_BAG_KIND = "AMMO_BAG";
+    private static final String MEDICAL_BAG_KIND = "MEDICAL_BAG";
 
     private final MinecraftServer server;
     private final Map<UUID, Deque<Long>> spottingBonusTimesByPlayer = new java.util.LinkedHashMap<>();
@@ -153,6 +165,8 @@ public final class RoomMarkerRuntimeService {
                 continue;
             }
             List<RoomMarkerSyncPacket.MarkerEntry> visibleMarkers = buildVisibleMarkers(state, viewerTeam, gameTick);
+            appendNeedAmmoMarkers(visibleMarkers, state, viewer, viewerTeam);
+            appendOwnedSupportDropMarkers(visibleMarkers, viewer);
             NetworkManager.sendToPlayer(viewer, new RoomMarkerSyncPacket(visibleMarkers));
         }
     }
@@ -285,6 +299,92 @@ public final class RoomMarkerRuntimeService {
         return entries;
     }
 
+    private void appendNeedAmmoMarkers(
+        List<RoomMarkerSyncPacket.MarkerEntry> entries,
+        RunningRuntimeState state,
+        ServerPlayer viewer,
+        RoomTeamId viewerTeam
+    ) {
+        if (entries == null || state == null || viewer == null || viewerTeam == null || !canViewerSeeNeedAmmoMarkers(state, viewer, viewerTeam)) {
+            return;
+        }
+        String viewerSquadLabel = normalizeSquadLabel(state.getSquadLabelsByPlayer().get(viewer.getUUID()));
+        for (UUID targetPlayerId : List.copyOf(state.getRoomPlayers())) {
+            if (targetPlayerId == null || targetPlayerId.equals(viewer.getUUID())) {
+                continue;
+            }
+            if (state.getRoomTeams().get(targetPlayerId) != viewerTeam) {
+                continue;
+            }
+            if (state.isInRespawnFlow(targetPlayerId) || state.isPlayerDowned(targetPlayerId) || state.isPlayerBeingRevived(targetPlayerId)) {
+                continue;
+            }
+            ServerPlayer targetPlayer = server.getPlayerList().getPlayer(targetPlayerId);
+            if (targetPlayer == null || !targetPlayer.isAlive() || !playerNeedsAmmoMarker(targetPlayer)) {
+                continue;
+            }
+            boolean sameSquad = isSameSquad(viewerSquadLabel, state.getSquadLabelsByPlayer().get(targetPlayerId));
+            BlockPos displayPos = targetPlayer.blockPosition();
+            entries.add(new RoomMarkerSyncPacket.MarkerEntry(
+                targetPlayerId,
+                targetPlayer.getScoreboardName(),
+                sameSquad ? NEED_AMMO_SQUAD_KIND : NEED_AMMO_ALLY_KIND,
+                displayPos.getX(),
+                displayPos.getY(),
+                displayPos.getZ(),
+                targetPlayerId,
+                0,
+                NEED_AMMO_MARKER_LIFETIME_TICKS
+            ));
+        }
+    }
+
+    private void appendOwnedSupportDropMarkers(List<RoomMarkerSyncPacket.MarkerEntry> entries, ServerPlayer viewer) {
+        if (entries == null || viewer == null || viewer.level() == null) {
+            return;
+        }
+        AABB searchBox = viewer.getBoundingBox().inflate(SUPPORT_DROP_MARKER_RADIUS, SUPPORT_DROP_MARKER_RADIUS * 0.5D, SUPPORT_DROP_MARKER_RADIUS);
+        for (ItemEntity itemEntity : viewer.level().getEntitiesOfClass(ItemEntity.class, searchBox)) {
+            if (itemEntity == null || !itemEntity.isAlive() || itemEntity.distanceToSqr(viewer) > SUPPORT_DROP_MARKER_RADIUS * SUPPORT_DROP_MARKER_RADIUS) {
+                continue;
+            }
+            if (!RoomDeathSupportDropService.isDeathSupportDrop(itemEntity)) {
+                continue;
+            }
+            if (!viewer.getUUID().equals(RoomDeathSupportDropService.getPickupOwner(itemEntity))) {
+                continue;
+            }
+            ItemStack stack = itemEntity.getItem();
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+            String markerKind = null;
+            String ownerName = null;
+            if (stack.getItem() == ConquestItems.AMMO_BAG.get()) {
+                markerKind = AMMO_BAG_KIND;
+                ownerName = "弹药包";
+            } else if (stack.getItem() == ConquestItems.MEDIC_BAG.get()) {
+                markerKind = MEDICAL_BAG_KIND;
+                ownerName = "医疗包";
+            }
+            if (markerKind == null) {
+                continue;
+            }
+            BlockPos displayPos = itemEntity.blockPosition();
+            entries.add(new RoomMarkerSyncPacket.MarkerEntry(
+                itemEntity.getUUID(),
+                ownerName,
+                markerKind,
+                displayPos.getX(),
+                displayPos.getY(),
+                displayPos.getZ(),
+                null,
+                0,
+                SUPPORT_DROP_MARKER_LIFETIME_TICKS
+            ));
+        }
+    }
+
     private String resolveOwnerName(UUID ownerId) {
         ServerPlayer owner = ownerId == null ? null : server.getPlayerList().getPlayer(ownerId);
         if (owner == null || owner.getGameProfile() == null || owner.getGameProfile().getName() == null || owner.getGameProfile().getName().isBlank()) {
@@ -324,6 +424,140 @@ public final class RoomMarkerRuntimeService {
             player.getUUID()
         );
         return classType == PlayerClassType.RECON;
+    }
+
+    private boolean canViewerSeeNeedAmmoMarkers(RunningRuntimeState state, ServerPlayer viewer, RoomTeamId viewerTeam) {
+        if (state == null || viewer == null || viewerTeam == null) {
+            return false;
+        }
+        if (!viewer.isAlive() || state.getRoomTeams().get(viewer.getUUID()) != viewerTeam || state.isInRespawnFlow(viewer.getUUID())) {
+            return false;
+        }
+        PlayerClassType classType = CustomLoadoutService.resolveCurrentClass(
+            ConquestDataManager.of(server).playerData().getPlayerData(viewer.getUUID()),
+            state,
+            viewer.getUUID()
+        );
+        return classType == PlayerClassType.SUPPORT && carriesAmmoSupplyItem(viewer);
+    }
+
+    private boolean carriesAmmoSupplyItem(ServerPlayer player) {
+        if (player == null) {
+            return false;
+        }
+        for (ItemStack stack : player.getInventory().items) {
+            if (isAmmoSupplyItem(stack)) {
+                return true;
+            }
+        }
+        return isAmmoSupplyItem(player.getOffhandItem());
+    }
+
+    private boolean isAmmoSupplyItem(ItemStack stack) {
+        return stack != null
+            && !stack.isEmpty()
+            && (stack.getItem() == ConquestItems.AMMO_BAG.get() || stack.getItem() == ConquestItems.AMMO_BOX.get());
+    }
+
+    private boolean playerNeedsAmmoMarker(ServerPlayer player) {
+        if (player == null) {
+            return false;
+        }
+        return isTrackedTaczWeaponReserveEmpty(player, 0) || isTrackedTaczWeaponReserveEmpty(player, 1);
+    }
+
+    private boolean isTrackedTaczWeaponReserveEmpty(ServerPlayer player, int slotIndex) {
+        if (player == null || slotIndex < 0 || slotIndex >= player.getInventory().items.size()) {
+            return false;
+        }
+        ItemStack weaponStack = player.getInventory().items.get(slotIndex);
+        if (weaponStack == null || weaponStack.isEmpty()) {
+            return false;
+        }
+        try {
+            Class<?> iGunClass = Class.forName("com.tacz.guns.api.item.IGun");
+            Method getIGunOrNull = iGunClass.getMethod("getIGunOrNull", ItemStack.class);
+            Object iGun = getIGunOrNull.invoke(null, weaponStack);
+            if (iGun == null) {
+                return false;
+            }
+            int dummyAmmo = 0;
+            try {
+                Method useDummyAmmo = iGun.getClass().getMethod("useDummyAmmo", ItemStack.class);
+                if (Boolean.TRUE.equals(useDummyAmmo.invoke(iGun, weaponStack))) {
+                    Method getDummyAmmoAmount = iGun.getClass().getMethod("getDummyAmmoAmount", ItemStack.class);
+                    Object dummyAmmoObject = getDummyAmmoAmount.invoke(iGun, weaponStack);
+                    if (dummyAmmoObject instanceof Integer dummyAmmoAmount) {
+                        dummyAmmo = Math.max(0, dummyAmmoAmount);
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+            int reserveAmmo = countTaczReserveAmmo(player, iGun, weaponStack);
+            return dummyAmmo + reserveAmmo <= 0;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private int countTaczReserveAmmo(ServerPlayer player, Object iGun, ItemStack weaponStack) {
+        if (player == null || iGun == null || weaponStack == null || weaponStack.isEmpty()) {
+            return 0;
+        }
+        try {
+            Method getGunId = iGun.getClass().getMethod("getGunId", ItemStack.class);
+            Object gunIdObject = getGunId.invoke(iGun, weaponStack);
+            if (!(gunIdObject instanceof net.minecraft.resources.ResourceLocation gunId)) {
+                return 0;
+            }
+            Class<?> timelessApiClass = Class.forName("com.tacz.guns.api.TimelessAPI");
+            Method getCommonGunIndex = timelessApiClass.getMethod("getCommonGunIndex", net.minecraft.resources.ResourceLocation.class);
+            Object gunIndexOptionalObject = getCommonGunIndex.invoke(null, gunId);
+            if (!(gunIndexOptionalObject instanceof java.util.Optional<?> gunIndexOptional) || gunIndexOptional.isEmpty()) {
+                return 0;
+            }
+            Object gunIndex = gunIndexOptional.get();
+            Method getGunData = gunIndex.getClass().getMethod("getGunData");
+            Object gunData = getGunData.invoke(gunIndex);
+            if (gunData == null) {
+                return 0;
+            }
+            Method getAmmoId = gunData.getClass().getMethod("getAmmoId");
+            Object ammoIdObject = getAmmoId.invoke(gunData);
+            if (!(ammoIdObject instanceof net.minecraft.resources.ResourceLocation ammoId)) {
+                return 0;
+            }
+            Class<?> builderClass = Class.forName("com.tacz.guns.api.item.builder.AmmoItemBuilder");
+            Method create = builderClass.getMethod("create");
+            Method setId = builderClass.getMethod("setId", net.minecraft.resources.ResourceLocation.class);
+            Method setCount = builderClass.getMethod("setCount", int.class);
+            Method build = builderClass.getMethod("build");
+            Object builder = create.invoke(null);
+            builder = setId.invoke(builder, ammoId);
+            builder = setCount.invoke(builder, 1);
+            Object ammoStackObject = build.invoke(builder);
+            if (!(ammoStackObject instanceof ItemStack sampleAmmo)) {
+                return 0;
+            }
+            int total = 0;
+            for (ItemStack stack : player.getInventory().items) {
+                if (stack != null && !stack.isEmpty() && ItemStack.isSameItemSameTags(stack, sampleAmmo)) {
+                    total += stack.getCount();
+                }
+            }
+            return total;
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    private boolean isSameSquad(String viewerSquadLabel, String targetSquadLabel) {
+        String normalizedTarget = normalizeSquadLabel(targetSquadLabel);
+        return !viewerSquadLabel.isBlank() && viewerSquadLabel.equals(normalizedTarget);
+    }
+
+    private String normalizeSquadLabel(String squadLabel) {
+        return squadLabel == null ? "" : squadLabel.trim();
     }
 
     private ServerPlayer resolveDirectEnemyTarget(RunningRuntimeState state, ServerPlayer owner, UUID targetPlayerId) {

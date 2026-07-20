@@ -12,7 +12,9 @@ public record RoomDeathmatchConfig(
     List<RoomPosition> campABoundary,
     List<RoomPosition> campBBoundary,
     RoomSpawnGroupConfig campASpawnGroup,
-    RoomSpawnGroupConfig campBSpawnGroup
+    RoomSpawnGroupConfig campBSpawnGroup,
+    List<RoomPosition> ammoBoxPositions,
+    List<RoomPosition> medicalBoxPositions
 ) implements IRoomGameplayConfig {
     public RoomDeathmatchConfig {
         mapId = mapId == null ? "" : mapId.trim();
@@ -25,6 +27,8 @@ public record RoomDeathmatchConfig(
         campBBoundary = copyBoundary(campBBoundary);
         campASpawnGroup = normalizeSpawnGroup(campASpawnGroup);
         campBSpawnGroup = normalizeSpawnGroup(campBSpawnGroup);
+        ammoBoxPositions = copyBoundary(ammoBoxPositions);
+        medicalBoxPositions = copyBoundary(medicalBoxPositions);
     }
 
     public static RoomDeathmatchConfig defaults() {
@@ -38,7 +42,9 @@ public record RoomDeathmatchConfig(
             List.of(),
             List.of(),
             RoomSpawnGroupConfig.defaults(),
-            RoomSpawnGroupConfig.defaults()
+            RoomSpawnGroupConfig.defaults(),
+            List.of(),
+            List.of()
         );
     }
 
@@ -49,12 +55,12 @@ public record RoomDeathmatchConfig(
 
     @Override
     public String campADisplayName(RoomCommonConfig commonConfig) {
-        return "蓝队";
+        return commonConfig == null ? "CampA" : commonConfig.campADisplayName();
     }
 
     @Override
     public String campBDisplayName(RoomCommonConfig commonConfig) {
-        return "红队";
+        return commonConfig == null ? "CampB" : commonConfig.campBDisplayName();
     }
 
     @Override

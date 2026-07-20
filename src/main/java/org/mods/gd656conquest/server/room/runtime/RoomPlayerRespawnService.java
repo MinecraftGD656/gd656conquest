@@ -165,6 +165,11 @@ public final class RoomPlayerRespawnService {
         if (player != null) {
             prepareRespawnAnchor(room, state, player);
             if (deathmatch) {
+                ServerPlayer killerPlayer = findPlayerByEntityId(killerEntityId);
+                if (killerPlayer != null && isEnemyCause(state, playerId, killerEntityId)) {
+                    showKillerActionbar(player, killerPlayer, "击杀者: ");
+                    markDownedKiller(room, state, player, killerPlayer, gameTick);
+                }
                 beginDeathmatchRespawnHold(room, state, player, gameTick, resolveDeployDelayTicks(room, state, 1), false, true);
                 return;
             }
@@ -633,6 +638,11 @@ public final class RoomPlayerRespawnService {
                         clearInitialCombatCountdownTitle(player);
                         state.getRespawnCountdownLastShownSeconds().remove(playerId);
                         ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
+                        if (!state.getDeployExplicitConfirmRequiredPlayers().contains(playerId)) {
+                            showDeployCountdown(player, remainSeconds);
+                        } else {
+                            ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_WAIT);
+                        }
                     } else {
                         int lastShown = state.getRespawnCountdownLastShownSeconds().getOrDefault(playerId, -1);
                         if (lastShown != remainSeconds) {
@@ -656,7 +666,7 @@ public final class RoomPlayerRespawnService {
                     state.getRespawnCountdownLastShownSeconds().remove(playerId);
                     ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
                     if (!state.getDeployViewActivePlayers().contains(playerId)
-                        && startDeathmatchRespawnTransition(room, state, player, gameTick, false)) {
+                        && startDeathmatchRespawnTransition(room, state, player, gameTick, true)) {
                         continue;
                     }
                 }
@@ -1074,6 +1084,7 @@ public final class RoomPlayerRespawnService {
         playerStateService.applyRespawnState(room, playerId, gameTick);
         applyPostDeploySelectedHotbarSlot(room, player, false);
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
+        state.clearRespawnFlow(playerId);
         return true;
     }
 
@@ -1238,12 +1249,12 @@ public final class RoomPlayerRespawnService {
         if (killerPlayer == null || !isEnemyCause(state, downedPlayer.getUUID(), killerEntityId)) {
             return;
         }
-        showDownedKillerActionbar(downedPlayer, killerPlayer);
+        showKillerActionbar(downedPlayer, killerPlayer, "击倒者: ");
         markDownedKiller(room, state, downedPlayer, killerPlayer, gameTick);
     }
 
-    private void showDownedKillerActionbar(ServerPlayer downedPlayer, ServerPlayer killerPlayer) {
-        if (downedPlayer == null || killerPlayer == null) {
+    private void showKillerActionbar(ServerPlayer targetPlayer, ServerPlayer killerPlayer, String killerLabel) {
+        if (targetPlayer == null || killerPlayer == null) {
             return;
         }
         String killerName = killerPlayer.getScoreboardName();
@@ -1256,10 +1267,10 @@ public final class RoomPlayerRespawnService {
             weaponName = resolveDownedKillerWeaponName(killerPlayer, heldStack);
         }
         ServerActionBarService.showBuilder(
-            downedPlayer,
+            targetPlayer,
             ACTIONBAR_SOURCE_DOWNED_KILLER_INFO,
             ServerActionBarService.builder()
-                .labelValue("击倒者: ", killerName, ChatFormatting.RED, ChatFormatting.GOLD)
+                .labelValue(killerLabel, killerName, ChatFormatting.RED, ChatFormatting.GOLD)
                 .separator()
                 .labelValue("武器: ", weaponName, ChatFormatting.AQUA, ChatFormatting.WHITE),
             DOWNED_KILLER_INFO_TICKS
@@ -1920,6 +1931,7 @@ public final class RoomPlayerRespawnService {
                 ? RoomGameplayDeployPresentationSupport.resolveRespawnHoldingPosition(room, state, player)
                 : lockedRespawnTarget;
             if (holdingPosition != null) {
+                int killerEntityId = state.getDeathKillerEntityIdOrDefault(playerId);
                 NetworkManager.sendToPlayer(
                     player,
                     RoomDeathFlowPacket.openRespawnWaitInstant(
@@ -1928,7 +1940,8 @@ public final class RoomPlayerRespawnService {
                         holdingPosition.z() + 0.5D,
                         player.getYRot(),
                         0.0F,
-                        Math.max(0, deployDelayTicks)
+                        Math.max(0, deployDelayTicks),
+                        killerEntityId
                     )
                 );
                 return;
@@ -1963,8 +1976,10 @@ public final class RoomPlayerRespawnService {
         if (instant) {
             playerLaunchService.teleportToRoomPosition(player, room, spawn);
             player.setDeltaMovement(0.0D, 0.0D, 0.0D);
-            finalizeRespawn(room, state, player, gameTick);
-            refreshVehicleLoadoutSnapshots(state);
+            if (finalizeRespawn(room, state, player, gameTick)) {
+                state.clearRespawnFlow(playerId);
+                refreshVehicleLoadoutSnapshots(state);
+            }
             return true;
         }
 

@@ -4,7 +4,9 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,8 +30,12 @@ import org.mods.gd656conquest.server.room.core.RoomPlayerSessionService;
 import org.mods.gd656conquest.server.room.core.RoomRuntimeRepository;
 import org.mods.gd656conquest.server.room.core.RoomRuntimeState;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
+import org.mods.gd656conquest.server.room.model.RoomBreakthroughConfig;
+import org.mods.gd656conquest.server.room.model.RoomConquestConfig;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
+import org.mods.gd656conquest.server.room.model.RoomGameplayId;
+import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.runtime.audio.RoomThirdPersonAudioCueRegistry;
 import org.mods.gd656conquest.server.social.chat.ServerActionBarService;
@@ -49,6 +55,7 @@ public final class RoomSupportBoxService {
     private static final String ACTIONBAR_SOURCE_AMMO_BOX_INTERACT = "room_ammo_box_interact";
     private static final int AMMO_BOX_MAX_USE_COUNT = 16;
     private static final int AMMO_BOX_PER_PLAYER_CD_TICKS = 30 * 20;
+    private static final int PERMANENT_SUPPORT_BOX_PER_PLAYER_CD_TICKS = 60 * 20;
     private static final int AMMO_BOX_RADIUS = 2;
     private static final int AMMO_BOX_INFO_PRIORITY_TICKS = 2 * 20;
     private static final String AMMO_BOX_THROW_TAG = "gd656_ammo_box_throw";
@@ -76,6 +83,7 @@ public final class RoomSupportBoxService {
     private final Map<UUID, Map<UUID, Long>> ammoBoxCooldownUntilTickByBox = new HashMap<>();
     private final Map<UUID, Map<UUID, Long>> ammoBoxLastNotifyTickByBox = new HashMap<>();
     private final Map<UUID, Map<UUID, Long>> ammoBoxInfoPriorityUntilTickByBox = new HashMap<>();
+    private final Map<String, Set<UUID>> permanentAmmoBoxIdsByRoom = new HashMap<>();
 
     private final Set<UUID> pendingMedicalBoxThrows = new HashSet<>();
     private final Set<UUID> activeMedicalBoxIds = new HashSet<>();
@@ -83,6 +91,7 @@ public final class RoomSupportBoxService {
     private final Map<UUID, Map<UUID, Long>> medicalBoxCooldownUntilTickByBox = new HashMap<>();
     private final Map<UUID, Map<UUID, Long>> medicalBoxLastNotifyTickByBox = new HashMap<>();
     private final Map<UUID, Map<UUID, Long>> medicalBoxInfoPriorityUntilTickByBox = new HashMap<>();
+    private final Map<String, Set<UUID>> permanentMedicalBoxIdsByRoom = new HashMap<>();
 
     public RoomSupportBoxService(
         MinecraftServer server,
@@ -101,6 +110,63 @@ public final class RoomSupportBoxService {
         processPendingAmmoBoxThrows();
         processMedicalBoxAura(gameTick);
         processAmmoBoxAura(gameTick);
+    }
+
+    public void spawnPermanentSupportBoxes(RoomDefinition room) {
+        if (room == null || room.roomId() == null || room.roomId().isBlank()) {
+            return;
+        }
+        clearPermanentSupportBoxes(room.roomId());
+        ServerLevel level = resolveRoomLevel(room);
+        if (level == null) {
+            return;
+        }
+        for (RoomPosition position : resolvePermanentAmmoBoxPositions(room)) {
+            if (position == null) {
+                continue;
+            }
+            AmmoBoxEntity ammoBox = new AmmoBoxEntity(ConquestEntities.AMMO_BOX.get(), level);
+            ammoBox.setPos(position.x() + 0.5D, position.y(), position.z() + 0.5D);
+            ammoBox.setYRot(0.0F);
+            ammoBox.setOwnerUuid(null);
+            ammoBox.setPermanentSupport(true);
+            ammoBox.setUseRemaining(Integer.MAX_VALUE);
+            ammoBox.setInvulnerable(true);
+            ammoBox.setHealth(100.0F);
+            level.addFreshEntity(ammoBox);
+            activeAmmoBoxIds.add(ammoBox.getUUID());
+            permanentAmmoBoxIdsByRoom.computeIfAbsent(room.roomId(), ignored -> new HashSet<>()).add(ammoBox.getUUID());
+        }
+        for (RoomPosition position : resolvePermanentMedicalBoxPositions(room)) {
+            if (position == null) {
+                continue;
+            }
+            MedicalBoxEntity medicalBox = new MedicalBoxEntity(ConquestEntities.MEDICAL_BOX.get(), level);
+            medicalBox.setPos(position.x() + 0.5D, position.y(), position.z() + 0.5D);
+            medicalBox.setYRot(0.0F);
+            medicalBox.setOwnerUuid(null);
+            medicalBox.setPermanentSupport(true);
+            medicalBox.setUseRemaining(Integer.MAX_VALUE);
+            medicalBox.setInvulnerable(true);
+            medicalBox.setHealth(100.0F);
+            level.addFreshEntity(medicalBox);
+            activeMedicalBoxIds.add(medicalBox.getUUID());
+            permanentMedicalBoxIdsByRoom.computeIfAbsent(room.roomId(), ignored -> new HashSet<>()).add(medicalBox.getUUID());
+        }
+    }
+
+    public void clearPermanentSupportBoxes(String roomId) {
+        if (roomId == null || roomId.isBlank()) {
+            return;
+        }
+        for (UUID boxId : List.copyOf(permanentAmmoBoxIdsByRoom.getOrDefault(roomId, Set.of()))) {
+            removeTrackedAmmoBox(boxId, true);
+        }
+        for (UUID boxId : List.copyOf(permanentMedicalBoxIdsByRoom.getOrDefault(roomId, Set.of()))) {
+            removeTrackedMedicalBox(boxId, true);
+        }
+        permanentAmmoBoxIdsByRoom.remove(roomId);
+        permanentMedicalBoxIdsByRoom.remove(roomId);
     }
 
     public boolean tryUseAmmoBoxItem(ServerPlayer player, InteractionHand hand) {
@@ -303,12 +369,8 @@ public final class RoomSupportBoxService {
         }
         syncAmmoBoxActionbarTracking(shownPlayers);
         if (!stale.isEmpty()) {
-            activeAmmoBoxIds.removeAll(stale);
             for (UUID boxId : stale) {
-                ammoBoxCooldownUntilTickByBox.remove(boxId);
-                ammoBoxLastNotifyTickByBox.remove(boxId);
-                ammoBoxInfoPriorityUntilTickByBox.remove(boxId);
-                ownerActiveAmmoBoxId.entrySet().removeIf(entry -> boxId.equals(entry.getValue()));
+                removeTrackedAmmoBox(boxId, false);
             }
         }
     }
@@ -360,12 +422,8 @@ public final class RoomSupportBoxService {
             }
         }
         if (!stale.isEmpty()) {
-            activeMedicalBoxIds.removeAll(stale);
             for (UUID boxId : stale) {
-                medicalBoxCooldownUntilTickByBox.remove(boxId);
-                medicalBoxLastNotifyTickByBox.remove(boxId);
-                medicalBoxInfoPriorityUntilTickByBox.remove(boxId);
-                ownerActiveMedicalBoxId.entrySet().removeIf(entry -> boxId.equals(entry.getValue()));
+                removeTrackedMedicalBox(boxId, false);
             }
         }
     }
@@ -402,7 +460,7 @@ public final class RoomSupportBoxService {
             1.0F,
             1.0F
         );
-        cooldownUntilTick.put(playerId, gameTick + AMMO_BOX_PER_PLAYER_CD_TICKS);
+        cooldownUntilTick.put(playerId, gameTick + resolveAmmoBoxCooldownTicks(ammoBox));
         infoPriorityUntilTick.put(playerId, gameTick + AMMO_BOX_INFO_PRIORITY_TICKS);
         lastNotifyTick.put(playerId, gameTick);
         int remainingUse = ammoBox.consumeOneAndGetRemaining();
@@ -410,11 +468,7 @@ public final class RoomSupportBoxService {
         playersWithAmmoBoxActionbar.add(playerId);
         if (remainingUse <= 0) {
             ammoBox.discard();
-            activeAmmoBoxIds.remove(boxId);
-            ammoBoxCooldownUntilTickByBox.remove(boxId);
-            ammoBoxLastNotifyTickByBox.remove(boxId);
-            ammoBoxInfoPriorityUntilTickByBox.remove(boxId);
-            ownerActiveAmmoBoxId.entrySet().removeIf(entry -> boxId.equals(entry.getValue()));
+            removeTrackedAmmoBox(boxId, false);
         }
         return true;
     }
@@ -481,7 +535,7 @@ public final class RoomSupportBoxService {
             return false;
         }
         player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, MEDICAL_BOX_REGEN_DURATION_TICKS, MEDICAL_BOX_REGEN_AMPLIFIER, false, true, true));
-        cooldownUntilTick.put(playerId, gameTick + MEDICAL_BOX_PER_PLAYER_CD_TICKS);
+        cooldownUntilTick.put(playerId, gameTick + resolveMedicalBoxCooldownTicks(medicalBox));
         infoPriorityUntilTick.put(playerId, gameTick + MEDICAL_BOX_INFO_PRIORITY_TICKS);
         lastNotifyTick.put(playerId, gameTick);
         medicalBox.consumeOneAndGetRemaining();
@@ -490,16 +544,17 @@ public final class RoomSupportBoxService {
     }
 
     private MutableComponent buildAmmoBoxInfoActionbar(AmmoBoxEntity ammoBox) {
+        boolean permanent = ammoBox != null && ammoBox.isPermanentSupport();
         int left = Math.max(0, ammoBox.getUseRemaining());
-        String ownerName = resolveOwnerName(ammoBox.getOwnerUuid());
-        ChatFormatting remainColor = left <= 3 ? ChatFormatting.RED : (left <= 8 ? ChatFormatting.YELLOW : ChatFormatting.GREEN);
+        String ownerName = resolveOwnerName(ammoBox);
+        ChatFormatting remainColor = permanent ? ChatFormatting.LIGHT_PURPLE : (left <= 3 ? ChatFormatting.RED : (left <= 8 ? ChatFormatting.YELLOW : ChatFormatting.GREEN));
         return ServerActionBarService.Templates.labeledPair(
             "房间弹药箱所属者: ",
             ownerName,
             ChatFormatting.AQUA,
             ChatFormatting.GOLD,
             "剩余使用次数: ",
-            String.valueOf(left),
+            permanent ? "∞" : String.valueOf(left),
             ChatFormatting.AQUA,
             remainColor
         );
@@ -581,19 +636,34 @@ public final class RoomSupportBoxService {
     }
 
     private MutableComponent buildMedicalBoxInfoActionbar(MedicalBoxEntity medicalBox) {
+        boolean permanent = medicalBox != null && medicalBox.isPermanentSupport();
         int left = Math.max(0, medicalBox.getUseRemaining());
-        String ownerName = resolveOwnerName(medicalBox.getOwnerUuid());
-        ChatFormatting remainColor = left <= 3 ? ChatFormatting.RED : (left <= 8 ? ChatFormatting.YELLOW : ChatFormatting.GREEN);
+        String ownerName = resolveOwnerName(medicalBox);
+        ChatFormatting remainColor = permanent ? ChatFormatting.LIGHT_PURPLE : (left <= 3 ? ChatFormatting.RED : (left <= 8 ? ChatFormatting.YELLOW : ChatFormatting.GREEN));
         return ServerActionBarService.Templates.labeledPair(
             "房间医疗箱所属者: ",
             ownerName,
             ChatFormatting.AQUA,
             ChatFormatting.GOLD,
             "剩余使用次数: ",
-            String.valueOf(left),
+            permanent ? "∞" : String.valueOf(left),
             ChatFormatting.AQUA,
             remainColor
         );
+    }
+
+    private String resolveOwnerName(AmmoBoxEntity ammoBox) {
+        if (ammoBox != null && ammoBox.isPermanentSupport()) {
+            return "对局永久弹药箱";
+        }
+        return resolveOwnerName(ammoBox == null ? null : ammoBox.getOwnerUuid());
+    }
+
+    private String resolveOwnerName(MedicalBoxEntity medicalBox) {
+        if (medicalBox != null && medicalBox.isPermanentSupport()) {
+            return "对局永久医疗箱";
+        }
+        return resolveOwnerName(medicalBox == null ? null : medicalBox.getOwnerUuid());
     }
 
     private String resolveOwnerName(UUID ownerId) {
@@ -602,6 +672,18 @@ public final class RoomSupportBoxService {
         }
         ServerPlayer owner = server.getPlayerList().getPlayer(ownerId);
         return owner == null ? "未知" : owner.getGameProfile().getName();
+    }
+
+    private int resolveAmmoBoxCooldownTicks(AmmoBoxEntity ammoBox) {
+        return ammoBox != null && ammoBox.isPermanentSupport()
+            ? PERMANENT_SUPPORT_BOX_PER_PLAYER_CD_TICKS
+            : AMMO_BOX_PER_PLAYER_CD_TICKS;
+    }
+
+    private int resolveMedicalBoxCooldownTicks(MedicalBoxEntity medicalBox) {
+        return medicalBox != null && medicalBox.isPermanentSupport()
+            ? PERMANENT_SUPPORT_BOX_PER_PLAYER_CD_TICKS
+            : MEDICAL_BOX_PER_PLAYER_CD_TICKS;
     }
 
     private void emitSupportBoxVoice(UUID ownerId, UUID receiverId, Vec3 boxPosition, String cueId) {
@@ -698,6 +780,84 @@ public final class RoomSupportBoxService {
             }
         }
         return null;
+    }
+
+    private void removeTrackedAmmoBox(UUID boxId, boolean discardEntity) {
+        if (boxId == null) {
+            return;
+        }
+        if (discardEntity) {
+            Entity raw = findEntityByUuid(boxId);
+            if (raw instanceof AmmoBoxEntity ammoBox && ammoBox.isAlive()) {
+                ammoBox.discard();
+            }
+        }
+        activeAmmoBoxIds.remove(boxId);
+        ammoBoxCooldownUntilTickByBox.remove(boxId);
+        ammoBoxLastNotifyTickByBox.remove(boxId);
+        ammoBoxInfoPriorityUntilTickByBox.remove(boxId);
+        ownerActiveAmmoBoxId.entrySet().removeIf(entry -> boxId.equals(entry.getValue()));
+        permanentAmmoBoxIdsByRoom.values().forEach(ids -> ids.remove(boxId));
+    }
+
+    private void removeTrackedMedicalBox(UUID boxId, boolean discardEntity) {
+        if (boxId == null) {
+            return;
+        }
+        if (discardEntity) {
+            Entity raw = findEntityByUuid(boxId);
+            if (raw instanceof MedicalBoxEntity medicalBox && medicalBox.isAlive()) {
+                medicalBox.discard();
+            }
+        }
+        activeMedicalBoxIds.remove(boxId);
+        medicalBoxCooldownUntilTickByBox.remove(boxId);
+        medicalBoxLastNotifyTickByBox.remove(boxId);
+        medicalBoxInfoPriorityUntilTickByBox.remove(boxId);
+        ownerActiveMedicalBoxId.entrySet().removeIf(entry -> boxId.equals(entry.getValue()));
+        permanentMedicalBoxIdsByRoom.values().forEach(ids -> ids.remove(boxId));
+    }
+
+    private ServerLevel resolveRoomLevel(RoomDefinition room) {
+        if (room == null || room.commonConfig().dimensionId() == null || room.commonConfig().dimensionId().isBlank()) {
+            return null;
+        }
+        ResourceLocation location = ResourceLocation.tryParse(room.commonConfig().dimensionId());
+        if (location == null) {
+            return null;
+        }
+        ResourceKey<net.minecraft.world.level.Level> key = ResourceKey.create(Registries.DIMENSION, location);
+        return server.getLevel(key);
+    }
+
+    private List<RoomPosition> resolvePermanentAmmoBoxPositions(RoomDefinition room) {
+        if (room == null) {
+            return List.of();
+        }
+        if (RoomGameplayId.DEATHMATCH.equals(room.gameplayId())) {
+            return room.deathmatchConfig().ammoBoxPositions();
+        }
+        if (RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
+            RoomBreakthroughConfig breakthrough = room.breakthroughConfig();
+            return breakthrough == null ? List.of() : breakthrough.ammoBoxPositions();
+        }
+        RoomConquestConfig conquest = room.conquestConfig();
+        return conquest == null ? List.of() : conquest.ammoBoxPositions();
+    }
+
+    private List<RoomPosition> resolvePermanentMedicalBoxPositions(RoomDefinition room) {
+        if (room == null) {
+            return List.of();
+        }
+        if (RoomGameplayId.DEATHMATCH.equals(room.gameplayId())) {
+            return room.deathmatchConfig().medicalBoxPositions();
+        }
+        if (RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
+            RoomBreakthroughConfig breakthrough = room.breakthroughConfig();
+            return breakthrough == null ? List.of() : breakthrough.medicalBoxPositions();
+        }
+        RoomConquestConfig conquest = room.conquestConfig();
+        return conquest == null ? List.of() : conquest.medicalBoxPositions();
     }
 
     private record RunningPlayerContext(RoomDefinition room, RunningRuntimeState state, RoomTeamId teamId) {

@@ -140,6 +140,8 @@ public final class RoomConfigDescriptorRegistry {
         conquest(descriptors, RoomConfigCategory.TRANSPORT, "teamDeployIconCampA", "阵营A部署图标", "conquestConfig.teamDeployIcons[CAMP_A]", RoomConfigValueType.POSITION, List.of("here"), "campADeployIconPosition");
         conquest(descriptors, RoomConfigCategory.TRANSPORT, "teamDeployIconCampB", "阵营B部署图标", "conquestConfig.teamDeployIcons[CAMP_B]", RoomConfigValueType.POSITION, List.of("here"), "campBDeployIconPosition");
         conquest(descriptors, RoomConfigCategory.TRANSPORT, "deployViewPosition", "部署界面视角", "conquestConfig.deployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"), "deployPagePosition");
+        conquestGroup(descriptors, RoomConfigCategory.TRANSPORT, "ammoBoxPositions", "征服对局弹药箱数据组", "conquestConfig.ammoBoxPositions", RoomConfigValueType.POSITION_GROUP, "conquestAmmoBoxPositions");
+        conquestGroup(descriptors, RoomConfigCategory.TRANSPORT, "medicalBoxPositions", "征服对局医疗箱数据组", "conquestConfig.medicalBoxPositions", RoomConfigValueType.POSITION_GROUP, "conquestMedicalBoxPositions");
         conquestGroup(descriptors, RoomConfigCategory.RULES, "sharedBoundary", "公共边界", "conquestConfig.sharedBoundary", RoomConfigValueType.POSITION_GROUP, "gameBoundary");
         conquestGroup(descriptors, RoomConfigCategory.RULES, "campABoundary", "阵营A边界", "conquestConfig.campABoundary", RoomConfigValueType.POSITION_GROUP, "campAGameBoundary");
         conquestGroup(descriptors, RoomConfigCategory.RULES, "campBBoundary", "阵营B边界", "conquestConfig.campBBoundary", RoomConfigValueType.POSITION_GROUP, "campBGameBoundary");
@@ -180,6 +182,8 @@ public final class RoomConfigDescriptorRegistry {
         breakthrough(descriptors, RoomConfigCategory.TRANSPORT, "btStageDeployViewD", "D阶段部署视角", "breakthroughConfig.stageDDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
         breakthrough(descriptors, RoomConfigCategory.TRANSPORT, "btStageDeployViewE", "E阶段部署视角", "breakthroughConfig.stageEDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
         breakthrough(descriptors, RoomConfigCategory.TRANSPORT, "btStageDeployViewF", "F阶段部署视角", "breakthroughConfig.stageFDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
+        breakthroughGroup(descriptors, RoomConfigCategory.TRANSPORT, "btAmmoBoxPositions", "突破对局弹药箱数据组", "breakthroughConfig.ammoBoxPositions", RoomConfigValueType.POSITION_GROUP);
+        breakthroughGroup(descriptors, RoomConfigCategory.TRANSPORT, "btMedicalBoxPositions", "突破对局医疗箱数据组", "breakthroughConfig.medicalBoxPositions", RoomConfigValueType.POSITION_GROUP);
         breakthrough(descriptors, RoomConfigCategory.RULES, "btStageDurationMinutes", "阶段持续分钟", "breakthroughConfig.stageDurationMinutes", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btDefenderRetreatSeconds", "防守方撤退秒数", "breakthroughConfig.defenderRetreatSeconds", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopGainPerDefenderKill", "守方击杀补充兵力", "breakthroughConfig.troopGainPerDefenderKill", RoomConfigValueType.NUMBER, List.of());
@@ -192,6 +196,8 @@ public final class RoomConfigDescriptorRegistry {
         deathmatch(descriptors, RoomConfigCategory.RULES, "dmStartCountdownSeconds", "团队死斗开局倒计时秒数", "deathmatchConfig.startCountdownSeconds", RoomConfigValueType.NUMBER, List.of());
         deathmatch(descriptors, RoomConfigCategory.PLAYER_STATE, "dmRespawnSeconds", "团队死斗玩家重生秒数", "deathmatchConfig.respawnSeconds", RoomConfigValueType.NUMBER, List.of());
         deathmatch(descriptors, RoomConfigCategory.TRANSPORT, "dmDeployViewPosition", "团队死斗部署界面视角", "deathmatchConfig.deployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
+        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmAmmoBoxPositions", "团队死斗对局弹药箱数据组", "deathmatchConfig.ammoBoxPositions", RoomConfigValueType.POSITION_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmMedicalBoxPositions", "团队死斗对局医疗箱数据组", "deathmatchConfig.medicalBoxPositions", RoomConfigValueType.POSITION_GROUP);
         deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampABoundary", "团队A活动范围", "deathmatchConfig.campABoundary", RoomConfigValueType.POSITION_GROUP);
         deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampBBoundary", "团队B活动范围", "deathmatchConfig.campBBoundary", RoomConfigValueType.POSITION_GROUP);
         deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampASpawnGroup", "团队A出生组", "deathmatchConfig.campASpawnGroup", RoomConfigValueType.DATA_GROUP);
