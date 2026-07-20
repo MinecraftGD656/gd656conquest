@@ -34,11 +34,11 @@ public final class ClientFovScrollService {
         }
 
         int key = event.getKey();
-        if (key == GLFW.GLFW_KEY_UP) {
+        if (ClientKeyMappings.FOV_STEP_INCREASE.matches(key, event.getScanCode())) {
             step += 1.0;
             displayStepMessage(minecraft);
             return true;
-        } else if (key == GLFW.GLFW_KEY_DOWN) {
+        } else if (ClientKeyMappings.FOV_STEP_DECREASE.matches(key, event.getScanCode())) {
             step -= 1.0;
             if (step < 0.5) {
                 step = 0.5;
