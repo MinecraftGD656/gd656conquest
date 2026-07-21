@@ -62,6 +62,7 @@ public final class RunningRuntimeState {
     private final Map<UUID, String> randomizedLoadoutClassKeysByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Map<String, String>> randomizedLoadoutSelectionIdsByPlayerSlot = new LinkedHashMap<>();
     private final Map<UUID, Map<String, Map<String, String>>> randomizedAttachmentSelectionIdsByPlayerLoadoutEntry = new LinkedHashMap<>();
+    private final Map<UUID, Map<String, String>> fixedRoomLoadoutSelectionIdsByPlayerSlot = new LinkedHashMap<>();
     private long autoTeamBalanceImbalanceSinceTick = -1L;
     private long autoTeamBalanceLastPromptTick = -1L;
     private int autoTeamBalanceLastDelta;
@@ -320,6 +321,10 @@ public final class RunningRuntimeState {
         return randomizedLoadoutSelectionIdsByPlayerSlot;
     }
 
+    public Map<UUID, Map<String, String>> getFixedRoomLoadoutSelectionIdsByPlayerSlot() {
+        return fixedRoomLoadoutSelectionIdsByPlayerSlot;
+    }
+
     public Map<UUID, Map<String, Map<String, String>>> getRandomizedAttachmentSelectionIdsByPlayerLoadoutEntry() {
         return randomizedAttachmentSelectionIdsByPlayerLoadoutEntry;
     }
@@ -549,6 +554,7 @@ public final class RunningRuntimeState {
         randomizedLoadoutClassKeysByPlayer.remove(playerId);
         randomizedLoadoutSelectionIdsByPlayerSlot.remove(playerId);
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.remove(playerId);
+        fixedRoomLoadoutSelectionIdsByPlayerSlot.remove(playerId);
         outsideBoundarySinceTicks.remove(playerId);
         respawnCountdownLastShownSeconds.remove(playerId);
         boundaryPenaltyLastShownSeconds.remove(playerId);
@@ -609,6 +615,7 @@ public final class RunningRuntimeState {
         randomizedLoadoutClassKeysByPlayer.clear();
         randomizedLoadoutSelectionIdsByPlayerSlot.clear();
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();
+        fixedRoomLoadoutSelectionIdsByPlayerSlot.clear();
         autoTeamBalanceImbalanceSinceTick = -1L;
         autoTeamBalanceLastPromptTick = -1L;
         autoTeamBalanceLastDelta = 0;

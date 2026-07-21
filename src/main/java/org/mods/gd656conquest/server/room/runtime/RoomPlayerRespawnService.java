@@ -66,8 +66,6 @@ public final class RoomPlayerRespawnService {
     private static final int DEATH_WITH_KILLER_OPEN_DEPLOY_TICKS = 120;
     private static final int DOWNED_PREVIEW_TICKS = 8 + 4 + 8 + (2 * 20);
     private static final int DEPLOY_HOLDING_HOTBAR_SLOT = 6;
-    private static final int POST_DEPLOY_INFANTRY_HOTBAR_SLOT = 0;
-    private static final int POST_DEPLOY_KNIFE_DUEL_HOTBAR_SLOT = 2;
     private static final int POST_DEPLOY_VEHICLE_HOTBAR_SLOT = 6;
     private static final int DOWNED_DURATION_TICKS = 30 * 20;
     private static final int DOWNED_SYNC_INTERVAL_TICKS = 10;
@@ -2026,18 +2024,24 @@ public final class RoomPlayerRespawnService {
         }
         int selectedSlot = vehicleDeploy
             ? POST_DEPLOY_VEHICLE_HOTBAR_SLOT
-            : resolvePostDeployInfantryHotbarSlot(room);
+            : resolvePostDeployInfantryHotbarSlot(player);
         player.getInventory().selected = selectedSlot;
         if (player.connection != null) {
             player.connection.send(new ClientboundSetCarriedItemPacket(selectedSlot));
         }
     }
 
-    private int resolvePostDeployInfantryHotbarSlot(RoomDefinition room) {
-        if (room != null && room.commonConfig().enableKnifeDuel()) {
-            return POST_DEPLOY_KNIFE_DUEL_HOTBAR_SLOT;
+    private int resolvePostDeployInfantryHotbarSlot(ServerPlayer player) {
+        if (player == null) {
+            return 0;
         }
-        return POST_DEPLOY_INFANTRY_HOTBAR_SLOT;
+        for (int slot = 0; slot < 9 && slot < player.getInventory().items.size(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (stack != null && !stack.isEmpty()) {
+                return slot;
+            }
+        }
+        return 0;
     }
 
     private void applyDeployHoldingSelectedHotbarSlot(ServerPlayer player) {

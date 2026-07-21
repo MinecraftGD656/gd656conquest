@@ -54,6 +54,7 @@ public class ChoiceListDialog {
     private Predicate<FixedChoiceConfigEntry.Choice> selectablePredicate;
     private Function<FixedChoiceConfigEntry.Choice, RowIcon> iconProvider;
     private Consumer<FixedChoiceConfigEntry.Choice> onHoverChoice;
+    private Predicate<FixedChoiceConfigEntry.Choice> disabledPredicate;
     private String extraActionText = "";
     private int extraActionColor = GuiConstants.COLOR_RED;
     private int extraActionWidth = GuiConstants.ROW_HEADER_HEIGHT;
@@ -151,6 +152,7 @@ public class ChoiceListDialog {
             onDirectAction,
             selectablePredicate,
             iconProvider,
+            null,
             null
         );
     }
@@ -172,6 +174,44 @@ public class ChoiceListDialog {
         Function<FixedChoiceConfigEntry.Choice, RowIcon> iconProvider,
         Consumer<FixedChoiceConfigEntry.Choice> onHoverChoice
     ) {
+        show(
+            initialValue,
+            title,
+            options,
+            onConfirm,
+            onCancel,
+            extraActionVisiblePredicate,
+            onExtraAction,
+            extraActionText,
+            extraActionColor,
+            extraActionWidth,
+            directActionPredicate,
+            onDirectAction,
+            selectablePredicate,
+            iconProvider,
+            onHoverChoice,
+            null
+        );
+    }
+
+    public void show(
+        String initialValue,
+        String title,
+        List<FixedChoiceConfigEntry.Choice> options,
+        Consumer<String> onConfirm,
+        Runnable onCancel,
+        Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onExtraAction,
+        String extraActionText,
+        int extraActionColor,
+        int extraActionWidth,
+        Predicate<FixedChoiceConfigEntry.Choice> directActionPredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onDirectAction,
+        Predicate<FixedChoiceConfigEntry.Choice> selectablePredicate,
+        Function<FixedChoiceConfigEntry.Choice, RowIcon> iconProvider,
+        Consumer<FixedChoiceConfigEntry.Choice> onHoverChoice,
+        Predicate<FixedChoiceConfigEntry.Choice> disabledPredicate
+    ) {
         this.onConfirm = onConfirm;
         this.onCancel = onCancel;
         this.extraActionVisiblePredicate = extraActionVisiblePredicate;
@@ -181,6 +221,7 @@ public class ChoiceListDialog {
         this.selectablePredicate = selectablePredicate;
         this.iconProvider = iconProvider;
         this.onHoverChoice = onHoverChoice;
+        this.disabledPredicate = disabledPredicate;
         this.extraActionText = extraActionText == null ? "" : extraActionText;
         this.extraActionColor = extraActionColor;
         this.extraActionWidth = extraActionWidth <= 0 ? GuiConstants.ROW_HEADER_HEIGHT : extraActionWidth;
@@ -565,8 +606,9 @@ public class ChoiceListDialog {
 
         boolean selected = choice.value().equals(selectedValue);
         boolean selectable = isSelectable(choice);
-        int firstColor = selectable ? (selected ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_WHITE) : GuiConstants.COLOR_GRAY;
-        int secondColor = selectable ? (selected ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_WHITE) : GuiConstants.COLOR_GRAY;
+        boolean disabled = isDisabled(choice);
+        int firstColor = selectable ? (selected ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_WHITE) : disabled ? 0xFF4A4A4A : GuiConstants.COLOR_GRAY;
+        int secondColor = selectable ? (selected ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_WHITE) : disabled ? 0xFF4A4A4A : GuiConstants.COLOR_GRAY;
 
         if (isDirectAction(choice)) {
             addRowIconColumn(renderer, choice);
@@ -582,7 +624,8 @@ public class ChoiceListDialog {
         addRowIconColumn(renderer, choice);
         renderer.addColumn(" " + choice.label(), -1, firstColor, true, false, null);
         renderer.addColumn(
-            selectable ? I18n.get("gd656conquest.client.gui.choice.select") : I18n.get("gd656conquest.client.gui.choice.locked"),
+            selectable ? I18n.get("gd656conquest.client.gui.choice.select")
+                : disabled ? I18n.get("gd656conquest.client.gui.choice.disabled") : I18n.get("gd656conquest.client.gui.choice.locked"),
             30,
             secondColor,
             false,
@@ -893,6 +936,10 @@ public class ChoiceListDialog {
 
     private boolean isSelectable(FixedChoiceConfigEntry.Choice choice) {
         return choice != null && (selectablePredicate == null || selectablePredicate.test(choice));
+    }
+
+    private boolean isDisabled(FixedChoiceConfigEntry.Choice choice) {
+        return choice != null && disabledPredicate != null && disabledPredicate.test(choice);
     }
 
     private void submitSelectionAndClose() {

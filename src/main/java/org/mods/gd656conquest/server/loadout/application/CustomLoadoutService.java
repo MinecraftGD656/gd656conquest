@@ -11,7 +11,9 @@ import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
+import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
+import org.mods.gd656conquest.server.room.runtime.RoomFixedLoadoutRules;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,6 +26,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 public final class CustomLoadoutService {
+    public static final String EMPTY_EQUIPMENT_ID = "EMPTY";
     private static final Pattern ID_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
 
     private CustomLoadoutService() {
@@ -38,6 +41,10 @@ public final class CustomLoadoutService {
 
     public static boolean isValidEquipmentId(String normalizedId) {
         return normalizedId != null && !normalizedId.isBlank() && ID_PATTERN.matcher(normalizedId).matches();
+    }
+
+    public static boolean isReservedEmptyEquipmentId(String normalizedId) {
+        return EMPTY_EQUIPMENT_ID.equalsIgnoreCase(normalizedId == null ? "" : normalizedId.trim());
     }
 
     public static EquipmentDataModel.EquipmentEntry getEntryById(EquipmentDataModel data, String normalizedId) {
@@ -61,6 +68,23 @@ public final class CustomLoadoutService {
         list.sort(Comparator.comparingInt(EquipmentDataModel.EquipmentEntry::getUnlockLevel)
             .thenComparing(EquipmentDataModel.EquipmentEntry::getId, String.CASE_INSENSITIVE_ORDER));
         return list;
+    }
+
+    public static EquipmentDataModel.EquipmentEntry createReservedEmptyEntry(CustomLoadoutSlot slot) {
+        if (slot == null) {
+            return null;
+        }
+        EquipmentDataModel.EquipmentEntry entry = new EquipmentDataModel.EquipmentEntry();
+        entry.setId(EMPTY_EQUIPMENT_ID);
+        entry.setSlot(slot.getIndex());
+        entry.setSlotName(slot.getKey());
+        entry.setDisplayName("空");
+        entry.setUnlockLevel(101);
+        entry.setAvailableClasses(1234);
+        entry.setItemSnbt("");
+        entry.setReplenishSeconds(0);
+        entry.setAmmoBoxRefillEnabled(false);
+        return entry;
     }
 
     public static List<EquipmentDataModel.EquipmentEntry> listEntriesByClassAndSlot(
@@ -151,6 +175,61 @@ public final class CustomLoadoutService {
             }
         }
         return "";
+    }
+
+    public static String getSelectedIdForRoomSlot(RunningRuntimeState state, UUID playerId, PlayerClassType classType, CustomLoadoutSlot slot) {
+        if (state == null || playerId == null || classType == null || slot == null) {
+            return "";
+        }
+        Map<String, String> selection = state.getFixedRoomLoadoutSelectionIdsByPlayerSlot().get(playerId);
+        if (selection == null || selection.isEmpty()) {
+            return "";
+        }
+        return normalizeEquipmentId(selection.get(makeClassSlotKey(classType, slot)));
+    }
+
+    public static void setSelectedIdForRoomSlot(
+        RunningRuntimeState state,
+        UUID playerId,
+        PlayerClassType classType,
+        CustomLoadoutSlot slot,
+        String normalizedId
+    ) {
+        if (state == null || playerId == null || classType == null || slot == null) {
+            return;
+        }
+        Map<String, String> selection = state.getFixedRoomLoadoutSelectionIdsByPlayerSlot()
+            .computeIfAbsent(playerId, ignored -> new java.util.LinkedHashMap<>());
+        String classSlotKey = makeClassSlotKey(classType, slot);
+        if (normalizedId == null || normalizedId.isBlank()) {
+            selection.remove(classSlotKey);
+        } else {
+            selection.put(classSlotKey, normalizeEquipmentId(normalizedId));
+        }
+        if (selection.isEmpty()) {
+            state.getFixedRoomLoadoutSelectionIdsByPlayerSlot().remove(playerId);
+        }
+    }
+
+    public static String resolveLowestLevelAllowedIdForSlot(
+        EquipmentDataModel data,
+        CustomLoadoutSlot slot,
+        int playerLevel,
+        RoomDefinition room
+    ) {
+        if (room != null && RoomFixedLoadoutRules.hasRestriction(room, slot)) {
+            EquipmentDataModel.EquipmentEntry entry = RoomFixedLoadoutRules.resolveFallbackEntry(room, data, slot, playerLevel);
+            if (entry != null) {
+                return normalizeEquipmentId(entry.getId());
+            }
+            return RoomFixedLoadoutRules.allowsEmpty(room, slot) ? EMPTY_EQUIPMENT_ID : null;
+        }
+        for (EquipmentDataModel.EquipmentEntry entry : listEntriesBySlot(data, slot)) {
+            if (isEntryUnlocked(entry, playerLevel)) {
+                return normalizeEquipmentId(entry.getId());
+            }
+        }
+        return null;
     }
 
     public static void setSelectedIdForClassSlot(

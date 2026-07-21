@@ -18,6 +18,7 @@ import org.mods.gd656conquest.server.facility.support.HeroKitSupportService;
 import org.mods.gd656conquest.server.facility.support.SupportScoreService;
 import org.mods.gd656conquest.server.player.identity.PlayerIdentityService;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
+import org.mods.gd656conquest.server.shared.inventory.PlayerInventorySanitizer;
 import org.mods.gd656conquest.server.room.entry.RoomAdminLifecycleService;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.gameplay.IRoomGameplayEntry;
@@ -274,6 +275,7 @@ public final class RoomCoreService {
         slot.runtime().getRunningState().addRoomPlayer(playerId, null);
         inventorySnapshotService.backupAndClear(player, slot.runtime());
         if (!playerLaunchService.teleportToQueueSpawn(player, effectiveRoom)) {
+            PlayerInventorySanitizer.clearArmorSlots(player);
             inventorySnapshotService.restore(player, slot.runtime());
             slot.runtime().getRunningState().removeRoomPlayer(playerId);
             playerSessionService.removePlayer(playerId);
@@ -1150,6 +1152,7 @@ public final class RoomCoreService {
         if (player != null) {
             inventorySnapshotService.backupAndClear(player, slot.runtime());
             if (!playerLaunchService.teleportToQueueSpawn(player, slot.room())) {
+                PlayerInventorySanitizer.clearArmorSlots(player);
                 inventorySnapshotService.restore(player, slot.runtime());
                 matchingCoordinator.leaveQueue(state, playerId);
                 notifyJoinTeleportFailure(player, slot.room());
@@ -1187,6 +1190,7 @@ public final class RoomCoreService {
                 KilliconScoreboardBridge.clearPlayerMatchSnapshot(slot.runtime().getRunningState(), playerId);
                 squadAssignmentService.removePlayer(slot.runtime(), playerId);
                 if (player != null) {
+                    PlayerInventorySanitizer.clearArmorSlots(player);
                     inventorySnapshotService.restore(player, slot.runtime());
                 }
                 RoomMatchingActionBarService.clear(player);
@@ -1673,6 +1677,7 @@ public final class RoomCoreService {
             KilliconScoreboardBridge.clearPlayerMatchSnapshot(slot.runtime().getRunningState(), playerId);
             squadAssignmentService.removePlayer(slot.runtime(), playerId);
             if (player != null) {
+                PlayerInventorySanitizer.clearArmorSlots(player);
                 inventorySnapshotService.restore(player, slot.runtime());
                 clearTransientRoomClientState(player);
             }
@@ -1715,6 +1720,7 @@ public final class RoomCoreService {
             RoomShellingRuntimeService.AbortReason.PLAYER_LEFT_ROOM
         );
         if (player != null) {
+            PlayerInventorySanitizer.clearArmorSlots(player);
             inventorySnapshotService.restore(player, slot.runtime());
             clearTransientRoomClientState(player);
         }
@@ -1768,6 +1774,7 @@ public final class RoomCoreService {
             RoomShellingRuntimeService.AbortReason.PLAYER_LEFT_ROOM
         );
         if (player != null) {
+            PlayerInventorySanitizer.clearArmorSlots(player);
             inventorySnapshotService.restore(player, slot.runtime());
             clearTransientRoomClientState(player);
         }
@@ -1830,6 +1837,7 @@ public final class RoomCoreService {
         for (UUID playerId : players) {
             ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
             if (player != null) {
+                PlayerInventorySanitizer.clearArmorSlots(player);
                 inventorySnapshotService.restore(player, slot.runtime());
                 clearTransientRoomClientState(player);
             }

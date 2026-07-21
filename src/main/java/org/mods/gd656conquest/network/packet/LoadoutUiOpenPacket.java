@@ -111,12 +111,14 @@ public final class LoadoutUiOpenPacket {
                 buffer.writeUtf(slotPayload.slotKey());
                 buffer.writeUtf(slotPayload.slotLabel());
                 buffer.writeUtf(slotPayload.selectedId());
+                buffer.writeBoolean(slotPayload.roomRestricted());
                 buffer.writeInt(slotPayload.entries().size());
                 for (EntryPayload entry : slotPayload.entries()) {
                     buffer.writeUtf(entry.id());
                     buffer.writeUtf(entry.displayName());
                     buffer.writeInt(entry.unlockLevel());
                     buffer.writeBoolean(entry.unlocked());
+                    buffer.writeBoolean(entry.roomEnabled());
                     buffer.writeUtf(entry.itemSnbt());
                 }
             }
@@ -213,6 +215,7 @@ public final class LoadoutUiOpenPacket {
                 String slotKey = buffer.readUtf();
                 String slotLabel = buffer.readUtf();
                 String selectedId = buffer.readUtf();
+                boolean roomRestricted = buffer.readBoolean();
                 int entryCount = Math.max(0, buffer.readInt());
                 List<EntryPayload> entries = new ArrayList<>();
                 for (int entryIndex = 0; entryIndex < entryCount; entryIndex++) {
@@ -221,10 +224,11 @@ public final class LoadoutUiOpenPacket {
                         buffer.readUtf(),
                         buffer.readInt(),
                         buffer.readBoolean(),
+                        buffer.readBoolean(),
                         buffer.readUtf()
                     ));
                 }
-                slots.add(new SlotPayload(index, slotKey, slotLabel, selectedId, entries));
+                slots.add(new SlotPayload(index, slotKey, slotLabel, selectedId, roomRestricted, entries));
             }
             classes.add(new ClassPayload(classKey, className, slots));
         }
@@ -364,10 +368,10 @@ public final class LoadoutUiOpenPacket {
     public record ClassPayload(String classKey, String className, List<SlotPayload> slots) {
     }
 
-    public record SlotPayload(int slotIndex, String slotKey, String slotLabel, String selectedId, List<EntryPayload> entries) {
+    public record SlotPayload(int slotIndex, String slotKey, String slotLabel, String selectedId, boolean roomRestricted, List<EntryPayload> entries) {
     }
 
-    public record EntryPayload(String id, String displayName, int unlockLevel, boolean unlocked, String itemSnbt) {
+    public record EntryPayload(String id, String displayName, int unlockLevel, boolean unlocked, boolean roomEnabled, String itemSnbt) {
     }
 
     public record AdminEquipmentPayload(

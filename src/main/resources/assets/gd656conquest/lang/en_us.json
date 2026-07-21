@@ -68,6 +68,7 @@
   "gd656conquest.client.gui.config.cancel": "Cancel",
   "gd656conquest.client.gui.choice.select": "Select",
   "gd656conquest.client.gui.choice.locked": "Locked",
+  "gd656conquest.client.gui.choice.disabled": "Disabled",
   "gd656conquest.client.gui.loadout.close": "Close",
   "gd656conquest.client.gui.loadout.title": "Custom Loadout",
   "gd656conquest.client.gui.loadout.class": "Select Class",

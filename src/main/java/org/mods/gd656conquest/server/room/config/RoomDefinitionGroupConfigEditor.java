@@ -191,7 +191,6 @@ public final class RoomDefinitionGroupConfigEditor {
             common.disableHunger(),
             common.enableAutoTeamSwitchPrompt(),
             common.disableInventoryChange(),
-            common.enableKnifeDuel(),
             common.enableGoatHorn(),
             common.enablePlayerDowned(),
             common.enableRespawnCountdownWhileDowned(),
@@ -200,17 +199,29 @@ public final class RoomDefinitionGroupConfigEditor {
             common.enableRandomAttachments(),
             common.enableParachute(),
             common.enableDeathSupportDrop(),
-            common.enableSniperRoom(),
             common.disableUndyingTotem(),
             common.allowPlayerCampSwitch(),
             "supportcampaherokits".equals(canonical) ? updatedValues : common.supportCampAHeroKits(),
             "supportcampbherokits".equals(canonical) ? updatedValues : common.supportCampBHeroKits(),
             "supportcampashellings".equals(canonical) ? updatedValues : common.supportCampAShellings(),
             "supportcampbshellings".equals(canonical) ? updatedValues : common.supportCampBShellings(),
+            "roomprimaryweaponids".equals(canonical) ? updatedValues : common.roomPrimaryWeaponIds(),
+            "roomsecondaryweaponids".equals(canonical) ? updatedValues : common.roomSecondaryWeaponIds(),
+            "roommeleeweaponids".equals(canonical) ? updatedValues : common.roomMeleeWeaponIds(),
+            "roomgadget1ids".equals(canonical) ? updatedValues : common.roomGadget1Ids(),
+            "roomgadget2ids".equals(canonical) ? updatedValues : common.roomGadget2Ids(),
+            "roomthrowableids".equals(canonical) ? updatedValues : common.roomThrowableIds(),
             common.campAEquipmentSetId(),
             common.campBEquipmentSetId()
         );
-        return rebuild(definition, updatedCommon, definition.conquestConfig());
+        return new RoomDefinition(
+            definition.roomId(),
+            definition.displayName(),
+            definition.gameplayId(),
+            definition.lifecycleState(),
+            updatedCommon,
+            definition.gameplayConfig()
+        );
     }
 
     private static List<String> resolveCommonStringGroup(RoomDefinition definition, String canonical) {
@@ -226,6 +237,24 @@ public final class RoomDefinitionGroupConfigEditor {
         }
         if ("supportcampbshellings".equals(canonical)) {
             return new ArrayList<>(common.supportCampBShellings());
+        }
+        if ("roomprimaryweaponids".equals(canonical)) {
+            return new ArrayList<>(common.roomPrimaryWeaponIds());
+        }
+        if ("roomsecondaryweaponids".equals(canonical)) {
+            return new ArrayList<>(common.roomSecondaryWeaponIds());
+        }
+        if ("roommeleeweaponids".equals(canonical)) {
+            return new ArrayList<>(common.roomMeleeWeaponIds());
+        }
+        if ("roomgadget1ids".equals(canonical)) {
+            return new ArrayList<>(common.roomGadget1Ids());
+        }
+        if ("roomgadget2ids".equals(canonical)) {
+            return new ArrayList<>(common.roomGadget2Ids());
+        }
+        if ("roomthrowableids".equals(canonical)) {
+            return new ArrayList<>(common.roomThrowableIds());
         }
         throw new IllegalArgumentException("未知 common 组配置: " + canonical);
     }
@@ -671,7 +700,13 @@ public final class RoomDefinitionGroupConfigEditor {
         return "supportcampaherokits".equals(canonical)
             || "supportcampbherokits".equals(canonical)
             || "supportcampashellings".equals(canonical)
-            || "supportcampbshellings".equals(canonical);
+            || "supportcampbshellings".equals(canonical)
+            || "roomprimaryweaponids".equals(canonical)
+            || "roomsecondaryweaponids".equals(canonical)
+            || "roommeleeweaponids".equals(canonical)
+            || "roomgadget1ids".equals(canonical)
+            || "roomgadget2ids".equals(canonical)
+            || "roomthrowableids".equals(canonical);
     }
 
     private static boolean isBreakthroughBoundaryGroup(String canonical) {

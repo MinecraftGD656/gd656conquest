@@ -64,13 +64,6 @@ public final class RoomPlayerLoadoutService {
     private static final int THROWABLE_HOTBAR_SLOT = 5;
     private static final int GOAT_HORN_HOTBAR_SLOT = 7;
     private static final int SUPPORT_HOTBAR_SLOT = 8;
-    private static final java.util.Set<CustomLoadoutSlot> KNIFE_DUEL_BLOCKED_SLOTS = EnumSet.of(
-        CustomLoadoutSlot.PRIMARY_WEAPON,
-        CustomLoadoutSlot.SECONDARY_WEAPON,
-        CustomLoadoutSlot.GADGET_1,
-        CustomLoadoutSlot.GADGET_2,
-        CustomLoadoutSlot.THROWABLE
-    );
     private static final int PRIMARY_AMMO_ROW_START = 18;
     private static final int PRIMARY_AMMO_ROW_END = 26;
     private static final int SECONDARY_AMMO_ROW_START = 29;
@@ -966,13 +959,12 @@ public final class RoomPlayerLoadoutService {
             return resolveRandomizedLoadoutSelection(roomContext, equipmentData, player, refreshRandomSelection, notifyPlayer);
         }
         PlayerClassType selectedClassType = CustomLoadoutService.resolveCurrentClass(playerData);
-        PlayerClassType effectiveClassType = isSniperRoomEnabled(roomContext) ? PlayerClassType.RECON : selectedClassType;
         ActiveLoadoutSelection selection = resolveManualLoadoutSelectionForClass(
             equipmentData,
             playerData,
-            effectiveClassType,
+            selectedClassType,
             playerLevel,
-            selectedClassType != effectiveClassType
+            false
         );
         return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, selection, notifyPlayer);
     }
@@ -1051,9 +1043,6 @@ public final class RoomPlayerLoadoutService {
             }
         }
         List<PlayerClassType> candidates = !fullCoverageClasses.isEmpty() ? fullCoverageClasses : partialCoverageClasses;
-        if (roomContext.room() != null && roomContext.room().commonConfig().enableSniperRoom()) {
-            candidates = List.of(PlayerClassType.RECON);
-        }
         if (candidates.isEmpty()) {
             state.getRandomizedLoadoutClassKeysByPlayer().remove(playerId);
             state.getRandomizedLoadoutSelectionIdsByPlayerSlot().remove(playerId);
@@ -1064,12 +1053,6 @@ public final class RoomPlayerLoadoutService {
         Map<String, String> storedSelectionIds = new LinkedHashMap<>();
         for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
             List<EquipmentDataModel.EquipmentEntry> candidatesBySlot = CustomLoadoutService.listEntriesByClassAndSlot(equipmentData, chosenClass, slot);
-            if (roomContext.room() != null && roomContext.room().commonConfig().enableSniperRoom() && slot == CustomLoadoutSlot.PRIMARY_WEAPON) {
-                candidatesBySlot = candidatesBySlot.stream().filter(entry -> {
-                    ItemStack stack = deserializeEquipmentItem(entry.getItemSnbt());
-                    return "sniper".equals(TaczAttachmentCompatService.getInstance().resolveGunType(stack));
-                }).toList();
-            }
             if (candidatesBySlot.isEmpty()) {
                 continue;
             }
@@ -1122,81 +1105,92 @@ public final class RoomPlayerLoadoutService {
             && roomContext.room().commonConfig().enableRandomLoadout();
     }
 
-    private boolean isSniperRoomEnabled(RoomRuntimeContext roomContext) {
-        return roomContext != null
-            && roomContext.room() != null
-            && roomContext.room().commonConfig().enableSniperRoom();
-    }
-
     private ActiveLoadoutSelection applyRoomLoadoutRestrictions(RoomRuntimeContext roomContext, EquipmentDataModel equipmentData, ServerPlayer player, ActiveLoadoutSelection selection, boolean notifyPlayer) {
-        if (selection == null || selection.entriesBySlot().isEmpty() || roomContext == null || roomContext.room() == null) {
+        if (selection == null || roomContext == null || roomContext.room() == null) {
             return selection;
         }
 
         PlayerClassType classType = selection.classType();
         Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entries = new EnumMap<>(CustomLoadoutSlot.class);
         entries.putAll(selection.entriesBySlot());
-        boolean changed = selection.playerDataChanged();
-
-        if (isSniperRoomEnabled(roomContext)) {
-            EquipmentDataModel.EquipmentEntry primaryEntry = entries.get(CustomLoadoutSlot.PRIMARY_WEAPON);
-            boolean isSniper = false;
-            
-            if (primaryEntry != null) {
-                ItemStack gunStack = deserializeEquipmentItem(primaryEntry.getItemSnbt());
-                String gunType = TaczAttachmentCompatService.getInstance().resolveGunType(gunStack);
-                if ("sniper".equals(gunType)) {
-                    isSniper = true;
-                }
+        for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
+            if (!RoomFixedLoadoutRules.hasRestriction(roomContext.room(), slot)) {
+                continue;
             }
-            
-            if (!isSniper) {
-                EquipmentDataModel.EquipmentEntry fallbackSniper = findDefaultSniper(equipmentData);
-                if (fallbackSniper != null) {
-                    entries.put(CustomLoadoutSlot.PRIMARY_WEAPON, fallbackSniper);
-                    if (player != null && notifyPlayer && !selection.randomized()) {
-                        org.mods.gd656conquest.server.shared.log.ServerLogger.sendToClient(
-                            player,
-                            org.mods.gd656conquest.common.log.ClientMessageType.WARNING,
-                            selection.classForcedByRoom()
-                                ? "当前房间已开启狙击房模式，已自动切换为侦察兵配装，并将主武器替换为基础狙击枪"
-                                : "当前房间已开启狙击房模式，主武器已自动替换为基础狙击枪"
-                        );
-                    }
-                }
-            } else if (selection.classForcedByRoom() && player != null && notifyPlayer && !selection.randomized()) {
-                org.mods.gd656conquest.server.shared.log.ServerLogger.sendToClient(
-                    player,
-                    org.mods.gd656conquest.common.log.ClientMessageType.WARNING,
-                    "当前房间已开启狙击房模式，已自动切换为侦察兵配装"
-                );
+            EquipmentDataModel.EquipmentEntry resolvedEntry = resolveRoomRestrictedEntry(
+                roomContext,
+                equipmentData,
+                player,
+                classType,
+                slot,
+                entries.get(slot)
+            );
+            if (resolvedEntry == null) {
+                entries.remove(slot);
+            } else {
+                entries.put(slot, resolvedEntry);
             }
         }
 
-        if (isKnifeDuelEnabled(roomContext)) {
-            entries.keySet().removeIf(KNIFE_DUEL_BLOCKED_SLOTS::contains);
-        }
-
-        return new ActiveLoadoutSelection(classType, entries, selection.randomized(), changed, selection.classForcedByRoom());
+        return new ActiveLoadoutSelection(classType, entries, selection.randomized(), selection.playerDataChanged(), selection.classForcedByRoom());
     }
 
-    private EquipmentDataModel.EquipmentEntry findDefaultSniper(EquipmentDataModel equipmentData) {
-        if (equipmentData == null) return null;
-        for (EquipmentDataModel.EquipmentEntry entry : CustomLoadoutService.listEntriesBySlot(equipmentData, CustomLoadoutSlot.PRIMARY_WEAPON)) {
-            if (entry.getUnlockLevel() <= 0 && CustomLoadoutService.isEntryAvailableForClass(entry, PlayerClassType.RECON)) {
-                ItemStack stack = deserializeEquipmentItem(entry.getItemSnbt());
-                if ("sniper".equals(TaczAttachmentCompatService.getInstance().resolveGunType(stack))) {
-                    return entry;
-                }
-            }
+    private EquipmentDataModel.EquipmentEntry resolveRoomRestrictedEntry(
+        RoomRuntimeContext roomContext,
+        EquipmentDataModel equipmentData,
+        ServerPlayer player,
+        PlayerClassType classType,
+        CustomLoadoutSlot slot,
+        EquipmentDataModel.EquipmentEntry currentEntry
+    ) {
+        if (roomContext == null || roomContext.room() == null || equipmentData == null || slot == null) {
+            return currentEntry;
         }
-        return null;
+        RoomDefinition room = roomContext.room();
+        if (!RoomFixedLoadoutRules.hasRestriction(room, slot)) {
+            return currentEntry;
+        }
+        int playerLevel = player == null ? 0 : PlayerLevelService.getEffectiveLevel(player);
+        String roomSelectedId = CustomLoadoutService.getSelectedIdForRoomSlot(
+            roomContext.state(),
+            player == null ? null : player.getUUID(),
+            classType,
+            slot
+        );
+        if (!roomSelectedId.isBlank()) {
+            if (CustomLoadoutService.isReservedEmptyEquipmentId(roomSelectedId)) {
+                return RoomFixedLoadoutRules.allowsEmpty(room, slot) ? null : resolveRoomRestrictionFallback(roomContext, player, classType, slot, equipmentData, playerLevel);
+            }
+            EquipmentDataModel.EquipmentEntry roomSelectedEntry = equipmentData.getEquipmentById().get(roomSelectedId);
+            if (roomSelectedEntry != null
+                && roomSelectedEntry.getSlot() == slot.getIndex()
+                && CustomLoadoutService.isEntryUnlocked(roomSelectedEntry, playerLevel)
+                && RoomFixedLoadoutRules.allowsEntryId(room, slot, roomSelectedId)) {
+                return roomSelectedEntry;
+            }
+            CustomLoadoutService.setSelectedIdForRoomSlot(roomContext.state(), player == null ? null : player.getUUID(), classType, slot, "");
+        }
+        String currentId = currentEntry == null ? "" : CustomLoadoutService.normalizeEquipmentId(currentEntry.getId());
+        if (!currentId.isBlank() && RoomFixedLoadoutRules.allowsEntryId(room, slot, currentId)) {
+            return currentEntry;
+        }
+        return resolveRoomRestrictionFallback(roomContext, player, classType, slot, equipmentData, playerLevel);
     }
 
-    private boolean isKnifeDuelEnabled(RoomRuntimeContext roomContext) {
-        return roomContext != null
-            && roomContext.room() != null
-            && roomContext.room().commonConfig().enableKnifeDuel();
+    private EquipmentDataModel.EquipmentEntry resolveRoomRestrictionFallback(
+        RoomRuntimeContext roomContext,
+        ServerPlayer player,
+        PlayerClassType classType,
+        CustomLoadoutSlot slot,
+        EquipmentDataModel equipmentData,
+        int playerLevel
+    ) {
+        RoomDefinition room = roomContext == null ? null : roomContext.room();
+        EquipmentDataModel.EquipmentEntry fallbackEntry = RoomFixedLoadoutRules.resolveFallbackEntry(room, equipmentData, slot, playerLevel);
+        if (fallbackEntry != null) {
+            return fallbackEntry;
+        }
+        return RoomFixedLoadoutRules.allowsEmpty(room, slot) ? null : null;
     }
 
     private boolean isRandomizedAttachmentEnabled(RoomRuntimeContext roomContext) {

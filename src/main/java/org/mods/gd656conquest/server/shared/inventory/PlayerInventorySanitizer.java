@@ -8,15 +8,30 @@ public final class PlayerInventorySanitizer {
     private PlayerInventorySanitizer() {
     }
 
+    public static void clearArmorSlots(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        clearArmorSlotsInternal(player);
+        flush(player);
+    }
+
+    private static void clearArmorSlotsInternal(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        player.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
+        player.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+        player.setItemSlot(EquipmentSlot.LEGS, ItemStack.EMPTY);
+        player.setItemSlot(EquipmentSlot.FEET, ItemStack.EMPTY);
+    }
+
     public static void clearAllSlots(ServerPlayer player) {
         if (player == null) {
             return;
         }
         player.getInventory().clearContent();
-        player.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
-        player.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
-        player.setItemSlot(EquipmentSlot.LEGS, ItemStack.EMPTY);
-        player.setItemSlot(EquipmentSlot.FEET, ItemStack.EMPTY);
+        clearArmorSlotsInternal(player);
         player.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
         player.containerMenu.setCarried(ItemStack.EMPTY);
         flush(player);

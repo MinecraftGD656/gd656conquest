@@ -251,7 +251,6 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().disableHunger(),
             base.commonConfig().enableAutoTeamSwitchPrompt(),
             base.commonConfig().disableInventoryChange(),
-            base.commonConfig().enableKnifeDuel(),
             base.commonConfig().enableGoatHorn(),
             base.commonConfig().enablePlayerDowned(),
             base.commonConfig().enableRespawnCountdownWhileDowned(),
@@ -260,13 +259,18 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().enableRandomAttachments(),
             base.commonConfig().enableParachute(),
             base.commonConfig().enableDeathSupportDrop(),
-            base.commonConfig().enableSniperRoom(),
             base.commonConfig().disableUndyingTotem(),
             base.commonConfig().allowPlayerCampSwitch(),
             base.commonConfig().supportCampAHeroKits(),
             base.commonConfig().supportCampBHeroKits(),
             base.commonConfig().supportCampAShellings(),
             base.commonConfig().supportCampBShellings(),
+            base.commonConfig().roomPrimaryWeaponIds(),
+            base.commonConfig().roomSecondaryWeaponIds(),
+            base.commonConfig().roomMeleeWeaponIds(),
+            base.commonConfig().roomGadget1Ids(),
+            base.commonConfig().roomGadget2Ids(),
+            base.commonConfig().roomThrowableIds(),
             base.commonConfig().campAEquipmentSetId(),
             base.commonConfig().campBEquipmentSetId()
         );
@@ -372,7 +376,6 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             false, // disableHunger
             false, // enableAutoTeamSwitchPrompt
             false, // disableInventoryChange
-            false, // enableKnifeDuel
             false, // enableGoatHorn
             false, // enablePlayerDowned
             false, // enableRespawnCountdownWhileDowned
@@ -381,9 +384,14 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             false, // enableRandomAttachments
             false, // enableParachute
             true,  // enableDeathSupportDrop
-            false, // enableSniperRoom
             false, // disableUndyingTotem
             true,  // allowPlayerCampSwitch
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
             List.of(),
             List.of(),
             List.of(),

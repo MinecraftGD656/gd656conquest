@@ -70,6 +70,7 @@
   "gd656conquest.client.gui.config.cancel": "取消",
   "gd656conquest.client.gui.choice.select": "选择",
   "gd656conquest.client.gui.choice.locked": "锁定",
+  "gd656conquest.client.gui.choice.disabled": "禁用",
   "gd656conquest.client.gui.loadout.close": "关闭",
   "gd656conquest.client.gui.loadout.title": "自定义配装",
   "gd656conquest.client.gui.loadout.class": "兵种选择",

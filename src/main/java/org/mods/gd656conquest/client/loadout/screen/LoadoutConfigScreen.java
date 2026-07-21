@@ -716,6 +716,7 @@ public class LoadoutConfigScreen extends Screen {
         }
 
         Set<String> lockedIds = new HashSet<>();
+        Set<String> roomDisabledIds = new HashSet<>();
         Map<String, ChoiceListDialog.RowIcon> iconByEntryId = new HashMap<>();
         String classKey = currentClass.classKey();
         String selectedId = slotState.selectedId();
@@ -807,7 +808,8 @@ public class LoadoutConfigScreen extends Screen {
         for (ClientLoadoutUiState.EntryState entry : slotState.sortedEntries()) {
             String display = entry.displayName().isBlank() ? entry.id() : entry.displayName();
             String lockSuffix = entry.unlocked() ? "" : ("  Lv." + entry.unlockLevel() + "未解锁");
-            String prefix = entry.unlocked() ? "§f" : "§7";
+            boolean roomEnabled = entry.roomEnabled();
+            String prefix = !roomEnabled ? "§8" : entry.unlocked() ? "§f" : "§7";
             String label = prefix + display + " §8[" + entry.id() + "]" + (lockSuffix.isBlank() ? "" : " §7" + lockSuffix);
             choices.add(new FixedChoiceConfigEntry.Choice(entry.id(), label));
             ChoiceListDialog.RowIcon icon = buildItemIcon(entry.itemSnbt());
@@ -816,6 +818,9 @@ public class LoadoutConfigScreen extends Screen {
             }
             if (!entry.unlocked()) {
                 lockedIds.add(entry.id());
+            }
+            if (!roomEnabled) {
+                roomDisabledIds.add(entry.id());
             }
         }
 
@@ -837,9 +842,10 @@ public class LoadoutConfigScreen extends Screen {
                     17,
                     null,
                     null,
-                    choice -> choice != null && !lockedIds.contains(choice.value()),
+                    choice -> choice != null && !lockedIds.contains(choice.value()) && !roomDisabledIds.contains(choice.value()),
                     choice -> choice == null ? null : iconByEntryId.get(choice.value()),
-                    choice -> hoveredGunChoice = choice
+                    choice -> hoveredGunChoice = choice,
+                    choice -> choice != null && roomDisabledIds.contains(choice.value())
             );
             syncChoiceDialogHorizontalOffset();
             return;
@@ -858,8 +864,10 @@ public class LoadoutConfigScreen extends Screen {
                 17,
                 null,
                 null,
-                choice -> choice != null && !lockedIds.contains(choice.value()),
-                choice -> choice == null ? null : iconByEntryId.get(choice.value())
+                choice -> choice != null && !lockedIds.contains(choice.value()) && !roomDisabledIds.contains(choice.value()),
+                choice -> choice == null ? null : iconByEntryId.get(choice.value()),
+                null,
+                choice -> choice != null && roomDisabledIds.contains(choice.value())
         );
     }
 

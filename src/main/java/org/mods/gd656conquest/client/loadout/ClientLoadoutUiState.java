@@ -55,6 +55,7 @@ public final class ClientLoadoutUiState {
                             entryPayload.displayName() == null ? "" : entryPayload.displayName(),
                             Math.max(0, entryPayload.unlockLevel()),
                             entryPayload.unlocked(),
+                            entryPayload.roomEnabled(),
                             entryPayload.itemSnbt() == null ? "" : entryPayload.itemSnbt()
                     ));
                 }
@@ -63,6 +64,7 @@ public final class ClientLoadoutUiState {
                         slotPayload.slotKey() == null ? "" : slotPayload.slotKey(),
                         slotPayload.slotLabel() == null ? "" : slotPayload.slotLabel(),
                         slotPayload.selectedId() == null ? "" : slotPayload.selectedId(),
+                        slotPayload.roomRestricted(),
                         entries
                 ));
             }
@@ -247,7 +249,7 @@ public final class ClientLoadoutUiState {
     public record ClassState(String classKey, String className, Map<Integer, SlotState> slots) {
     }
 
-    public record SlotState(int slotIndex, String slotKey, String slotLabel, String selectedId, Map<String, EntryState> entries) {
+    public record SlotState(int slotIndex, String slotKey, String slotLabel, String selectedId, boolean roomRestricted, Map<String, EntryState> entries) {
         public List<EntryState> sortedEntries() {
             return entries.values().stream()
                     .sorted((left, right) -> {
@@ -261,7 +263,7 @@ public final class ClientLoadoutUiState {
         }
     }
 
-    public record EntryState(String id, String displayName, int unlockLevel, boolean unlocked, String itemSnbt) {
+    public record EntryState(String id, String displayName, int unlockLevel, boolean unlocked, boolean roomEnabled, String itemSnbt) {
     }
 
     public record AdminEquipmentState(

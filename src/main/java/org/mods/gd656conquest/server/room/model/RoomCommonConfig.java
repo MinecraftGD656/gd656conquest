@@ -1,8 +1,11 @@
 package org.mods.gd656conquest.server.room.model;
 
-import java.util.ArrayList;
+import org.mods.gd656conquest.server.loadout.application.CustomLoadoutService;
+import org.mods.gd656conquest.server.loadout.domain.CustomLoadoutSlot;
+
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 
 public record RoomCommonConfig(
     RoomMatchingConfig matchingConfig,
@@ -24,7 +27,6 @@ public record RoomCommonConfig(
     boolean disableHunger,
     boolean enableAutoTeamSwitchPrompt,
     boolean disableInventoryChange,
-    boolean enableKnifeDuel,
     boolean enableGoatHorn,
     boolean enablePlayerDowned,
     boolean enableRespawnCountdownWhileDowned,
@@ -33,13 +35,18 @@ public record RoomCommonConfig(
     boolean enableRandomAttachments,
     boolean enableParachute,
     boolean enableDeathSupportDrop,
-    boolean enableSniperRoom,
     boolean disableUndyingTotem,
     Boolean allowPlayerCampSwitch,
     List<String> supportCampAHeroKits,
     List<String> supportCampBHeroKits,
     List<String> supportCampAShellings,
     List<String> supportCampBShellings,
+    List<String> roomPrimaryWeaponIds,
+    List<String> roomSecondaryWeaponIds,
+    List<String> roomMeleeWeaponIds,
+    List<String> roomGadget1Ids,
+    List<String> roomGadget2Ids,
+    List<String> roomThrowableIds,
     String campAEquipmentSetId,
     String campBEquipmentSetId
 ) {
@@ -60,10 +67,16 @@ public record RoomCommonConfig(
         campBVoicePack = normalizeVoicePack(campBVoicePack);
         progressSpeed = Double.isFinite(progressSpeed) && progressSpeed > 0.0D ? progressSpeed : 40.0D;
         allowPlayerCampSwitch = allowPlayerCampSwitch == null ? Boolean.TRUE : allowPlayerCampSwitch;
-        supportCampAHeroKits = normalizeSupportIds(supportCampAHeroKits);
-        supportCampBHeroKits = normalizeSupportIds(supportCampBHeroKits);
-        supportCampAShellings = normalizeSupportIds(supportCampAShellings);
-        supportCampBShellings = normalizeSupportIds(supportCampBShellings);
+        supportCampAHeroKits = normalizeStringIds(supportCampAHeroKits, false);
+        supportCampBHeroKits = normalizeStringIds(supportCampBHeroKits, false);
+        supportCampAShellings = normalizeStringIds(supportCampAShellings, false);
+        supportCampBShellings = normalizeStringIds(supportCampBShellings, false);
+        roomPrimaryWeaponIds = normalizeStringIds(roomPrimaryWeaponIds, true);
+        roomSecondaryWeaponIds = normalizeStringIds(roomSecondaryWeaponIds, true);
+        roomMeleeWeaponIds = normalizeStringIds(roomMeleeWeaponIds, true);
+        roomGadget1Ids = normalizeStringIds(roomGadget1Ids, true);
+        roomGadget2Ids = normalizeStringIds(roomGadget2Ids, true);
+        roomThrowableIds = normalizeStringIds(roomThrowableIds, true);
         campAEquipmentSetId = normalizeEquipmentSetId(campAEquipmentSetId);
         campBEquipmentSetId = normalizeEquipmentSetId(campBEquipmentSetId);
     }
@@ -96,11 +109,15 @@ public record RoomCommonConfig(
             false,
             false,
             false,
-            false,
             true,
             false,
-            false,
             true,
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
             List.of(),
             List.of(),
             List.of(),
@@ -112,6 +129,20 @@ public record RoomCommonConfig(
 
     public static RoomPosition defaultQueueSpawn() {
         return new RoomPosition(0, 100, 0);
+    }
+
+    public List<String> fixedLoadoutIds(CustomLoadoutSlot slot) {
+        if (slot == null) {
+            return List.of();
+        }
+        return switch (slot) {
+            case PRIMARY_WEAPON -> roomPrimaryWeaponIds;
+            case SECONDARY_WEAPON -> roomSecondaryWeaponIds;
+            case MELEE -> roomMeleeWeaponIds;
+            case GADGET_1 -> roomGadget1Ids;
+            case GADGET_2 -> roomGadget2Ids;
+            case THROWABLE -> roomThrowableIds;
+        };
     }
 
     private static String normalizeDimensionId(String dimensionId) {
@@ -126,341 +157,14 @@ public record RoomCommonConfig(
     }
 
     private static String normalizeVoicePack(String voicePack) {
-        return voicePack == null ? "" : voicePack.trim().toUpperCase(java.util.Locale.ROOT);
-    }
-
-    public RoomCommonConfig(
-        RoomMatchingConfig matchingConfig,
-        String dimensionId,
-        RoomPosition queueSpawn,
-        int respawnDelaySeconds,
-        RoomPlayerStateConfig playerStateConfig,
-        int outsideBoundaryDeathSeconds,
-        int aircraftOutsideBoundaryCleanupSeconds,
-        int playerMaxY,
-        int aircraftPassengerMaxY,
-        String campADisplayName,
-        String campBDisplayName,
-        String campAVoicePack,
-        String campBVoicePack,
-        double progressSpeed,
-        RoomResultConfig resultConfig,
-        boolean disableHunger,
-        boolean enableAutoTeamSwitchPrompt,
-        boolean disableInventoryChange
-    ) {
-        this(
-            matchingConfig,
-            dimensionId,
-            queueSpawn,
-            respawnDelaySeconds,
-            RoomVehicleBackend.defaultValue(),
-            playerStateConfig,
-            outsideBoundaryDeathSeconds,
-            aircraftOutsideBoundaryCleanupSeconds,
-            playerMaxY,
-            aircraftPassengerMaxY,
-            campADisplayName,
-            campBDisplayName,
-            campAVoicePack,
-            campBVoicePack,
-            progressSpeed,
-            resultConfig,
-            disableHunger,
-            enableAutoTeamSwitchPrompt,
-            disableInventoryChange,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            true,
-            false,
-            false,
-            true,
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of(),
-            "",
-            ""
-        );
-    }
-
-    public RoomCommonConfig(
-        RoomMatchingConfig matchingConfig,
-        String dimensionId,
-        RoomPosition queueSpawn,
-        int respawnDelaySeconds,
-        RoomVehicleBackend vehicleBackend,
-        RoomPlayerStateConfig playerStateConfig,
-        int outsideBoundaryDeathSeconds,
-        int aircraftOutsideBoundaryCleanupSeconds,
-        int playerMaxY,
-        int aircraftPassengerMaxY,
-        String campADisplayName,
-        String campBDisplayName,
-        String campAVoicePack,
-        String campBVoicePack,
-        double progressSpeed,
-        RoomResultConfig resultConfig,
-        boolean disableHunger,
-        boolean enableAutoTeamSwitchPrompt,
-        boolean disableInventoryChange
-    ) {
-        this(
-            matchingConfig,
-            dimensionId,
-            queueSpawn,
-            respawnDelaySeconds,
-            vehicleBackend,
-            playerStateConfig,
-            outsideBoundaryDeathSeconds,
-            aircraftOutsideBoundaryCleanupSeconds,
-            playerMaxY,
-            aircraftPassengerMaxY,
-            campADisplayName,
-            campBDisplayName,
-            campAVoicePack,
-            campBVoicePack,
-            progressSpeed,
-            resultConfig,
-            disableHunger,
-            enableAutoTeamSwitchPrompt,
-            disableInventoryChange,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            true,
-            false,
-            false,
-            true,
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of(),
-            "",
-            ""
-        );
-    }
-
-    public RoomCommonConfig(
-        RoomMatchingConfig matchingConfig,
-        String dimensionId,
-        RoomPosition queueSpawn,
-        int respawnDelaySeconds,
-        RoomVehicleBackend vehicleBackend,
-        RoomPlayerStateConfig playerStateConfig,
-        int outsideBoundaryDeathSeconds,
-        int aircraftOutsideBoundaryCleanupSeconds,
-        int playerMaxY,
-        int aircraftPassengerMaxY,
-        String campADisplayName,
-        String campBDisplayName,
-        String campAVoicePack,
-        String campBVoicePack,
-        double progressSpeed,
-        RoomResultConfig resultConfig,
-        boolean disableHunger,
-        boolean enableAutoTeamSwitchPrompt,
-        boolean disableInventoryChange,
-        boolean enableGoatHorn,
-        boolean enablePlayerDowned,
-        boolean enableRespawnCountdownWhileDowned,
-        boolean enableBackAgainstWall,
-        boolean enableRandomLoadout
-    ) {
-        this(
-            matchingConfig,
-            dimensionId,
-            queueSpawn,
-            respawnDelaySeconds,
-            vehicleBackend,
-            playerStateConfig,
-            outsideBoundaryDeathSeconds,
-            aircraftOutsideBoundaryCleanupSeconds,
-            playerMaxY,
-            aircraftPassengerMaxY,
-            campADisplayName,
-            campBDisplayName,
-            campAVoicePack,
-            campBVoicePack,
-            progressSpeed,
-            resultConfig,
-            disableHunger,
-            enableAutoTeamSwitchPrompt,
-            disableInventoryChange,
-            false,
-            enableGoatHorn,
-            enablePlayerDowned,
-            enableRespawnCountdownWhileDowned,
-            enableBackAgainstWall,
-            enableRandomLoadout,
-            false,
-            true,
-            true,
-            false,
-            false,
-            true,
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of(),
-            "",
-            ""
-        );
-    }
-
-    public RoomCommonConfig(
-        RoomMatchingConfig matchingConfig,
-        String dimensionId,
-        RoomPosition queueSpawn,
-        int respawnDelaySeconds,
-        RoomVehicleBackend vehicleBackend,
-        RoomPlayerStateConfig playerStateConfig,
-        int outsideBoundaryDeathSeconds,
-        int aircraftOutsideBoundaryCleanupSeconds,
-        int playerMaxY,
-        int aircraftPassengerMaxY,
-        String campADisplayName,
-        String campBDisplayName,
-        String campAVoicePack,
-        String campBVoicePack,
-        double progressSpeed,
-        RoomResultConfig resultConfig,
-        boolean disableHunger,
-        boolean enableAutoTeamSwitchPrompt,
-        boolean disableInventoryChange,
-        boolean enableGoatHorn,
-        boolean enablePlayerDowned,
-        boolean enableRespawnCountdownWhileDowned,
-        boolean enableBackAgainstWall,
-        boolean enableRandomLoadout,
-        boolean enableRandomAttachments
-    ) {
-        this(
-            matchingConfig,
-            dimensionId,
-            queueSpawn,
-            respawnDelaySeconds,
-            vehicleBackend,
-            playerStateConfig,
-            outsideBoundaryDeathSeconds,
-            aircraftOutsideBoundaryCleanupSeconds,
-            playerMaxY,
-            aircraftPassengerMaxY,
-            campADisplayName,
-            campBDisplayName,
-            campAVoicePack,
-            campBVoicePack,
-            progressSpeed,
-            resultConfig,
-            disableHunger,
-            enableAutoTeamSwitchPrompt,
-            disableInventoryChange,
-            false,
-            enableGoatHorn,
-            enablePlayerDowned,
-            enableRespawnCountdownWhileDowned,
-            enableBackAgainstWall,
-            enableRandomLoadout,
-            enableRandomAttachments,
-            true,
-            true,
-            false,
-            false,
-            true,
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of(),
-            "",
-            ""
-        );
-    }
-
-    public RoomCommonConfig(
-        RoomMatchingConfig matchingConfig,
-        String dimensionId,
-        RoomPosition queueSpawn,
-        int respawnDelaySeconds,
-        RoomVehicleBackend vehicleBackend,
-        RoomPlayerStateConfig playerStateConfig,
-        int outsideBoundaryDeathSeconds,
-        int aircraftOutsideBoundaryCleanupSeconds,
-        int playerMaxY,
-        int aircraftPassengerMaxY,
-        String campADisplayName,
-        String campBDisplayName,
-        String campAVoicePack,
-        String campBVoicePack,
-        double progressSpeed,
-        RoomResultConfig resultConfig,
-        boolean disableHunger,
-        boolean enableAutoTeamSwitchPrompt,
-        boolean disableInventoryChange,
-        boolean enableGoatHorn,
-        boolean enablePlayerDowned,
-        boolean enableRespawnCountdownWhileDowned,
-        boolean enableBackAgainstWall,
-        boolean enableRandomLoadout,
-        boolean enableRandomAttachments,
-        boolean enableParachute
-    ) {
-        this(
-            matchingConfig,
-            dimensionId,
-            queueSpawn,
-            respawnDelaySeconds,
-            vehicleBackend,
-            playerStateConfig,
-            outsideBoundaryDeathSeconds,
-            aircraftOutsideBoundaryCleanupSeconds,
-            playerMaxY,
-            aircraftPassengerMaxY,
-            campADisplayName,
-            campBDisplayName,
-            campAVoicePack,
-            campBVoicePack,
-            progressSpeed,
-            resultConfig,
-            disableHunger,
-            enableAutoTeamSwitchPrompt,
-            disableInventoryChange,
-            false,
-            enableGoatHorn,
-            enablePlayerDowned,
-            enableRespawnCountdownWhileDowned,
-            enableBackAgainstWall,
-            enableRandomLoadout,
-            enableRandomAttachments,
-            enableParachute,
-            true,
-            false,
-            false,
-            true,
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of(),
-            "",
-            ""
-        );
+        return voicePack == null ? "" : voicePack.trim().toUpperCase(Locale.ROOT);
     }
 
     private static String normalizeEquipmentSetId(String value) {
         return value == null ? "" : value.trim();
     }
 
-    private static List<String> normalizeSupportIds(List<String> rawValues) {
+    private static List<String> normalizeStringIds(List<String> rawValues, boolean normalizeEmptyToken) {
         if (rawValues == null || rawValues.isEmpty()) {
             return List.of();
         }
@@ -470,13 +174,15 @@ public record RoomCommonConfig(
                 continue;
             }
             String trimmed = rawValue.trim();
-            if (!trimmed.isEmpty()) {
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            if (normalizeEmptyToken && CustomLoadoutService.isReservedEmptyEquipmentId(trimmed)) {
+                normalized.add(CustomLoadoutService.EMPTY_EQUIPMENT_ID);
+            } else {
                 normalized.add(trimmed);
             }
         }
-        if (normalized.isEmpty()) {
-            return List.of();
-        }
-        return List.copyOf(new ArrayList<>(normalized));
+        return normalized.isEmpty() ? List.of() : List.copyOf(normalized);
     }
 }

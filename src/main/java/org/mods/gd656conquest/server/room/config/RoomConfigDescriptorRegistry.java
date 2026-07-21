@@ -98,7 +98,6 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "enableBackAgainstWall", "启用背水一战", "commonConfig.enableBackAgainstWall", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableBackAgainstWall");
         common(descriptors, RoomConfigCategory.RULES, "enableRandomLoadout", "启用随机配备", "commonConfig.enableRandomLoadout", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomLoadout");
         common(descriptors, RoomConfigCategory.RULES, "enableRandomAttachments", "启用房间随机配件", "commonConfig.enableRandomAttachments", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomAttachments");
-        common(descriptors, RoomConfigCategory.RULES, "enableSniperRoom", "启用狙击房", "commonConfig.enableSniperRoom", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableSniperRoom");
         common(descriptors, RoomConfigCategory.RULES, "disableUndyingTotem", "是否禁用不死图腾", "commonConfig.disableUndyingTotem", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolDisableUndyingTotem");
         common(descriptors, RoomConfigCategory.RULES, "allowPlayerCampSwitch", "是否允许玩家切换阵营", "commonConfig.allowPlayerCampSwitch", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
         common(descriptors, RoomConfigCategory.RULES, "enableParachute", "启用对局降落伞", "commonConfig.enableParachute", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableParachute");
@@ -107,6 +106,12 @@ public final class RoomConfigDescriptorRegistry {
         commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampBHeroKits", "阵地支援-campB可用精英兵", "commonConfig.supportCampBHeroKits", RoomConfigValueType.DATA_GROUP);
         commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampAShellings", "阵地支援-campA可用炮击", "commonConfig.supportCampAShellings", RoomConfigValueType.DATA_GROUP);
         commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampBShellings", "阵地支援-campB可用炮击", "commonConfig.supportCampBShellings", RoomConfigValueType.DATA_GROUP);
+        commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "roomPrimaryWeaponIds", "房间限定主武器ID数据组", "commonConfig.roomPrimaryWeaponIds", RoomConfigValueType.DATA_GROUP);
+        commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "roomSecondaryWeaponIds", "房间限定副武器ID数据组", "commonConfig.roomSecondaryWeaponIds", RoomConfigValueType.DATA_GROUP);
+        commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "roomMeleeWeaponIds", "房间限定近战武器ID数据组", "commonConfig.roomMeleeWeaponIds", RoomConfigValueType.DATA_GROUP);
+        commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "roomGadget1Ids", "房间限定战术道具一ID数据组", "commonConfig.roomGadget1Ids", RoomConfigValueType.DATA_GROUP);
+        commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "roomGadget2Ids", "房间限定战术道具二ID数据组", "commonConfig.roomGadget2Ids", RoomConfigValueType.DATA_GROUP);
+        commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "roomThrowableIds", "房间限定投掷物ID数据组", "commonConfig.roomThrowableIds", RoomConfigValueType.DATA_GROUP);
         common(descriptors, RoomConfigCategory.EQUIPMENT, "campAEquipmentSetId", "campA穿戴护甲", "commonConfig.campAEquipmentSetId", RoomConfigValueType.STRING, List.of(), "campAEquipment");
         common(descriptors, RoomConfigCategory.EQUIPMENT, "campBEquipmentSetId", "campB穿戴护甲", "commonConfig.campBEquipmentSetId", RoomConfigValueType.STRING, List.of(), "campBEquipment");
         common(descriptors, RoomConfigCategory.RESULT, "endViewPosition", "结算视角", "commonConfig.resultConfig.endViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"), "matchEndViewPosition");
@@ -135,7 +140,6 @@ public final class RoomConfigDescriptorRegistry {
             "boolDisableInventoryChange",
             "disableInventoryEdit"
         );
-        common(descriptors, RoomConfigCategory.RULES, "enableKnifeDuel", "是否启用刀战", "commonConfig.enableKnifeDuel", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableKnifeDuel");
         common(descriptors, RoomConfigCategory.RULES, "outsideBoundaryDeathSeconds", "玩家出界死亡秒数", "commonConfig.outsideBoundaryDeathSeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "aircraftOutsideBoundaryCleanupSeconds", "载具出界清理秒数", "commonConfig.aircraftOutsideBoundaryCleanupSeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "playerMaxY", "玩家最大Y轴", "commonConfig.playerMaxY", RoomConfigValueType.NUMBER, List.of());

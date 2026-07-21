@@ -17,6 +17,7 @@ import org.mods.gd656conquest.server.facility.quickaccess.QuickAccessInventoryPo
 import org.mods.gd656conquest.server.loadout.application.CustomLoadoutService;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.runtime.RoomResultRuntimeService;
+import org.mods.gd656conquest.server.shared.inventory.PlayerInventorySanitizer;
 
 import java.util.Locale;
 
@@ -32,6 +33,9 @@ public final class PlayerSessionStateService {
         }
         refillLobbyHealthIfNeeded(player);
         RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(player.server);
+        if (roomManager.findPlayerRoomId(player.getUUID()).isEmpty()) {
+            PlayerInventorySanitizer.clearArmorSlots(player);
+        }
         roomManager.tryRestoreInventorySnapshot(player);
         sanitizeLoadoutSelection(player);
         if (roomManager.findPlayerRoomId(player.getUUID()).isPresent()) {

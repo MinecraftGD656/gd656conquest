@@ -29,6 +29,7 @@ import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
+import org.mods.gd656conquest.server.room.runtime.RoomFixedLoadoutRules;
 import org.mods.gd656conquest.server.room.runtime.RoomListPresentationService;
 import org.mods.gd656conquest.server.shared.contract.ClickActionSpec;
 import org.mods.gd656conquest.server.shared.text.CommandFeedbacks;
@@ -960,6 +961,13 @@ public final class RoomCommands {
             shellingIds.sort(String.CASE_INSENSITIVE_ORDER);
             return SharedSuggestionProvider.suggest(shellingIds, builder);
         }
+        if (supportsRoomFixedLoadoutSuggestions(descriptor)) {
+            List<String> ids = RoomFixedLoadoutRules.suggestionIdsForSlot(
+                ConquestDataManager.of(context.getSource().getServer()).equipmentData().getData(),
+                RoomFixedLoadoutRules.resolveSlotByConfigId(descriptor.configId())
+            );
+            return SharedSuggestionProvider.suggest(ids, builder);
+        }
         List<String> suggestions = RoomConfigDescriptorRegistry.suggestionValues(descriptor.configId());
         if (!suggestions.isEmpty()) {
             return SharedSuggestionProvider.suggest(suggestions, builder);
@@ -1070,6 +1078,13 @@ public final class RoomCommands {
             equipmentSetIds.sort(String.CASE_INSENSITIVE_ORDER);
             return SharedSuggestionProvider.suggest(equipmentSetIds, builder);
         }
+        if (supportsRoomFixedLoadoutSuggestions(descriptor)) {
+            List<String> ids = RoomFixedLoadoutRules.suggestionIdsForSlot(
+                ConquestDataManager.of(source.getServer()).equipmentData().getData(),
+                RoomFixedLoadoutRules.resolveSlotByConfigId(descriptor.configId())
+            );
+            return SharedSuggestionProvider.suggest(ids, builder);
+        }
         if (supportsShellingSuggestions(descriptor)) {
             List<String> shellingIds = new ArrayList<>(ConquestDataManager.of(source.getServer()).shellings().get().getShellingsById().keySet());
             shellingIds.sort(String.CASE_INSENSITIVE_ORDER);
@@ -1113,6 +1128,10 @@ public final class RoomCommands {
         String configId = descriptor.configId();
         return "campAEquipmentSetId".equalsIgnoreCase(configId)
             || "campBEquipmentSetId".equalsIgnoreCase(configId);
+    }
+
+    private static boolean supportsRoomFixedLoadoutSuggestions(RoomConfigDescriptor descriptor) {
+        return descriptor != null && RoomFixedLoadoutRules.resolveSlotByConfigId(descriptor.configId()) != null;
     }
 
     private static String stringifyConfigValue(Object value) {
