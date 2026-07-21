@@ -8,6 +8,7 @@ import com.google.gson.JsonPrimitive;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import org.mods.gd656conquest.client.gui.GuiConstants;
 import org.mods.gd656conquest.client.gui.elements.ChoiceListDialog;
 import org.mods.gd656conquest.client.gui.elements.ConfirmDialog;
@@ -17,6 +18,7 @@ import org.mods.gd656conquest.client.gui.elements.GDScrollState;
 import org.mods.gd656conquest.client.gui.elements.TextInputDialog;
 import org.mods.gd656conquest.client.gui.elements.entries.FixedChoiceConfigEntry;
 import org.mods.gd656conquest.client.loadout.ClientRoomEditorState;
+import org.mods.gd656conquest.client.loadout.ClientLoadoutUiState;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.RoomEditorRequestPacket;
 import org.mods.gd656conquest.network.packet.RoomEditorUpdatePacket;
@@ -25,6 +27,7 @@ import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import org.lwjgl.glfw.GLFW;
 
 public class LoadoutRoomEditorScreen extends Screen {
     private static final int PADDING = 18;
@@ -37,6 +40,8 @@ public class LoadoutRoomEditorScreen extends Screen {
     private static final int LEFT_STATE_W = 32;
     private static final int LEFT_PLAYERS_W = 24;
     private static final int RIGHT_VALUE_W = 60;
+    private static final int RIGHT_CONFIGURED_W = 50;
+    private static final String GROUP_EDIT_HINT = "右键以编辑";
 
     private final Screen parent;
     private final List<ClientRoomEditorState.RoomState> roomEntries = new ArrayList<>();
@@ -235,9 +240,13 @@ public class LoadoutRoomEditorScreen extends Screen {
                 int cfgColor = rowData.applicable
                     ? (rowData.configured ? 0xFF8EF7A2 : 0xFFFF8787)
                     : 0xFF7E8794;
-                row.addColumn(rowData.leftText, -1, resolveTypeColor(rowData), true, false, btn -> editConfigField(rowData, false));
-                row.addColumn(rowData.middleText, RIGHT_VALUE_W, rowData.applicable ? 0xFFEDEDED : 0xFF7E8794, true, false, btn -> editConfigField(rowData, true));
-                row.addColumn(rowData.configured ? "已配置" : "缺失", 50, cfgColor, false, true, null);
+                row.addColumn(rowData.leftText, -1, resolveTypeColor(rowData), true, false, btn -> editConfigField(rowData, false, btn));
+                row.addColumn(rowData.middleText, RIGHT_VALUE_W, rowData.applicable ? 0xFFEDEDED : 0xFF7E8794, true, false, btn -> editConfigField(rowData, true, btn));
+                if (supportsQuickGroupEditor(rowData) && isValueColumnHovered(mouseX, (int) (mouseY + rightScrollState.scrollY()), x1, x2, rowTop, rowBottom)) {
+                    row.addColumn(GROUP_EDIT_HINT, RIGHT_CONFIGURED_W, GuiConstants.COLOR_GOLD, false, true, null);
+                } else {
+                    row.addColumn(rowData.configured ? "已配置" : "缺失", RIGHT_CONFIGURED_W, cfgColor, false, true, null);
+                }
             }
             row.render(guiGraphics, mouseX, (int) (mouseY + rightScrollState.scrollY()), partialTick);
         }
@@ -285,7 +294,7 @@ public class LoadoutRoomEditorScreen extends Screen {
         );
     }
 
-    private void editConfigField(RightRow rowData, boolean fromValueColumn) {
+    private void editConfigField(RightRow rowData, boolean fromValueColumn, int mouseButton) {
         if (rowData == null || rowData.header || textInputDialog == null) {
             return;
         }
@@ -295,7 +304,11 @@ public class LoadoutRoomEditorScreen extends Screen {
         }
         if (rowData.groupParent) {
             if (fromValueColumn) {
-                toggleGroup(rowData.keyPath);
+                if (mouseButton == GLFW.GLFW_MOUSE_BUTTON_RIGHT && supportsQuickGroupEditor(rowData)) {
+                    openGroupQuickEditor(room, rowData);
+                } else {
+                    toggleGroup(rowData.keyPath);
+                }
             } else {
                 openGroupParentEditor(room, rowData);
             }
@@ -340,6 +353,101 @@ public class LoadoutRoomEditorScreen extends Screen {
                 value -> NetworkManager.getChannel().sendToServer(new RoomEditorUpdatePacket(room.roomId(), rowData.editKey, value)),
                 buildGroupJsonValidator()
         );
+    }
+
+    private void openGroupQuickEditor(ClientRoomEditorState.RoomState room, RightRow rowData) {
+        if (room == null || rowData == null || choiceListDialog == null) {
+            return;
+        }
+        openGroupQuickEditor(room, rowData, new ArrayList<>(rowData.groupValues()));
+    }
+
+    private void openGroupQuickEditor(ClientRoomEditorState.RoomState room, RightRow rowData, List<String> enabledValues) {
+        if (room == null || rowData == null || choiceListDialog == null) {
+            return;
+        }
+        List<String> effectiveEnabledValues = enabledValues == null ? new ArrayList<>() : enabledValues;
+        List<FixedChoiceConfigEntry.Choice> choices = buildQuickGroupChoices(rowData, effectiveEnabledValues);
+        if (choices.isEmpty()) {
+            return;
+        }
+        String selectedValue = effectiveEnabledValues.isEmpty() ? choices.get(0).value() : effectiveEnabledValues.get(0);
+        updateGroupQuickEditorDialog(room, rowData, effectiveEnabledValues, selectedValue);
+    }
+
+    private void updateGroupQuickEditorDialog(
+            ClientRoomEditorState.RoomState room,
+            RightRow rowData,
+            List<String> enabledValues,
+            String selectedValue
+    ) {
+        if (room == null || rowData == null || choiceListDialog == null) {
+            return;
+        }
+        List<FixedChoiceConfigEntry.Choice> choices = buildQuickGroupChoices(rowData, enabledValues);
+        if (choices.isEmpty()) {
+            return;
+        }
+        if (!choiceListDialog.isVisible()) {
+            choiceListDialog.show(
+                    selectedValue,
+                    "快速编辑数据组 [" + rowData.leftText.trim() + "]",
+                    choices,
+                    selected -> enableGroupChoice(room, rowData, enabledValues, selected),
+                    null,
+                    choice -> containsIgnoreCase(enabledValues, choice.value()),
+                    choice -> disableGroupChoice(room, rowData, enabledValues, choice.value()),
+                    "禁用",
+                    GuiConstants.COLOR_RED,
+                    30,
+                    null,
+                    null,
+                    choice -> !containsIgnoreCase(enabledValues, choice.value()),
+                    this::resolveGroupChoiceIcon,
+                    null,
+                    choice -> containsIgnoreCase(enabledValues, choice.value()),
+                    "启用"
+            );
+            return;
+        }
+        choiceListDialog.refreshContent(
+                selectedValue,
+                choices,
+                selected -> enableGroupChoice(room, rowData, enabledValues, selected),
+                choice -> containsIgnoreCase(enabledValues, choice.value()),
+                choice -> disableGroupChoice(room, rowData, enabledValues, choice.value()),
+                "禁用",
+                GuiConstants.COLOR_RED,
+                30,
+                choice -> !containsIgnoreCase(enabledValues, choice.value()),
+                this::resolveGroupChoiceIcon,
+                choice -> containsIgnoreCase(enabledValues, choice.value()),
+                "启用"
+        );
+    }
+
+    private void enableGroupChoice(
+            ClientRoomEditorState.RoomState room,
+            RightRow rowData,
+            List<String> enabledValues,
+            String selected
+    ) {
+        if (!containsIgnoreCase(enabledValues, selected)) {
+            enabledValues.add(selected);
+        }
+        NetworkManager.getChannel().sendToServer(RoomEditorUpdatePacket.groupAdd(room.roomId(), rowData.editKey, selected));
+        updateGroupQuickEditorDialog(room, rowData, enabledValues, selected);
+    }
+
+    private void disableGroupChoice(
+            ClientRoomEditorState.RoomState room,
+            RightRow rowData,
+            List<String> enabledValues,
+            String selected
+    ) {
+        enabledValues.removeIf(value -> value.equalsIgnoreCase(selected));
+        NetworkManager.getChannel().sendToServer(RoomEditorUpdatePacket.groupDelete(room.roomId(), rowData.editKey, selected));
+        updateGroupQuickEditorDialog(room, rowData, enabledValues, selected);
     }
 
     private void refreshFromState() {
@@ -395,7 +503,9 @@ public class LoadoutRoomEditorScreen extends Screen {
                     group,
                     entry.valueType(),
                     entry.suggestionValues(),
-                    entry.supportsQuotedValue()
+                    entry.supportsQuotedValue(),
+                    entry.groupValues(),
+                    entry.groupChoices()
                 ));
                 if (group && isGroupExpanded(entry.keyPath())) {
                     rightRows.addAll(buildGroupChildren(entry, scope));
@@ -642,6 +752,85 @@ public class LoadoutRoomEditorScreen extends Screen {
         return choices;
     }
 
+    private List<FixedChoiceConfigEntry.Choice> buildQuickGroupChoices(RightRow rowData, List<String> enabledValues) {
+        List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
+        if (rowData == null) {
+            return choices;
+        }
+        if (rowData.groupChoices() != null && !rowData.groupChoices().isEmpty()) {
+            for (ClientRoomEditorState.GroupChoice choice : rowData.groupChoices()) {
+                if (choice == null || choice.value() == null || choice.value().isBlank()) {
+                    continue;
+                }
+                choices.add(new FixedChoiceConfigEntry.Choice(
+                        choice.value(),
+                        choice.label() == null || choice.label().isBlank() ? choice.value() : choice.label(),
+                        choice.secondaryLabel()
+                ));
+            }
+        } else {
+            choices.addAll(resolveFixedChoices(rowData));
+        }
+        return choices;
+    }
+
+    private boolean containsIgnoreCase(List<String> values, String target) {
+        if (values == null || target == null) {
+            return false;
+        }
+        for (String value : values) {
+            if (value != null && value.equalsIgnoreCase(target)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private ChoiceListDialog.RowIcon resolveGroupChoiceIcon(FixedChoiceConfigEntry.Choice choice) {
+        if (choice == null) {
+            return null;
+        }
+        ClientRoomEditorState.RoomState room = getSelectedRoom();
+        if (room == null) {
+            return null;
+        }
+        for (ClientRoomEditorState.RoomConfigEntry entry : room.configEntries()) {
+            if (entry == null || entry.groupChoices() == null) {
+                continue;
+            }
+            for (ClientRoomEditorState.GroupChoice groupChoice : entry.groupChoices()) {
+                if (groupChoice != null && choice.value().equalsIgnoreCase(groupChoice.value())) {
+                    return buildItemIcon(groupChoice.itemSnbt());
+                }
+            }
+        }
+        return null;
+    }
+
+    private ChoiceListDialog.RowIcon buildItemIcon(String itemSnbt) {
+        if (itemSnbt == null || itemSnbt.isBlank()) {
+            return null;
+        }
+        ItemStack stack = ClientLoadoutUiState.parseAndCacheStack(itemSnbt);
+        if (stack.isEmpty()) {
+            return null;
+        }
+        return ChoiceListDialog.RowIcon.item(stack);
+    }
+
+    private boolean supportsQuickGroupEditor(RightRow rowData) {
+        return rowData != null && rowData.groupParent && rowData.quickEditableGroup();
+    }
+
+    private boolean isValueColumnHovered(int mouseX, int mouseY, int rowX1, int rowX2, int rowY1, int rowY2) {
+        if (mouseY < rowY1 || mouseY > rowY2) {
+            return false;
+        }
+        int configuredStart = rowX2 - RIGHT_CONFIGURED_W;
+        int valueStart = configuredStart - RIGHT_VALUE_W;
+        return mouseX >= valueStart && mouseX < configuredStart;
+    }
+
     private boolean shouldUseChoiceDialog(RightRow rowData, List<FixedChoiceConfigEntry.Choice> fixedChoices) {
         if (rowData == null || fixedChoices == null || fixedChoices.isEmpty()) {
             return false;
@@ -841,7 +1030,7 @@ public class LoadoutRoomEditorScreen extends Screen {
         if (textInputDialog != null && textInputDialog.isVisible() && textInputDialog.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
-        if (button == 0) {
+        if (button == 0 || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
             if (backButton != null && backButton.mouseClicked(mouseX, mouseY, button)) {
                 return true;
             }
@@ -994,20 +1183,35 @@ public class LoadoutRoomEditorScreen extends Screen {
             String childPath,
             String valueType,
             List<String> suggestionValues,
-            boolean supportsQuotedValue
+            boolean supportsQuotedValue,
+            List<String> groupValues,
+            List<ClientRoomEditorState.GroupChoice> groupChoices
     ) {
         static RightRow header(String categoryKey, String text) {
-            return new RightRow(true, categoryKey, "", "", text, "", "", true, false, false, true, false, false, false, "", "", "", "", List.of(), false);
+            return new RightRow(true, categoryKey, "", "", text, "", "", true, false, false, true, false, false, false, "", "", "", "", List.of(), false, List.of(), List.of());
         }
 
-        static RightRow config(String keyPath, String editKey, String leftText, String middleText, String rawValue, boolean configured, boolean required, boolean editable, String category, boolean applicable, boolean highlighted, boolean groupParent, String valueType, List<String> suggestionValues, boolean supportsQuotedValue) {
+        static RightRow config(String keyPath, String editKey, String leftText, String middleText, String rawValue, boolean configured, boolean required, boolean editable, String category, boolean applicable, boolean highlighted, boolean groupParent, String valueType, List<String> suggestionValues, boolean supportsQuotedValue, List<String> groupValues, List<ClientRoomEditorState.GroupChoice> groupChoices) {
             String effectiveEditKey = editKey == null || editKey.isBlank() ? keyPath : editKey;
-            return new RightRow(false, category, keyPath, effectiveEditKey, leftText, middleText, rawValue, configured, required, editable, applicable, highlighted, groupParent, false, keyPath, effectiveEditKey, "", valueType, suggestionValues == null ? List.of() : List.copyOf(suggestionValues), supportsQuotedValue);
+            return new RightRow(false, category, keyPath, effectiveEditKey, leftText, middleText, rawValue, configured, required, editable, applicable, highlighted, groupParent, false, keyPath, effectiveEditKey, "", valueType, suggestionValues == null ? List.of() : List.copyOf(suggestionValues), supportsQuotedValue, groupValues == null ? List.of() : List.copyOf(groupValues), groupChoices == null ? List.of() : List.copyOf(groupChoices));
         }
 
         static RightRow groupChild(String parentKeyPath, String parentEditKey, String childPath, String category, String leftText, String middleText, String rawValue, boolean configured, boolean required, boolean editable, boolean applicable) {
             String effectiveEditKey = parentEditKey == null || parentEditKey.isBlank() ? parentKeyPath : parentEditKey;
-            return new RightRow(false, category, parentKeyPath, effectiveEditKey, leftText, middleText, rawValue, configured, required, editable, applicable, false, false, true, parentKeyPath, effectiveEditKey, childPath, "", List.of(), false);
+            return new RightRow(false, category, parentKeyPath, effectiveEditKey, leftText, middleText, rawValue, configured, required, editable, applicable, false, false, true, parentKeyPath, effectiveEditKey, childPath, "", List.of(), false, List.of(), List.of());
+        }
+
+        boolean quickEditableGroup() {
+            if (!groupParent || groupChoices == null || groupChoices.isEmpty()) {
+                return false;
+            }
+            String normalizedKey = editKey == null ? "" : editKey.trim().toLowerCase(Locale.ROOT);
+            return normalizedKey.startsWith("campa")
+                    || normalizedKey.startsWith("campb")
+                    || "supportcampaherokits".equals(normalizedKey)
+                    || "supportcampbherokits".equals(normalizedKey)
+                    || "supportcampashellings".equals(normalizedKey)
+                    || "supportcampbshellings".equals(normalizedKey);
         }
     }
 }

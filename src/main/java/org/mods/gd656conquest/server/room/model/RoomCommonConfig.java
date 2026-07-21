@@ -41,12 +41,18 @@ public record RoomCommonConfig(
     List<String> supportCampBHeroKits,
     List<String> supportCampAShellings,
     List<String> supportCampBShellings,
-    List<String> roomPrimaryWeaponIds,
-    List<String> roomSecondaryWeaponIds,
-    List<String> roomMeleeWeaponIds,
-    List<String> roomGadget1Ids,
-    List<String> roomGadget2Ids,
-    List<String> roomThrowableIds,
+    List<String> campAPrimaryWeaponIds,
+    List<String> campASecondaryWeaponIds,
+    List<String> campAMeleeWeaponIds,
+    List<String> campAGadget1Ids,
+    List<String> campAGadget2Ids,
+    List<String> campAThrowableIds,
+    List<String> campBPrimaryWeaponIds,
+    List<String> campBSecondaryWeaponIds,
+    List<String> campBMeleeWeaponIds,
+    List<String> campBGadget1Ids,
+    List<String> campBGadget2Ids,
+    List<String> campBThrowableIds,
     String campAEquipmentSetId,
     String campBEquipmentSetId
 ) {
@@ -71,12 +77,18 @@ public record RoomCommonConfig(
         supportCampBHeroKits = normalizeStringIds(supportCampBHeroKits, false);
         supportCampAShellings = normalizeStringIds(supportCampAShellings, false);
         supportCampBShellings = normalizeStringIds(supportCampBShellings, false);
-        roomPrimaryWeaponIds = normalizeStringIds(roomPrimaryWeaponIds, true);
-        roomSecondaryWeaponIds = normalizeStringIds(roomSecondaryWeaponIds, true);
-        roomMeleeWeaponIds = normalizeStringIds(roomMeleeWeaponIds, true);
-        roomGadget1Ids = normalizeStringIds(roomGadget1Ids, true);
-        roomGadget2Ids = normalizeStringIds(roomGadget2Ids, true);
-        roomThrowableIds = normalizeStringIds(roomThrowableIds, true);
+        campAPrimaryWeaponIds = normalizeStringIds(campAPrimaryWeaponIds, true);
+        campASecondaryWeaponIds = normalizeStringIds(campASecondaryWeaponIds, true);
+        campAMeleeWeaponIds = normalizeStringIds(campAMeleeWeaponIds, true);
+        campAGadget1Ids = normalizeStringIds(campAGadget1Ids, true);
+        campAGadget2Ids = normalizeStringIds(campAGadget2Ids, true);
+        campAThrowableIds = normalizeStringIds(campAThrowableIds, true);
+        campBPrimaryWeaponIds = normalizeStringIds(campBPrimaryWeaponIds, true);
+        campBSecondaryWeaponIds = normalizeStringIds(campBSecondaryWeaponIds, true);
+        campBMeleeWeaponIds = normalizeStringIds(campBMeleeWeaponIds, true);
+        campBGadget1Ids = normalizeStringIds(campBGadget1Ids, true);
+        campBGadget2Ids = normalizeStringIds(campBGadget2Ids, true);
+        campBThrowableIds = normalizeStringIds(campBThrowableIds, true);
         campAEquipmentSetId = normalizeEquipmentSetId(campAEquipmentSetId);
         campBEquipmentSetId = normalizeEquipmentSetId(campBEquipmentSetId);
     }
@@ -122,6 +134,12 @@ public record RoomCommonConfig(
             List.of(),
             List.of(),
             List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
             "",
             ""
         );
@@ -131,17 +149,27 @@ public record RoomCommonConfig(
         return new RoomPosition(0, 100, 0);
     }
 
-    public List<String> fixedLoadoutIds(CustomLoadoutSlot slot) {
-        if (slot == null) {
+    public List<String> fixedLoadoutIds(RoomTeamId teamId, CustomLoadoutSlot slot) {
+        if (teamId == null || slot == null) {
             return List.of();
         }
-        return switch (slot) {
-            case PRIMARY_WEAPON -> roomPrimaryWeaponIds;
-            case SECONDARY_WEAPON -> roomSecondaryWeaponIds;
-            case MELEE -> roomMeleeWeaponIds;
-            case GADGET_1 -> roomGadget1Ids;
-            case GADGET_2 -> roomGadget2Ids;
-            case THROWABLE -> roomThrowableIds;
+        return switch (teamId) {
+            case CAMP_A -> switch (slot) {
+                case PRIMARY_WEAPON -> campAPrimaryWeaponIds;
+                case SECONDARY_WEAPON -> campASecondaryWeaponIds;
+                case MELEE -> campAMeleeWeaponIds;
+                case GADGET_1 -> campAGadget1Ids;
+                case GADGET_2 -> campAGadget2Ids;
+                case THROWABLE -> campAThrowableIds;
+            };
+            case CAMP_B -> switch (slot) {
+                case PRIMARY_WEAPON -> campBPrimaryWeaponIds;
+                case SECONDARY_WEAPON -> campBSecondaryWeaponIds;
+                case MELEE -> campBMeleeWeaponIds;
+                case GADGET_1 -> campBGadget1Ids;
+                case GADGET_2 -> campBGadget2Ids;
+                case THROWABLE -> campBThrowableIds;
+            };
         };
     }
 

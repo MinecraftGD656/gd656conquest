@@ -10,7 +10,6 @@ import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,7 +25,7 @@ public final class RoomDefinitionGroupConfigEditor {
         Objects.requireNonNull(definition, "definition");
         String canonical = normalizeConfigId(configId);
         if (isCommonStringGroup(canonical)) {
-            return replaceCommonStringGroup(definition, canonical, addCommonGroupValue(resolveCommonStringGroup(definition, canonical), rawValue));
+            return replaceCommonStringGroup(definition, canonical, addCommonGroupValue(resolveCommonStringGroup(definition, canonical), canonical, rawValue, editor));
         }
         if (isBoundaryGroup(canonical)) {
             RoomPosition point = parseBoundaryPosition(rawValue, editor);
@@ -55,7 +54,7 @@ public final class RoomDefinitionGroupConfigEditor {
         if (isCommonStringGroup(canonical)) {
             List<String> updatedValues = clearAll
                 ? List.of()
-                : removeCommonGroupValue(resolveCommonStringGroup(definition, canonical), rawValue);
+                : removeCommonGroupValue(resolveCommonStringGroup(definition, canonical), canonical, rawValue);
             return replaceCommonStringGroup(definition, canonical, updatedValues);
         }
         if (isBoundaryGroup(canonical)) {
@@ -205,12 +204,18 @@ public final class RoomDefinitionGroupConfigEditor {
             "supportcampbherokits".equals(canonical) ? updatedValues : common.supportCampBHeroKits(),
             "supportcampashellings".equals(canonical) ? updatedValues : common.supportCampAShellings(),
             "supportcampbshellings".equals(canonical) ? updatedValues : common.supportCampBShellings(),
-            "roomprimaryweaponids".equals(canonical) ? updatedValues : common.roomPrimaryWeaponIds(),
-            "roomsecondaryweaponids".equals(canonical) ? updatedValues : common.roomSecondaryWeaponIds(),
-            "roommeleeweaponids".equals(canonical) ? updatedValues : common.roomMeleeWeaponIds(),
-            "roomgadget1ids".equals(canonical) ? updatedValues : common.roomGadget1Ids(),
-            "roomgadget2ids".equals(canonical) ? updatedValues : common.roomGadget2Ids(),
-            "roomthrowableids".equals(canonical) ? updatedValues : common.roomThrowableIds(),
+            "campaprimaryweaponids".equals(canonical) ? updatedValues : common.campAPrimaryWeaponIds(),
+            "campasecondaryweaponids".equals(canonical) ? updatedValues : common.campASecondaryWeaponIds(),
+            "campameleeweaponids".equals(canonical) ? updatedValues : common.campAMeleeWeaponIds(),
+            "campagadget1ids".equals(canonical) ? updatedValues : common.campAGadget1Ids(),
+            "campagadget2ids".equals(canonical) ? updatedValues : common.campAGadget2Ids(),
+            "campathrowableids".equals(canonical) ? updatedValues : common.campAThrowableIds(),
+            "campbprimaryweaponids".equals(canonical) ? updatedValues : common.campBPrimaryWeaponIds(),
+            "campbsecondaryweaponids".equals(canonical) ? updatedValues : common.campBSecondaryWeaponIds(),
+            "campbmeleeweaponids".equals(canonical) ? updatedValues : common.campBMeleeWeaponIds(),
+            "campbgadget1ids".equals(canonical) ? updatedValues : common.campBGadget1Ids(),
+            "campbgadget2ids".equals(canonical) ? updatedValues : common.campBGadget2Ids(),
+            "campbthrowableids".equals(canonical) ? updatedValues : common.campBThrowableIds(),
             common.campAEquipmentSetId(),
             common.campBEquipmentSetId()
         );
@@ -238,40 +243,62 @@ public final class RoomDefinitionGroupConfigEditor {
         if ("supportcampbshellings".equals(canonical)) {
             return new ArrayList<>(common.supportCampBShellings());
         }
-        if ("roomprimaryweaponids".equals(canonical)) {
-            return new ArrayList<>(common.roomPrimaryWeaponIds());
+        if ("campaprimaryweaponids".equals(canonical)) {
+            return new ArrayList<>(common.campAPrimaryWeaponIds());
         }
-        if ("roomsecondaryweaponids".equals(canonical)) {
-            return new ArrayList<>(common.roomSecondaryWeaponIds());
+        if ("campasecondaryweaponids".equals(canonical)) {
+            return new ArrayList<>(common.campASecondaryWeaponIds());
         }
-        if ("roommeleeweaponids".equals(canonical)) {
-            return new ArrayList<>(common.roomMeleeWeaponIds());
+        if ("campameleeweaponids".equals(canonical)) {
+            return new ArrayList<>(common.campAMeleeWeaponIds());
         }
-        if ("roomgadget1ids".equals(canonical)) {
-            return new ArrayList<>(common.roomGadget1Ids());
+        if ("campagadget1ids".equals(canonical)) {
+            return new ArrayList<>(common.campAGadget1Ids());
         }
-        if ("roomgadget2ids".equals(canonical)) {
-            return new ArrayList<>(common.roomGadget2Ids());
+        if ("campagadget2ids".equals(canonical)) {
+            return new ArrayList<>(common.campAGadget2Ids());
         }
-        if ("roomthrowableids".equals(canonical)) {
-            return new ArrayList<>(common.roomThrowableIds());
+        if ("campathrowableids".equals(canonical)) {
+            return new ArrayList<>(common.campAThrowableIds());
+        }
+        if ("campbprimaryweaponids".equals(canonical)) {
+            return new ArrayList<>(common.campBPrimaryWeaponIds());
+        }
+        if ("campbsecondaryweaponids".equals(canonical)) {
+            return new ArrayList<>(common.campBSecondaryWeaponIds());
+        }
+        if ("campbmeleeweaponids".equals(canonical)) {
+            return new ArrayList<>(common.campBMeleeWeaponIds());
+        }
+        if ("campbgadget1ids".equals(canonical)) {
+            return new ArrayList<>(common.campBGadget1Ids());
+        }
+        if ("campbgadget2ids".equals(canonical)) {
+            return new ArrayList<>(common.campBGadget2Ids());
+        }
+        if ("campbthrowableids".equals(canonical)) {
+            return new ArrayList<>(common.campBThrowableIds());
         }
         throw new IllegalArgumentException("未知 common 组配置: " + canonical);
     }
 
-    private static List<String> addCommonGroupValue(List<String> currentValues, String rawValue) {
-        String normalized = normalizeCommonGroupValue(rawValue);
+    private static List<String> addCommonGroupValue(List<String> currentValues, String canonical, String rawValue, ServerPlayer editor) {
+        String normalizedInput = normalizeCommonGroupValue(rawValue);
+        List<String> normalizedValues = RoomCommonGroupPatternResolver.resolveAddValues(canonical, normalizedInput, editor);
         List<String> updated = new ArrayList<>(currentValues == null ? List.of() : currentValues);
-        if (updated.stream().noneMatch(normalized::equals)) {
-            updated.add(normalized);
+        for (String normalized : normalizedValues) {
+            if (updated.stream().noneMatch(normalized::equals)) {
+                updated.add(normalized);
+            }
         }
         return updated;
     }
 
-    private static List<String> removeCommonGroupValue(List<String> currentValues, String rawValue) {
-        String normalized = normalizeCommonGroupValue(rawValue);
+    private static List<String> removeCommonGroupValue(List<String> currentValues, String canonical, String rawValue) {
+        String normalizedInput = normalizeCommonGroupValue(rawValue);
+        List<String> removingValues = RoomCommonGroupPatternResolver.resolveDeleteValues(canonical, normalizedInput, currentValues);
         List<String> updated = new ArrayList<>(currentValues == null ? List.of() : currentValues);
-        updated.removeIf(normalized::equals);
+        updated.removeIf(value -> removingValues.stream().anyMatch(value::equals));
         return updated;
     }
 
@@ -701,7 +728,22 @@ public final class RoomDefinitionGroupConfigEditor {
             || "supportcampbherokits".equals(canonical)
             || "supportcampashellings".equals(canonical)
             || "supportcampbshellings".equals(canonical)
-            || "roomprimaryweaponids".equals(canonical)
+            || "campaprimaryweaponids".equals(canonical)
+            || "campasecondaryweaponids".equals(canonical)
+            || "campameleeweaponids".equals(canonical)
+            || "campagadget1ids".equals(canonical)
+            || "campagadget2ids".equals(canonical)
+            || "campathrowableids".equals(canonical)
+            || "campbprimaryweaponids".equals(canonical)
+            || "campbsecondaryweaponids".equals(canonical)
+            || "campbmeleeweaponids".equals(canonical)
+            || "campbgadget1ids".equals(canonical)
+            || "campbgadget2ids".equals(canonical)
+            || "campbthrowableids".equals(canonical);
+    }
+
+    private static boolean isRoomFixedLoadoutGroup(String canonical) {
+        return "roomprimaryweaponids".equals(canonical)
             || "roomsecondaryweaponids".equals(canonical)
             || "roommeleeweaponids".equals(canonical)
             || "roomgadget1ids".equals(canonical)

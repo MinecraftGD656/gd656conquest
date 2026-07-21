@@ -56,11 +56,10 @@ public class ChoiceListDialog {
     private Consumer<FixedChoiceConfigEntry.Choice> onHoverChoice;
     private Predicate<FixedChoiceConfigEntry.Choice> disabledPredicate;
     private String extraActionText = "";
+    private String primaryActionText = "";
     private int extraActionColor = GuiConstants.COLOR_RED;
     private int extraActionWidth = GuiConstants.ROW_HEADER_HEIGHT;
 
-    private boolean isDraggingList = false;
-    private double lastMouseY = 0;
     private double scrollY = 0;
     private double targetScrollY = 0;
     private int horizontalOffset = 0;
@@ -117,6 +116,8 @@ public class ChoiceListDialog {
             null,
             null,
             null,
+            null,
+            null,
             null
         );
     }
@@ -152,6 +153,7 @@ public class ChoiceListDialog {
             onDirectAction,
             selectablePredicate,
             iconProvider,
+            null,
             null,
             null
         );
@@ -190,6 +192,7 @@ public class ChoiceListDialog {
             selectablePredicate,
             iconProvider,
             onHoverChoice,
+            null,
             null
         );
     }
@@ -212,6 +215,46 @@ public class ChoiceListDialog {
         Consumer<FixedChoiceConfigEntry.Choice> onHoverChoice,
         Predicate<FixedChoiceConfigEntry.Choice> disabledPredicate
     ) {
+        show(
+            initialValue,
+            title,
+            options,
+            onConfirm,
+            onCancel,
+            extraActionVisiblePredicate,
+            onExtraAction,
+            extraActionText,
+            extraActionColor,
+            extraActionWidth,
+            directActionPredicate,
+            onDirectAction,
+            selectablePredicate,
+            iconProvider,
+            onHoverChoice,
+            disabledPredicate,
+            null
+        );
+    }
+
+    public void show(
+        String initialValue,
+        String title,
+        List<FixedChoiceConfigEntry.Choice> options,
+        Consumer<String> onConfirm,
+        Runnable onCancel,
+        Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onExtraAction,
+        String extraActionText,
+        int extraActionColor,
+        int extraActionWidth,
+        Predicate<FixedChoiceConfigEntry.Choice> directActionPredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onDirectAction,
+        Predicate<FixedChoiceConfigEntry.Choice> selectablePredicate,
+        Function<FixedChoiceConfigEntry.Choice, RowIcon> iconProvider,
+        Consumer<FixedChoiceConfigEntry.Choice> onHoverChoice,
+        Predicate<FixedChoiceConfigEntry.Choice> disabledPredicate,
+        String primaryActionText
+    ) {
         this.onConfirm = onConfirm;
         this.onCancel = onCancel;
         this.extraActionVisiblePredicate = extraActionVisiblePredicate;
@@ -223,6 +266,7 @@ public class ChoiceListDialog {
         this.onHoverChoice = onHoverChoice;
         this.disabledPredicate = disabledPredicate;
         this.extraActionText = extraActionText == null ? "" : extraActionText;
+        this.primaryActionText = primaryActionText == null ? "" : primaryActionText;
         this.extraActionColor = extraActionColor;
         this.extraActionWidth = extraActionWidth <= 0 ? GuiConstants.ROW_HEADER_HEIGHT : extraActionWidth;
         this.visible = true;
@@ -233,8 +277,6 @@ public class ChoiceListDialog {
         this.selectionAnchor = -1;
         this.undoStack.clear();
         this.displayOffset = 0;
-        this.isDraggingList = false;
-        this.lastMouseY = 0.0D;
         this.scrollY = 0.0D;
         this.targetScrollY = 0.0D;
         this.horizontalOffset = 0;
@@ -245,7 +287,7 @@ public class ChoiceListDialog {
         }
 
         this.selectedValue = resolveValue(initialValue);
-        applyFilter();
+        applyFilter(true);
 
         this.cancelButton = new GDButton(0, 0, PANEL_WIDTH, BUTTON_HEIGHT, net.minecraft.network.chat.Component.literal("关闭"), btn -> cancel());
 
@@ -267,6 +309,38 @@ public class ChoiceListDialog {
 
     public void hide() {
         this.visible = false;
+    }
+
+    public void refreshContent(
+        String selectedValue,
+        List<FixedChoiceConfigEntry.Choice> options,
+        Consumer<String> onConfirm,
+        Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onExtraAction,
+        String extraActionText,
+        int extraActionColor,
+        int extraActionWidth,
+        Predicate<FixedChoiceConfigEntry.Choice> selectablePredicate,
+        Function<FixedChoiceConfigEntry.Choice, RowIcon> iconProvider,
+        Predicate<FixedChoiceConfigEntry.Choice> disabledPredicate,
+        String primaryActionText
+    ) {
+        this.onConfirm = onConfirm;
+        this.extraActionVisiblePredicate = extraActionVisiblePredicate;
+        this.onExtraAction = onExtraAction;
+        this.selectablePredicate = selectablePredicate;
+        this.iconProvider = iconProvider;
+        this.disabledPredicate = disabledPredicate;
+        this.extraActionText = extraActionText == null ? "" : extraActionText;
+        this.primaryActionText = primaryActionText == null ? "" : primaryActionText;
+        this.extraActionColor = extraActionColor;
+        this.extraActionWidth = extraActionWidth <= 0 ? GuiConstants.ROW_HEADER_HEIGHT : extraActionWidth;
+        this.choices.clear();
+        if (options != null) {
+            this.choices.addAll(options);
+        }
+        this.selectedValue = resolveValue(selectedValue);
+        applyFilter(false);
     }
 
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
@@ -318,12 +392,6 @@ public class ChoiceListDialog {
             inputHoverProgress = Math.min(1.0f, inputHoverProgress + dt * 2.0f);
         } else {
             inputHoverProgress = Math.max(0.0f, inputHoverProgress - dt * 2.0f);
-        }
-
-        if (isDraggingList) {
-            double diff = mouseY - lastMouseY;
-            targetScrollY -= diff;
-            lastMouseY = mouseY;
         }
 
         updateScroll(dt, listH);
@@ -398,18 +466,18 @@ public class ChoiceListDialog {
                     if (onDirectAction != null) {
                         onDirectAction.accept(choice);
                     }
+                    return true;
                 } else if (button == 0 && hasExtraAction && mouseX >= extraX1) {
                     if (onExtraAction != null) {
                         onExtraAction.accept(choice);
                     }
+                    return true;
                 } else if (button == 0 && mouseX >= selectX1 && isSelectable(choice)) {
                     selectChoice(choice);
+                    return true;
                 }
                 break;
             }
-
-            isDraggingList = true;
-            lastMouseY = mouseY;
             return true;
         }
 
@@ -417,7 +485,6 @@ public class ChoiceListDialog {
     }
 
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        isDraggingList = false;
         return false;
     }
 
@@ -447,7 +514,7 @@ public class ChoiceListDialog {
         }
         if (net.minecraft.SharedConstants.isAllowedChatCharacter(codePoint)) {
             replaceSelection(String.valueOf(codePoint));
-            applyFilter();
+            applyFilter(true);
             return true;
         }
         return false;
@@ -473,38 +540,38 @@ public class ChoiceListDialog {
         }
         if (controlDown && keyCode == GLFW.GLFW_KEY_Z) {
             undoEdit();
-            applyFilter();
+            applyFilter(true);
             return true;
         }
         if ((controlDown && keyCode == GLFW.GLFW_KEY_V) || (shiftDown && keyCode == GLFW.GLFW_KEY_INSERT)) {
             insertClipboardText();
-            applyFilter();
+            applyFilter(true);
             return true;
         }
         if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
             if (hasSelection()) {
                 deleteSelection();
-                applyFilter();
+                applyFilter(true);
                 return true;
             }
             if (cursorPosition > 0) {
                 pushUndoState();
                 filterText = filterText.substring(0, cursorPosition - 1) + filterText.substring(cursorPosition);
                 cursorPosition--;
-                applyFilter();
+                applyFilter(true);
             }
             return true;
         }
         if (keyCode == GLFW.GLFW_KEY_DELETE) {
             if (hasSelection()) {
                 deleteSelection();
-                applyFilter();
+                applyFilter(true);
                 return true;
             }
             if (cursorPosition < filterText.length()) {
                 pushUndoState();
                 filterText = filterText.substring(0, cursorPosition) + filterText.substring(cursorPosition + 1);
-                applyFilter();
+                applyFilter(true);
             }
             return true;
         }
@@ -607,8 +674,15 @@ public class ChoiceListDialog {
         boolean selected = choice.value().equals(selectedValue);
         boolean selectable = isSelectable(choice);
         boolean disabled = isDisabled(choice);
-        int firstColor = selectable ? (selected ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_WHITE) : disabled ? 0xFF4A4A4A : GuiConstants.COLOR_GRAY;
-        int secondColor = selectable ? (selected ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_WHITE) : disabled ? 0xFF4A4A4A : GuiConstants.COLOR_GRAY;
+        boolean toggleOnlyAction = hasExtraAction(choice) && !selectable;
+        int firstColor = selectable || toggleOnlyAction
+            ? (selected ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_WHITE)
+            : disabled ? 0xFF4A4A4A : GuiConstants.COLOR_GRAY;
+        int secondColor = selectable
+            ? (selected ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_WHITE)
+            : toggleOnlyAction
+            ? extraActionColor
+            : disabled ? 0xFF4A4A4A : GuiConstants.COLOR_GRAY;
 
         if (isDirectAction(choice)) {
             addRowIconColumn(renderer, choice);
@@ -622,17 +696,30 @@ public class ChoiceListDialog {
         }
 
         addRowIconColumn(renderer, choice);
-        renderer.addColumn(" " + choice.label(), -1, firstColor, true, false, null);
-        renderer.addColumn(
-            selectable ? I18n.get("gd656conquest.client.gui.choice.select")
-                : disabled ? I18n.get("gd656conquest.client.gui.choice.disabled") : I18n.get("gd656conquest.client.gui.choice.locked"),
-            30,
-            secondColor,
-            false,
-            true,
-            selectable ? btn -> selectChoice(choice) : null
-        );
-        if (hasExtraAction(choice)) {
+        if (choice.secondaryLabel() != null && !choice.secondaryLabel().isBlank()) {
+            int secondaryLabelColor = disabled && !toggleOnlyAction ? 0xFF4A4A4A : 0xFF9AA6B8;
+            renderer.addNameColumn(choice.label(), choice.secondaryLabel(), firstColor, secondaryLabelColor, true, false);
+        } else {
+            renderer.addColumn(" " + choice.label(), -1, firstColor, true, false, null);
+        }
+        if (hasExtraAction(choice) && !selectable) {
+            renderer.addColumn(extraActionText, extraActionWidth, extraActionColor, true, true, btn -> {
+                if (onExtraAction != null) {
+                    onExtraAction.accept(choice);
+                }
+            });
+        } else {
+            renderer.addColumn(
+                selectable ? resolvePrimaryActionText()
+                    : disabled ? I18n.get("gd656conquest.client.gui.choice.disabled") : I18n.get("gd656conquest.client.gui.choice.locked"),
+                30,
+                secondColor,
+                false,
+                true,
+                selectable ? btn -> selectChoice(choice) : null
+            );
+        }
+        if (hasExtraAction(choice) && selectable) {
             renderer.addColumn(extraActionText, extraActionWidth, extraActionColor, true, true, btn -> {
                 if (onExtraAction != null) {
                     onExtraAction.accept(choice);
@@ -885,22 +972,37 @@ public class ChoiceListDialog {
         }
     }
 
-    private void applyFilter() {
+    private void applyFilter(boolean resetScroll) {
         String filter = filterText == null ? "" : filterText.toLowerCase(Locale.ROOT);
         filteredChoices.clear();
         for (FixedChoiceConfigEntry.Choice choice : choices) {
             String label = choice.label() == null ? "" : choice.label();
+            String secondaryLabel = choice.secondaryLabel() == null ? "" : choice.secondaryLabel();
             String value = choice.value() == null ? "" : choice.value();
-            if (filter.isEmpty() || label.toLowerCase(Locale.ROOT).contains(filter) || value.toLowerCase(Locale.ROOT).contains(filter)) {
+            if (filter.isEmpty()
+                || label.toLowerCase(Locale.ROOT).contains(filter)
+                || secondaryLabel.toLowerCase(Locale.ROOT).contains(filter)
+                || value.toLowerCase(Locale.ROOT).contains(filter)) {
                 filteredChoices.add(choice);
             }
         }
-        targetScrollY = 0.0D;
-        scrollY = 0.0D;
+        if (resetScroll) {
+            targetScrollY = 0.0D;
+            scrollY = 0.0D;
+        } else {
+            clampScrollPosition();
+        }
         cursorPosition = Math.min(cursorPosition, filterText.length());
         if (selectionAnchor >= 0) {
             selectionAnchor = Math.min(selectionAnchor, filterText.length());
         }
+    }
+
+    private void clampScrollPosition() {
+        int contentHeight = filteredChoices.size() * (ROW_HEIGHT + ROW_GAP);
+        double maxScroll = Math.max(0, contentHeight - LIST_HEIGHT);
+        targetScrollY = Math.max(0.0D, Math.min(maxScroll, targetScrollY));
+        scrollY = Math.max(0.0D, Math.min(maxScroll, scrollY));
     }
 
     private String resolveValue(String value) {
@@ -936,6 +1038,12 @@ public class ChoiceListDialog {
 
     private boolean isSelectable(FixedChoiceConfigEntry.Choice choice) {
         return choice != null && (selectablePredicate == null || selectablePredicate.test(choice));
+    }
+
+    private String resolvePrimaryActionText() {
+        return primaryActionText == null || primaryActionText.isBlank()
+            ? I18n.get("gd656conquest.client.gui.choice.select")
+            : primaryActionText;
     }
 
     private boolean isDisabled(FixedChoiceConfigEntry.Choice choice) {

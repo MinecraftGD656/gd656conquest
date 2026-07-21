@@ -5,6 +5,7 @@ import org.mods.gd656conquest.server.loadout.application.CustomLoadoutService;
 import org.mods.gd656conquest.server.loadout.domain.CustomLoadoutSlot;
 import org.mods.gd656conquest.server.room.model.RoomCommonConfig;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -15,17 +16,17 @@ public final class RoomFixedLoadoutRules {
     private RoomFixedLoadoutRules() {
     }
 
-    public static List<String> idsForSlot(RoomDefinition room, CustomLoadoutSlot slot) {
+    public static List<String> idsForTeamSlot(RoomDefinition room, RoomTeamId teamId, CustomLoadoutSlot slot) {
         RoomCommonConfig common = room == null ? null : room.commonConfig();
-        return common == null || slot == null ? List.of() : common.fixedLoadoutIds(slot);
+        return common == null || teamId == null || slot == null ? List.of() : common.fixedLoadoutIds(teamId, slot);
     }
 
-    public static boolean hasRestriction(RoomDefinition room, CustomLoadoutSlot slot) {
-        return !idsForSlot(room, slot).isEmpty();
+    public static boolean hasRestriction(RoomDefinition room, RoomTeamId teamId, CustomLoadoutSlot slot) {
+        return !idsForTeamSlot(room, teamId, slot).isEmpty();
     }
 
-    public static boolean allowsEmpty(RoomDefinition room, CustomLoadoutSlot slot) {
-        for (String id : idsForSlot(room, slot)) {
+    public static boolean allowsEmpty(RoomDefinition room, RoomTeamId teamId, CustomLoadoutSlot slot) {
+        for (String id : idsForTeamSlot(room, teamId, slot)) {
             if (CustomLoadoutService.isReservedEmptyEquipmentId(id)) {
                 return true;
             }
@@ -33,15 +34,15 @@ public final class RoomFixedLoadoutRules {
         return false;
     }
 
-    public static boolean allowsEntryId(RoomDefinition room, CustomLoadoutSlot slot, String equipmentId) {
-        if (!hasRestriction(room, slot)) {
+    public static boolean allowsEntryId(RoomDefinition room, RoomTeamId teamId, CustomLoadoutSlot slot, String equipmentId) {
+        if (!hasRestriction(room, teamId, slot)) {
             return true;
         }
         String normalizedId = CustomLoadoutService.normalizeEquipmentId(equipmentId);
         if (normalizedId.isBlank()) {
             return false;
         }
-        for (String allowedId : idsForSlot(room, slot)) {
+        for (String allowedId : idsForTeamSlot(room, teamId, slot)) {
             if (CustomLoadoutService.isReservedEmptyEquipmentId(allowedId)) {
                 continue;
             }
@@ -57,14 +58,25 @@ public final class RoomFixedLoadoutRules {
             return null;
         }
         return switch (configId.trim().toLowerCase(java.util.Locale.ROOT)) {
-            case "roomprimaryweaponids" -> CustomLoadoutSlot.PRIMARY_WEAPON;
-            case "roomsecondaryweaponids" -> CustomLoadoutSlot.SECONDARY_WEAPON;
-            case "roommeleeweaponids" -> CustomLoadoutSlot.MELEE;
-            case "roomgadget1ids" -> CustomLoadoutSlot.GADGET_1;
-            case "roomgadget2ids" -> CustomLoadoutSlot.GADGET_2;
-            case "roomthrowableids" -> CustomLoadoutSlot.THROWABLE;
+            case "campaprimaryweaponids", "campbprimaryweaponids" -> CustomLoadoutSlot.PRIMARY_WEAPON;
+            case "campasecondaryweaponids", "campbsecondaryweaponids" -> CustomLoadoutSlot.SECONDARY_WEAPON;
+            case "campameleeweaponids", "campbmeleeweaponids" -> CustomLoadoutSlot.MELEE;
+            case "campagadget1ids", "campbgadget1ids" -> CustomLoadoutSlot.GADGET_1;
+            case "campagadget2ids", "campbgadget2ids" -> CustomLoadoutSlot.GADGET_2;
+            case "campathrowableids", "campbthrowableids" -> CustomLoadoutSlot.THROWABLE;
             default -> null;
         };
+    }
+
+    public static RoomTeamId resolveTeamByConfigId(String configId) {
+        if (configId == null) {
+            return null;
+        }
+        return configId.trim().toLowerCase(java.util.Locale.ROOT).startsWith("campa")
+            ? RoomTeamId.CAMP_A
+            : configId.trim().toLowerCase(java.util.Locale.ROOT).startsWith("campb")
+            ? RoomTeamId.CAMP_B
+            : null;
     }
 
     public static List<String> suggestionIdsForSlot(EquipmentDataModel equipmentData, CustomLoadoutSlot slot) {
@@ -82,12 +94,12 @@ public final class RoomFixedLoadoutRules {
         return new ArrayList<>(ids);
     }
 
-    public static EquipmentDataModel.EquipmentEntry resolveAllowedEntry(RoomDefinition room, EquipmentDataModel equipmentData, CustomLoadoutSlot slot, String equipmentId) {
-        if (room == null || equipmentData == null || slot == null) {
+    public static EquipmentDataModel.EquipmentEntry resolveAllowedEntry(RoomDefinition room, EquipmentDataModel equipmentData, RoomTeamId teamId, CustomLoadoutSlot slot, String equipmentId) {
+        if (room == null || equipmentData == null || teamId == null || slot == null) {
             return null;
         }
         String normalizedId = CustomLoadoutService.normalizeEquipmentId(equipmentId);
-        if (!allowsEntryId(room, slot, normalizedId)) {
+        if (!allowsEntryId(room, teamId, slot, normalizedId)) {
             return null;
         }
         EquipmentDataModel.EquipmentEntry entry = equipmentData.getEquipmentById().get(normalizedId);
@@ -97,15 +109,22 @@ public final class RoomFixedLoadoutRules {
         return entry;
     }
 
-    public static EquipmentDataModel.EquipmentEntry resolveFallbackEntry(RoomDefinition room, EquipmentDataModel equipmentData, CustomLoadoutSlot slot, int playerLevel) {
-        if (room == null || equipmentData == null || slot == null || !hasRestriction(room, slot)) {
+    public static EquipmentDataModel.EquipmentEntry resolveFallbackEntry(
+        RoomDefinition room,
+        EquipmentDataModel equipmentData,
+        RoomTeamId teamId,
+        CustomLoadoutSlot slot,
+        int playerLevel,
+        boolean ignoreUnlockLevel
+    ) {
+        if (room == null || equipmentData == null || teamId == null || slot == null || !hasRestriction(room, teamId, slot)) {
             return null;
         }
-        return idsForSlot(room, slot).stream()
+        return idsForTeamSlot(room, teamId, slot).stream()
             .filter(id -> !CustomLoadoutService.isReservedEmptyEquipmentId(id))
             .map(id -> equipmentData.getEquipmentById().get(CustomLoadoutService.normalizeEquipmentId(id)))
             .filter(entry -> entry != null && entry.getSlot() == slot.getIndex())
-            .filter(entry -> CustomLoadoutService.isEntryUnlocked(entry, playerLevel))
+            .filter(entry -> ignoreUnlockLevel || CustomLoadoutService.isEntryUnlocked(entry, playerLevel))
             .sorted(Comparator.comparingInt(EquipmentDataModel.EquipmentEntry::getUnlockLevel)
                 .thenComparing(EquipmentDataModel.EquipmentEntry::getId, String.CASE_INSENSITIVE_ORDER))
             .findFirst()

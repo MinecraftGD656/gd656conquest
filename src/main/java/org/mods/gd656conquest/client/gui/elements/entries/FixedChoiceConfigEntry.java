@@ -14,10 +14,16 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
     public static class Choice {
         private final String value;
         private final String label;
+        private final String secondaryLabel;
 
         public Choice(String value, String label) {
+            this(value, label, "");
+        }
+
+        public Choice(String value, String label, String secondaryLabel) {
             this.value = value;
             this.label = label;
+            this.secondaryLabel = secondaryLabel == null ? "" : secondaryLabel;
         }
 
         public String value() {
@@ -26,6 +32,10 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
 
         public String label() {
             return label;
+        }
+
+        public String secondaryLabel() {
+            return secondaryLabel;
         }
     }
 

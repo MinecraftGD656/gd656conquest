@@ -50,7 +50,17 @@ public final class ClientRoomEditorState {
                             configPayload.suggestionValues() == null ? List.of() : List.copyOf(configPayload.suggestionValues()),
                             configPayload.supportsQuotedValue(),
                             configPayload.supportsGroupOperations(),
-                            configPayload.groupValues() == null ? List.of() : List.copyOf(configPayload.groupValues())
+                            configPayload.groupValues() == null ? List.of() : List.copyOf(configPayload.groupValues()),
+                            configPayload.groupChoices() == null
+                                    ? List.of()
+                                    : configPayload.groupChoices().stream()
+                                    .map(choice -> new GroupChoice(
+                                            choice.value() == null ? "" : choice.value(),
+                                            choice.label() == null ? "" : choice.label(),
+                                            choice.secondaryLabel() == null ? "" : choice.secondaryLabel(),
+                                            choice.itemSnbt() == null ? "" : choice.itemSnbt()
+                                    ))
+                                    .toList()
                     ));
                 }
             }
@@ -217,7 +227,16 @@ public final class ClientRoomEditorState {
             List<String> suggestionValues,
             boolean supportsQuotedValue,
             boolean supportsGroupOperations,
-            List<String> groupValues
+            List<String> groupValues,
+            List<GroupChoice> groupChoices
+    ) {
+    }
+
+    public record GroupChoice(
+            String value,
+            String label,
+            String secondaryLabel,
+            String itemSnbt
     ) {
     }
 }

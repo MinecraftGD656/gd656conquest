@@ -77,6 +77,13 @@ public final class RoomEditorSnapshotPacket {
                 for (String groupValue : configEntry.groupValues()) {
                     buffer.writeUtf(groupValue == null ? "" : groupValue);
                 }
+                buffer.writeInt(configEntry.groupChoices().size());
+                for (GroupChoicePayload groupChoice : configEntry.groupChoices()) {
+                    buffer.writeUtf(groupChoice.value() == null ? "" : groupChoice.value());
+                    buffer.writeUtf(groupChoice.label() == null ? "" : groupChoice.label());
+                    buffer.writeUtf(groupChoice.secondaryLabel() == null ? "" : groupChoice.secondaryLabel());
+                    buffer.writeUtf(groupChoice.itemSnbt() == null ? "" : groupChoice.itemSnbt());
+                }
             }
         }
     }
@@ -139,7 +146,8 @@ public final class RoomEditorSnapshotPacket {
                         suggestionValues,
                         buffer.readBoolean(),
                         buffer.readBoolean(),
-                        readUtfList(buffer)
+                        readUtfList(buffer),
+                        readGroupChoices(buffer)
                 ));
             }
             rooms.add(new RoomPayload(roomId, displayName, stateKey, stateDisplayName, currentPlayers, maxPlayers, missingItems, missingConfigIds, configEntries));
@@ -164,6 +172,20 @@ public final class RoomEditorSnapshotPacket {
         List<String> values = new ArrayList<>();
         for (int index = 0; index < size; index++) {
             values.add(buffer.readUtf());
+        }
+        return values;
+    }
+
+    private static List<GroupChoicePayload> readGroupChoices(FriendlyByteBuf buffer) {
+        int size = Math.max(0, buffer.readInt());
+        List<GroupChoicePayload> values = new ArrayList<>();
+        for (int index = 0; index < size; index++) {
+            values.add(new GroupChoicePayload(
+                    buffer.readUtf(),
+                    buffer.readUtf(),
+                    buffer.readUtf(),
+                    buffer.readUtf()
+            ));
         }
         return values;
     }
@@ -197,7 +219,16 @@ public final class RoomEditorSnapshotPacket {
             List<String> suggestionValues,
             boolean supportsQuotedValue,
             boolean supportsGroupOperations,
-            List<String> groupValues
+            List<String> groupValues,
+            List<GroupChoicePayload> groupChoices
+    ) {
+    }
+
+    public record GroupChoicePayload(
+            String value,
+            String label,
+            String secondaryLabel,
+            String itemSnbt
     ) {
     }
 }

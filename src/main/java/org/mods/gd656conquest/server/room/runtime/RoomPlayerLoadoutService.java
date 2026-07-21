@@ -147,6 +147,7 @@ public final class RoomPlayerLoadoutService {
             equipmentData,
             playerData,
             player,
+            teamId,
             playerLevel,
             refreshRandomSelection,
             true
@@ -232,6 +233,7 @@ public final class RoomPlayerLoadoutService {
             equipmentData,
             playerData,
             player,
+            resolveRoomTeamId(roomContext, player),
             playerLevel,
             false,
             false
@@ -615,6 +617,7 @@ public final class RoomPlayerLoadoutService {
             equipmentData,
             playerData,
             player,
+            roomContext == null || roomContext.state() == null ? null : roomContext.state().getRoomTeams().get(player.getUUID()),
             playerLevel,
             false,
             false
@@ -886,11 +889,13 @@ public final class RoomPlayerLoadoutService {
         }
         PlayerDataModel playerData = playerDataHandler.getPlayerData(player.getUUID());
         int playerLevel = PlayerLevelService.getEffectiveLevel(player);
+        RoomRuntimeContext roomContext = resolveRoomRuntimeContext(player);
         ActiveLoadoutSelection selection = resolveActiveLoadoutSelection(
-            resolveRoomRuntimeContext(player),
+            roomContext,
             equipmentData,
             playerData,
             player,
+            resolveRoomTeamId(roomContext, player),
             playerLevel,
             false,
             false
@@ -948,6 +953,7 @@ public final class RoomPlayerLoadoutService {
         EquipmentDataModel equipmentData,
         PlayerDataModel playerData,
         ServerPlayer player,
+        RoomTeamId teamId,
         int playerLevel,
         boolean refreshRandomSelection,
         boolean notifyPlayer
@@ -956,7 +962,7 @@ public final class RoomPlayerLoadoutService {
             return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), false, false, false);
         }
         if (isRandomizedLoadoutEnabled(roomContext)) {
-            return resolveRandomizedLoadoutSelection(roomContext, equipmentData, player, refreshRandomSelection, notifyPlayer);
+            return resolveRandomizedLoadoutSelection(roomContext, equipmentData, player, teamId, refreshRandomSelection, notifyPlayer);
         }
         PlayerClassType selectedClassType = CustomLoadoutService.resolveCurrentClass(playerData);
         ActiveLoadoutSelection selection = resolveManualLoadoutSelectionForClass(
@@ -966,7 +972,7 @@ public final class RoomPlayerLoadoutService {
             playerLevel,
             false
         );
-        return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, selection, notifyPlayer);
+        return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, teamId, selection, notifyPlayer);
     }
 
     private ActiveLoadoutSelection resolveManualLoadoutSelectionForClass(
@@ -1013,6 +1019,7 @@ public final class RoomPlayerLoadoutService {
         RoomRuntimeContext roomContext,
         EquipmentDataModel equipmentData,
         ServerPlayer player,
+        RoomTeamId teamId,
         boolean refreshRandomSelection,
         boolean notifyPlayer
     ) {
@@ -1024,7 +1031,7 @@ public final class RoomPlayerLoadoutService {
         if (!refreshRandomSelection) {
             ActiveLoadoutSelection existing = resolveStoredRandomizedLoadoutSelection(state, equipmentData, playerId);
             if (!existing.entriesBySlot().isEmpty()) {
-                return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, existing, notifyPlayer);
+                return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, teamId, existing, notifyPlayer);
             }
         }
         List<PlayerClassType> fullCoverageClasses = new ArrayList<>();
@@ -1032,7 +1039,7 @@ public final class RoomPlayerLoadoutService {
         for (PlayerClassType classType : PlayerClassType.values()) {
             int coveredSlots = 0;
             for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
-                if (!CustomLoadoutService.listEntriesByClassAndSlot(equipmentData, classType, slot).isEmpty()) {
+                if (!listRandomSelectableIds(roomContext, equipmentData, teamId, classType, slot).isEmpty()) {
                     coveredSlots++;
                 }
             }
@@ -1052,11 +1059,16 @@ public final class RoomPlayerLoadoutService {
         Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entriesBySlot = new EnumMap<>(CustomLoadoutSlot.class);
         Map<String, String> storedSelectionIds = new LinkedHashMap<>();
         for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
-            List<EquipmentDataModel.EquipmentEntry> candidatesBySlot = CustomLoadoutService.listEntriesByClassAndSlot(equipmentData, chosenClass, slot);
-            if (candidatesBySlot.isEmpty()) {
+            List<String> candidateIds = listRandomSelectableIds(roomContext, equipmentData, teamId, chosenClass, slot);
+            if (candidateIds.isEmpty()) {
                 continue;
             }
-            EquipmentDataModel.EquipmentEntry selectedEntry = candidatesBySlot.get(ThreadLocalRandom.current().nextInt(candidatesBySlot.size()));
+            String selectedId = candidateIds.get(ThreadLocalRandom.current().nextInt(candidateIds.size()));
+            if (CustomLoadoutService.isReservedEmptyEquipmentId(selectedId)) {
+                storedSelectionIds.put(slot.getKey(), CustomLoadoutService.EMPTY_EQUIPMENT_ID);
+                continue;
+            }
+            EquipmentDataModel.EquipmentEntry selectedEntry = equipmentData.getEquipmentById().get(CustomLoadoutService.normalizeEquipmentId(selectedId));
             if (selectedEntry == null) {
                 continue;
             }
@@ -1065,7 +1077,7 @@ public final class RoomPlayerLoadoutService {
         }
         state.getRandomizedLoadoutClassKeysByPlayer().put(playerId, chosenClass.getKey());
         state.getRandomizedLoadoutSelectionIdsByPlayerSlot().put(playerId, storedSelectionIds);
-        return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, new ActiveLoadoutSelection(chosenClass, entriesBySlot, true, false, false), notifyPlayer);
+        return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, teamId, new ActiveLoadoutSelection(chosenClass, entriesBySlot, true, false, false), notifyPlayer);
     }
 
     private ActiveLoadoutSelection resolveStoredRandomizedLoadoutSelection(
@@ -1087,6 +1099,9 @@ public final class RoomPlayerLoadoutService {
             if (selectedId.isBlank()) {
                 continue;
             }
+            if (CustomLoadoutService.isReservedEmptyEquipmentId(selectedId)) {
+                continue;
+            }
             EquipmentDataModel.EquipmentEntry entry = equipmentData.getEquipmentById().get(selectedId);
             if (entry == null
                 || entry.getSlot() != slot.getIndex()
@@ -1105,7 +1120,14 @@ public final class RoomPlayerLoadoutService {
             && roomContext.room().commonConfig().enableRandomLoadout();
     }
 
-    private ActiveLoadoutSelection applyRoomLoadoutRestrictions(RoomRuntimeContext roomContext, EquipmentDataModel equipmentData, ServerPlayer player, ActiveLoadoutSelection selection, boolean notifyPlayer) {
+    private ActiveLoadoutSelection applyRoomLoadoutRestrictions(
+        RoomRuntimeContext roomContext,
+        EquipmentDataModel equipmentData,
+        ServerPlayer player,
+        RoomTeamId teamId,
+        ActiveLoadoutSelection selection,
+        boolean notifyPlayer
+    ) {
         if (selection == null || roomContext == null || roomContext.room() == null) {
             return selection;
         }
@@ -1114,16 +1136,18 @@ public final class RoomPlayerLoadoutService {
         Map<CustomLoadoutSlot, EquipmentDataModel.EquipmentEntry> entries = new EnumMap<>(CustomLoadoutSlot.class);
         entries.putAll(selection.entriesBySlot());
         for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
-            if (!RoomFixedLoadoutRules.hasRestriction(roomContext.room(), slot)) {
+            if (!RoomFixedLoadoutRules.hasRestriction(roomContext.room(), teamId, slot)) {
                 continue;
             }
             EquipmentDataModel.EquipmentEntry resolvedEntry = resolveRoomRestrictedEntry(
                 roomContext,
                 equipmentData,
                 player,
+                teamId,
                 classType,
                 slot,
-                entries.get(slot)
+                entries.get(slot),
+                selection.randomized()
             );
             if (resolvedEntry == null) {
                 entries.remove(slot);
@@ -1139,58 +1163,103 @@ public final class RoomPlayerLoadoutService {
         RoomRuntimeContext roomContext,
         EquipmentDataModel equipmentData,
         ServerPlayer player,
+        RoomTeamId teamId,
         PlayerClassType classType,
         CustomLoadoutSlot slot,
-        EquipmentDataModel.EquipmentEntry currentEntry
+        EquipmentDataModel.EquipmentEntry currentEntry,
+        boolean randomizedSelection
     ) {
-        if (roomContext == null || roomContext.room() == null || equipmentData == null || slot == null) {
+        if (roomContext == null || roomContext.room() == null || equipmentData == null || teamId == null || slot == null) {
             return currentEntry;
         }
         RoomDefinition room = roomContext.room();
-        if (!RoomFixedLoadoutRules.hasRestriction(room, slot)) {
+        if (!RoomFixedLoadoutRules.hasRestriction(room, teamId, slot)) {
             return currentEntry;
         }
         int playerLevel = player == null ? 0 : PlayerLevelService.getEffectiveLevel(player);
-        String roomSelectedId = CustomLoadoutService.getSelectedIdForRoomSlot(
-            roomContext.state(),
-            player == null ? null : player.getUUID(),
-            classType,
-            slot
-        );
-        if (!roomSelectedId.isBlank()) {
-            if (CustomLoadoutService.isReservedEmptyEquipmentId(roomSelectedId)) {
-                return RoomFixedLoadoutRules.allowsEmpty(room, slot) ? null : resolveRoomRestrictionFallback(roomContext, player, classType, slot, equipmentData, playerLevel);
+        if (!randomizedSelection) {
+            String roomSelectedId = CustomLoadoutService.getSelectedIdForRoomSlot(
+                roomContext.state(),
+                player == null ? null : player.getUUID(),
+                classType,
+                slot
+            );
+            if (!roomSelectedId.isBlank()) {
+                if (CustomLoadoutService.isReservedEmptyEquipmentId(roomSelectedId)) {
+                    return RoomFixedLoadoutRules.allowsEmpty(room, teamId, slot)
+                        ? null
+                        : resolveRoomRestrictionFallback(roomContext, player, teamId, classType, slot, equipmentData, playerLevel, false);
+                }
+                EquipmentDataModel.EquipmentEntry roomSelectedEntry = equipmentData.getEquipmentById().get(roomSelectedId);
+                if (roomSelectedEntry != null
+                    && roomSelectedEntry.getSlot() == slot.getIndex()
+                    && CustomLoadoutService.isEntryUnlocked(roomSelectedEntry, playerLevel)
+                    && RoomFixedLoadoutRules.allowsEntryId(room, teamId, slot, roomSelectedId)) {
+                    return roomSelectedEntry;
+                }
+                CustomLoadoutService.setSelectedIdForRoomSlot(roomContext.state(), player == null ? null : player.getUUID(), classType, slot, "");
             }
-            EquipmentDataModel.EquipmentEntry roomSelectedEntry = equipmentData.getEquipmentById().get(roomSelectedId);
-            if (roomSelectedEntry != null
-                && roomSelectedEntry.getSlot() == slot.getIndex()
-                && CustomLoadoutService.isEntryUnlocked(roomSelectedEntry, playerLevel)
-                && RoomFixedLoadoutRules.allowsEntryId(room, slot, roomSelectedId)) {
-                return roomSelectedEntry;
-            }
-            CustomLoadoutService.setSelectedIdForRoomSlot(roomContext.state(), player == null ? null : player.getUUID(), classType, slot, "");
         }
         String currentId = currentEntry == null ? "" : CustomLoadoutService.normalizeEquipmentId(currentEntry.getId());
-        if (!currentId.isBlank() && RoomFixedLoadoutRules.allowsEntryId(room, slot, currentId)) {
+        if (!currentId.isBlank() && RoomFixedLoadoutRules.allowsEntryId(room, teamId, slot, currentId)) {
             return currentEntry;
         }
-        return resolveRoomRestrictionFallback(roomContext, player, classType, slot, equipmentData, playerLevel);
+        return resolveRoomRestrictionFallback(roomContext, player, teamId, classType, slot, equipmentData, playerLevel, randomizedSelection);
     }
 
     private EquipmentDataModel.EquipmentEntry resolveRoomRestrictionFallback(
         RoomRuntimeContext roomContext,
         ServerPlayer player,
+        RoomTeamId teamId,
         PlayerClassType classType,
         CustomLoadoutSlot slot,
         EquipmentDataModel equipmentData,
-        int playerLevel
+        int playerLevel,
+        boolean ignoreUnlockLevel
     ) {
         RoomDefinition room = roomContext == null ? null : roomContext.room();
-        EquipmentDataModel.EquipmentEntry fallbackEntry = RoomFixedLoadoutRules.resolveFallbackEntry(room, equipmentData, slot, playerLevel);
+        EquipmentDataModel.EquipmentEntry fallbackEntry = RoomFixedLoadoutRules.resolveFallbackEntry(room, equipmentData, teamId, slot, playerLevel, ignoreUnlockLevel);
         if (fallbackEntry != null) {
             return fallbackEntry;
         }
-        return RoomFixedLoadoutRules.allowsEmpty(room, slot) ? null : null;
+        return RoomFixedLoadoutRules.allowsEmpty(room, teamId, slot) ? null : null;
+    }
+
+    private List<String> listRandomSelectableIds(
+        RoomRuntimeContext roomContext,
+        EquipmentDataModel equipmentData,
+        RoomTeamId teamId,
+        PlayerClassType classType,
+        CustomLoadoutSlot slot
+    ) {
+        if (equipmentData == null || classType == null || slot == null) {
+            return List.of();
+        }
+        if (roomContext != null && roomContext.room() != null && RoomFixedLoadoutRules.hasRestriction(roomContext.room(), teamId, slot)) {
+            List<String> ids = new ArrayList<>();
+            for (String allowedId : RoomFixedLoadoutRules.idsForTeamSlot(roomContext.room(), teamId, slot)) {
+                if (CustomLoadoutService.isReservedEmptyEquipmentId(allowedId)) {
+                    ids.add(CustomLoadoutService.EMPTY_EQUIPMENT_ID);
+                    continue;
+                }
+                EquipmentDataModel.EquipmentEntry entry = equipmentData.getEquipmentById().get(CustomLoadoutService.normalizeEquipmentId(allowedId));
+                if (entry != null && entry.getSlot() == slot.getIndex()) {
+                    ids.add(CustomLoadoutService.normalizeEquipmentId(entry.getId()));
+                }
+            }
+            return ids;
+        }
+        List<String> ids = new ArrayList<>();
+        for (EquipmentDataModel.EquipmentEntry entry : CustomLoadoutService.listEntriesByClassAndSlot(equipmentData, classType, slot)) {
+            if (entry == null) {
+                continue;
+            }
+            String normalizedId = CustomLoadoutService.normalizeEquipmentId(entry.getId());
+            if (!normalizedId.isBlank()) {
+                ids.add(normalizedId);
+            }
+        }
+        return ids;
     }
 
     private boolean isRandomizedAttachmentEnabled(RoomRuntimeContext roomContext) {
@@ -1412,6 +1481,13 @@ public final class RoomPlayerLoadoutService {
         RoomDefinition room = manager.findRoom(roomId).orElse(null);
         RunningRuntimeState state = manager.findRunningState(roomId).orElse(null);
         return new RoomRuntimeContext(room, state);
+    }
+
+    private RoomTeamId resolveRoomTeamId(RoomRuntimeContext roomContext, ServerPlayer player) {
+        if (roomContext == null || roomContext.state() == null || player == null) {
+            return null;
+        }
+        return roomContext.state().getRoomTeams().get(player.getUUID());
     }
 
     private ItemStack createRandomRoomGoatHorn(ServerPlayer player) {

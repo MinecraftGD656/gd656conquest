@@ -265,12 +265,18 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().supportCampBHeroKits(),
             base.commonConfig().supportCampAShellings(),
             base.commonConfig().supportCampBShellings(),
-            base.commonConfig().roomPrimaryWeaponIds(),
-            base.commonConfig().roomSecondaryWeaponIds(),
-            base.commonConfig().roomMeleeWeaponIds(),
-            base.commonConfig().roomGadget1Ids(),
-            base.commonConfig().roomGadget2Ids(),
-            base.commonConfig().roomThrowableIds(),
+            base.commonConfig().campAPrimaryWeaponIds(),
+            base.commonConfig().campASecondaryWeaponIds(),
+            base.commonConfig().campAMeleeWeaponIds(),
+            base.commonConfig().campAGadget1Ids(),
+            base.commonConfig().campAGadget2Ids(),
+            base.commonConfig().campAThrowableIds(),
+            base.commonConfig().campBPrimaryWeaponIds(),
+            base.commonConfig().campBSecondaryWeaponIds(),
+            base.commonConfig().campBMeleeWeaponIds(),
+            base.commonConfig().campBGadget1Ids(),
+            base.commonConfig().campBGadget2Ids(),
+            base.commonConfig().campBThrowableIds(),
             base.commonConfig().campAEquipmentSetId(),
             base.commonConfig().campBEquipmentSetId()
         );
@@ -386,6 +392,12 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             true,  // enableDeathSupportDrop
             false, // disableUndyingTotem
             true,  // allowPlayerCampSwitch
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
             List.of(),
             List.of(),
             List.of(),

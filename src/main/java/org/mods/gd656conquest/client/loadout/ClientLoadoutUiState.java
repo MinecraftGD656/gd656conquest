@@ -253,6 +253,10 @@ public final class ClientLoadoutUiState {
         public List<EntryState> sortedEntries() {
             return entries.values().stream()
                     .sorted((left, right) -> {
+                        int roomEnabledCompare = Boolean.compare(right.roomEnabled(), left.roomEnabled());
+                        if (roomEnabledCompare != 0) {
+                            return roomEnabledCompare;
+                        }
                         int unlockCompare = Integer.compare(left.unlockLevel(), right.unlockLevel());
                         if (unlockCompare != 0) {
                             return unlockCompare;

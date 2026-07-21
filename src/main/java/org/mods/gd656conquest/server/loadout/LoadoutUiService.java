@@ -544,7 +544,7 @@ public final class LoadoutUiService {
                 .count();
             int roomMaxPlayers = room.commonConfig().matchingConfig().totalMaxPlayers();
             List<RoomEditorSnapshotPacket.ConfigEntryPayload> configEntries =
-                buildRoomConfigEntries(room, missingItems, missingConfigIds);
+                buildRoomConfigEntries(dataManager, room, missingItems, missingConfigIds);
             RoomLifecycleState roomState = room.lifecycleState() == null ? RoomLifecycleState.DISABLED : room.lifecycleState();
             rooms.add(new RoomEditorSnapshotPacket.RoomPayload(
                 room.roomId(),
@@ -561,7 +561,7 @@ public final class LoadoutUiService {
         NetworkManager.sendToPlayer(player, new RoomEditorSnapshotPacket(true, openPanel, rooms));
     }
 
-    public static void handleAdminRoomConfigEdit(ServerPlayer player, String roomId, String keyPath, String value) {
+    public static void handleAdminRoomConfigEdit(ServerPlayer player, String roomId, String keyPath, String operation, String value) {
         if (player == null || player.server == null) {
             return;
         }
@@ -571,6 +571,7 @@ public final class LoadoutUiService {
         }
         String normalizedRoomId = roomId == null ? "" : roomId.trim();
         String normalizedKey = keyPath == null ? "" : keyPath.trim();
+        String normalizedOperation = operation == null || operation.isBlank() ? "set" : operation.trim().toLowerCase(Locale.ROOT);
         String rawValue = value == null ? "" : value.trim();
         if (normalizedRoomId.isBlank() || normalizedKey.isBlank()) {
             sendError(player, "房间编辑参数无效");
@@ -606,9 +607,15 @@ public final class LoadoutUiService {
                     sendError(player, "未找到配置项: " + normalizedKey);
                     return;
                 }
-                updated = descriptor.supportsGroupOperations()
-                    ? applyGroupDescriptorUpdate(room, descriptor, rawValue, player)
-                    : RoomDefinitionScalarConfigEditor.apply(room, descriptor, rawValue, player);
+                if (descriptor.supportsGroupOperations()) {
+                    updated = switch (normalizedOperation) {
+                        case "group_add" -> RoomDefinitionGroupConfigEditor.add(room, descriptor.configId(), rawValue, player);
+                        case "group_delete" -> RoomDefinitionGroupConfigEditor.delete(room, descriptor.configId(), rawValue, player);
+                        default -> applyGroupDescriptorUpdate(room, descriptor, rawValue, player);
+                    };
+                } else {
+                    updated = RoomDefinitionScalarConfigEditor.apply(room, descriptor, rawValue, player);
+                }
             }
             updated = dataManager.roomDefinitions().saveDefinition(updated);
             RoomCoreRuntimeManager.of(player.server).hotUpdateRoomDefinition(updated, player.server.getTickCount());
@@ -933,7 +940,8 @@ public final class LoadoutUiService {
         }
         RoomDefinition room = resolveCurrentRoom(player);
         RunningRuntimeState runningState = resolveCurrentRunningState(player);
-        boolean roomRestricted = RoomFixedLoadoutRules.hasRestriction(room, slot);
+        RoomTeamId teamId = resolveCurrentRoomTeam(player);
+        boolean roomRestricted = RoomFixedLoadoutRules.hasRestriction(room, teamId, slot);
         if (roomRestricted && runningState == null) {
             sendError(player, "当前房间运行态不可用，暂时无法保存房间限定配装");
             return false;
@@ -941,7 +949,7 @@ public final class LoadoutUiService {
         EquipmentDataModel equipmentData = ConquestDataManager.of(player.server).equipmentData().getData();
         int level = PlayerLevelService.getEffectiveLevel(player);
         if (roomRestricted && CustomLoadoutService.isReservedEmptyEquipmentId(normalizedId)) {
-            if (!RoomFixedLoadoutRules.allowsEmpty(room, slot)) {
+            if (!RoomFixedLoadoutRules.allowsEmpty(room, teamId, slot)) {
                 sendError(player, "当前房间不允许该槽位为空");
                 return false;
             }
@@ -970,7 +978,7 @@ public final class LoadoutUiService {
             sendError(player, "等级不足，解锁等级：" + entry.getUnlockLevel());
             return false;
         }
-        if (roomRestricted && !RoomFixedLoadoutRules.allowsEntryId(room, slot, normalizedId)) {
+        if (roomRestricted && !RoomFixedLoadoutRules.allowsEntryId(room, teamId, slot, normalizedId)) {
             sendError(player, "当前房间已禁用这个装备");
             return false;
         }
@@ -1038,7 +1046,7 @@ public final class LoadoutUiService {
         RunningRuntimeState runningState = resolveCurrentRunningState(player);
         RoomDefinition room = resolveCurrentRoom(player);
         PlayerClassType currentClass = CustomLoadoutService.resolveCurrentClass(playerData, runningState, player.getUUID());
-        String selectedLoadoutId = resolveUiSelectedId(room, runningState, playerData, player.getUUID(), currentClass, slot);
+        String selectedLoadoutId = resolveUiSelectedId(room, runningState, playerData, player.getUUID(), resolveCurrentRoomTeam(player), currentClass, slot);
         if (!normalizedLoadoutEntryId.equals(selectedLoadoutId)) {
             sendError(player, "当前武器已变化，请重新打开配件选择器");
             return false;
@@ -1191,6 +1199,20 @@ public final class LoadoutUiService {
         return manager.findRunningState(roomId).orElse(null);
     }
 
+    private static RoomTeamId resolveCurrentRoomTeam(ServerPlayer player) {
+        if (player == null || player.server == null) {
+            return null;
+        }
+        RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(player.server);
+        String roomId = manager.findPlayerRoomId(player.getUUID()).orElse(null);
+        if (roomId == null || roomId.isBlank()) {
+            return null;
+        }
+        return manager.findRoomTeam(roomId, player.getUUID())
+            .or(() -> manager.findQueueTeam(roomId, player.getUUID()))
+            .orElse(null);
+    }
+
     private static boolean refreshRangeLoadoutIfNeeded(ServerPlayer player) {
         if (player == null || player.server == null) {
             return false;
@@ -1212,6 +1234,9 @@ public final class LoadoutUiService {
         String roomId = roomManager.findPlayerRoomId(player.getUUID()).orElse("");
         RoomDefinition room = roomId.isBlank() ? null : roomManager.findRoom(roomId).orElse(null);
         RunningRuntimeState runningState = roomId.isBlank() ? null : roomManager.findRunningState(roomId).orElse(null);
+        RoomTeamId teamId = roomId.isBlank()
+            ? null
+            : roomManager.findRoomTeam(roomId, player.getUUID()).or(() -> roomManager.findQueueTeam(roomId, player.getUUID())).orElse(null);
         PlayerClassType currentClass = CustomLoadoutService.resolveCurrentClass(playerData, runningState, player.getUUID());
         int level = PlayerLevelService.getEffectiveLevel(player);
         String playerTitleText = PlayerTitleService.of(player.server)
@@ -1229,7 +1254,7 @@ public final class LoadoutUiService {
                 List<LoadoutUiOpenPacket.SlotPayload> slots = new ArrayList<>();
                 for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
                     List<LoadoutUiOpenPacket.EntryPayload> entries = new ArrayList<>();
-                    boolean roomRestricted = RoomFixedLoadoutRules.hasRestriction(room, slot);
+                    boolean roomRestricted = RoomFixedLoadoutRules.hasRestriction(room, teamId, slot);
                     List<EquipmentDataModel.EquipmentEntry> slotEntries = roomRestricted
                         ? CustomLoadoutService.listEntriesBySlot(equipmentData, slot)
                         : CustomLoadoutService.listEntriesByClassAndSlot(equipmentData, classType, slot);
@@ -1240,11 +1265,11 @@ public final class LoadoutUiService {
                             entry.getDisplayName() == null ? "" : entry.getDisplayName(),
                             Math.max(0, entry.getUnlockLevel()),
                             CustomLoadoutService.isEntryUnlocked(entry, level),
-                            !roomRestricted || RoomFixedLoadoutRules.allowsEntryId(room, slot, normalizedEntryId),
+                            !roomRestricted || RoomFixedLoadoutRules.allowsEntryId(room, teamId, slot, normalizedEntryId),
                             entry.getItemSnbt() == null ? "" : entry.getItemSnbt()
                         ));
                     }
-                    if (roomRestricted && RoomFixedLoadoutRules.allowsEmpty(room, slot)) {
+                    if (roomRestricted && RoomFixedLoadoutRules.allowsEmpty(room, teamId, slot)) {
                         EquipmentDataModel.EquipmentEntry emptyEntry = CustomLoadoutService.createReservedEmptyEntry(slot);
                         if (emptyEntry != null) {
                             entries.add(new LoadoutUiOpenPacket.EntryPayload(
@@ -1257,7 +1282,7 @@ public final class LoadoutUiService {
                             ));
                         }
                     }
-                    String selectedId = resolveUiSelectedId(room, runningState, playerData, player.getUUID(), classType, slot);
+                    String selectedId = resolveUiSelectedId(room, runningState, playerData, player.getUUID(), teamId, classType, slot);
                     slots.add(new LoadoutUiOpenPacket.SlotPayload(
                         slot.getIndex(),
                         slot.getKey(),
@@ -1312,7 +1337,7 @@ public final class LoadoutUiService {
         List<LoadoutUiOpenPacket.WeaponAttachmentPanelPayload> attachmentPanels = new ArrayList<>();
         if (equipmentData != null && attachmentData != null) {
             for (CustomLoadoutSlot slot : List.of(CustomLoadoutSlot.PRIMARY_WEAPON, CustomLoadoutSlot.SECONDARY_WEAPON)) {
-                String selectedId = resolveUiSelectedId(room, runningState, playerData, player.getUUID(), currentClass, slot);
+                String selectedId = resolveUiSelectedId(room, runningState, playerData, player.getUUID(), teamId, currentClass, slot);
                 EquipmentDataModel.EquipmentEntry equipmentEntry = equipmentData.getEquipmentById().get(selectedId);
                 ItemStack weaponStack = equipmentEntry == null ? ItemStack.EMPTY : deserializeItem(equipmentEntry.getItemSnbt());
                 boolean available = equipmentEntry != null && !weaponStack.isEmpty();
@@ -1627,13 +1652,14 @@ public final class LoadoutUiService {
         RunningRuntimeState runningState,
         PlayerDataModel playerData,
         UUID playerId,
+        RoomTeamId teamId,
         PlayerClassType classType,
         CustomLoadoutSlot slot
     ) {
         if (slot == null) {
             return "";
         }
-        if (RoomFixedLoadoutRules.hasRestriction(room, slot)) {
+        if (RoomFixedLoadoutRules.hasRestriction(room, teamId, slot)) {
             String roomSelected = CustomLoadoutService.getSelectedIdForRoomSlot(runningState, playerId, classType, slot);
             if (!roomSelected.isBlank()) {
                 return roomSelected;
@@ -1661,6 +1687,7 @@ public final class LoadoutUiService {
     }
 
     private static List<RoomEditorSnapshotPacket.ConfigEntryPayload> buildRoomConfigEntries(
+        ConquestDataManager dataManager,
         RoomDefinition definition,
         List<String> missingItems,
         List<String> missingConfigIds
@@ -1672,7 +1699,7 @@ public final class LoadoutUiService {
         List<String> configuredCaptureCodes = resolveEditorCaptureCodes(definition);
         for (RoomConfigScope scope : RoomConfigDescriptorRegistry.guiScopes()) {
             for (RoomConfigDescriptor descriptor : RoomConfigDescriptorRegistry.guiDescriptorsForScope(scope, configuredCaptureCodes)) {
-                addRoomConfigEntry(entries, definition, descriptor, scope, missingItems, missingConfigIds);
+                addRoomConfigEntry(entries, dataManager, definition, descriptor, scope, missingItems, missingConfigIds);
             }
         }
         return entries;
@@ -1692,6 +1719,7 @@ public final class LoadoutUiService {
 
     private static void addRoomConfigEntry(
         List<RoomEditorSnapshotPacket.ConfigEntryPayload> entries,
+        ConquestDataManager dataManager,
         RoomDefinition definition,
         RoomConfigDescriptor descriptor,
         RoomConfigScope scope,
@@ -1706,6 +1734,7 @@ public final class LoadoutUiService {
         boolean requiredMissing = isMissing(keyPath, descriptor, missingItems, missingConfigIds);
         boolean supportsGroup = descriptor.supportsGroupOperations();
         List<String> groupValues = resolveGroupValues(definition, descriptor, supportsGroup);
+        List<RoomEditorSnapshotPacket.GroupChoicePayload> groupChoices = resolveGroupChoices(dataManager, definition, descriptor, groupValues);
         entries.add(new RoomEditorSnapshotPacket.ConfigEntryPayload(
             keyPath,
             buildConfigEditKey(descriptor),
@@ -1722,7 +1751,8 @@ public final class LoadoutUiService {
             descriptor.suggestionValues(),
             descriptor.supportsQuotedValue(),
             supportsGroup,
-            groupValues
+            groupValues,
+            groupChoices
         ));
     }
 
@@ -1735,6 +1765,136 @@ public final class LoadoutUiService {
         } catch (Exception exception) {
             return List.of();
         }
+    }
+
+    private static List<RoomEditorSnapshotPacket.GroupChoicePayload> resolveGroupChoices(
+        ConquestDataManager dataManager,
+        RoomDefinition definition,
+        RoomConfigDescriptor descriptor,
+        List<String> groupValues
+    ) {
+        if (definition == null || descriptor == null || !descriptor.supportsGroupOperations()) {
+            return List.of();
+        }
+        String configId = descriptor.configId();
+        if (configId == null || configId.isBlank()) {
+            return List.of();
+        }
+        if (dataManager == null) {
+            return fallbackGroupChoices(descriptor, groupValues);
+        }
+        if (RoomFixedLoadoutRules.resolveSlotByConfigId(configId) != null) {
+            return buildEquipmentGroupChoices(dataManager.equipmentData().getData(), configId);
+        }
+        if ("supportcampaherokits".equalsIgnoreCase(configId) || "supportcampbherokits".equalsIgnoreCase(configId)) {
+            return buildHeroKitGroupChoices(dataManager.heroKits().get());
+        }
+        if ("supportcampashellings".equalsIgnoreCase(configId) || "supportcampbshellings".equalsIgnoreCase(configId)) {
+            return buildShellingGroupChoices(dataManager.shellings().get());
+        }
+        return fallbackGroupChoices(descriptor, groupValues);
+    }
+
+    private static List<RoomEditorSnapshotPacket.GroupChoicePayload> fallbackGroupChoices(
+        RoomConfigDescriptor descriptor,
+        List<String> groupValues
+    ) {
+        java.util.LinkedHashSet<String> orderedValues = new java.util.LinkedHashSet<>();
+        if (descriptor != null && descriptor.suggestionValues() != null) {
+            orderedValues.addAll(descriptor.suggestionValues());
+        }
+        if (groupValues != null) {
+            orderedValues.addAll(groupValues);
+        }
+        List<RoomEditorSnapshotPacket.GroupChoicePayload> payloads = new ArrayList<>();
+        for (String value : orderedValues) {
+            String normalized = value == null ? "" : value.trim();
+            if (normalized.isBlank()) {
+                continue;
+            }
+            payloads.add(new RoomEditorSnapshotPacket.GroupChoicePayload(normalized, normalized, normalized, ""));
+        }
+        return payloads;
+    }
+
+    private static List<RoomEditorSnapshotPacket.GroupChoicePayload> buildEquipmentGroupChoices(EquipmentDataModel data, String configId) {
+        CustomLoadoutSlot slot = RoomFixedLoadoutRules.resolveSlotByConfigId(configId);
+        if (data == null || slot == null) {
+            return List.of();
+        }
+        List<RoomEditorSnapshotPacket.GroupChoicePayload> payloads = new ArrayList<>();
+        payloads.add(new RoomEditorSnapshotPacket.GroupChoicePayload(
+            CustomLoadoutService.EMPTY_EQUIPMENT_ID,
+            "空",
+            CustomLoadoutService.EMPTY_EQUIPMENT_ID,
+            ""
+        ));
+        for (EquipmentDataModel.EquipmentEntry entry : CustomLoadoutService.listEntriesBySlot(data, slot)) {
+            if (entry == null) {
+                continue;
+            }
+            String id = CustomLoadoutService.normalizeEquipmentId(entry.getId());
+            if (id.isBlank()) {
+                continue;
+            }
+            payloads.add(new RoomEditorSnapshotPacket.GroupChoicePayload(
+                id,
+                safeString(entry.getDisplayName(), id),
+                id,
+                safeString(entry.getItemSnbt(), "")
+            ));
+        }
+        return payloads;
+    }
+
+    private static List<RoomEditorSnapshotPacket.GroupChoicePayload> buildHeroKitGroupChoices(org.mods.gd656conquest.server.data.herokit.HeroKitDataModel data) {
+        if (data == null) {
+            return List.of();
+        }
+        List<RoomEditorSnapshotPacket.GroupChoicePayload> payloads = new ArrayList<>();
+        data.getHeroKitsById().values().stream()
+            .filter(java.util.Objects::nonNull)
+            .sorted(Comparator.comparing(entry -> safeString(entry.getId(), ""), String.CASE_INSENSITIVE_ORDER))
+            .forEach(entry -> {
+                String id = safeString(entry.getId(), "");
+                if (id.isBlank()) {
+                    return;
+                }
+                payloads.add(new RoomEditorSnapshotPacket.GroupChoicePayload(
+                    id,
+                    safeString(entry.getDisplayName(), id),
+                    id,
+                    ""
+                ));
+            });
+        return payloads;
+    }
+
+    private static List<RoomEditorSnapshotPacket.GroupChoicePayload> buildShellingGroupChoices(org.mods.gd656conquest.server.data.shelling.ShellingDataModel data) {
+        if (data == null) {
+            return List.of();
+        }
+        List<RoomEditorSnapshotPacket.GroupChoicePayload> payloads = new ArrayList<>();
+        data.getShellingsById().values().stream()
+            .filter(java.util.Objects::nonNull)
+            .sorted(Comparator.comparing(entry -> safeString(entry.getId(), ""), String.CASE_INSENSITIVE_ORDER))
+            .forEach(entry -> {
+                String id = safeString(entry.getId(), "");
+                if (id.isBlank()) {
+                    return;
+                }
+                payloads.add(new RoomEditorSnapshotPacket.GroupChoicePayload(
+                    id,
+                    safeString(entry.getDisplayName(), id),
+                    id,
+                    safeString(entry.getGunItemSnbt(), "")
+                ));
+            });
+        return payloads;
+    }
+
+    private static String safeString(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 
     private static void sendSystem(ServerPlayer player, Component content) {

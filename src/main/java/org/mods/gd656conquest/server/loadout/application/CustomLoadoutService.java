@@ -217,12 +217,22 @@ public final class CustomLoadoutService {
         int playerLevel,
         RoomDefinition room
     ) {
-        if (room != null && RoomFixedLoadoutRules.hasRestriction(room, slot)) {
-            EquipmentDataModel.EquipmentEntry entry = RoomFixedLoadoutRules.resolveFallbackEntry(room, data, slot, playerLevel);
+        return resolveLowestLevelAllowedIdForSlot(data, slot, playerLevel, room, null);
+    }
+
+    public static String resolveLowestLevelAllowedIdForSlot(
+        EquipmentDataModel data,
+        CustomLoadoutSlot slot,
+        int playerLevel,
+        RoomDefinition room,
+        RoomTeamId teamId
+    ) {
+        if (room != null && RoomFixedLoadoutRules.hasRestriction(room, teamId, slot)) {
+            EquipmentDataModel.EquipmentEntry entry = RoomFixedLoadoutRules.resolveFallbackEntry(room, data, teamId, slot, playerLevel, false);
             if (entry != null) {
                 return normalizeEquipmentId(entry.getId());
             }
-            return RoomFixedLoadoutRules.allowsEmpty(room, slot) ? EMPTY_EQUIPMENT_ID : null;
+            return RoomFixedLoadoutRules.allowsEmpty(room, teamId, slot) ? EMPTY_EQUIPMENT_ID : null;
         }
         for (EquipmentDataModel.EquipmentEntry entry : listEntriesBySlot(data, slot)) {
             if (isEntryUnlocked(entry, playerLevel)) {

@@ -437,6 +437,9 @@ public class LoadoutConfigScreen extends Screen {
         }
 
         String targetId = hoveredGunChoice != null ? hoveredGunChoice.value() : slotState.selectedId();
+        if (targetId == null || targetId.isBlank() || !slotState.entries().containsKey(targetId)) {
+            targetId = resolveFallbackDisplayedWeaponId(slotState);
+        }
         if (targetId == null || targetId.isBlank()) {
             return ItemStack.EMPTY;
         }
@@ -445,6 +448,41 @@ public class LoadoutConfigScreen extends Screen {
             return ItemStack.EMPTY;
         }
         return parseStack(entry.itemSnbt());
+    }
+
+    private String resolveFallbackDisplayedWeaponId(ClientLoadoutUiState.SlotState slotState) {
+        if (slotState == null || slotState.entries().isEmpty()) {
+            return "";
+        }
+        for (ClientLoadoutUiState.EntryState entry : slotState.sortedEntries()) {
+            if (entry == null) {
+                continue;
+            }
+            String entryId = entry.id();
+            if (entryId == null || entryId.isBlank()) {
+                continue;
+            }
+            if (!parseStack(entry.itemSnbt()).isEmpty()) {
+                return entryId;
+            }
+        }
+        return slotState.sortedEntries().stream()
+            .map(ClientLoadoutUiState.EntryState::id)
+            .filter(id -> id != null && !id.isBlank())
+            .findFirst()
+            .orElse("");
+    }
+
+    private void updateHoveredGunChoice(FixedChoiceConfigEntry.Choice choice) {
+        if (choice != null) {
+            hoveredGunChoice = choice;
+        }
+    }
+
+    private void updateHoveredAttachmentChoice(FixedChoiceConfigEntry.Choice choice) {
+        if (choice != null) {
+            hoveredAttachmentChoice = choice;
+        }
     }
 
     private ItemStack resolveDisplayedAttachmentPreviewStack() {
@@ -844,7 +882,7 @@ public class LoadoutConfigScreen extends Screen {
                     null,
                     choice -> choice != null && !lockedIds.contains(choice.value()) && !roomDisabledIds.contains(choice.value()),
                     choice -> choice == null ? null : iconByEntryId.get(choice.value()),
-                    choice -> hoveredGunChoice = choice,
+                    this::updateHoveredGunChoice,
                     choice -> choice != null && roomDisabledIds.contains(choice.value())
             );
             syncChoiceDialogHorizontalOffset();
@@ -1161,7 +1199,7 @@ public class LoadoutConfigScreen extends Screen {
             null,
             choice -> choice != null && (!lockedIds.contains(choice.value()) || choice.value().isBlank()),
             choice -> choice == null ? null : iconById.get(choice.value()),
-            choice -> hoveredAttachmentChoice = choice
+            this::updateHoveredAttachmentChoice
         );
         syncChoiceDialogHorizontalOffset();
     }
