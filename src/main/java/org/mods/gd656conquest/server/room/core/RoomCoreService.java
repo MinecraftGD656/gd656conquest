@@ -1935,7 +1935,7 @@ public final class RoomCoreService {
         if (campACount > 0 && campBCount > 0) {
             return;
         }
-        beginMatchEnd(slot, new RoomMatchEndRequest(null, "运行中某阵营玩家数归零，判定平局"), gameTick);
+        beginMatchEnd(slot, new RoomMatchEndRequest((RoomTeamId) null, "运行中某阵营玩家数归零，判定平局"), gameTick);
     }
 
     private void syncRunningHudIfDue(RoomDefinition room, RunningRuntimeState state, long gameTick) {

@@ -81,7 +81,7 @@ public final class RoomResultRuntimeService {
             NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
             NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setBoundaryPenalty(false));
             RoomTeamId selfTeam = state.getRoomTeams().get(playerId);
-            MatchResultType resultType = resolveResultType(selfTeam, winner);
+            MatchResultType resultType = resolveResultType(playerId, selfTeam, winner, winnerPlayerId);
             NetworkManager.sendToPlayer(player, new RoomMatchResultPacket(
                 true,
                 resultType,

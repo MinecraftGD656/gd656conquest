@@ -143,7 +143,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                     "战斗时间结束，本局平局",
                     "战斗时间结束，本局平局"
                 );
-                pendingEndRequest = new RoomMatchEndRequest(null, "达到时长，判定平局");
+                pendingEndRequest = new RoomMatchEndRequest((RoomTeamId) null, "达到时长，判定平局");
                 return;
             }
             captureRuntimeService.tick(room, runningState, runtimeState, gameTick);

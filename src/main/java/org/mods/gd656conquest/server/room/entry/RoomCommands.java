@@ -1201,6 +1201,7 @@ public final class RoomCommands {
         String configId = descriptor.configId();
         return "supportCampAShellings".equalsIgnoreCase(configId)
             || "supportCampBShellings".equalsIgnoreCase(configId);
+    }
 
     private static boolean supportsGunmasterWeaponPoolSuggestions(RoomConfigDescriptor descriptor) {
         return descriptor != null && RoomGunmasterWeaponPoolRules.isWeaponPoolConfigId(descriptor.configId());

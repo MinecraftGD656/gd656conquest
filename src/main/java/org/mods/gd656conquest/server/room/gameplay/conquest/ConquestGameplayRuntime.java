@@ -618,7 +618,7 @@ public final class ConquestGameplayRuntime implements
         if (gameTick < matchEndTick) {
             return Optional.empty();
         }
-        return Optional.of(new RoomMatchEndRequest(null, "达到时长，判定平局"));
+        return Optional.of(new RoomMatchEndRequest((RoomTeamId) null, "达到时长，判定平局"));
     }
 
     private boolean isTroopRatioNearEnd(RoomDefinition room) {

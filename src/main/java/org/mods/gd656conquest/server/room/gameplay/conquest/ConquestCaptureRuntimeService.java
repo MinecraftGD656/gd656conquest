@@ -159,7 +159,7 @@ public final class ConquestCaptureRuntimeService {
         int campA = scoreState.getCampAScore();
         int campB = scoreState.getCampBScore();
         if (campA <= 0 && campB <= 0) {
-            return Optional.of(new RoomMatchEndRequest(null, "双方兵力同时耗尽"));
+            return Optional.of(new RoomMatchEndRequest((RoomTeamId) null, "双方兵力同时耗尽"));
         }
         if (campA <= 0) {
             return Optional.of(new RoomMatchEndRequest(RoomTeamId.CAMP_B, "CampA兵力耗尽"));

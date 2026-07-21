@@ -310,7 +310,7 @@ public class DeathmatchGameplayRuntime implements
         if (campBScore > campAScore) {
             return new RoomMatchEndRequest(RoomTeamId.CAMP_B, "达到时长，" + safeTeamName(room, RoomTeamId.CAMP_B) + "得分领先");
         }
-        return new RoomMatchEndRequest(null, "达到时长，判定平局");
+        return new RoomMatchEndRequest((RoomTeamId) null, "达到时长，判定平局");
     }
 
     private String buildAudioState(RoomDefinition room, RoomTeamId selfTeam) {
