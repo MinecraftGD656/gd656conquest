@@ -1260,6 +1260,9 @@ public final class LoadoutUiService {
                         ? CustomLoadoutService.listEntriesBySlot(equipmentData, slot)
                         : CustomLoadoutService.listEntriesByClassAndSlot(equipmentData, classType, slot);
                     for (EquipmentDataModel.EquipmentEntry entry : slotEntries) {
+                        if (entry.getUnlockLevel() > 100) {
+                            continue;
+                        }
                         String normalizedEntryId = CustomLoadoutService.normalizeEquipmentId(entry.getId());
                         entries.add(new LoadoutUiOpenPacket.EntryPayload(
                             normalizedEntryId,

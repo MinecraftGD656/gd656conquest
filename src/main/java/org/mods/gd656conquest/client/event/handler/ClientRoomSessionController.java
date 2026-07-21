@@ -887,7 +887,9 @@ final class ClientRoomSessionController {
             deployTeamSwitchButton.setY(height - UI_BUTTON_HEIGHT - UI_BUTTON_MARGIN - UI_BUTTON_HEIGHT - UI_BUTTON_GAP);
             deployLoadoutButton.setX(width - UI_BUTTON_WIDTH - UI_BUTTON_MARGIN);
             deployLoadoutButton.setY(height - UI_BUTTON_HEIGHT - UI_BUTTON_MARGIN);
-            deployTeamSwitchButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            if (switchState.visible()) {
+                deployTeamSwitchButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            }
             deployLoadoutButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
         if (ending) {
@@ -912,7 +914,8 @@ final class ClientRoomSessionController {
         }
         boolean ending = isEndingState();
         boolean deployOpen = ClientRoomLockState.isDeployUiActive() && !ending;
-        if (deployOpen && deployTeamSwitchButton != null && deployTeamSwitchButton.mouseClicked(mouseX, mouseY, button)) {
+        CampSwitchButtonState switchState = resolveCampSwitchButtonState(minecraft);
+        if (deployOpen && switchState.visible() && deployTeamSwitchButton != null && deployTeamSwitchButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
         if (deployOpen && deployLoadoutButton != null && deployLoadoutButton.mouseClicked(mouseX, mouseY, button)) {
@@ -924,9 +927,14 @@ final class ClientRoomSessionController {
     private CampSwitchButtonState resolveCampSwitchButtonState(Minecraft minecraft) {
         boolean admin = isAdmin(minecraft);
         boolean configAllowed = ClientHudDebugState.isPlayerCampSwitchAllowed();
+        boolean isGunmasterSolo = false;
+        String payload = ClientHudDebugState.getExtraPayload();
+        if (payload != null && payload.startsWith("GMHUD|") && payload.contains("solo=1")) {
+            isGunmasterSolo = true;
+        }
         int selfCount = ClientRoomTeamMirror.getSelfTeamPlayerCount();
         int oppositeCount = ClientRoomTeamMirror.getOppositeTeamPlayerCount();
-        boolean allowed = admin || (configAllowed && oppositeCount < selfCount && selfCount - oppositeCount > 1);
+        boolean allowed = !isGunmasterSolo && (admin || (configAllowed && oppositeCount < selfCount && selfCount - oppositeCount > 1));
         String targetDisplayName = ClientRoomTeamMirror.getOppositeTeamDisplayNameForSelf();
         if (targetDisplayName == null || targetDisplayName.isBlank()) {
             String selfTeam = ClientHudDebugState.getSelfTeam();
@@ -941,7 +949,7 @@ final class ClientRoomSessionController {
         int textColor = admin
             ? 0xFFFFD34D
             : allowed ? 0xFFFFFFFF : 0xFF8A8A8A;
-        return new CampSwitchButtonState(targetDisplayName, allowed, textColor);
+        return new CampSwitchButtonState(targetDisplayName, allowed, textColor, !isGunmasterSolo);
     }
 
     private boolean isEndingState() {
@@ -972,6 +980,6 @@ final class ClientRoomSessionController {
     private record TeamSide(String roomPrefix, int campIndex) {
     }
 
-    private record CampSwitchButtonState(String targetDisplayName, boolean clickable, int textColor) {
+    private record CampSwitchButtonState(String targetDisplayName, boolean clickable, int textColor, boolean visible) {
     }
 }

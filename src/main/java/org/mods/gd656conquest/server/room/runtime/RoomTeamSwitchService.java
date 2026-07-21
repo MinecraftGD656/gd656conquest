@@ -54,6 +54,16 @@ public final class RoomTeamSwitchService {
         int currentCount = countPlayersInTeam(state, currentTeam);
         int targetCount = countPlayersInTeam(state, targetTeam);
         String targetDisplayName = RoomTeamPresentationSupport.resolveTeamDisplayName(room, state, targetTeam);
+        if (room != null && org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) && room.gunmasterConfig().isSoloGrouping()) {
+            return TeamSwitchEligibility.denied(
+                currentTeam,
+                targetTeam,
+                currentCount,
+                targetCount,
+                targetDisplayName,
+                "枪神个人战模式不支持切换阵营"
+            );
+        }
         if (operatorAdmin) {
             return TeamSwitchEligibility.allowed(currentTeam, targetTeam, currentCount, targetCount, targetDisplayName);
         }
@@ -65,16 +75,6 @@ public final class RoomTeamSwitchService {
                 targetCount,
                 targetDisplayName,
                 "当前房间已关闭玩家主动切换阵营"
-            );
-        }
-        if (room != null && org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) && room.gunmasterConfig().isSoloGrouping()) {
-            return TeamSwitchEligibility.denied(
-                currentTeam,
-                targetTeam,
-                currentCount,
-                targetCount,
-                targetDisplayName,
-                "枪神个人战模式不支持切换阵营"
             );
         }
         boolean allowed = targetCount < currentCount && currentCount - targetCount > 1;

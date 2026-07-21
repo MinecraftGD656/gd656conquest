@@ -87,14 +87,10 @@ public final class RoomGunmasterLoadoutService {
             PreparedGunmasterWeapon prepared = preparePrimaryWeaponStack(weaponEntry, weaponStack, attachmentData, playerLevel, state, player, room);
             if (!prepared.stack().isEmpty()) {
                 player.getInventory().setItem(PRIMARY_WEAPON_HOTBAR_SLOT, prepared.stack());
-                grantConfiguredWeaponAmmoByExtraData(
-                    player,
-                    prepared.stack(),
-                    weaponEntry.getExtraData(),
-                    buildSlotRange(PRIMARY_AMMO_ROW_START, PRIMARY_AMMO_ROW_END)
-                );
             }
         }
+
+        grantInfiniteAmmoItems(player);
 
         if (teamId != null) {
             applyArmorLoadout(player, room, equipmentData, PlayerClassType.defaultType(), teamId);
@@ -188,6 +184,36 @@ public final class RoomGunmasterLoadoutService {
                 continue;
             }
             player.getInventory().setItem(slot, ItemStack.EMPTY);
+        }
+    }
+
+    private void grantInfiniteAmmoItems(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        try {
+            net.minecraft.world.item.Item taczBoxItem = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(net.minecraft.resources.ResourceLocation.tryParse("tacz:ammo_box"));
+            if (taczBoxItem != null) {
+                ItemStack taczBox = taczBoxItem.getDefaultInstance();
+                if (taczBox.getItem() instanceof com.tacz.guns.api.item.IAmmoBox iAmmoBox) {
+                    iAmmoBox.setCreative(taczBox, true);
+                }
+                player.getInventory().setItem(9, taczBox);
+            }
+        } catch (Exception ignored) {
+        }
+
+        try {
+            net.minecraft.world.item.Item sbwBoxItem = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(net.minecraft.resources.ResourceLocation.tryParse("superbwarfare:creative_ammo_box"));
+            if (sbwBoxItem != null) {
+                player.getInventory().setItem(10, sbwBoxItem.getDefaultInstance());
+            }
+        } catch (Exception ignored) {
+        }
+
+        try {
+            player.getInventory().setItem(11, new ItemStack(net.minecraft.world.item.Items.ARROW));
+        } catch (Exception ignored) {
         }
     }
 

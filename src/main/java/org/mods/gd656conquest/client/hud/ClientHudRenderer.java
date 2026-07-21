@@ -206,6 +206,9 @@ public final class ClientHudRenderer {
         int displaySeconds = resolveTopCenterSeconds();
         String timeText = formatSeconds(displaySeconds);
         String nextWeaponText = payload.nextWeaponName == null || payload.nextWeaponName.isBlank() ? "-" : payload.nextWeaponName;
+        if (payload.selfStageIndex >= payload.stageCount - 1) {
+            nextWeaponText = "最终武器";
+        }
         int leftTextWidth = font.width(timeText);
         int rightTextWidth = font.width(nextWeaponText);
 
@@ -501,12 +504,12 @@ public final class ClientHudRenderer {
     private GunmasterHudPayload previewGunmasterPayload(String previewMode) {
         if ("GUNMASTER_ENEMY_PUSH".equals(previewMode)) {
             return new GunmasterHudPayload(
-                12, 3, 3, "M4A1", new int[]{2, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
+                12, 2, 2, "M4A1", new int[]{2, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
                 new int[]{1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}, false, true
             );
         }
         return new GunmasterHudPayload(
-            12, 3, 5, "M4A1", new int[]{2, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0},
+            12, 2, 4, "M4A1", new int[]{2, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0},
             new int[]{1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, false, false
         );
     }
@@ -516,8 +519,8 @@ public final class ClientHudRenderer {
             return previewGunmasterPayload("GUNMASTER");
         }
         int stageCount = 10;
-        int selfStageIndex = 1;
-        int teamStageIndex = 1;
+        int selfStageIndex = 0;
+        int teamStageIndex = 0;
         boolean soloGrouping = false;
         boolean finalEnemyAlert = false;
         String nextWeapon = "-";
@@ -547,18 +550,18 @@ public final class ClientHudRenderer {
                 }
             } else if ("selfstage".equalsIgnoreCase(key)) {
                 try {
-                    selfStageIndex = Math.max(1, Integer.parseInt(value));
+                    selfStageIndex = Math.max(0, Integer.parseInt(value) - 1);
                 } catch (NumberFormatException ignored) {
                 }
             } else if ("teamstage".equalsIgnoreCase(key)) {
                 try {
-                    teamStageIndex = Math.max(1, Integer.parseInt(value));
+                    teamStageIndex = Math.max(0, Integer.parseInt(value) - 1);
                 } catch (NumberFormatException ignored) {
                 }
             } else if ("stage".equalsIgnoreCase(key)) {
                 try {
-                    selfStageIndex = Math.max(1, Integer.parseInt(value));
-                    if (teamStageIndex == 1) {
+                    selfStageIndex = Math.max(0, Integer.parseInt(value) - 1);
+                    if (teamStageIndex == 0) {
                         teamStageIndex = selfStageIndex;
                     }
                 } catch (NumberFormatException ignored) {
