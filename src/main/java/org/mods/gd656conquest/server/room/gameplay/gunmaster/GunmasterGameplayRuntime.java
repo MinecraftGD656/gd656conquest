@@ -246,7 +246,8 @@ public final class GunmasterGameplayRuntime implements
 
     private String buildHudExtraPayload(
         boolean soloGrouping,
-        int currentStageIndex,
+        int selfStageIndex,
+        int fastestTeamStageIndex,
         int currentSequenceStageCount,
         int[] stageTotalCounts,
         int[] stageEnemyCounts,
@@ -254,10 +255,11 @@ public final class GunmasterGameplayRuntime implements
     ) {
         return String.format(
             Locale.ROOT,
-            "GMHUD|solo=%d|next=%s|stage=%d|sequence=%d|finalalert=%d|counts=%s|enemy=%s",
+            "GMHUD|solo=%d|next=%s|selfstage=%d|teamstage=%d|sequence=%d|finalalert=%d|counts=%s|enemy=%s",
             soloGrouping ? 1 : 0,
-            encode(resolveNextWeaponName(currentStageIndex)),
-            currentStageIndex + 1,
+            encode(resolveNextWeaponName(selfStageIndex)),
+            selfStageIndex + 1,
+            fastestTeamStageIndex + 1,
             Math.max(1, currentSequenceStageCount),
             finalEnemyAlert ? 1 : 0,
             join(stageTotalCounts),
@@ -279,27 +281,42 @@ public final class GunmasterGameplayRuntime implements
         boolean initialLockActive = state != null && player != null && state.isInitialMovementLockActive(player.getUUID(), gameTick);
         RoomTeamId selfTeam = state == null || player == null ? null : state.getRoomTeams().get(player.getUUID());
         boolean soloGrouping = room.gunmasterConfig().isSoloGrouping();
-        int stageCount = Math.max(1, room.gunmasterConfig().enabledMiddleWeaponCount());
+        int stageCount = Math.max(0, room.gunmasterConfig().enabledMiddleWeaponCount()) + 2;
         int actualSequenceStageCount = Math.max(1, gunmasterRunningState.getGunmasterMatchWeaponSequenceIds().size());
         int[] stageTotalCounts = new int[stageCount];
         int[] stageEnemyCounts = new int[stageCount];
         int actualCurrentStageIndex = Math.max(0, state == null || player == null ? 0 : state.getGunmasterStageIndexByPlayer().getOrDefault(player.getUUID(), 0));
         int currentStageIndex = remapHudStageIndex(actualCurrentStageIndex, actualSequenceStageCount, stageCount);
-        if (state != null) {
+        
+        int fastestTeamActualStageIndex = 0;
+        if (state != null && player != null) {
+            fastestTeamActualStageIndex = actualCurrentStageIndex;
             for (UUID playerId : state.getRoomPlayers()) {
                 RoomTeamId teamId = state.getRoomTeams().get(playerId);
                 int sequenceStageIndex = Math.max(0, state.getGunmasterStageIndexByPlayer().getOrDefault(playerId, 0));
                 int stageIndex = remapHudStageIndex(sequenceStageIndex, actualSequenceStageCount, stageCount);
                 stageTotalCounts[stageIndex]++;
+                
+                boolean isEnemy = false;
                 if (soloGrouping) {
-                    if (player == null || !playerId.equals(player.getUUID())) {
-                        stageEnemyCounts[stageIndex]++;
+                    if (!playerId.equals(player.getUUID())) {
+                        isEnemy = true;
                     }
                 } else if (selfTeam != null && teamId != null && teamId != selfTeam) {
+                    isEnemy = true;
+                }
+
+                if (isEnemy) {
                     stageEnemyCounts[stageIndex]++;
+                } else {
+                    if (sequenceStageIndex > fastestTeamActualStageIndex) {
+                        fastestTeamActualStageIndex = sequenceStageIndex;
+                    }
                 }
             }
         }
+        int fastestTeamStageIndex = remapHudStageIndex(fastestTeamActualStageIndex, actualSequenceStageCount, stageCount);
+        
         boolean finalEnemyAlert = stageEnemyCounts[Math.max(0, stageCount - 1)] > 0;
         return new RoomGameplayHudState(
             0,
@@ -313,7 +330,7 @@ public final class GunmasterGameplayRuntime implements
             initialLockActive ? "击杀敌军升级枪械" : "击杀敌军升级枪械",
             "-",
             room.lifecycleState() == RoomLifecycleState.ENDING ? "ENDING" : "RUNNING",
-            buildHudExtraPayload(soloGrouping, currentStageIndex, actualSequenceStageCount, stageTotalCounts, stageEnemyCounts, finalEnemyAlert)
+            buildHudExtraPayload(soloGrouping, currentStageIndex, fastestTeamStageIndex, actualSequenceStageCount, stageTotalCounts, stageEnemyCounts, finalEnemyAlert)
         );
     }
 

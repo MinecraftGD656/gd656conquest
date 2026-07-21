@@ -67,6 +67,16 @@ public final class RoomTeamSwitchService {
                 "当前房间已关闭玩家主动切换阵营"
             );
         }
+        if (room != null && org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) && room.gunmasterConfig().isSoloGrouping()) {
+            return TeamSwitchEligibility.denied(
+                currentTeam,
+                targetTeam,
+                currentCount,
+                targetCount,
+                targetDisplayName,
+                "枪神个人战模式不支持切换阵营"
+            );
+        }
         boolean allowed = targetCount < currentCount && currentCount - targetCount > 1;
         if (!allowed) {
             return TeamSwitchEligibility.denied(

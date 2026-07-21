@@ -76,6 +76,11 @@ public final class StandardRoomRunningHudRenderer implements RoomRunningHudRende
         String captureIcons = inDeployFlow
             ? deployHudPayloadBuilder.build(room, state, playerId, selfTeam)
             : runningHudPayloadBuilder.buildPersistent(room, state, playerId, selfTeam);
+        boolean allowTeamSwitch = room.commonConfig().allowPlayerCampSwitch();
+        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) && room.gunmasterConfig().isSoloGrouping()) {
+            allowTeamSwitch = false;
+        }
+        
         return new RoomHudSyncPacket(
             room.roomId(),
             lifecycleText,
@@ -91,7 +96,7 @@ public final class StandardRoomRunningHudRenderer implements RoomRunningHudRende
             hudState.remainSeconds(),
             room.commonConfig().playerMaxY(),
             room.commonConfig().aircraftPassengerMaxY(),
-            room.commonConfig().allowPlayerCampSwitch(),
+            allowTeamSwitch,
             hudState.topStatus(),
             captureIcons,
             hudState.eventText(),

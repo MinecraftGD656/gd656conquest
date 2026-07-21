@@ -153,6 +153,11 @@ public final class RoomHudSyncService {
         String captureIcons = java.util.Optional.ofNullable(resolveRunningHudRenderer(room))
             .map(renderer -> renderer.buildMatchingCaptureIcons(room, state, player))
             .orElse("-");
+        boolean allowTeamSwitch = room.commonConfig().allowPlayerCampSwitch();
+        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) && room.gunmasterConfig().isSoloGrouping()) {
+            allowTeamSwitch = false;
+        }
+
         return new RoomHudSyncPacket(
             room.roomId(),
             "匹配中",
@@ -168,7 +173,7 @@ public final class RoomHudSyncService {
             remainSeconds,
             room.commonConfig().playerMaxY(),
             room.commonConfig().aircraftPassengerMaxY(),
-            room.commonConfig().allowPlayerCampSwitch(),
+            allowTeamSwitch,
             queueStatus,
             captureIcons,
             "-",
