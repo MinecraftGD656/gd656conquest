@@ -1211,7 +1211,10 @@ public class LoadoutRoomEditorScreen extends Screen {
                     || "supportcampaherokits".equals(normalizedKey)
                     || "supportcampbherokits".equals(normalizedKey)
                     || "supportcampashellings".equals(normalizedKey)
-                    || "supportcampbshellings".equals(normalizedKey);
+                    || "supportcampbshellings".equals(normalizedKey)
+                    || "gminitialweaponpool".equals(normalizedKey)
+                    || "gmmiddleweaponpool".equals(normalizedKey)
+                    || "gmfinalweaponpool".equals(normalizedKey);
         }
     }
 }
