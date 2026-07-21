@@ -29,12 +29,13 @@ public final class RoomHudSyncPacket {
     private final String captureIcons;
     private final String captureEvent;
     private final String captureFocus;
+    private final String extraPayload;
 
     public RoomHudSyncPacket(String roomId, String roomState, String selfTeam, String selfClass, int campAScore, int campBScore, int runningSeconds, String scoreMethod, int campAGoal, int campBGoal, int remainSeconds, int playerMaxY, int aircraftPassengerMaxY, boolean allowPlayerCampSwitch, String captureStatus, String captureIcons, String captureEvent, String captureFocus) {
-        this(roomId, roomState, "-", selfTeam, selfClass, campAScore, campBScore, runningSeconds, scoreMethod, campAGoal, campBGoal, remainSeconds, playerMaxY, aircraftPassengerMaxY, allowPlayerCampSwitch, captureStatus, captureIcons, captureEvent, captureFocus);
+        this(roomId, roomState, "-", selfTeam, selfClass, campAScore, campBScore, runningSeconds, scoreMethod, campAGoal, campBGoal, remainSeconds, playerMaxY, aircraftPassengerMaxY, allowPlayerCampSwitch, captureStatus, captureIcons, captureEvent, captureFocus, "-");
     }
 
-    public RoomHudSyncPacket(String roomId, String roomState, String audioState, String selfTeam, String selfClass, int campAScore, int campBScore, int runningSeconds, String scoreMethod, int campAGoal, int campBGoal, int remainSeconds, int playerMaxY, int aircraftPassengerMaxY, boolean allowPlayerCampSwitch, String captureStatus, String captureIcons, String captureEvent, String captureFocus) {
+    public RoomHudSyncPacket(String roomId, String roomState, String audioState, String selfTeam, String selfClass, int campAScore, int campBScore, int runningSeconds, String scoreMethod, int campAGoal, int campBGoal, int remainSeconds, int playerMaxY, int aircraftPassengerMaxY, boolean allowPlayerCampSwitch, String captureStatus, String captureIcons, String captureEvent, String captureFocus, String extraPayload) {
         this.roomId = roomId;
         this.roomState = roomState;
         this.audioState = audioState;
@@ -54,6 +55,7 @@ public final class RoomHudSyncPacket {
         this.captureIcons = captureIcons;
         this.captureEvent = captureEvent;
         this.captureFocus = captureFocus;
+        this.extraPayload = extraPayload;
     }
 
     public static void encode(RoomHudSyncPacket message, FriendlyByteBuf buffer) {
@@ -76,6 +78,7 @@ public final class RoomHudSyncPacket {
         buffer.writeUtf(message.captureIcons);
         buffer.writeUtf(message.captureEvent);
         buffer.writeUtf(message.captureFocus);
+        buffer.writeUtf(message.extraPayload);
     }
 
     public static RoomHudSyncPacket decode(FriendlyByteBuf buffer) {
@@ -95,6 +98,7 @@ public final class RoomHudSyncPacket {
                 buffer.readInt(),
                 buffer.readInt(),
                 buffer.readBoolean(),
+                buffer.readUtf(),
                 buffer.readUtf(),
                 buffer.readUtf(),
                 buffer.readUtf(),
@@ -124,7 +128,8 @@ public final class RoomHudSyncPacket {
                     message.captureStatus,
                     message.captureIcons,
                     message.captureEvent,
-                    message.captureFocus
+                    message.captureFocus,
+                    message.extraPayload
             );
         }));
         context.setPacketHandled(true);
@@ -150,7 +155,8 @@ public final class RoomHudSyncPacket {
             safe(captureStatus),
             safe(captureIcons),
             safe(captureEvent),
-            safe(captureFocus)
+            safe(captureFocus),
+            safe(extraPayload)
         );
     }
 
@@ -180,7 +186,8 @@ public final class RoomHudSyncPacket {
             && Objects.equals(captureStatus, other.captureStatus)
             && Objects.equals(captureIcons, other.captureIcons)
             && Objects.equals(captureEvent, other.captureEvent)
-            && Objects.equals(captureFocus, other.captureFocus);
+            && Objects.equals(captureFocus, other.captureFocus)
+            && Objects.equals(extraPayload, other.extraPayload);
     }
 
     @Override
@@ -203,7 +210,8 @@ public final class RoomHudSyncPacket {
             captureStatus,
             captureIcons,
             captureEvent,
-            captureFocus
+            captureFocus,
+            extraPayload
         );
     }
 

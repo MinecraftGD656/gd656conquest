@@ -20,12 +20,13 @@ public final class ClientHudDebugState {
     private static String captureIcons = "-";
     private static String captureEvent = "-";
     private static String captureFocus = "-";
+    private static String extraPayload = "-";
     private static String adminDebugOverlay = "-";
 
     private ClientHudDebugState() {
     }
 
-    public static void update(String roomIdValue, String roomStateValue, String audioStateValue, String selfTeamValue, String selfClassValue, int campA, int campB, int seconds, String scoreMethodValue, int campAGoalValue, int campBGoalValue, int remainSecondsValue, int playerMaxYValue, int aircraftPassengerMaxYValue, boolean allowPlayerCampSwitchValue, String captureStatusValue, String captureIconsValue, String captureEventValue, String captureFocusValue) {
+    public static void update(String roomIdValue, String roomStateValue, String audioStateValue, String selfTeamValue, String selfClassValue, int campA, int campB, int seconds, String scoreMethodValue, int campAGoalValue, int campBGoalValue, int remainSecondsValue, int playerMaxYValue, int aircraftPassengerMaxYValue, boolean allowPlayerCampSwitchValue, String captureStatusValue, String captureIconsValue, String captureEventValue, String captureFocusValue, String extraPayloadValue) {
         roomId = roomIdValue;
         roomState = roomStateValue;
         audioState = audioStateValue == null || audioStateValue.isBlank() ? "-" : audioStateValue;
@@ -45,6 +46,7 @@ public final class ClientHudDebugState {
         captureIcons = captureIconsValue;
         captureEvent = captureEventValue;
         captureFocus = captureFocusValue;
+        extraPayload = extraPayloadValue == null || extraPayloadValue.isBlank() ? "-" : extraPayloadValue;
     }
 
     public static String getRoomId() {
@@ -123,6 +125,10 @@ public final class ClientHudDebugState {
         return captureFocus;
     }
 
+    public static String getExtraPayload() {
+        return extraPayload;
+    }
+
     public static String getAdminDebugOverlay() {
         return adminDebugOverlay;
     }
@@ -136,7 +142,7 @@ public final class ClientHudDebugState {
     }
 
     public static void reset() {
-        update("-", "未加入房间", "-", "-", "-", 0, 0, 0, "SCORE_TARGET", 0, 0, 0, 0, 0, true, "-", "-", "-", "-");
+        update("-", "未加入房间", "-", "-", "-", 0, 0, 0, "SCORE_TARGET", 0, 0, 0, 0, 0, true, "-", "-", "-", "-", "-");
         adminDebugOverlay = "-";
     }
 }

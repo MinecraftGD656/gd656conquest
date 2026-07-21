@@ -7,6 +7,7 @@ public record RoomGameplayId(String value) {
     public static final RoomGameplayId CONQUEST = new RoomGameplayId("conquest");
     public static final RoomGameplayId BREAKTHROUGH = new RoomGameplayId("breakthrough");
     public static final RoomGameplayId DEATHMATCH = new RoomGameplayId("deathmatch");
+    public static final RoomGameplayId GUNMASTER = new RoomGameplayId("gunmaster");
 
     public RoomGameplayId {
         Objects.requireNonNull(value, "value");

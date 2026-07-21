@@ -17,13 +17,15 @@ public final class RoomMatchResultPacket {
     private final int totalTicks;
     private final int blackStartTicks;
     private final int restoreTicks;
+    private final String subtitle;
 
-    public RoomMatchResultPacket(boolean active, MatchResultType resultType, int totalTicks, int blackStartTicks, int restoreTicks) {
+    public RoomMatchResultPacket(boolean active, MatchResultType resultType, int totalTicks, int blackStartTicks, int restoreTicks, String subtitle) {
         this.active = active;
         this.resultType = Objects.requireNonNull(resultType, "resultType");
         this.totalTicks = totalTicks;
         this.blackStartTicks = blackStartTicks;
         this.restoreTicks = restoreTicks;
+        this.subtitle = subtitle == null ? "" : subtitle;
     }
 
     public static void encode(RoomMatchResultPacket message, FriendlyByteBuf buffer) {
@@ -32,6 +34,7 @@ public final class RoomMatchResultPacket {
         buffer.writeInt(message.totalTicks);
         buffer.writeInt(message.blackStartTicks);
         buffer.writeInt(message.restoreTicks);
+        buffer.writeUtf(message.subtitle);
     }
 
     public static RoomMatchResultPacket decode(FriendlyByteBuf buffer) {
@@ -40,7 +43,8 @@ public final class RoomMatchResultPacket {
             MatchResultType.fromNetworkId(buffer.readInt()),
             buffer.readInt(),
             buffer.readInt(),
-            buffer.readInt()
+            buffer.readInt(),
+            buffer.readUtf()
         );
     }
 
@@ -49,7 +53,7 @@ public final class RoomMatchResultPacket {
         context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
             if (message.active) {
                 ClientMusicTriggerService.onMatchResult(message.resultType);
-                ClientMatchResultOverlayState.start(message.resultType, message.totalTicks, message.blackStartTicks, message.restoreTicks);
+                ClientMatchResultOverlayState.start(message.resultType, message.totalTicks, message.blackStartTicks, message.restoreTicks, message.subtitle);
             } else {
                 ClientMatchResultOverlayState.clear();
             }

@@ -1818,7 +1818,14 @@ public final class RoomCoreService {
         if (slot == null || request == null || slot.room().lifecycleState() != RoomLifecycleState.RUNNING) {
             return;
         }
-        if (!resultRuntimeService.beginMatchEnd(slot.room(), slot.runtime().getRunningState(), request.winnerTeam(), request.reason(), gameTick)) {
+        if (!resultRuntimeService.beginMatchEnd(
+            slot.room(),
+            slot.runtime().getRunningState(),
+            request.winnerTeam(),
+            request.winnerPlayerId(),
+            request.reason(),
+            gameTick
+        )) {
             return;
         }
         runtimeRepository.save(slot.room().withLifecycleState(RoomLifecycleState.ENDING), RoomRuntimeState::new);

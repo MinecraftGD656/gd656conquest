@@ -21,6 +21,9 @@ import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.model.RoomViewPosition;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -50,11 +53,12 @@ public final class RoomResultRuntimeService {
         this.playerTransferQueueService = Objects.requireNonNull(playerTransferQueueService, "playerTransferQueueService");
     }
 
-    public boolean beginMatchEnd(RoomDefinition room, RunningRuntimeState state, RoomTeamId winner, String reason, long gameTick) {
+    public boolean beginMatchEnd(RoomDefinition room, RunningRuntimeState state, RoomTeamId winner, UUID winnerPlayerId, String reason, long gameTick) {
         if (room == null || state == null || state.getResultSequenceEndTick() > 0) {
             return false;
         }
         state.setResultWinnerTeam(winner);
+        state.setResultWinnerPlayerId(winnerPlayerId);
         state.setResultReason(reason);
         state.setResultBlackStartTick(gameTick + MATCH_RESULT_BLACK_START_TICKS);
         state.setResultSequenceEndTick(gameTick + MATCH_RESULT_TOTAL_TICKS);
@@ -83,13 +87,14 @@ public final class RoomResultRuntimeService {
                 resultType,
                 MATCH_RESULT_TOTAL_TICKS,
                 MATCH_RESULT_BLACK_START_TICKS,
-                MATCH_RESULT_RESTORE_TICKS
+                MATCH_RESULT_RESTORE_TICKS,
+                buildResultSubtitle(room, state, playerId, resultType)
             ));
             player.setInvulnerable(true);
             player.setDeltaMovement(0.0D, 0.0D, 0.0D);
             ServerPlayerLockService.of(server).syncPlayer(player);
-            sendResultChat(room, state, winner, reason, player, resultType, selfTeam);
-            awardMatchExperience(room, state, playerId, player, winner, gameTick);
+            sendResultChat(room, state, winner, winnerPlayerId, reason, player, resultType, selfTeam);
+            awardMatchExperience(room, state, playerId, player, winner, winnerPlayerId, gameTick);
             state.getResultAwardedPlayers().add(playerId);
         }
         return true;
@@ -115,7 +120,8 @@ public final class RoomResultRuntimeService {
             MatchResultType.DRAW,
             MATCH_RESULT_TOTAL_TICKS,
             MATCH_RESULT_BLACK_START_TICKS,
-            MATCH_RESULT_RESTORE_TICKS
+            MATCH_RESULT_RESTORE_TICKS,
+            ""
         ));
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setMatchEndViewLock(false));
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setBoundaryPenalty(false));
@@ -146,19 +152,21 @@ public final class RoomResultRuntimeService {
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setBoundaryPenalty(false));
         RoomTeamId selfTeam = state.getRoomTeams().get(playerId);
         RoomTeamId winner = state.getResultWinnerTeam();
-        MatchResultType resultType = resolveResultType(selfTeam, winner);
+        UUID winnerPlayerId = state.getResultWinnerPlayerId();
+        MatchResultType resultType = resolveResultType(playerId, selfTeam, winner, winnerPlayerId);
         NetworkManager.sendToPlayer(player, new RoomMatchResultPacket(
             true,
             resultType,
             MATCH_RESULT_TOTAL_TICKS,
             MATCH_RESULT_BLACK_START_TICKS,
-            MATCH_RESULT_RESTORE_TICKS
+            MATCH_RESULT_RESTORE_TICKS,
+            buildResultSubtitle(room, state, playerId, resultType)
         ));
         player.setInvulnerable(true);
         player.setDeltaMovement(0.0D, 0.0D, 0.0D);
-        sendResultChat(room, state, winner, state.getResultReason(), player, resultType, selfTeam);
+        sendResultChat(room, state, winner, winnerPlayerId, state.getResultReason(), player, resultType, selfTeam);
         if (awardExperience && !state.getResultAwardedPlayers().contains(playerId)) {
-            awardMatchExperience(room, state, playerId, player, winner, gameTick);
+            awardMatchExperience(room, state, playerId, player, winner, winnerPlayerId, gameTick);
             state.getResultAwardedPlayers().add(playerId);
         }
         RoomViewPosition endView = room.commonConfig().resultConfig().endViewPosition();
@@ -274,6 +282,7 @@ public final class RoomResultRuntimeService {
         RoomDefinition room,
         RunningRuntimeState state,
         RoomTeamId winner,
+        UUID winnerPlayerId,
         String reason,
         ServerPlayer player,
         MatchResultType resultType,
@@ -288,8 +297,11 @@ public final class RoomResultRuntimeService {
             summary = "对局结束：本局平局";
             type = ClientMessageType.INFO;
         } else if (resultType == MatchResultType.VICTORY) {
-            summary = "对局结束：你所在阵营获胜";
+            summary = winnerPlayerId != null ? "对局结束：你获得胜利" : "对局结束：你所在阵营获胜";
             type = ClientMessageType.SUCCESS;
+        } else if (winnerPlayerId != null) {
+            summary = "对局结束：你未能取得胜利";
+            type = ClientMessageType.FAILURE;
         } else if (selfTeam == RoomTeamId.CAMP_A || selfTeam == RoomTeamId.CAMP_B) {
             summary = "对局结束：你所在阵营战败";
             type = ClientMessageType.FAILURE;
@@ -298,7 +310,9 @@ public final class RoomResultRuntimeService {
             type = ClientMessageType.INFO;
         }
         ServerLogger.sendToClient(player, type, summary);
-        if (winner != null) {
+        if (winnerPlayerId != null) {
+            ServerLogger.sendToClient(player, ClientMessageType.INFO, "胜者：%s", resolvePlayerName(winnerPlayerId));
+        } else if (winner != null) {
             ServerLogger.sendToClient(player, ClientMessageType.INFO, "胜方：%s", resolveTeamDisplayName(room, state, winner));
         }
         if (reason != null && !reason.isBlank() && !"-".equals(reason)) {
@@ -306,12 +320,12 @@ public final class RoomResultRuntimeService {
         }
     }
 
-    private void awardMatchExperience(RoomDefinition room, RunningRuntimeState state, UUID playerId, ServerPlayer player, RoomTeamId winner, long gameTick) {
+    private void awardMatchExperience(RoomDefinition room, RunningRuntimeState state, UUID playerId, ServerPlayer player, RoomTeamId winner, UUID winnerPlayerId, long gameTick) {
         if (room == null || state == null || playerId == null || player == null) {
             return;
         }
         KilliconScoreboardBridge.TempSnapshot snapshot = KilliconScoreboardBridge.getPlayerSnapshot(state, playerId);
-        PlayerLevelService.MatchOutcome outcome = resolveMatchOutcome(state.getRoomTeams().get(playerId), winner);
+        PlayerLevelService.MatchOutcome outcome = resolveMatchOutcome(playerId, state.getRoomTeams().get(playerId), winner, winnerPlayerId);
         PlayerLevelService.awardAndNotifyMatchExperience(
             player,
             new PlayerLevelService.MatchStats(
@@ -325,7 +339,12 @@ public final class RoomResultRuntimeService {
         );
     }
 
-    private PlayerLevelService.MatchOutcome resolveMatchOutcome(RoomTeamId selfTeam, RoomTeamId winner) {
+    private PlayerLevelService.MatchOutcome resolveMatchOutcome(UUID selfPlayerId, RoomTeamId selfTeam, RoomTeamId winner, UUID winnerPlayerId) {
+        if (winnerPlayerId != null) {
+            return winnerPlayerId.equals(selfPlayerId)
+                ? PlayerLevelService.MatchOutcome.WIN
+                : PlayerLevelService.MatchOutcome.LOSE;
+        }
         if (winner == null) {
             return PlayerLevelService.MatchOutcome.DRAW;
         }
@@ -334,7 +353,12 @@ public final class RoomResultRuntimeService {
             : PlayerLevelService.MatchOutcome.LOSE;
     }
 
-    private MatchResultType resolveResultType(RoomTeamId selfTeam, RoomTeamId winner) {
+    private MatchResultType resolveResultType(UUID selfPlayerId, RoomTeamId selfTeam, RoomTeamId winner, UUID winnerPlayerId) {
+        if (winnerPlayerId != null) {
+            return winnerPlayerId.equals(selfPlayerId)
+                ? MatchResultType.VICTORY
+                : MatchResultType.DEFEAT;
+        }
         if (winner == null) {
             return MatchResultType.DRAW;
         }
@@ -356,5 +380,39 @@ public final class RoomResultRuntimeService {
 
     private String resolveTeamDisplayName(RoomDefinition room, RunningRuntimeState state, RoomTeamId teamId) {
         return RoomTeamPresentationSupport.resolveTeamDisplayName(room, state, teamId);
+    }
+
+    private String buildResultSubtitle(RoomDefinition room, RunningRuntimeState state, UUID playerId, MatchResultType resultType) {
+        if (room == null || state == null || playerId == null) {
+            return "";
+        }
+        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId())
+            && room.gunmasterConfig().isSoloGrouping()) {
+            return "本次对局您的名次：" + resolveGunmasterSoloRank(state, playerId);
+        }
+        return "";
+    }
+
+    private int resolveGunmasterSoloRank(RunningRuntimeState state, UUID playerId) {
+        if (state == null || playerId == null) {
+            return 1;
+        }
+        List<UUID> ranking = new ArrayList<>(state.getRoomPlayers());
+        ranking.sort(Comparator
+            .comparingInt((UUID id) -> state.getGunmasterStageIndexByPlayer().getOrDefault(id, 0)).reversed()
+            .thenComparingInt((UUID id) -> state.getGunmasterStageKillsByPlayer().getOrDefault(id, 0)).reversed()
+            .thenComparingInt((UUID id) -> KilliconScoreboardBridge.getPlayerSnapshot(state, id).kill()).reversed()
+            .thenComparingInt((UUID id) -> KilliconScoreboardBridge.getPlayerSnapshot(state, id).death())
+            .thenComparing(UUID::toString));
+        int index = ranking.indexOf(playerId);
+        return index >= 0 ? index + 1 : ranking.size() + 1;
+    }
+
+    private String resolvePlayerName(UUID playerId) {
+        if (playerId == null) {
+            return "-";
+        }
+        ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+        return player == null ? playerId.toString() : player.getScoreboardName();
     }
 }

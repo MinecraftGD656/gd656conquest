@@ -91,7 +91,8 @@ public final class PlayerSessionStateService {
             MatchResultType.DRAW,
             RoomResultRuntimeService.MATCH_RESULT_TOTAL_TICKS,
             RoomResultRuntimeService.MATCH_RESULT_BLACK_START_TICKS,
-            RoomResultRuntimeService.MATCH_RESULT_RESTORE_TICKS
+            RoomResultRuntimeService.MATCH_RESULT_RESTORE_TICKS,
+            ""
         ));
         NetworkManager.sendToPlayer(player, new RoomHudSyncPacket(
             "-",
@@ -109,6 +110,7 @@ public final class PlayerSessionStateService {
             0,
             0,
             true,
+            "-",
             "-",
             "-",
             "-",

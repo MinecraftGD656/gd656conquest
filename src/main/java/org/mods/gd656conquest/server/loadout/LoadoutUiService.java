@@ -53,6 +53,7 @@ import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.model.RoomVehicleBackend;
 import org.mods.gd656conquest.server.room.runtime.RoomFixedLoadoutRules;
+import org.mods.gd656conquest.server.room.runtime.RoomGunmasterWeaponPoolRules;
 
 import java.util.*;
 
@@ -1785,6 +1786,9 @@ public final class LoadoutUiService {
         }
         if (RoomFixedLoadoutRules.resolveSlotByConfigId(configId) != null) {
             return buildEquipmentGroupChoices(dataManager.equipmentData().getData(), configId);
+        }
+        if (RoomGunmasterWeaponPoolRules.isWeaponPoolConfigId(configId)) {
+            return RoomGunmasterWeaponPoolRules.buildChoices(dataManager.equipmentData().getData());
         }
         if ("supportcampaherokits".equalsIgnoreCase(configId) || "supportcampbherokits".equalsIgnoreCase(configId)) {
             return buildHeroKitGroupChoices(dataManager.heroKits().get());

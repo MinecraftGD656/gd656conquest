@@ -30,6 +30,7 @@ import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.runtime.RoomFixedLoadoutRules;
+import org.mods.gd656conquest.server.room.runtime.RoomGunmasterWeaponPoolRules;
 import org.mods.gd656conquest.server.room.runtime.RoomListPresentationService;
 import org.mods.gd656conquest.server.shared.contract.ClickActionSpec;
 import org.mods.gd656conquest.server.shared.text.CommandFeedbacks;
@@ -140,7 +141,8 @@ public final class RoomCommands {
             .then(buildConfigCommonBranch())
             .then(buildConfigConquestBranch("conquest"))
             .then(buildConfigBreakthroughBranch("breakthrough"))
-            .then(buildConfigDeathmatchBranch("deathmatch"));
+            .then(buildConfigDeathmatchBranch("deathmatch"))
+            .then(buildConfigGunmasterBranch("gunmaster"));
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildConfigCommonBranch() {
@@ -201,6 +203,21 @@ public final class RoomCommands {
                 .then(Commands.argument("actionOrValue", StringArgumentType.greedyString())
                     .suggests(RoomCommands::suggestDeathmatchActionOrValue)
                     .executes(RoomCommands::executeConfigDeathmatchActionOrValue)));
+    }
+
+    private static ArgumentBuilder<CommandSourceStack, ?> buildConfigGunmasterBranch(String literalName) {
+        return Commands.literal(literalName)
+            .then(Commands.argument("configId", StringArgumentType.string())
+                .suggests(RoomCommands::suggestGunmasterConfigIds)
+                .then(Commands.argument("actionOrValue", StringArgumentType.string())
+                    .suggests(RoomCommands::suggestGunmasterActionOrValue)
+                    .then(Commands.argument("value", StringArgumentType.greedyString())
+                        .suggests(RoomCommands::suggestGunmasterActionValue)
+                        .executes(RoomCommands::executeConfigGunmasterActionWithValue))
+                    .executes(RoomCommands::executeConfigGunmasterActionOrValue))
+                .then(Commands.argument("actionOrValue", StringArgumentType.greedyString())
+                    .suggests(RoomCommands::suggestGunmasterActionOrValue)
+                    .executes(RoomCommands::executeConfigGunmasterActionOrValue)));
     }
 
     private static int executeList(CommandContext<CommandSourceStack> context) {
@@ -668,6 +685,35 @@ public final class RoomCommands {
         };
     }
 
+    private static int executeConfigGunmasterActionOrValue(CommandContext<CommandSourceStack> context) {
+        String configId = StringArgumentType.getString(context, "configId");
+        String actionOrValue = StringArgumentType.getString(context, "actionOrValue");
+        RoomConfigDescriptor descriptor = resolveDescriptor(configId);
+        if (descriptor == null) {
+            return replyFailure(context.getSource(), "未找到配置项: " + configId);
+        }
+        if (descriptor.supportsGroupOperations()) {
+            String action = actionOrValue == null ? "" : actionOrValue.trim().toLowerCase(Locale.ROOT);
+            if ("list".equals(action)) {
+                return executeConfigGroupListById(context, configId, RoomConfigScope.GUNMASTER);
+            }
+            return replyFailure(context.getSource(), "组配置仅支持 list / add / del");
+        }
+        return executeConfigSetById(context, configId, actionOrValue, RoomConfigScope.GUNMASTER);
+    }
+
+    private static int executeConfigGunmasterActionWithValue(CommandContext<CommandSourceStack> context) {
+        String configId = StringArgumentType.getString(context, "configId");
+        String action = StringArgumentType.getString(context, "actionOrValue");
+        String value = StringArgumentType.getString(context, "value");
+        String normalized = action == null ? "" : action.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "add" -> executeConfigGroupMutation(context, configId, value, true, RoomConfigScope.GUNMASTER);
+            case "del" -> executeConfigGroupMutation(context, configId, value, false, RoomConfigScope.GUNMASTER);
+            default -> executeConfigSetById(context, configId, value, RoomConfigScope.GUNMASTER);
+        };
+    }
+
     private static int executeConfigGroupListById(CommandContext<CommandSourceStack> context, String configId, RoomConfigScope expectedScope) {
         String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
@@ -682,7 +728,7 @@ public final class RoomCommands {
         if (descriptor == null) {
             return replyFailure(context.getSource(), "未找到可增删的组配置项");
         }
-        if (!isDescriptorInExpectedScope(descriptor, expectedScope)) {
+        if (!isDescriptorInExpectedScope(room, descriptor, expectedScope)) {
             return replyFailure(context.getSource(), "该配置项不属于当前配置分区");
         }
         try {
@@ -723,7 +769,7 @@ public final class RoomCommands {
         if (descriptor == null || descriptor.supportsGroupOperations()) {
             return replyFailure(context.getSource(), "该配置项不支持 set，请改用 group 子命令");
         }
-        if (!isDescriptorInExpectedScope(descriptor, expectedScope)) {
+        if (!isDescriptorInExpectedScope(room, descriptor, expectedScope)) {
             return replyFailure(context.getSource(), "该配置项不属于当前配置分区");
         }
         try {
@@ -784,7 +830,7 @@ public final class RoomCommands {
         if (descriptor == null) {
             return replyFailure(context.getSource(), "未找到可增删的组配置项");
         }
-        if (!isDescriptorInExpectedScope(descriptor, expectedScope)) {
+        if (!isDescriptorInExpectedScope(room, descriptor, expectedScope)) {
             return replyFailure(context.getSource(), "该配置项不属于当前配置分区");
         }
         try {
@@ -803,11 +849,22 @@ public final class RoomCommands {
         }
     }
 
-    private static boolean isDescriptorInExpectedScope(RoomConfigDescriptor descriptor, RoomConfigScope expectedScope) {
+    private static boolean isDescriptorInExpectedScope(RoomDefinition room, RoomConfigDescriptor descriptor, RoomConfigScope expectedScope) {
         if (descriptor == null || expectedScope == null) {
             return false;
         }
-        return RoomConfigDescriptorRegistry.scopeOf(descriptor) == expectedScope;
+        RoomConfigScope actualScope = RoomConfigDescriptorRegistry.scopeOf(descriptor);
+        if (actualScope == expectedScope) {
+            return true;
+        }
+        return room != null
+            && room.isArenaGameplay()
+            && isArenaScope(actualScope)
+            && isArenaScope(expectedScope);
+    }
+
+    private static boolean isArenaScope(RoomConfigScope scope) {
+        return scope == RoomConfigScope.DEATHMATCH || scope == RoomConfigScope.GUNMASTER;
     }
 
     private static int sendTeamSummary(CommandSourceStack source, RoomCoreRuntimeManager manager, String roomId, ServerPlayer player) {
@@ -900,6 +957,10 @@ public final class RoomCommands {
         return SharedSuggestionProvider.suggest(RoomConfigDescriptorRegistry.legacyDeathmatchCommandIds(), builder);
     }
 
+    private static CompletableFuture<Suggestions> suggestGunmasterConfigIds(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return SharedSuggestionProvider.suggest(RoomConfigDescriptorRegistry.legacyGunmasterCommandIds(), builder);
+    }
+
     private static CompletableFuture<Suggestions> suggestPrivateActionOrValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         RoomConfigDescriptor descriptor = resolveDescriptor(StringArgumentType.getString(context, "configId"));
         if (descriptor == null) {
@@ -916,6 +977,10 @@ public final class RoomCommands {
     }
 
     private static CompletableFuture<Suggestions> suggestDeathmatchActionOrValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return suggestPrivateActionOrValue(context, builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestGunmasterActionOrValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         return suggestPrivateActionOrValue(context, builder);
     }
 
@@ -946,6 +1011,10 @@ public final class RoomCommands {
         return suggestPrivateActionValue(context, builder);
     }
 
+    private static CompletableFuture<Suggestions> suggestGunmasterActionValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return suggestPrivateActionValue(context, builder);
+    }
+
     private static CompletableFuture<Suggestions> suggestConfigGroupAddValues(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         RoomConfigDescriptor descriptor = resolveGroupCommandDescriptor(StringArgumentType.getString(context, "configId"));
         if (descriptor == null) {
@@ -965,6 +1034,12 @@ public final class RoomCommands {
             List<String> ids = RoomFixedLoadoutRules.suggestionIdsForSlot(
                 ConquestDataManager.of(context.getSource().getServer()).equipmentData().getData(),
                 RoomFixedLoadoutRules.resolveSlotByConfigId(descriptor.configId())
+            );
+            return SharedSuggestionProvider.suggest(ids, builder);
+        }
+        if (supportsGunmasterWeaponPoolSuggestions(descriptor)) {
+            List<String> ids = RoomGunmasterWeaponPoolRules.suggestionIds(
+                ConquestDataManager.of(context.getSource().getServer()).equipmentData().getData()
             );
             return SharedSuggestionProvider.suggest(ids, builder);
         }
@@ -1085,6 +1160,12 @@ public final class RoomCommands {
             );
             return SharedSuggestionProvider.suggest(ids, builder);
         }
+        if (supportsGunmasterWeaponPoolSuggestions(descriptor)) {
+            List<String> ids = RoomGunmasterWeaponPoolRules.suggestionIds(
+                ConquestDataManager.of(source.getServer()).equipmentData().getData()
+            );
+            return SharedSuggestionProvider.suggest(ids, builder);
+        }
         if (supportsShellingSuggestions(descriptor)) {
             List<String> shellingIds = new ArrayList<>(ConquestDataManager.of(source.getServer()).shellings().get().getShellingsById().keySet());
             shellingIds.sort(String.CASE_INSENSITIVE_ORDER);
@@ -1100,6 +1181,7 @@ public final class RoomCommands {
         return "mapId".equalsIgnoreCase(descriptor.configId())
             || "btMapID".equalsIgnoreCase(descriptor.configId())
             || "dmMapID".equalsIgnoreCase(descriptor.configId())
+            || "gmMapID".equalsIgnoreCase(descriptor.configId())
             || descriptor.newPath().endsWith(".mapId");
     }
 
@@ -1119,6 +1201,9 @@ public final class RoomCommands {
         String configId = descriptor.configId();
         return "supportCampAShellings".equalsIgnoreCase(configId)
             || "supportCampBShellings".equalsIgnoreCase(configId);
+
+    private static boolean supportsGunmasterWeaponPoolSuggestions(RoomConfigDescriptor descriptor) {
+        return descriptor != null && RoomGunmasterWeaponPoolRules.isWeaponPoolConfigId(descriptor.configId());
     }
 
     private static boolean supportsEquipmentSetSuggestions(RoomConfigDescriptor descriptor) {

@@ -9,8 +9,27 @@ import org.mods.gd656conquest.client.parkour.ClientParkourRuntimeState;
 import org.mods.gd656conquest.client.room.ClientDownedState;
 import java.util.List;
 import java.util.Locale;
+import java.util.ArrayList;
 
 public final class ClientHudRenderer {
+    private static final int GUNMASTER_BAR_HEIGHT = 7;
+    private static final int GUNMASTER_EDGE_BAR_HEIGHT = 9;
+    private static final int GUNMASTER_BAR_GAP = 3;
+    private static final int GUNMASTER_DOT_SIZE = 3;
+    private static final int GUNMASTER_SQUARE_EDGE_PADDING = 3;
+    private static final int GUNMASTER_OVERFLOW_RIGHT_PADDING = 2;
+    private static final int GUNMASTER_DOT_GAP = 2;
+    private static final int GUNMASTER_OVERFLOW_DOT_SIZE = 1;
+    private static final int GUNMASTER_OVERFLOW_DOT_GAP = 1;
+    private static final int GUNMASTER_STAGE_BASE_WIDTH = 4;
+    private static final int GUNMASTER_STAGE_PADDING_WIDTH = 4;
+    private static final int GUNMASTER_FIRST_STAGE_COLOR = 0xFF184A93;
+    private static final int GUNMASTER_UNLOCKED_STAGE_COLOR = 0xFF2F78FF;
+    private static final int GUNMASTER_LOCKED_STAGE_COLOR = 0xFFB5333F;
+    private static final int GUNMASTER_LAST_STAGE_COLOR = 0xFF91262B;
+    private static final int GUNMASTER_MARKER_COLOR = 0xFFFFFFFF;
+    private static final int GUNMASTER_SELF_MARKER_COLOR = 0xFF9BC2FF;
+    private static final int GUNMASTER_ENEMY_MARKER_COLOR = 0xFFFFA2A8;
 
     public void render(RenderGuiOverlayEvent.Post event) {
         render(event.getGuiGraphics());
@@ -71,6 +90,8 @@ public final class ClientHudRenderer {
         int y = 8;
         if (ClientHudDebugPreviewState.mode().startsWith("BREAKTHROUGH")) {
             drawBreakthroughPreview(gui, font, centerX, y, ClientHudDebugPreviewState.mode());
+        } else if (ClientHudDebugPreviewState.mode().startsWith("GUNMASTER")) {
+            drawGunmasterPreview(gui, font, centerX, y, ClientHudDebugPreviewState.mode());
         } else {
             drawConquestPreviewTopLine(gui, font, centerX, y);
         }
@@ -86,6 +107,10 @@ public final class ClientHudRenderer {
 
     private void drawTopScoreLine(GuiGraphics gui, Font font, int centerX, int y) {
         String scoreMethod = ClientHudDebugState.getScoreMethod();
+        if ("GUNMASTER".equalsIgnoreCase(scoreMethod)) {
+            drawGunmasterTopLine(gui, font, centerX, y, parseGunmasterHudPayload(ClientHudDebugState.getExtraPayload()));
+            return;
+        }
         if ("BREAKTHROUGH".equalsIgnoreCase(scoreMethod)) {
             drawBreakthroughTopLine(gui, font, centerX, y);
             return;
@@ -167,6 +192,61 @@ public final class ClientHudRenderer {
         drawScaledBoldText(gui, font, leftText, leftScoreLeft, y + 1, themeText, 1.1F);
         drawScaledBoldText(gui, font, rightText, rightScoreLeft, y + 1, themeText, 1.0F);
         drawScaledText(gui, font, timeText, centerX - timeWidth / 2, y + 1, timeColor, 1.1F, true);
+    }
+
+    private void drawGunmasterPreview(GuiGraphics gui, Font font, int centerX, int y, String previewMode) {
+        drawGunmasterTopLine(gui, font, centerX, y, previewGunmasterPayload(previewMode));
+    }
+
+    private void drawGunmasterTopLine(GuiGraphics gui, Font font, int centerX, int y, GunmasterHudPayload payload) {
+        if (payload == null) {
+            return;
+        }
+        int displaySeconds = resolveTopCenterSeconds();
+        String timeText = formatSeconds(displaySeconds);
+        String nextWeaponText = payload.nextWeaponName == null || payload.nextWeaponName.isBlank() ? "-" : payload.nextWeaponName;
+        int leftTextWidth = font.width(timeText);
+        int rightTextWidth = font.width(nextWeaponText);
+
+        List<Integer> widths = new ArrayList<>();
+        int totalWidth = 0;
+        for (int index = 0; index < payload.stageCount; index++) {
+            int count = index < payload.stagePlayerCounts.length ? payload.stagePlayerCounts[index] : 0;
+            int stageWidth = resolveGunmasterStageWidth(index, payload.stageCount, count);
+            widths.add(stageWidth);
+            totalWidth += stageWidth;
+        }
+        totalWidth += Math.max(0, payload.stageCount - 1) * GUNMASTER_BAR_GAP;
+        int startX = centerX - totalWidth / 2;
+        float labelScale = 1.1F;
+        int scaledFontHeight = Math.round(font.lineHeight * labelScale);
+        int targetCenterY = y + 1 + scaledFontHeight / 2;
+        int textY = y + 1;
+        int timeGap = 10;
+        int nextWeaponGap = 10;
+        int timeX = startX - timeGap - leftTextWidth;
+        int nextWeaponX = startX + totalWidth + nextWeaponGap;
+        drawScaledText(gui, font, timeText, timeX, textY, 0xFFFFFFFF, labelScale, true);
+        drawScaledText(gui, font, nextWeaponText, nextWeaponX, textY, 0xFFFFFFFF, labelScale, true);
+        for (int index = 0; index < widths.size(); index++) {
+            int width = widths.get(index);
+            int barHeight = resolveGunmasterStageHeight(index, payload.stageCount);
+            int barY = targetCenterY - barHeight / 2;
+            int fillColor = resolveGunmasterStageColor(index, payload.stageCount, payload.currentStageIndex);
+            gui.fill(startX, barY, startX + width, barY + barHeight, fillColor);
+            drawGunmasterStageMarkers(
+                gui,
+                startX,
+                barY,
+                barHeight,
+                width,
+                payload.soloGrouping,
+                index == Math.max(0, payload.currentStageIndex - 1),
+                index < payload.stagePlayerCounts.length ? payload.stagePlayerCounts[index] : 0,
+                index < payload.stageEnemyCounts.length ? payload.stageEnemyCounts[index] : 0
+            );
+            startX += width + GUNMASTER_BAR_GAP;
+        }
     }
 
     private void drawConquestPreviewTopLine(GuiGraphics gui, Font font, int centerX, int y) {
@@ -253,6 +333,41 @@ public final class ClientHudRenderer {
         }
     }
 
+    private void drawGunmasterStageMarkers(GuiGraphics gui, int x, int y, int height, int width, boolean soloGrouping, boolean selfStage, int totalCount, int enemyCount) {
+        int clampedTotal = Math.max(0, totalCount);
+        int clampedEnemy = Math.max(0, Math.min(enemyCount, clampedTotal));
+        int markerY = y + Math.max(2, (height - GUNMASTER_DOT_SIZE) / 2);
+        int markerStartX = x + GUNMASTER_SQUARE_EDGE_PADDING;
+        int visibleSquares = Math.min(3, clampedTotal);
+        int enemySquares = clampedTotal > 3 && clampedEnemy > 0 ? 1 : Math.min(clampedEnemy, visibleSquares);
+        int friendlySquares = Math.max(0, visibleSquares - enemySquares);
+        boolean selfMarkerPlaced = false;
+        int enemyMarkerColor = soloGrouping ? GUNMASTER_LAST_STAGE_COLOR : GUNMASTER_ENEMY_MARKER_COLOR;
+        for (int index = 0; index < visibleSquares; index++) {
+            int dotX = markerStartX + index * (GUNMASTER_DOT_SIZE + GUNMASTER_DOT_GAP);
+            int color;
+            if (index < enemySquares) {
+                color = enemyMarkerColor;
+            } else if (selfStage && !selfMarkerPlaced && friendlySquares > 0) {
+                color = GUNMASTER_SELF_MARKER_COLOR;
+                selfMarkerPlaced = true;
+            } else {
+                color = GUNMASTER_MARKER_COLOR;
+            }
+            gui.fill(dotX, markerY, dotX + GUNMASTER_DOT_SIZE, markerY + GUNMASTER_DOT_SIZE, color);
+        }
+        if (clampedTotal <= 3) {
+            return;
+        }
+        int overflowRight = x + width - GUNMASTER_OVERFLOW_RIGHT_PADDING;
+        int overflowColor = soloGrouping ? GUNMASTER_LAST_STAGE_COLOR : GUNMASTER_MARKER_COLOR;
+        for (int index = 0; index < 3; index++) {
+            int dotRight = overflowRight - index * (GUNMASTER_OVERFLOW_DOT_SIZE + GUNMASTER_OVERFLOW_DOT_GAP);
+            int dotLeft = dotRight - GUNMASTER_OVERFLOW_DOT_SIZE;
+            gui.fill(dotLeft, markerY + 1, dotRight, markerY + 2, overflowColor);
+        }
+    }
+
     private void drawScaledBoldText(GuiGraphics gui, Font font, String text, int x, int y, int color, float scale) {
         drawScaledText(gui, font, text, x, y, color, scale, true);
     }
@@ -304,5 +419,129 @@ public final class ClientHudRenderer {
             return 0xFFFFD85A;
         }
         return 0xFFFFFFFF;
+    }
+
+    private int resolveGunmasterStageWidth(int playerCount) {
+        return resolveGunmasterStageWidth(-1, 0, playerCount);
+    }
+
+    private int resolveGunmasterStageWidth(int stageIndex, int stageCount, int playerCount) {
+        if (playerCount <= 0) {
+            return 9;
+        }
+        int visibleSquares = Math.min(3, Math.max(0, playerCount));
+        int visibleSquaresWidth = visibleSquares * GUNMASTER_DOT_SIZE + Math.max(0, visibleSquares - 1) * GUNMASTER_DOT_GAP;
+        int width = GUNMASTER_SQUARE_EDGE_PADDING * 2 + visibleSquaresWidth;
+        if (playerCount > 3) {
+            width += 5;
+        }
+        return Math.max(9, width);
+    }
+
+    private int resolveGunmasterStageHeight(int stageIndex, int stageCount) {
+        if (stageIndex <= 0 || stageIndex >= Math.max(0, stageCount - 1)) {
+            return GUNMASTER_EDGE_BAR_HEIGHT;
+        }
+        return GUNMASTER_BAR_HEIGHT;
+    }
+
+    private int resolveGunmasterStageColor(int stageIndex, int stageCount, int currentStageIndex) {
+        if (stageIndex <= 0) {
+            return GUNMASTER_FIRST_STAGE_COLOR;
+        }
+        if (stageIndex >= Math.max(0, stageCount - 1)) {
+            return GUNMASTER_LAST_STAGE_COLOR;
+        }
+        return stageIndex < currentStageIndex ? GUNMASTER_UNLOCKED_STAGE_COLOR : GUNMASTER_LOCKED_STAGE_COLOR;
+    }
+
+    private String formatSeconds(int totalSeconds) {
+        int minute = Math.max(0, totalSeconds) / 60;
+        int second = Math.max(0, totalSeconds) % 60;
+        return String.format(Locale.ROOT, "%02d:%02d", minute, second);
+    }
+
+    private GunmasterHudPayload previewGunmasterPayload(String previewMode) {
+        if ("GUNMASTER_ENEMY_PUSH".equals(previewMode)) {
+            return new GunmasterHudPayload(
+                10,
+                4,
+                "SCAR-H",
+                new int[]{1, 2, 4, 5, 2, 1, 0, 0, 0, 0},
+            new int[]{0, 0, 1, 1, 1, 1, 0, 0, 0, 0},
+            false
+            );
+        }
+        return new GunmasterHudPayload(
+            10,
+            3,
+            "M4A1",
+            new int[]{2, 3, 4, 2, 1, 0, 0, 0, 0, 0},
+            new int[]{0, 1, 1, 1, 0, 0, 0, 0, 0, 0},
+            false
+        );
+    }
+
+    private GunmasterHudPayload parseGunmasterHudPayload(String payload) {
+        if (payload == null || payload.isBlank() || "-".equals(payload) || !payload.startsWith("GMHUD|")) {
+            return previewGunmasterPayload("GUNMASTER");
+        }
+        int stageCount = 10;
+        int currentStageIndex = 1;
+        boolean soloGrouping = false;
+        String nextWeapon = "-";
+        int[] counts = new int[stageCount];
+        int[] enemy = new int[stageCount];
+        String[] parts = payload.split("\\|");
+        for (int index = 1; index < parts.length; index++) {
+            String part = parts[index];
+            int split = part.indexOf('=');
+            if (split <= 0) {
+                continue;
+            }
+            String key = part.substring(0, split);
+            String value = part.substring(split + 1);
+            if ("next".equalsIgnoreCase(key)) {
+                nextWeapon = value;
+            } else if ("solo".equalsIgnoreCase(key)) {
+                soloGrouping = "1".equals(value) || "true".equalsIgnoreCase(value);
+            } else if ("stage".equalsIgnoreCase(key)) {
+                try {
+                    currentStageIndex = Math.max(1, Integer.parseInt(value));
+                } catch (NumberFormatException ignored) {
+                }
+            } else if ("counts".equalsIgnoreCase(key)) {
+                counts = parseIntArray(value, stageCount);
+            } else if ("enemy".equalsIgnoreCase(key)) {
+                enemy = parseIntArray(value, stageCount);
+            }
+        }
+        return new GunmasterHudPayload(stageCount, currentStageIndex, nextWeapon, counts, enemy, soloGrouping);
+    }
+
+    private int[] parseIntArray(String text, int expectedSize) {
+        int[] values = new int[expectedSize];
+        if (text == null || text.isBlank()) {
+            return values;
+        }
+        String[] cols = text.split("\\.");
+        for (int index = 0; index < cols.length && index < expectedSize; index++) {
+            try {
+                values[index] = Math.max(0, Integer.parseInt(cols[index]));
+            } catch (NumberFormatException ignored) {
+                values[index] = 0;
+            }
+        }
+        return values;
+    }
+
+    private record GunmasterHudPayload(
+        int stageCount,
+        int currentStageIndex,
+        String nextWeaponName,
+        int[] stagePlayerCounts,
+        int[] stageEnemyCounts,
+        boolean soloGrouping
+    ) {
     }
 }

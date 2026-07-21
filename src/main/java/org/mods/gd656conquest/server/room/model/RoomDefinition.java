@@ -99,7 +99,31 @@ public record RoomDefinition(
     }
 
     public RoomDeathmatchConfig deathmatchConfig() {
-        return gameplayConfig instanceof RoomDeathmatchConfig dm ? dm : RoomDeathmatchConfig.defaults();
+        if (gameplayConfig instanceof RoomDeathmatchConfig dm) {
+            return dm;
+        }
+        if (gameplayConfig instanceof RoomGunmasterConfig gm) {
+            return gm.asArenaConfig();
+        }
+        return RoomDeathmatchConfig.defaults();
+    }
+
+    public RoomGunmasterConfig gunmasterConfig() {
+        return gameplayConfig instanceof RoomGunmasterConfig gm ? gm : RoomGunmasterConfig.defaults();
+    }
+
+    public RoomDeathmatchConfig arenaConfig() {
+        if (gameplayConfig instanceof RoomDeathmatchConfig dm) {
+            return dm;
+        }
+        if (gameplayConfig instanceof RoomGunmasterConfig gm) {
+            return gm.asArenaConfig();
+        }
+        return RoomDeathmatchConfig.defaults();
+    }
+
+    public boolean isArenaGameplay() {
+        return RoomGameplayId.DEATHMATCH.equals(gameplayId) || RoomGameplayId.GUNMASTER.equals(gameplayId);
     }
 
     private static IRoomGameplayConfig defaultGameplayConfig(RoomGameplayId gameplayId) {
@@ -108,6 +132,9 @@ public record RoomDefinition(
         }
         if (RoomGameplayId.DEATHMATCH.equals(gameplayId)) {
             return RoomDeathmatchConfig.defaults();
+        }
+        if (RoomGameplayId.GUNMASTER.equals(gameplayId)) {
+            return RoomGunmasterConfig.defaults();
         }
         return RoomConquestConfig.defaults();
     }

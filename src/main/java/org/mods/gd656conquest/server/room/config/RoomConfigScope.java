@@ -6,7 +6,8 @@ public enum RoomConfigScope {
     COMMON,
     CONQUEST,
     BREAKTHROUGH,
-    DEATHMATCH;
+    DEATHMATCH,
+    GUNMASTER;
 
     public String displayName() {
         return name();
@@ -24,6 +25,7 @@ public enum RoomConfigScope {
             case CONQUEST -> RoomGameplayId.CONQUEST.equals(gameplayId);
             case BREAKTHROUGH -> RoomGameplayId.BREAKTHROUGH.equals(gameplayId);
             case DEATHMATCH -> RoomGameplayId.DEATHMATCH.equals(gameplayId);
+            case GUNMASTER -> RoomGameplayId.GUNMASTER.equals(gameplayId);
         };
     }
 }

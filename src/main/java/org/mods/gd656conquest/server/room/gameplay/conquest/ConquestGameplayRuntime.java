@@ -343,7 +343,8 @@ public final class ConquestGameplayRuntime implements
             topStatus,
             buildCaptureEventText(room, player, gameTick),
             buildCaptureFocusPayload(room, player),
-            audioState
+            audioState,
+            "-"
         );
     }
 

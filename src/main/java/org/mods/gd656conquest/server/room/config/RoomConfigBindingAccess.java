@@ -1,7 +1,9 @@
 package org.mods.gd656conquest.server.room.config;
 
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.server.room.model.RoomDeathmatchConfig;
 import org.mods.gd656conquest.server.room.model.RoomGameplayId;
+import org.mods.gd656conquest.server.room.model.RoomGunmasterConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
 import java.lang.reflect.Constructor;
@@ -111,7 +113,10 @@ final class RoomConfigBindingAccess {
     }
 
     private static boolean isGameplayConfigAlias(String name) {
-        return "conquestConfig".equals(name) || "breakthroughConfig".equals(name) || "deathmatchConfig".equals(name);
+        return "conquestConfig".equals(name)
+            || "breakthroughConfig".equals(name)
+            || "deathmatchConfig".equals(name)
+            || "gunmasterConfig".equals(name);
     }
 
     private static Object rebuildRoomDefinitionGameplayConfig(RoomDefinition definition, String alias, Object replacement) {
@@ -121,10 +126,73 @@ final class RoomConfigBindingAccess {
         if ("breakthroughConfig".equals(alias) && !RoomGameplayId.BREAKTHROUGH.equals(definition.gameplayId())) {
             throw new IllegalArgumentException("当前房间玩法不是 breakthrough，无法写入突破配置");
         }
-        if ("deathmatchConfig".equals(alias) && !RoomGameplayId.DEATHMATCH.equals(definition.gameplayId())) {
-            throw new IllegalArgumentException("当前房间玩法不是 deathmatch，无法写入团队死斗配置");
+        if (isArenaGameplayAlias(alias) && !definition.isArenaGameplay()) {
+            throw new IllegalArgumentException("当前房间玩法不是竞技场模式，无法写入该配置");
+        }
+        if (isArenaGameplayAlias(alias)) {
+            return rebuildRecord(definition, "gameplayConfig", coerceArenaGameplayConfig(definition, replacement));
         }
         return rebuildRecord(definition, "gameplayConfig", replacement);
+    }
+
+    private static boolean isArenaGameplayAlias(String alias) {
+        return "deathmatchConfig".equals(alias) || "gunmasterConfig".equals(alias);
+    }
+
+    private static Object coerceArenaGameplayConfig(RoomDefinition definition, Object replacement) {
+        if (definition == null || replacement == null) {
+            return replacement;
+        }
+        if (RoomGameplayId.GUNMASTER.equals(definition.gameplayId())) {
+            if (replacement instanceof RoomGunmasterConfig gunmasterConfig) {
+                return gunmasterConfig;
+            }
+            if (replacement instanceof RoomDeathmatchConfig deathmatchConfig) {
+                return new RoomGunmasterConfig(
+                    deathmatchConfig.mapId(),
+                    deathmatchConfig.matchDurationMinutes(),
+                    deathmatchConfig.targetScore(),
+                    deathmatchConfig.startCountdownSeconds(),
+                    deathmatchConfig.respawnSeconds(),
+                    deathmatchConfig.deployViewPosition(),
+                    deathmatchConfig.campABoundary(),
+                    deathmatchConfig.campBBoundary(),
+                    deathmatchConfig.campASpawnGroup(),
+                    deathmatchConfig.campBSpawnGroup(),
+                    deathmatchConfig.ammoBoxPositions(),
+                    deathmatchConfig.medicalBoxPositions(),
+                    org.mods.gd656conquest.server.room.model.RoomGunmasterGroupingMode.TEAM,
+                    java.util.List.of(),
+                    java.util.List.of(),
+                    java.util.List.of(),
+                    java.util.List.of(),
+                    10,
+                    1
+                );
+            }
+        }
+        if (RoomGameplayId.DEATHMATCH.equals(definition.gameplayId())) {
+            if (replacement instanceof RoomDeathmatchConfig deathmatchConfig) {
+                return deathmatchConfig;
+            }
+            if (replacement instanceof RoomGunmasterConfig gunmasterConfig) {
+                return new RoomDeathmatchConfig(
+                    gunmasterConfig.mapId(),
+                    gunmasterConfig.matchDurationMinutes(),
+                    gunmasterConfig.targetScore(),
+                    gunmasterConfig.startCountdownSeconds(),
+                    gunmasterConfig.respawnSeconds(),
+                    gunmasterConfig.deployViewPosition(),
+                    gunmasterConfig.campABoundary(),
+                    gunmasterConfig.campBBoundary(),
+                    gunmasterConfig.campASpawnGroup(),
+                    gunmasterConfig.campBSpawnGroup(),
+                    gunmasterConfig.ammoBoxPositions(),
+                    gunmasterConfig.medicalBoxPositions()
+                );
+            }
+        }
+        return replacement;
     }
 
     private static Object normalizeMapKey(String raw) {

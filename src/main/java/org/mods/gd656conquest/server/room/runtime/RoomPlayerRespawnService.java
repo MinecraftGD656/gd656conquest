@@ -150,7 +150,7 @@ public final class RoomPlayerRespawnService {
         if (playerId == null || deathPosition == null) {
             return;
         }
-        boolean deathmatch = isDeathmatch(room);
+        boolean deathmatch = isArenaGameplay(room);
         long countdownStartTick = deathmatch
             ? gameTick
             : gameTick + (killerEntityId >= 0
@@ -361,7 +361,7 @@ public final class RoomPlayerRespawnService {
             return;
         }
         UUID playerId = player.getUUID();
-        if (isDeathmatch(room)) {
+        if (isArenaGameplay(room)) {
             int deployDelayTicks = INITIAL_DEPLOY_DELAY_SECONDS * 20;
             state.setInitialMovementUnlockTick(gameTick + initialCombatUnlockDelayTicks(room));
             state.clearRespawnFlow(playerId);
@@ -426,7 +426,7 @@ public final class RoomPlayerRespawnService {
         if (tryBeginAlignedOpeningJoinDeploy(room, state, player, gameTick, RoomGameplayDeployViewKind.RECONNECT)) {
             return;
         }
-        if (isDeathmatch(room)) {
+        if (isArenaGameplay(room)) {
             enterDeployHoldingState(room, state, player, false);
             openDeployView(room, state, player, new RoomGameplayDeployViewRequest(
                 RoomGameplayDeployViewKind.RECONNECT,
@@ -463,7 +463,7 @@ public final class RoomPlayerRespawnService {
             return;
         }
         deploySelectionService.clearSelection(state, playerId);
-        if (isDeathmatch(room)) {
+        if (isArenaGameplay(room)) {
             RoomTeamId teamId = state.getRoomTeams().get(playerId);
             if (teamId == RoomTeamId.CAMP_A || teamId == RoomTeamId.CAMP_B) {
                 deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
@@ -551,7 +551,7 @@ public final class RoomPlayerRespawnService {
         ServerPlayer player,
         long gameTick
     ) {
-        if (!isDeathmatch(room) || state == null || player == null || !player.isAlive()) {
+        if (!isArenaGameplay(room) || state == null || player == null || !player.isAlive()) {
             return false;
         }
         UUID playerId = player.getUUID();
@@ -605,7 +605,7 @@ public final class RoomPlayerRespawnService {
             state.getDeployReadyTicks().put(playerId, gameTick + deployDelayTicks);
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player != null) {
-                if (isDeathmatch(room)) {
+                if (isArenaGameplay(room)) {
                     beginDeathmatchRespawnHold(room, state, player, gameTick, deployDelayTicks, false, true);
                 } else {
                     enterDeployHoldingState(room, state, player, false);
@@ -631,7 +631,7 @@ public final class RoomPlayerRespawnService {
             if (remainTicks > 0 && player != null) {
                 playerStateService.setSpectator(player);
                 int remainSeconds = (int) Math.ceil(remainTicks / 20.0D);
-                if (isDeathmatch(room)) {
+                if (isArenaGameplay(room)) {
                     if (state.getDeployViewActivePlayers().contains(playerId)) {
                         clearInitialCombatCountdownTitle(player);
                         state.getRespawnCountdownLastShownSeconds().remove(playerId);
@@ -659,7 +659,7 @@ public final class RoomPlayerRespawnService {
             if (player != null) {
                 ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_WAIT);
                 playerStateService.setSpectator(player);
-                if (isDeathmatch(room)) {
+                if (isArenaGameplay(room)) {
                     clearInitialCombatCountdownTitle(player);
                     state.getRespawnCountdownLastShownSeconds().remove(playerId);
                     ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
@@ -1142,7 +1142,7 @@ public final class RoomPlayerRespawnService {
         if (state.getDoubledRespawnPending().remove(playerId)) {
             deployDelayTicks *= 2;
         }
-        if (isDeathmatch(room)) {
+        if (isArenaGameplay(room)) {
             beginDeathmatchRespawnHold(room, state, player, gameTick, deployDelayTicks, false, true);
             return;
         }
@@ -1765,7 +1765,7 @@ public final class RoomPlayerRespawnService {
 
     private boolean finalizeRespawn(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long gameTick) {
         UUID playerId = player.getUUID();
-        boolean deathmatchRespawn = isDeathmatch(room) && state.getDeathPositions().containsKey(playerId);
+        boolean deathmatchRespawn = isArenaGameplay(room) && state.getDeathPositions().containsKey(playerId);
         PlayerAnimatorDebugDimensionsState.clearPlayer(player);
         RoomPosition spawn = state.getRespawnTargetPositions().get(playerId);
         RoomTeamId teamId = state.getRoomTeams().get(playerId);
@@ -1891,8 +1891,8 @@ public final class RoomPlayerRespawnService {
         state.getInitialMovementLockLastShownSeconds().remove(playerId);
     }
 
-    private boolean isDeathmatch(RoomDefinition room) {
-        return room != null && RoomGameplayId.DEATHMATCH.equals(room.gameplayId());
+    private boolean isArenaGameplay(RoomDefinition room) {
+        return room != null && room.isArenaGameplay();
     }
 
     private void beginDeathmatchRespawnHold(
@@ -2096,8 +2096,8 @@ public final class RoomPlayerRespawnService {
     }
 
     private Component buildInitialCombatCountdownSubtitle(RoomDefinition room, RoomTeamId teamId) {
-        if (isDeathmatch(room)) {
-            return Component.literal("击杀敌人为团队夺得更高的分数")
+        if (isArenaGameplay(room)) {
+            return Component.literal("击杀敌人并完成竞技模式目标")
                 .withStyle(style -> style.withColor(INITIAL_SUBTITLE_COLOR).withBold(true));
         }
         boolean attacker = teamId == RoomTeamId.CAMP_A;
@@ -2261,7 +2261,7 @@ public final class RoomPlayerRespawnService {
     }
 
     public static int initialCombatUnlockDelayTicks(RoomDefinition room) {
-        if (room != null && RoomGameplayId.DEATHMATCH.equals(room.gameplayId())) {
+        if (room != null && room.isArenaGameplay()) {
             return INITIAL_DEPLOY_DELAY_SECONDS * 20 + RESPAWN_TRAVEL_TICKS + resolveInitialMovementLockTicks(room);
         }
         return initialCombatUnlockDelayTicks();
@@ -2272,8 +2272,8 @@ public final class RoomPlayerRespawnService {
     }
 
     private static int resolveInitialMovementLockTicks(RoomDefinition room) {
-        if (room != null && RoomGameplayId.DEATHMATCH.equals(room.gameplayId())) {
-            return Math.max(1, room.deathmatchConfig().startCountdownSeconds()) * 20;
+        if (room != null && room.isArenaGameplay()) {
+            return Math.max(1, room.arenaConfig().startCountdownSeconds()) * 20;
         }
         return INITIAL_MOVEMENT_LOCK_SECONDS * 20;
     }

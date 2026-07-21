@@ -3,6 +3,7 @@ package org.mods.gd656conquest.server.room.config;
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.loadout.domain.CustomLoadoutSlot;
+import org.mods.gd656conquest.server.room.runtime.RoomGunmasterWeaponPoolRules;
 import org.mods.gd656conquest.server.room.runtime.RoomFixedLoadoutRules;
 
 import java.util.ArrayList;
@@ -63,11 +64,17 @@ final class RoomCommonGroupPatternResolver {
             CustomLoadoutSlot slot = RoomFixedLoadoutRules.resolveSlotByConfigId(canonical);
             return RoomFixedLoadoutRules.suggestionIdsForSlot(dataManager.equipmentData().getData(), slot);
         }
+        if (RoomGunmasterWeaponPoolRules.isWeaponPoolConfigId(canonical)) {
+            return RoomGunmasterWeaponPoolRules.suggestionIds(dataManager.equipmentData().getData());
+        }
         return List.of();
     }
 
     private static boolean supportsWildcard(String canonical) {
-        return isHeroKitGroup(canonical) || isShellingGroup(canonical) || RoomFixedLoadoutRules.resolveSlotByConfigId(canonical) != null;
+        return isHeroKitGroup(canonical)
+            || isShellingGroup(canonical)
+            || RoomFixedLoadoutRules.resolveSlotByConfigId(canonical) != null
+            || RoomGunmasterWeaponPoolRules.isWeaponPoolConfigId(canonical);
     }
 
     private static boolean isHeroKitGroup(String canonical) {

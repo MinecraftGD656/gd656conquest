@@ -20,7 +20,8 @@ public final class RoomAdminConfigTemplateService {
     private static final List<RoomGameplayId> SUPPORTED_GAMEPLAY_IDS = List.of(
         RoomGameplayId.CONQUEST,
         RoomGameplayId.BREAKTHROUGH,
-        RoomGameplayId.DEATHMATCH
+        RoomGameplayId.DEATHMATCH,
+        RoomGameplayId.GUNMASTER
     );
 
     private final MinecraftServer server;

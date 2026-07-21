@@ -123,6 +123,7 @@ public final class RoomHudSyncService {
             "-",
             "-",
             "-",
+            "-",
             "-"
         ));
         ServerPlayerLockService.of(server).clearPlayer(player);
@@ -170,6 +171,7 @@ public final class RoomHudSyncService {
             room.commonConfig().allowPlayerCampSwitch(),
             queueStatus,
             captureIcons,
+            "-",
             "-",
             "-"
         );

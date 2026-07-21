@@ -18,6 +18,7 @@ import org.mods.gd656conquest.server.room.model.RoomConquestConfig;
 import org.mods.gd656conquest.server.room.model.RoomDeathmatchConfig;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomGameplayId;
+import org.mods.gd656conquest.server.room.model.RoomGunmasterConfig;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomMatchingConfig;
 import org.mods.gd656conquest.server.room.model.RoomPlayerStateConfig;
@@ -307,6 +308,28 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 deathmatch.campBSpawnGroup(),
                 deathmatch.ammoBoxPositions(),
                 deathmatch.medicalBoxPositions()
+            );
+        } else if (base.gameplayConfig() instanceof RoomGunmasterConfig gunmaster) {
+            gameplayConfig = new RoomGunmasterConfig(
+                gunmaster.mapId(),
+                gunmaster.matchDurationMinutes(),
+                gunmaster.targetScore(),
+                gunmaster.startCountdownSeconds(),
+                gunmaster.respawnSeconds(),
+                gunmaster.deployViewPosition(),
+                gunmaster.campABoundary(),
+                gunmaster.campBBoundary(),
+                gunmaster.campASpawnGroup(),
+                gunmaster.campBSpawnGroup(),
+                gunmaster.ammoBoxPositions(),
+                gunmaster.medicalBoxPositions(),
+                gunmaster.groupingMode(),
+                gunmaster.soloSpawnPositions(),
+                gunmaster.initialWeaponPool(),
+                gunmaster.middleWeaponPool(),
+                gunmaster.finalWeaponPool(),
+                gunmaster.enabledMiddleWeaponCount(),
+                gunmaster.killsPerWeaponSwitch()
             );
         } else {
             gameplayConfig = base.gameplayConfig();

@@ -36,6 +36,7 @@ import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
+import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
@@ -90,6 +91,10 @@ public final class RoomPlayerLoadoutService {
 
     public void applySpawnLoadout(RunningRuntimeState state, ServerPlayer player) {
         if (state == null || player == null || player.server == null) {
+            return;
+        }
+        if (tryApplyGunmasterSpawnLoadout(state, player)) {
+            initializeConsumableReplenishBaseline(state, player, server.getTickCount());
             return;
         }
         applyLoadout(resolvePlayerRoom(player), state, state.getRoomTeams().get(player.getUUID()), player, true, true, true, true);
@@ -211,6 +216,67 @@ public final class RoomPlayerLoadoutService {
         }
         player.getInventory().setChanged();
         player.containerMenu.broadcastChanges();
+    }
+
+    private boolean tryApplyGunmasterSpawnLoadout(RunningRuntimeState state, ServerPlayer player) {
+        RoomDefinition room = resolvePlayerRoom(player);
+        if (state == null || player == null || room == null || room.gameplayId() != RoomGameplayId.GUNMASTER) {
+            return false;
+        }
+        String weaponId = resolveGunmasterWeaponId(state, player.getUUID());
+        if (weaponId == null || weaponId.isBlank()) {
+            return false;
+        }
+        EquipmentDataModel equipmentData = ConquestDataManager.of(server).equipmentData().getData();
+        EquipmentDataModel.EquipmentEntry entry = RoomGunmasterWeaponPoolRules.resolveEntry(equipmentData, weaponId);
+        if (entry == null) {
+            return false;
+        }
+        player.getInventory().clearContent();
+        ItemStack equipmentStack = deserializeEquipmentItem(entry.getItemSnbt());
+        if (!equipmentStack.isEmpty()) {
+            PreparedLoadoutStack prepared = prepareConfiguredLoadoutStack(
+                CustomLoadoutSlot.PRIMARY_WEAPON,
+                entry,
+                equipmentStack,
+                ConquestDataManager.of(server).playerData().getPlayerData(player.getUUID()),
+                ConquestDataManager.of(server).weaponAttachments().getData(),
+                PlayerLevelService.getEffectiveLevel(player),
+                TaczAttachmentCompatService.getInstance(),
+                resolveRoomRuntimeContext(player),
+                player,
+                false,
+                false
+            );
+            ItemStack placedStack = prepared.stack();
+            player.getInventory().setItem(PRIMARY_WEAPON_HOTBAR_SLOT, placedStack);
+            grantConfiguredWeaponAmmoByExtraData(player, placedStack, entry.getExtraData(), buildSlotRange(PRIMARY_AMMO_ROW_START, PRIMARY_AMMO_ROW_END));
+        }
+        applyArmorLoadout(player, room, equipmentData, PlayerClassType.defaultType(), state.getRoomTeams().get(player.getUUID()));
+        if (room.commonConfig().disableUndyingTotem()) {
+            removeTotems(player);
+        }
+        applyOptionalRoomGoatHorn(player);
+        applyOptionalRoomSupportItem(resolveRoomRuntimeContext(player), player);
+        applyOptionalParachute(resolveRoomRuntimeContext(player), player);
+        player.getInventory().setChanged();
+        player.containerMenu.broadcastChanges();
+        return true;
+    }
+
+    private String resolveGunmasterWeaponId(RunningRuntimeState state, UUID playerId) {
+        if (state == null || playerId == null) {
+            return "";
+        }
+        List<String> sequence = state.getGunmasterMatchWeaponSequenceIds();
+        if (sequence.isEmpty()) {
+            return "";
+        }
+        int stageIndex = Math.max(0, state.getGunmasterStageIndexByPlayer().getOrDefault(playerId, 0));
+        if (stageIndex >= sequence.size()) {
+            stageIndex = sequence.size() - 1;
+        }
+        return stageIndex < 0 ? "" : sequence.get(stageIndex);
     }
 
     private AmmoBoxBlockedState snapshotAmmoBoxBlockedState(ServerPlayer player) {

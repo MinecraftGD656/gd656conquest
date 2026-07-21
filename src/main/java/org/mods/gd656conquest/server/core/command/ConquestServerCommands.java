@@ -197,6 +197,9 @@ public final class ConquestServerCommands {
             .then(Commands.literal("marker").executes(ConquestServerCommands::executeDebugMarktest))
             .then(Commands.literal("hud")
                 .then(Commands.literal("conquest").executes(ConquestServerCommands::executeDebugConquestHud))
+                .then(Commands.literal("gunmaster")
+                    .executes(ConquestServerCommands::executeDebugGunmasterHud)
+                    .then(Commands.literal("enemypush").executes(ConquestServerCommands::executeDebugGunmasterEnemyPushHud)))
                 .then(Commands.literal("breakthrough")
                     .executes(ConquestServerCommands::executeDebugBreakthroughHud)
                     .then(Commands.literal("backtowall")
@@ -354,6 +357,18 @@ public final class ConquestServerCommands {
         ServerPlayer player = context.getSource().getPlayerOrException();
         NetworkManager.sendToPlayer(player, new HudDebugPreviewPacket("BREAKTHROUGH", HUDTEST_PREVIEW_DURATION_MS));
         return CommandFeedbacks.info(context.getSource(), "Breakthrough 顶部 HUD 调试预览已开启，持续 10 秒");
+    }
+
+    private static int executeDebugGunmasterHud(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        NetworkManager.sendToPlayer(player, new HudDebugPreviewPacket("GUNMASTER", HUDTEST_PREVIEW_DURATION_MS));
+        return CommandFeedbacks.info(context.getSource(), "Gunmaster 顶部 HUD 调试预览已开启，持续 10 秒");
+    }
+
+    private static int executeDebugGunmasterEnemyPushHud(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        NetworkManager.sendToPlayer(player, new HudDebugPreviewPacket("GUNMASTER_ENEMY_PUSH", HUDTEST_PREVIEW_DURATION_MS));
+        return CommandFeedbacks.info(context.getSource(), "Gunmaster 顶部 HUD 敌方推进预览已开启，持续 10 秒");
     }
 
     private static int executeDebugBreakthroughBackToWallAttackHud(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

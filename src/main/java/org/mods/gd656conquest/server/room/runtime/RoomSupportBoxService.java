@@ -834,8 +834,8 @@ public final class RoomSupportBoxService {
         if (room == null) {
             return List.of();
         }
-        if (RoomGameplayId.DEATHMATCH.equals(room.gameplayId())) {
-            return room.deathmatchConfig().ammoBoxPositions();
+        if (room.isArenaGameplay()) {
+            return room.arenaConfig().ammoBoxPositions();
         }
         if (RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
             RoomBreakthroughConfig breakthrough = room.breakthroughConfig();
@@ -849,8 +849,8 @@ public final class RoomSupportBoxService {
         if (room == null) {
             return List.of();
         }
-        if (RoomGameplayId.DEATHMATCH.equals(room.gameplayId())) {
-            return room.deathmatchConfig().medicalBoxPositions();
+        if (room.isArenaGameplay()) {
+            return room.arenaConfig().medicalBoxPositions();
         }
         if (RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
             RoomBreakthroughConfig breakthrough = room.breakthroughConfig();

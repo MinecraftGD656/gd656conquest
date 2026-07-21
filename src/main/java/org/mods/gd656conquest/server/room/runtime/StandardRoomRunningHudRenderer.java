@@ -95,7 +95,8 @@ public final class StandardRoomRunningHudRenderer implements RoomRunningHudRende
             hudState.topStatus(),
             captureIcons,
             hudState.eventText(),
-            hudState.focusPayload()
+            hudState.focusPayload(),
+            hudState.extraPayload()
         );
     }
 

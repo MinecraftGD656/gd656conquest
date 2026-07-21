@@ -13,22 +13,25 @@ public final class ClientMatchResultOverlayState {
     private static int totalTicks = 200;
     private static int blackStartTicks = 100;
     private static int restoreTicks = 80;
+    private static String customSubtitle = "";
 
     private ClientMatchResultOverlayState() {
     }
 
-    public static void start(MatchResultType matchResultType, int totalDurationTicks, int blackStartDurationTicks, int restoreDurationTicks) {
+    public static void start(MatchResultType matchResultType, int totalDurationTicks, int blackStartDurationTicks, int restoreDurationTicks, String subtitleOverride) {
         active = true;
         resultType = matchResultType == null ? MatchResultType.DRAW : matchResultType;
         elapsedTicks = 0;
         totalTicks = Math.max(1, totalDurationTicks);
         blackStartTicks = Math.max(0, Math.min(totalTicks, blackStartDurationTicks));
         restoreTicks = Math.max(1, restoreDurationTicks);
+        customSubtitle = subtitleOverride == null ? "" : subtitleOverride;
     }
 
     public static void clear() {
         active = false;
         elapsedTicks = 0;
+        customSubtitle = "";
     }
 
     public static void tick() {
@@ -66,6 +69,9 @@ public final class ClientMatchResultOverlayState {
             case DEFEAT -> "我方未能取得胜利";
             case DRAW -> "双方未能分出胜负";
         };
+        if (customSubtitle != null && !customSubtitle.isBlank()) {
+            subtitle = customSubtitle;
+        }
 
         float titleProgress = Mth.clamp((elapsedTicks - 1.0F) / 24.0F, 0.0F, 1.0F);
         float titleAlpha = smoothStep01(titleProgress);

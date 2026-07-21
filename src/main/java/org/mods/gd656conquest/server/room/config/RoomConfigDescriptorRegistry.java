@@ -40,8 +40,12 @@ public final class RoomConfigDescriptorRegistry {
         return legacyCommandIds(RoomConfigScope.DEATHMATCH);
     }
 
+    public static List<String> legacyGunmasterCommandIds() {
+        return legacyCommandIds(RoomConfigScope.GUNMASTER);
+    }
+
     public static List<RoomConfigScope> guiScopes() {
-        return List.of(RoomConfigScope.COMMON, RoomConfigScope.CONQUEST, RoomConfigScope.BREAKTHROUGH, RoomConfigScope.DEATHMATCH);
+        return List.of(RoomConfigScope.COMMON, RoomConfigScope.CONQUEST, RoomConfigScope.BREAKTHROUGH, RoomConfigScope.DEATHMATCH, RoomConfigScope.GUNMASTER);
     }
 
     public static RoomConfigScope scopeOf(RoomConfigDescriptor descriptor) {
@@ -74,7 +78,7 @@ public final class RoomConfigDescriptorRegistry {
     private static List<RoomConfigDescriptor> buildDescriptors() {
         List<RoomConfigDescriptor> descriptors = new ArrayList<>();
 
-        common(descriptors, RoomConfigCategory.ROOM, "gameplayId", "玩法类型", "gameplayId", RoomConfigValueType.STRING, List.of("CONQUEST", "BREAKTHROUGH", "DEATHMATCH"), "gameplayType");
+        common(descriptors, RoomConfigCategory.ROOM, "gameplayId", "玩法类型", "gameplayId", RoomConfigValueType.STRING, List.of("CONQUEST", "BREAKTHROUGH", "DEATHMATCH", "GUNMASTER"), "gameplayType");
         common(descriptors, RoomConfigCategory.ROOM, "displayName", "房间名称", "displayName", RoomConfigValueType.STRING, List.of());
         common(descriptors, RoomConfigCategory.ROOM, "dimensionId", "房间维度ID", "commonConfig.dimensionId", RoomConfigValueType.STRING, List.of());
         common(descriptors, RoomConfigCategory.MATCHING, "minStartPlayers", "最低开局人数", "commonConfig.matchingConfig.minStartPlayers", RoomConfigValueType.NUMBER, List.of(), "queueMinStartPlayers");
@@ -213,6 +217,25 @@ public final class RoomConfigDescriptorRegistry {
         deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampBBoundary", "团队B活动范围", "deathmatchConfig.campBBoundary", RoomConfigValueType.POSITION_GROUP);
         deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampASpawnGroup", "团队A出生组", "deathmatchConfig.campASpawnGroup", RoomConfigValueType.DATA_GROUP);
         deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampBSpawnGroup", "团队B出生组", "deathmatchConfig.campBSpawnGroup", RoomConfigValueType.DATA_GROUP);
+        gunmaster(descriptors, RoomConfigCategory.CAPTURE, "gmMapID", "枪王模式地图ID", "gunmasterConfig.mapId", RoomConfigValueType.STRING, List.of());
+        gunmaster(descriptors, RoomConfigCategory.RULES, "gmMatchDurationMinutes", "枪王模式对局时长(分钟)", "gunmasterConfig.matchDurationMinutes", RoomConfigValueType.NUMBER, List.of());
+        gunmaster(descriptors, RoomConfigCategory.RULES, "gmTargetScore", "枪王模式目标分数", "gunmasterConfig.targetScore", RoomConfigValueType.NUMBER, List.of());
+        gunmaster(descriptors, RoomConfigCategory.RULES, "gmStartCountdownSeconds", "枪王模式开局倒计时秒数", "gunmasterConfig.startCountdownSeconds", RoomConfigValueType.NUMBER, List.of());
+        gunmaster(descriptors, RoomConfigCategory.PLAYER_STATE, "gmRespawnSeconds", "枪王模式玩家重生秒数", "gunmasterConfig.respawnSeconds", RoomConfigValueType.NUMBER, List.of());
+        gunmaster(descriptors, RoomConfigCategory.RULES, "gmPlayerGroupingMode", "枪王模式玩家编组模式", "gunmasterConfig.groupingMode", RoomConfigValueType.STRING, org.mods.gd656conquest.server.room.model.RoomGunmasterGroupingMode.suggestions());
+        gunmaster(descriptors, RoomConfigCategory.RULES, "gmEnabledMiddleWeaponCount", "枪王模式启用的中段武器数量", "gunmasterConfig.enabledMiddleWeaponCount", RoomConfigValueType.NUMBER, List.of());
+        gunmaster(descriptors, RoomConfigCategory.RULES, "gmKillsPerWeaponSwitch", "枪王模式玩家切换武器所需击杀数", "gunmasterConfig.killsPerWeaponSwitch", RoomConfigValueType.NUMBER, List.of());
+        gunmaster(descriptors, RoomConfigCategory.TRANSPORT, "gmDeployViewPosition", "枪王模式部署界面视角", "gunmasterConfig.deployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
+        gunmasterGroup(descriptors, RoomConfigCategory.TRANSPORT, "gmSoloSpawnPositions", "枪王模式个人战出生点数据组", "gunmasterConfig.soloSpawnPositions", RoomConfigValueType.POSITION_GROUP);
+        gunmasterGroup(descriptors, RoomConfigCategory.EQUIPMENT, "gmInitialWeaponPool", "枪王模式初始武器池", "gunmasterConfig.initialWeaponPool", RoomConfigValueType.DATA_GROUP);
+        gunmasterGroup(descriptors, RoomConfigCategory.EQUIPMENT, "gmMiddleWeaponPool", "枪王模式中段武器池", "gunmasterConfig.middleWeaponPool", RoomConfigValueType.DATA_GROUP);
+        gunmasterGroup(descriptors, RoomConfigCategory.EQUIPMENT, "gmFinalWeaponPool", "枪王模式末段武器池", "gunmasterConfig.finalWeaponPool", RoomConfigValueType.DATA_GROUP);
+        gunmasterGroup(descriptors, RoomConfigCategory.TRANSPORT, "gmAmmoBoxPositions", "枪王模式对局弹药箱数据组", "gunmasterConfig.ammoBoxPositions", RoomConfigValueType.POSITION_GROUP);
+        gunmasterGroup(descriptors, RoomConfigCategory.TRANSPORT, "gmMedicalBoxPositions", "枪王模式对局医疗箱数据组", "gunmasterConfig.medicalBoxPositions", RoomConfigValueType.POSITION_GROUP);
+        gunmasterGroup(descriptors, RoomConfigCategory.RULES, "gmCampABoundary", "枪王模式团队A活动范围", "gunmasterConfig.campABoundary", RoomConfigValueType.POSITION_GROUP);
+        gunmasterGroup(descriptors, RoomConfigCategory.RULES, "gmCampBBoundary", "枪王模式团队B活动范围", "gunmasterConfig.campBBoundary", RoomConfigValueType.POSITION_GROUP);
+        gunmasterGroup(descriptors, RoomConfigCategory.TRANSPORT, "gmCampASpawnGroup", "枪王模式团队A出生组", "gunmasterConfig.campASpawnGroup", RoomConfigValueType.DATA_GROUP);
+        gunmasterGroup(descriptors, RoomConfigCategory.TRANSPORT, "gmCampBSpawnGroup", "枪王模式团队B出生组", "gunmasterConfig.campBSpawnGroup", RoomConfigValueType.DATA_GROUP);
 
         return List.copyOf(descriptors);
     }
@@ -247,6 +270,14 @@ public final class RoomConfigDescriptorRegistry {
 
     private static void deathmatchGroup(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, String... aliases) {
         out.add(descriptor(RoomConfigScope.DEATHMATCH, category, id, name, path, type, List.of(), true, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, aliases));
+    }
+
+    private static void gunmaster(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, List<String> suggestions, String... aliases) {
+        out.add(descriptor(RoomConfigScope.GUNMASTER, category, id, name, path, type, suggestions, true, RoomConfigGroupOperationMode.NONE, null, aliases));
+    }
+
+    private static void gunmasterGroup(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, String... aliases) {
+        out.add(descriptor(RoomConfigScope.GUNMASTER, category, id, name, path, type, List.of(), true, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, aliases));
     }
 
     private static void conquestSpecial(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, List<String> suggestions, String handlerId, String... aliases) {

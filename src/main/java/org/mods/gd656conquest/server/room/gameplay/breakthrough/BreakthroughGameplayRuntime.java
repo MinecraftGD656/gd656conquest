@@ -298,7 +298,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             room != null && room.lifecycleState() == RoomLifecycleState.ENDING ? "结算中" : resolveTopStatus(inDeployFlow, gameTick),
             buildEventText(room, player, state == null || player == null ? null : state.getRoomTeams().get(player.getUUID()), gameTick),
             buildFocusPayload(room, player),
-            audioState
+            audioState,
+            "-"
         );
     }
 

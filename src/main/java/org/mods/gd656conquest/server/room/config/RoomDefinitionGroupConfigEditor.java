@@ -27,6 +27,13 @@ public final class RoomDefinitionGroupConfigEditor {
         if (isCommonStringGroup(canonical)) {
             return replaceCommonStringGroup(definition, canonical, addCommonGroupValue(resolveCommonStringGroup(definition, canonical), canonical, rawValue, editor));
         }
+        if (isGunmasterWeaponPoolGroup(canonical)) {
+            return RoomConfigBindingAccess.write(
+                definition,
+                gunmasterWeaponPoolPath(canonical),
+                addGunmasterWeaponPoolValue(resolveGunmasterWeaponPool(definition, canonical), canonical, rawValue, editor)
+            );
+        }
         if (isBoundaryGroup(canonical)) {
             RoomPosition point = parseBoundaryPosition(rawValue, editor);
             return replaceBoundary(definition, canonical, point, false, false);
@@ -35,9 +42,9 @@ public final class RoomDefinitionGroupConfigEditor {
             RoomPosition point = parseBoundaryPosition(rawValue, editor);
             return replaceBreakthroughBoundary(definition, canonical, point, false, false);
         }
-        if (isDeathmatchBoundaryGroup(canonical)) {
+        if (isArenaBoundaryGroup(canonical)) {
             RoomPosition point = parseBoundaryPosition(rawValue, editor);
-            return replaceDeathmatchBoundary(definition, canonical, point, false, false);
+            return replaceArenaBoundary(definition, canonical, point, false, false);
         }
         if (isSupportPositionGroup(canonical)) {
             RoomPosition point = parsePosition(rawValue, editor);
@@ -57,6 +64,12 @@ public final class RoomDefinitionGroupConfigEditor {
                 : removeCommonGroupValue(resolveCommonStringGroup(definition, canonical), canonical, rawValue);
             return replaceCommonStringGroup(definition, canonical, updatedValues);
         }
+        if (isGunmasterWeaponPoolGroup(canonical)) {
+            List<String> updatedValues = clearAll
+                ? List.of()
+                : removeGunmasterWeaponPoolValue(resolveGunmasterWeaponPool(definition, canonical), canonical, rawValue);
+            return RoomConfigBindingAccess.write(definition, gunmasterWeaponPoolPath(canonical), updatedValues);
+        }
         if (isBoundaryGroup(canonical)) {
             return clearAll
                 ? replaceBoundary(definition, canonical, null, true, false)
@@ -67,10 +80,10 @@ public final class RoomDefinitionGroupConfigEditor {
                 ? replaceBreakthroughBoundary(definition, canonical, null, true, false)
                 : replaceBreakthroughBoundary(definition, canonical, parseBoundaryPosition(rawValue, editor), false, true);
         }
-        if (isDeathmatchBoundaryGroup(canonical)) {
+        if (isArenaBoundaryGroup(canonical)) {
             return clearAll
-                ? replaceDeathmatchBoundary(definition, canonical, null, true, false)
-                : replaceDeathmatchBoundary(definition, canonical, parseBoundaryPosition(rawValue, editor), false, true);
+                ? replaceArenaBoundary(definition, canonical, null, true, false)
+                : replaceArenaBoundary(definition, canonical, parseBoundaryPosition(rawValue, editor), false, true);
         }
         if (isSupportPositionGroup(canonical)) {
             return clearAll
@@ -88,6 +101,9 @@ public final class RoomDefinitionGroupConfigEditor {
         String canonical = normalizeConfigId(configId);
         if (isCommonStringGroup(canonical)) {
             return resolveCommonStringGroup(definition, canonical);
+        }
+        if (isGunmasterWeaponPoolGroup(canonical)) {
+            return resolveGunmasterWeaponPool(definition, canonical);
         }
         if (isBoundaryGroup(canonical)) {
             List<RoomPosition> boundary = switch (canonical) {
@@ -110,9 +126,9 @@ public final class RoomDefinitionGroupConfigEditor {
             }
             return lines;
         }
-        if (isDeathmatchBoundaryGroup(canonical)) {
+        if (isArenaBoundaryGroup(canonical)) {
             List<String> lines = new ArrayList<>();
-            for (RoomPosition position : resolveDeathmatchBoundary(definition, canonical)) {
+            for (RoomPosition position : resolveArenaBoundary(definition, canonical)) {
                 lines.add(formatPosition(position));
             }
             return lines;
@@ -302,6 +318,26 @@ public final class RoomDefinitionGroupConfigEditor {
         return updated;
     }
 
+    private static List<String> addGunmasterWeaponPoolValue(List<String> currentValues, String canonical, String rawValue, ServerPlayer editor) {
+        String normalizedInput = normalizeCommonGroupValue(rawValue);
+        List<String> normalizedValues = RoomCommonGroupPatternResolver.resolveAddValues(canonical, normalizedInput, editor);
+        List<String> updated = new ArrayList<>(currentValues == null ? List.of() : currentValues);
+        for (String normalized : normalizedValues) {
+            if (updated.stream().noneMatch(normalized::equals)) {
+                updated.add(normalized);
+            }
+        }
+        return updated;
+    }
+
+    private static List<String> removeGunmasterWeaponPoolValue(List<String> currentValues, String canonical, String rawValue) {
+        String normalizedInput = normalizeCommonGroupValue(rawValue);
+        List<String> removingValues = RoomCommonGroupPatternResolver.resolveDeleteValues(canonical, normalizedInput, currentValues);
+        List<String> updated = new ArrayList<>(currentValues == null ? List.of() : currentValues);
+        updated.removeIf(value -> removingValues.stream().anyMatch(value::equals));
+        return updated;
+    }
+
     private static String normalizeCommonGroupValue(String rawValue) {
         String normalized = rawValue == null ? "" : rawValue.trim();
         if (normalized.length() >= 2) {
@@ -460,8 +496,8 @@ public final class RoomDefinitionGroupConfigEditor {
             String code = canonical.substring("btcapturecampbouterspawngroup_".length()).toUpperCase(Locale.ROOT);
             return replaceBreakthroughCapturePointSpawnGroup(definition, code, RoomTeamId.CAMP_B, updatedGroup);
         }
-        if (canonical.startsWith("dmcamp") && canonical.endsWith("spawngroup")) {
-            return RoomConfigBindingAccess.write(definition, deathmatchSpawnGroupPath(canonical), updatedGroup);
+        if (isArenaSpawnGroup(canonical)) {
+            return RoomConfigBindingAccess.write(definition, arenaSpawnGroupPath(canonical), updatedGroup);
         }
         throw new IllegalArgumentException("未知出生组配置: " + canonical);
     }
@@ -604,8 +640,8 @@ public final class RoomDefinitionGroupConfigEditor {
                 new RoomCapturePointDefinition(code, code, null, RoomSpawnGroupConfig.defaults(), RoomSpawnGroupConfig.defaults(), Map.of(), 0)
             ).outerSpawnGroup(RoomTeamId.CAMP_B);
         }
-        if (canonical.startsWith("dmcamp") && canonical.endsWith("spawngroup")) {
-            Object current = RoomConfigBindingAccess.resolve(definition, deathmatchSpawnGroupPath(canonical));
+        if (isArenaSpawnGroup(canonical)) {
+            Object current = RoomConfigBindingAccess.resolve(definition, arenaSpawnGroupPath(canonical));
             return current instanceof RoomSpawnGroupConfig group ? group : RoomSpawnGroupConfig.defaults();
         }
         throw new IllegalArgumentException("未知出生组配�? " + canonical);
@@ -742,6 +778,12 @@ public final class RoomDefinitionGroupConfigEditor {
             || "campbthrowableids".equals(canonical);
     }
 
+    private static boolean isGunmasterWeaponPoolGroup(String canonical) {
+        return "gminitialweaponpool".equals(canonical)
+            || "gmmiddleweaponpool".equals(canonical)
+            || "gmfinalweaponpool".equals(canonical);
+    }
+
     private static boolean isRoomFixedLoadoutGroup(String canonical) {
         return "roomprimaryweaponids".equals(canonical)
             || "roomsecondaryweaponids".equals(canonical)
@@ -762,8 +804,14 @@ public final class RoomDefinitionGroupConfigEditor {
             || "btstagefboundary".equals(canonical);
     }
 
-    private static boolean isDeathmatchBoundaryGroup(String canonical) {
-        return canonical.startsWith("dmcamp") && canonical.endsWith("boundary");
+    private static boolean isArenaBoundaryGroup(String canonical) {
+        return canonical.startsWith("dmcamp") && canonical.endsWith("boundary")
+            || canonical.startsWith("gmcamp") && canonical.endsWith("boundary");
+    }
+
+    private static boolean isArenaSpawnGroup(String canonical) {
+        return canonical.startsWith("dmcamp") && canonical.endsWith("spawngroup")
+            || canonical.startsWith("gmcamp") && canonical.endsWith("spawngroup");
     }
 
     private static boolean isSupportPositionGroup(String canonical) {
@@ -774,17 +822,20 @@ public final class RoomDefinitionGroupConfigEditor {
             || "btammoboxpositions".equals(canonical)
             || "btmedicalboxpositions".equals(canonical)
             || "dmammoboxpositions".equals(canonical)
-            || "dmmedicalboxpositions".equals(canonical);
+            || "dmmedicalboxpositions".equals(canonical)
+            || "gmsolospawnpositions".equals(canonical)
+            || "gmammoboxpositions".equals(canonical)
+            || "gmmedicalboxpositions".equals(canonical);
     }
 
-    private static RoomDefinition replaceDeathmatchBoundary(
+    private static RoomDefinition replaceArenaBoundary(
         RoomDefinition definition,
         String canonical,
         RoomPosition point,
         boolean clearAll,
         boolean remove
     ) {
-        String path = deathmatchBoundaryPath(canonical);
+        String path = arenaBoundaryPath(canonical);
         Object current = RoomConfigBindingAccess.resolve(definition, path);
         List<RoomPosition> target = new ArrayList<>(current instanceof List<?> list ? castBoundaryList(list) : List.of());
         if (clearAll) {
@@ -816,8 +867,8 @@ public final class RoomDefinitionGroupConfigEditor {
         return RoomConfigBindingAccess.write(definition, path, List.copyOf(target));
     }
 
-    private static List<RoomPosition> resolveDeathmatchBoundary(RoomDefinition definition, String canonical) {
-        Object current = RoomConfigBindingAccess.resolve(definition, deathmatchBoundaryPath(canonical));
+    private static List<RoomPosition> resolveArenaBoundary(RoomDefinition definition, String canonical) {
+        Object current = RoomConfigBindingAccess.resolve(definition, arenaBoundaryPath(canonical));
         return current instanceof List<?> list ? castBoundaryList(list) : List.of();
     }
 
@@ -836,18 +887,22 @@ public final class RoomDefinitionGroupConfigEditor {
         return values;
     }
 
-    private static String deathmatchBoundaryPath(String canonical) {
+    private static String arenaBoundaryPath(String canonical) {
         return switch (canonical) {
             case "dmcampaboundary" -> "deathmatchConfig.campABoundary";
             case "dmcampbboundary" -> "deathmatchConfig.campBBoundary";
+            case "gmcampaboundary" -> "gunmasterConfig.campABoundary";
+            case "gmcampbboundary" -> "gunmasterConfig.campBBoundary";
             default -> throw new IllegalArgumentException("未知团队死斗边界: " + canonical);
         };
     }
 
-    private static String deathmatchSpawnGroupPath(String canonical) {
+    private static String arenaSpawnGroupPath(String canonical) {
         return switch (canonical) {
             case "dmcampaspawngroup" -> "deathmatchConfig.campASpawnGroup";
             case "dmcampbspawngroup" -> "deathmatchConfig.campBSpawnGroup";
+            case "gmcampaspawngroup" -> "gunmasterConfig.campASpawnGroup";
+            case "gmcampbspawngroup" -> "gunmasterConfig.campBSpawnGroup";
             default -> throw new IllegalArgumentException("未知团队死斗出生组: " + canonical);
         };
     }
@@ -862,7 +917,33 @@ public final class RoomDefinitionGroupConfigEditor {
             case "btmedicalboxpositions" -> "breakthroughConfig.medicalBoxPositions";
             case "dmammoboxpositions" -> "deathmatchConfig.ammoBoxPositions";
             case "dmmedicalboxpositions" -> "deathmatchConfig.medicalBoxPositions";
+            case "gmsolospawnpositions" -> "gunmasterConfig.soloSpawnPositions";
+            case "gmammoboxpositions" -> "gunmasterConfig.ammoBoxPositions";
+            case "gmmedicalboxpositions" -> "gunmasterConfig.medicalBoxPositions";
             default -> throw new IllegalArgumentException("未知支援箱数据组: " + canonical);
+        };
+    }
+
+    private static List<String> resolveGunmasterWeaponPool(RoomDefinition definition, String canonical) {
+        Object current = RoomConfigBindingAccess.resolve(definition, gunmasterWeaponPoolPath(canonical));
+        if (!(current instanceof List<?> raw)) {
+            return List.of();
+        }
+        List<String> values = new ArrayList<>();
+        for (Object entry : raw) {
+            if (entry instanceof String text && !text.isBlank()) {
+                values.add(text.trim());
+            }
+        }
+        return values;
+    }
+
+    private static String gunmasterWeaponPoolPath(String canonical) {
+        return switch (canonical) {
+            case "gminitialweaponpool" -> "gunmasterConfig.initialWeaponPool";
+            case "gmmiddleweaponpool" -> "gunmasterConfig.middleWeaponPool";
+            case "gmfinalweaponpool" -> "gunmasterConfig.finalWeaponPool";
+            default -> throw new IllegalArgumentException("未知枪神武器池配置: " + canonical);
         };
     }
 

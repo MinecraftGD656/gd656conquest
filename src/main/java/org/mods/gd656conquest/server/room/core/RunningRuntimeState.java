@@ -8,6 +8,7 @@ import org.mods.gd656conquest.server.room.vehicle.VehicleDeployResolution;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -63,6 +64,9 @@ public final class RunningRuntimeState {
     private final Map<UUID, Map<String, String>> randomizedLoadoutSelectionIdsByPlayerSlot = new LinkedHashMap<>();
     private final Map<UUID, Map<String, Map<String, String>>> randomizedAttachmentSelectionIdsByPlayerLoadoutEntry = new LinkedHashMap<>();
     private final Map<UUID, Map<String, String>> fixedRoomLoadoutSelectionIdsByPlayerSlot = new LinkedHashMap<>();
+    private final Map<UUID, Integer> gunmasterStageIndexByPlayer = new LinkedHashMap<>();
+    private final Map<UUID, Integer> gunmasterStageKillsByPlayer = new LinkedHashMap<>();
+    private final java.util.List<String> gunmasterMatchWeaponSequenceIds = new java.util.ArrayList<>();
     private long autoTeamBalanceImbalanceSinceTick = -1L;
     private long autoTeamBalanceLastPromptTick = -1L;
     private int autoTeamBalanceLastDelta;
@@ -79,6 +83,7 @@ public final class RunningRuntimeState {
     private final Map<String, TeamScopedTacticalMarker> gameplayTacticalMarkersByKey = new LinkedHashMap<>();
     private final Map<UUID, RejoinTicket> rejoinTickets = new LinkedHashMap<>();
     private RoomTeamId resultWinnerTeam;
+    private UUID resultWinnerPlayerId;
     private String resultReason = "-";
     private long resultBlackStartTick = -1L;
     private long resultSequenceEndTick = -1L;
@@ -325,6 +330,18 @@ public final class RunningRuntimeState {
         return fixedRoomLoadoutSelectionIdsByPlayerSlot;
     }
 
+    public Map<UUID, Integer> getGunmasterStageIndexByPlayer() {
+        return gunmasterStageIndexByPlayer;
+    }
+
+    public Map<UUID, Integer> getGunmasterStageKillsByPlayer() {
+        return gunmasterStageKillsByPlayer;
+    }
+
+    public List<String> getGunmasterMatchWeaponSequenceIds() {
+        return gunmasterMatchWeaponSequenceIds;
+    }
+
     public Map<UUID, Map<String, Map<String, String>>> getRandomizedAttachmentSelectionIdsByPlayerLoadoutEntry() {
         return randomizedAttachmentSelectionIdsByPlayerLoadoutEntry;
     }
@@ -409,6 +426,14 @@ public final class RunningRuntimeState {
         this.resultWinnerTeam = resultWinnerTeam;
     }
 
+    public UUID getResultWinnerPlayerId() {
+        return resultWinnerPlayerId;
+    }
+
+    public void setResultWinnerPlayerId(UUID resultWinnerPlayerId) {
+        this.resultWinnerPlayerId = resultWinnerPlayerId;
+    }
+
     public String getResultReason() {
         return resultReason;
     }
@@ -483,6 +508,9 @@ public final class RunningRuntimeState {
         heroKitLoadoutResetPendingPlayers.clear();
         clearAllShellingRequests();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
+        gunmasterStageIndexByPlayer.clear();
+        gunmasterStageKillsByPlayer.clear();
+        gunmasterMatchWeaponSequenceIds.clear();
         rejoinTickets.clear();
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();
         resultAwardedPlayers.clear();
@@ -502,6 +530,9 @@ public final class RunningRuntimeState {
         heroKitLoadoutResetPendingPlayers.clear();
         clearAllShellingRequests();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
+        gunmasterStageIndexByPlayer.clear();
+        gunmasterStageKillsByPlayer.clear();
+        gunmasterMatchWeaponSequenceIds.clear();
         rejoinTickets.clear();
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();
         resultAwardedPlayers.clear();
@@ -555,6 +586,8 @@ public final class RunningRuntimeState {
         randomizedLoadoutSelectionIdsByPlayerSlot.remove(playerId);
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.remove(playerId);
         fixedRoomLoadoutSelectionIdsByPlayerSlot.remove(playerId);
+        gunmasterStageIndexByPlayer.remove(playerId);
+        gunmasterStageKillsByPlayer.remove(playerId);
         outsideBoundarySinceTicks.remove(playerId);
         respawnCountdownLastShownSeconds.remove(playerId);
         boundaryPenaltyLastShownSeconds.remove(playerId);
@@ -616,6 +649,9 @@ public final class RunningRuntimeState {
         randomizedLoadoutSelectionIdsByPlayerSlot.clear();
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();
         fixedRoomLoadoutSelectionIdsByPlayerSlot.clear();
+        gunmasterStageIndexByPlayer.clear();
+        gunmasterStageKillsByPlayer.clear();
+        gunmasterMatchWeaponSequenceIds.clear();
         autoTeamBalanceImbalanceSinceTick = -1L;
         autoTeamBalanceLastPromptTick = -1L;
         autoTeamBalanceLastDelta = 0;
@@ -871,6 +907,7 @@ public final class RunningRuntimeState {
 
     public void clearResultState() {
         resultWinnerTeam = null;
+        resultWinnerPlayerId = null;
         resultReason = "-";
         resultBlackStartTick = -1L;
         resultSequenceEndTick = -1L;

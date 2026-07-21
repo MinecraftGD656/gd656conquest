@@ -5,6 +5,7 @@ import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomGameplayId;
+import org.mods.gd656conquest.server.room.model.RoomGunmasterGroupingMode;
 import org.mods.gd656conquest.server.room.model.RoomMatchingConfig;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
@@ -203,7 +204,9 @@ public final class RoomDefinitionScalarConfigEditor {
         return switch (configId) {
             case "minstartplayers", "queuemaxplayers", "outsideboundarydeathseconds",
                 "aircraftoutsideboundarycleanupseconds", "playermaxy", "aircraftpassengermaxy",
-                "dmmatchdurationminutes", "dmtargetscore", "dmstartcountdownseconds", "dmrespawnseconds" -> true;
+                "dmmatchdurationminutes", "dmtargetscore", "dmstartcountdownseconds", "dmrespawnseconds",
+                "gmmatchdurationminutes", "gmtargetscore", "gmstartcountdownseconds", "gmrespawnseconds",
+                "gmkillsperweaponswitch" -> true;
             default -> false;
         };
     }
@@ -215,6 +218,7 @@ public final class RoomDefinitionScalarConfigEditor {
             case "vehiclebackend" -> RoomVehicleBackend.of(rawValue);
             case "campavoicepack", "campbvoicepack" -> RoomVoicePack.normalizeOrThrow(rawValue);
             case "bttroopbalancereference" -> RoomTroopBalanceReference.of(rawValue);
+            case "gmplayergroupingmode" -> RoomGunmasterGroupingMode.of(rawValue);
             case "scoremethod" -> parseScoreMethod(rawValue);
             case "initialcaptureownership" -> parseInitialCaptureOwnership(rawValue);
             default -> parseQuotedString(rawValue);
@@ -277,7 +281,8 @@ public final class RoomDefinitionScalarConfigEditor {
             case "conquest" -> RoomGameplayId.CONQUEST;
             case "breakthrough" -> RoomGameplayId.BREAKTHROUGH;
             case "deathmatch" -> RoomGameplayId.DEATHMATCH;
-            default -> throw new IllegalArgumentException("当前仅支持 CONQUEST / BREAKTHROUGH / DEATHMATCH");
+            case "gunmaster" -> RoomGameplayId.GUNMASTER;
+            default -> throw new IllegalArgumentException("当前仅支持 CONQUEST / BREAKTHROUGH / DEATHMATCH / GUNMASTER");
         };
     }
 

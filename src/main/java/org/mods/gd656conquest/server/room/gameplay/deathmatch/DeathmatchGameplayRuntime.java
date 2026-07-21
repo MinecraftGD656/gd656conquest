@@ -28,7 +28,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-public final class DeathmatchGameplayRuntime implements
+public class DeathmatchGameplayRuntime implements
     IRoomGameplayRuntime,
     RoomGameplayBoundaryHudProvider,
     RoomGameplayBoundaryPolicyProvider,
@@ -59,7 +59,7 @@ public final class DeathmatchGameplayRuntime implements
         if (pendingEndRequest != null || room == null || enteredTick < 0L) {
             return;
         }
-        int durationMinutes = room.deathmatchConfig().matchDurationMinutes();
+        int durationMinutes = room.arenaConfig().matchDurationMinutes();
         if (durationMinutes <= 0) {
             return;
         }
@@ -94,12 +94,12 @@ public final class DeathmatchGameplayRuntime implements
         }
         if (killerTeam == RoomTeamId.CAMP_A) {
             campAScore++;
-            if (campAScore >= room.deathmatchConfig().targetScore()) {
+            if (campAScore >= room.arenaConfig().targetScore()) {
                 pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, room.gameplayTeamDisplayName(RoomTeamId.CAMP_A) + "达到目标得分");
             }
         } else if (killerTeam == RoomTeamId.CAMP_B) {
             campBScore++;
-            if (campBScore >= room.deathmatchConfig().targetScore()) {
+            if (campBScore >= room.arenaConfig().targetScore()) {
                 pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, room.gameplayTeamDisplayName(RoomTeamId.CAMP_B) + "达到目标得分");
             }
         }
@@ -130,15 +130,16 @@ public final class DeathmatchGameplayRuntime implements
             campBScore,
             matchDurationSeconds(gameTick),
             "SCORE_TARGET",
-            room.deathmatchConfig().targetScore(),
-            room.deathmatchConfig().targetScore(),
+            room.arenaConfig().targetScore(),
+            room.arenaConfig().targetScore(),
             resolveRemainSeconds(room, state, gameTick),
             resolveTopStatus(room, inDeployFlow),
             "击杀敌人为团队夺得更高的分数",
             "-",
             room.lifecycleState() == org.mods.gd656conquest.server.room.model.RoomLifecycleState.ENDING
                 ? "ENDING"
-                : initialLockActive ? "INITIAL_STAGE_BEGIN" : buildAudioState(room, selfTeam)
+                : initialLockActive ? "INITIAL_STAGE_BEGIN" : buildAudioState(room, selfTeam),
+            "-"
         );
     }
 
@@ -171,9 +172,9 @@ public final class DeathmatchGameplayRuntime implements
         }
         List<List<RoomPosition>> boundaries = new ArrayList<>();
         if (teamId == RoomTeamId.CAMP_A) {
-            addBoundaryIfValid(boundaries, room.deathmatchConfig().campABoundary());
+            addBoundaryIfValid(boundaries, room.arenaConfig().campABoundary());
         } else if (teamId == RoomTeamId.CAMP_B) {
-            addBoundaryIfValid(boundaries, room.deathmatchConfig().campBBoundary());
+            addBoundaryIfValid(boundaries, room.arenaConfig().campBBoundary());
         }
         return boundaries;
     }
@@ -183,8 +184,8 @@ public final class DeathmatchGameplayRuntime implements
         if (elements == null || context == null || context.room() == null) {
             return;
         }
-        appendBoundaryRows(elements, context.room().deathmatchConfig().campABoundary(), "T", "dm_camp_a");
-        appendBoundaryRows(elements, context.room().deathmatchConfig().campBBoundary(), "S", "dm_camp_b");
+        appendBoundaryRows(elements, context.room().arenaConfig().campABoundary(), "T", "dm_camp_a");
+        appendBoundaryRows(elements, context.room().arenaConfig().campBBoundary(), "S", "dm_camp_b");
     }
 
     @Override
@@ -202,10 +203,10 @@ public final class DeathmatchGameplayRuntime implements
         }
         RoomTeamId teamId = state.getRoomTeams().get(player.getUUID());
         if (teamId == RoomTeamId.CAMP_A) {
-            return new RoomSpawnCandidateSelectionService(player.server).pickSpawn(room.deathmatchConfig().campASpawnGroup(), state, teamId);
+            return new RoomSpawnCandidateSelectionService(player.server).pickSpawn(room.arenaConfig().campASpawnGroup(), state, teamId);
         }
         if (teamId == RoomTeamId.CAMP_B) {
-            return new RoomSpawnCandidateSelectionService(player.server).pickSpawn(room.deathmatchConfig().campBSpawnGroup(), state, teamId);
+            return new RoomSpawnCandidateSelectionService(player.server).pickSpawn(room.arenaConfig().campBSpawnGroup(), state, teamId);
         }
         return room.commonConfig().queueSpawn();
     }
@@ -232,7 +233,7 @@ public final class DeathmatchGameplayRuntime implements
         ServerPlayer player,
         org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployViewRequest request
     ) {
-        return room == null ? null : room.deathmatchConfig().deployViewPosition();
+        return room == null ? null : room.arenaConfig().deployViewPosition();
     }
 
     @Override
@@ -245,14 +246,14 @@ public final class DeathmatchGameplayRuntime implements
             return null;
         }
         RoomSpawnGroupConfig group = teamId == RoomTeamId.CAMP_A
-            ? room.deathmatchConfig().campASpawnGroup()
-            : room.deathmatchConfig().campBSpawnGroup();
+            ? room.arenaConfig().campASpawnGroup()
+            : room.arenaConfig().campBSpawnGroup();
         return firstSpawn(group);
     }
 
     @Override
     public Integer resolveRespawnDelaySeconds(RoomDefinition room, RunningRuntimeState state) {
-        return room == null ? null : room.deathmatchConfig().respawnSeconds();
+        return room == null ? null : room.arenaConfig().respawnSeconds();
     }
 
     private ServerPlayer findOnlinePlayer(UUID playerId) {
@@ -282,10 +283,10 @@ public final class DeathmatchGameplayRuntime implements
             && state.getResultSequenceEndTick() > 0) {
             return (int) Math.max(0L, (state.getResultSequenceEndTick() - gameTick + 19L) / 20L);
         }
-        if (room == null || enteredTick < 0L || room.deathmatchConfig().matchDurationMinutes() <= 0) {
+        if (room == null || enteredTick < 0L || room.arenaConfig().matchDurationMinutes() <= 0) {
             return 0;
         }
-        long endTick = enteredTick + room.deathmatchConfig().matchDurationMinutes() * 60L * 20L;
+        long endTick = enteredTick + room.arenaConfig().matchDurationMinutes() * 60L * 20L;
         return (int) Math.max(0L, (endTick - gameTick + 19L) / 20L);
     }
 
@@ -330,10 +331,10 @@ public final class DeathmatchGameplayRuntime implements
     }
 
     private boolean isScoreNearEnd(RoomDefinition room) {
-        if (room == null || room.deathmatchConfig().targetScore() <= 0) {
+        if (room == null || room.arenaConfig().targetScore() <= 0) {
             return false;
         }
-        double threshold = room.deathmatchConfig().targetScore() * 0.9D;
+        double threshold = room.arenaConfig().targetScore() * 0.9D;
         return campAScore >= threshold || campBScore >= threshold;
     }
 
@@ -362,8 +363,8 @@ public final class DeathmatchGameplayRuntime implements
             return List.of();
         }
         List<List<RoomPosition>> boundaries = new ArrayList<>();
-        addBoundaryIfValid(boundaries, room.deathmatchConfig().campABoundary());
-        addBoundaryIfValid(boundaries, room.deathmatchConfig().campBBoundary());
+        addBoundaryIfValid(boundaries, room.arenaConfig().campABoundary());
+        addBoundaryIfValid(boundaries, room.arenaConfig().campBBoundary());
         return boundaries;
     }
 

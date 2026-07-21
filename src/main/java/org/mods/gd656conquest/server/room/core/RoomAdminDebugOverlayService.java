@@ -69,10 +69,10 @@ public final class RoomAdminDebugOverlayService {
             appendCaptureSpawnGroups(builder, roomId, room.configuredObjectivePoints(), captureState, true, null);
             appendCaptureSpawnGroups(builder, roomId, room.configuredObjectivePoints(), captureState, false, RoomTeamId.CAMP_A);
             appendCaptureSpawnGroups(builder, roomId, room.configuredObjectivePoints(), captureState, false, RoomTeamId.CAMP_B);
-        } else if (org.mods.gd656conquest.server.room.model.RoomGameplayId.DEATHMATCH.equals(room.gameplayId())) {
-            appendTeamSpawnPoints(builder, roomId, room.deathmatchConfig().campASpawnGroup(), "T", "DMA", "死斗阵营A重生");
-            appendTeamSpawnPoints(builder, roomId, room.deathmatchConfig().campBSpawnGroup(), "S", "DMB", "死斗阵营B重生");
-            appendViewPosition(builder, roomId, "DP", "N", room.deathmatchConfig().deployViewPosition(), "死斗部署视角");
+        } else if (room.isArenaGameplay()) {
+            appendTeamSpawnPoints(builder, roomId, room.arenaConfig().campASpawnGroup(), "T", "DMA", "竞技模式阵营A重生");
+            appendTeamSpawnPoints(builder, roomId, room.arenaConfig().campBSpawnGroup(), "S", "DMB", "竞技模式阵营B重生");
+            appendViewPosition(builder, roomId, "DP", "N", room.arenaConfig().deployViewPosition(), "竞技模式部署视角");
         } else {
             appendTeamSpawnPoints(builder, roomId, room.conquestConfig().teamSpawnGroups().get(RoomTeamId.CAMP_A), "T", "TS", "阵营A重生");
             appendTeamSpawnPoints(builder, roomId, room.conquestConfig().teamSpawnGroups().get(RoomTeamId.CAMP_B), "S", "SS", "阵营B重生");
@@ -250,9 +250,9 @@ public final class RoomAdminDebugOverlayService {
             }
             return;
         }
-        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.DEATHMATCH.equals(room.gameplayId())) {
-            appendBoundaryRows(builder, room.deathmatchConfig().campABoundary(), "T", "dm_debug_camp_a");
-            appendBoundaryRows(builder, room.deathmatchConfig().campBBoundary(), "S", "dm_debug_camp_b");
+        if (room.isArenaGameplay()) {
+            appendBoundaryRows(builder, room.arenaConfig().campABoundary(), "T", "arena_debug_camp_a");
+            appendBoundaryRows(builder, room.arenaConfig().campBBoundary(), "S", "arena_debug_camp_b");
             return;
         }
         appendBoundaryRows(builder, room.conquestConfig().sharedBoundary(), "N", "cq_debug_shared");

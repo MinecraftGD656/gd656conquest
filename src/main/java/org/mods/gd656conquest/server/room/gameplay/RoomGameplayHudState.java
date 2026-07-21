@@ -11,9 +11,10 @@ public record RoomGameplayHudState(
     String topStatus,
     String eventText,
     String focusPayload,
-    String audioState
+    String audioState,
+    String extraPayload
 ) {
     public static RoomGameplayHudState defaults() {
-        return new RoomGameplayHudState(0, 0, 0, "SCORE_TARGET", 0, 0, 0, "-", "-", "-", "RUNNING");
+        return new RoomGameplayHudState(0, 0, 0, "SCORE_TARGET", 0, 0, 0, "-", "-", "-", "RUNNING", "-");
     }
 }

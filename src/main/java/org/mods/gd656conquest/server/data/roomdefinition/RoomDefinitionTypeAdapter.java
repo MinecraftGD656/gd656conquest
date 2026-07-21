@@ -12,6 +12,7 @@ import org.mods.gd656conquest.server.room.model.RoomBreakthroughConfig;
 import org.mods.gd656conquest.server.room.model.RoomConquestConfig;
 import org.mods.gd656conquest.server.room.model.RoomDeathmatchConfig;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.server.room.model.RoomGunmasterConfig;
 
 import java.lang.reflect.Type;
 
@@ -41,6 +42,8 @@ public final class RoomDefinitionTypeAdapter implements JsonDeserializer<RoomDef
             gameplayConfig = context.deserialize(configElement, RoomBreakthroughConfig.class);
         } else if ("deathmatch".equalsIgnoreCase(gameplayId)) {
             gameplayConfig = context.deserialize(configElement, RoomDeathmatchConfig.class);
+        } else if ("gunmaster".equalsIgnoreCase(gameplayId)) {
+            gameplayConfig = context.deserialize(configElement, RoomGunmasterConfig.class);
         } else {
             gameplayConfig = context.deserialize(configElement, RoomConquestConfig.class);
         }

@@ -134,16 +134,24 @@ public final class RoomPlayerLaunchService {
     }
 
     private RoomPosition resolveSpawn(RoomDefinition room, RoomTeamId teamId) {
+        if (room != null
+            && org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId())
+            && room.gunmasterConfig().isSoloGrouping()) {
+            RoomPosition soloSpawn = pickSpawnFromPositions(room.gunmasterConfig().soloSpawnPositions());
+            if (soloSpawn != null) {
+                return soloSpawn;
+            }
+        }
         if (teamId != null) {
-            if (room != null && org.mods.gd656conquest.server.room.model.RoomGameplayId.DEATHMATCH.equals(room.gameplayId())) {
+            if (room != null && room.isArenaGameplay()) {
                 if (teamId == RoomTeamId.CAMP_A) {
-                    RoomPosition spawn = pickSpawnFromGroup(room.deathmatchConfig().campASpawnGroup());
+                    RoomPosition spawn = pickSpawnFromGroup(room.arenaConfig().campASpawnGroup());
                     if (spawn != null) {
                         return spawn;
                     }
                 }
                 if (teamId == RoomTeamId.CAMP_B) {
-                    RoomPosition spawn = pickSpawnFromGroup(room.deathmatchConfig().campBSpawnGroup());
+                    RoomPosition spawn = pickSpawnFromGroup(room.arenaConfig().campBSpawnGroup());
                     if (spawn != null) {
                         return spawn;
                     }
@@ -165,6 +173,19 @@ public final class RoomPlayerLaunchService {
             return null;
         }
         var candidates = group.spawns().stream()
+            .filter(Objects::nonNull)
+            .toList();
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
+    }
+
+    private RoomPosition pickSpawnFromPositions(java.util.List<RoomPosition> positions) {
+        if (positions == null || positions.isEmpty()) {
+            return null;
+        }
+        var candidates = positions.stream()
             .filter(Objects::nonNull)
             .toList();
         if (candidates.isEmpty()) {

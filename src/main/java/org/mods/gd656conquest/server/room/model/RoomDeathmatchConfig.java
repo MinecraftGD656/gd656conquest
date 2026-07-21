@@ -22,7 +22,6 @@ public record RoomDeathmatchConfig(
         targetScore = Math.max(0, targetScore);
         startCountdownSeconds = Math.max(0, startCountdownSeconds);
         respawnSeconds = Math.max(0, respawnSeconds);
-        deployViewPosition = deployViewPosition == null ? defaultDeployViewPosition() : deployViewPosition;
         campABoundary = copyBoundary(campABoundary);
         campBBoundary = copyBoundary(campBBoundary);
         campASpawnGroup = normalizeSpawnGroup(campASpawnGroup);
@@ -38,7 +37,7 @@ public record RoomDeathmatchConfig(
             0,
             10,
             5,
-            defaultDeployViewPosition(),
+            null,
             List.of(),
             List.of(),
             RoomSpawnGroupConfig.defaults(),
@@ -74,10 +73,6 @@ public record RoomDeathmatchConfig(
 
     private static RoomSpawnGroupConfig normalizeSpawnGroup(RoomSpawnGroupConfig value) {
         return value == null ? RoomSpawnGroupConfig.defaults() : value;
-    }
-
-    private static RoomViewPosition defaultDeployViewPosition() {
-        return new RoomViewPosition(0, 100.0D, 0, 0.0F, 0.0F);
     }
 
     @Override
