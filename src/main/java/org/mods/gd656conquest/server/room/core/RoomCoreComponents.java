@@ -6,6 +6,7 @@ import org.mods.gd656conquest.server.room.matching.RoomMatchingCoordinator;
 import org.mods.gd656conquest.server.room.runtime.RoomAudioRuntimeService;
 import org.mods.gd656conquest.server.room.runtime.RoomDeathSupportDropService;
 import org.mods.gd656conquest.server.room.runtime.RoomDeploySelectionService;
+import org.mods.gd656conquest.server.room.runtime.RoomGunmasterLoadoutService;
 import org.mods.gd656conquest.server.room.runtime.RoomHudSyncService;
 import org.mods.gd656conquest.server.room.runtime.RoomItemReplenishService;
 import org.mods.gd656conquest.server.room.runtime.RoomInventorySnapshotService;
@@ -40,6 +41,7 @@ public record RoomCoreComponents(
     RoomDeploySelectionService deploySelectionService,
     RoomPlayerRespawnService playerRespawnService,
     RoomPlayerLoadoutService playerLoadoutService,
+    RoomGunmasterLoadoutService gunmasterLoadoutService,
     RoomItemReplenishService itemReplenishService,
     RoomDeathSupportDropService deathSupportDropService,
     RoomSupportBoxService supportBoxService,
@@ -71,6 +73,7 @@ public record RoomCoreComponents(
         Objects.requireNonNull(deploySelectionService, "deploySelectionService");
         Objects.requireNonNull(playerRespawnService, "playerRespawnService");
         Objects.requireNonNull(playerLoadoutService, "playerLoadoutService");
+        Objects.requireNonNull(gunmasterLoadoutService, "gunmasterLoadoutService");
         Objects.requireNonNull(itemReplenishService, "itemReplenishService");
         Objects.requireNonNull(deathSupportDropService, "deathSupportDropService");
         Objects.requireNonNull(supportBoxService, "supportBoxService");

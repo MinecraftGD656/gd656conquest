@@ -9,6 +9,7 @@ import org.mods.gd656conquest.server.room.core.RoomPlayerSessionService;
 import org.mods.gd656conquest.server.room.core.RoomRuntimeRepository;
 import org.mods.gd656conquest.server.room.core.RoomRuntimeState;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 
 import java.util.Objects;
@@ -65,9 +66,11 @@ public final class RoomDeathSupportDropService {
             return;
         }
 
-        ItemStack dropStack = server.overworld().random.nextBoolean()
-            ? new ItemStack(ConquestItems.AMMO_BAG.get())
-            : new ItemStack(ConquestItems.MEDIC_BAG.get());
+        ItemStack dropStack = RoomGameplayId.GUNMASTER.equals(room.gameplayId())
+            ? new ItemStack(ConquestItems.MEDIC_BAG.get())
+            : (server.overworld().random.nextBoolean()
+                ? new ItemStack(ConquestItems.AMMO_BAG.get())
+                : new ItemStack(ConquestItems.MEDIC_BAG.get()));
         if (dropStack.isEmpty()) {
             return;
         }

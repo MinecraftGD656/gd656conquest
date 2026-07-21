@@ -36,7 +36,6 @@ import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
-import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
@@ -84,20 +83,19 @@ public final class RoomPlayerLoadoutService {
     );
 
     private final MinecraftServer server;
+    private final RoomLoadoutGrantService grantService;
 
     public RoomPlayerLoadoutService(MinecraftServer server) {
         this.server = Objects.requireNonNull(server, "server");
+        this.grantService = new RoomLoadoutGrantService(server);
     }
 
     public void applySpawnLoadout(RunningRuntimeState state, ServerPlayer player) {
         if (state == null || player == null || player.server == null) {
             return;
         }
-        if (tryApplyGunmasterSpawnLoadout(state, player)) {
-            initializeConsumableReplenishBaseline(state, player, server.getTickCount());
-            return;
-        }
-        applyLoadout(resolvePlayerRoom(player), state, state.getRoomTeams().get(player.getUUID()), player, true, true, true, true);
+        RoomDefinition room = resolvePlayerRoom(player);
+        applyLoadout(room, state, state.getRoomTeams().get(player.getUUID()), player, true, true, true, true);
         initializeConsumableReplenishBaseline(state, player, server.getTickCount());
     }
 
@@ -112,8 +110,8 @@ public final class RoomPlayerLoadoutService {
         if (teamId == null || player == null || player.server == null) {
             return false;
         }
-        AmmoBoxBlockedState blockedState = snapshotAmmoBoxBlockedState(player);
         RoomRuntimeContext roomContext = resolveRoomRuntimeContext(player);
+        AmmoBoxBlockedState blockedState = snapshotAmmoBoxBlockedState(player);
         applyLoadout(roomContext.room(), roomContext.state(), teamId, player, true, true, false, !blockedState.blockTotemOffhandAutoMove());
         restoreBlockedState(player, blockedState);
         return true;
@@ -132,6 +130,7 @@ public final class RoomPlayerLoadoutService {
         if (player == null || player.server == null) {
             return;
         }
+        RoomRuntimeContext roomContext = room == null || state == null ? resolveRoomRuntimeContext(player) : new RoomRuntimeContext(room, state);
         ConquestDataManager dataManager = ConquestDataManager.of(server);
         EquipmentDataStore equipmentDataHandler = dataManager.equipmentData();
         PlayerDataStore playerDataHandler = dataManager.playerData();
@@ -139,7 +138,6 @@ public final class RoomPlayerLoadoutService {
         if (equipmentData == null) {
             return;
         }
-        RoomRuntimeContext roomContext = room == null || state == null ? resolveRoomRuntimeContext(player) : new RoomRuntimeContext(room, state);
         int playerLevel = PlayerLevelService.getEffectiveLevel(player);
         if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false)) {
             equipmentData = equipmentDataHandler.getData();
@@ -208,75 +206,12 @@ public final class RoomPlayerLoadoutService {
         } else if (moveTotemToOffhand) {
             moveConfiguredTotemToOffhand(player);
         }
-        applyOptionalRoomGoatHorn(player);
-        applyOptionalRoomSupportItem(roomContext, player);
-        applyOptionalParachute(roomContext, player);
+        grantService.applyOptionalRoomItems(player, roomContext.room());
         if (selection.playerDataChanged()) {
             playerDataHandler.savePlayerData(player.getUUID(), playerData);
         }
         player.getInventory().setChanged();
         player.containerMenu.broadcastChanges();
-    }
-
-    private boolean tryApplyGunmasterSpawnLoadout(RunningRuntimeState state, ServerPlayer player) {
-        RoomDefinition room = resolvePlayerRoom(player);
-        if (state == null || player == null || room == null || room.gameplayId() != RoomGameplayId.GUNMASTER) {
-            return false;
-        }
-        String weaponId = resolveGunmasterWeaponId(state, player.getUUID());
-        if (weaponId == null || weaponId.isBlank()) {
-            return false;
-        }
-        EquipmentDataModel equipmentData = ConquestDataManager.of(server).equipmentData().getData();
-        EquipmentDataModel.EquipmentEntry entry = RoomGunmasterWeaponPoolRules.resolveEntry(equipmentData, weaponId);
-        if (entry == null) {
-            return false;
-        }
-        player.getInventory().clearContent();
-        ItemStack equipmentStack = deserializeEquipmentItem(entry.getItemSnbt());
-        if (!equipmentStack.isEmpty()) {
-            PreparedLoadoutStack prepared = prepareConfiguredLoadoutStack(
-                CustomLoadoutSlot.PRIMARY_WEAPON,
-                entry,
-                equipmentStack,
-                ConquestDataManager.of(server).playerData().getPlayerData(player.getUUID()),
-                ConquestDataManager.of(server).weaponAttachments().getData(),
-                PlayerLevelService.getEffectiveLevel(player),
-                TaczAttachmentCompatService.getInstance(),
-                resolveRoomRuntimeContext(player),
-                player,
-                false,
-                false
-            );
-            ItemStack placedStack = prepared.stack();
-            player.getInventory().setItem(PRIMARY_WEAPON_HOTBAR_SLOT, placedStack);
-            grantConfiguredWeaponAmmoByExtraData(player, placedStack, entry.getExtraData(), buildSlotRange(PRIMARY_AMMO_ROW_START, PRIMARY_AMMO_ROW_END));
-        }
-        applyArmorLoadout(player, room, equipmentData, PlayerClassType.defaultType(), state.getRoomTeams().get(player.getUUID()));
-        if (room.commonConfig().disableUndyingTotem()) {
-            removeTotems(player);
-        }
-        applyOptionalRoomGoatHorn(player);
-        applyOptionalRoomSupportItem(resolveRoomRuntimeContext(player), player);
-        applyOptionalParachute(resolveRoomRuntimeContext(player), player);
-        player.getInventory().setChanged();
-        player.containerMenu.broadcastChanges();
-        return true;
-    }
-
-    private String resolveGunmasterWeaponId(RunningRuntimeState state, UUID playerId) {
-        if (state == null || playerId == null) {
-            return "";
-        }
-        List<String> sequence = state.getGunmasterMatchWeaponSequenceIds();
-        if (sequence.isEmpty()) {
-            return "";
-        }
-        int stageIndex = Math.max(0, state.getGunmasterStageIndexByPlayer().getOrDefault(playerId, 0));
-        if (stageIndex >= sequence.size()) {
-            stageIndex = sequence.size() - 1;
-        }
-        return stageIndex < 0 ? "" : sequence.get(stageIndex);
     }
 
     private AmmoBoxBlockedState snapshotAmmoBoxBlockedState(ServerPlayer player) {
@@ -346,55 +281,11 @@ public final class RoomPlayerLoadoutService {
     }
 
     private void applyArmorLoadout(ServerPlayer player, RoomDefinition room, EquipmentDataModel equipmentData, PlayerClassType classType, RoomTeamId teamId) {
-        if (player == null || equipmentData == null || classType == null || teamId == null) {
-            return;
-        }
-        if (applyRoomEquipmentSet(player, room, teamId)) {
-            return;
-        }
-        EquipmentDataModel.ArmorEntry entry = CustomLoadoutService.resolveArmorByCampClass(equipmentData, teamId, classType);
-        if (entry == null) {
-            return;
-        }
-        player.setItemSlot(EquipmentSlot.HEAD, deserializeEquipmentItem(entry.getHelmetSnbt()));
-        player.setItemSlot(EquipmentSlot.CHEST, deserializeEquipmentItem(entry.getChestplateSnbt()));
-        player.setItemSlot(EquipmentSlot.LEGS, deserializeEquipmentItem(entry.getLeggingsSnbt()));
-        player.setItemSlot(EquipmentSlot.FEET, deserializeEquipmentItem(entry.getBootsSnbt()));
-    }
-
-    private boolean applyRoomEquipmentSet(ServerPlayer player, RoomDefinition room, RoomTeamId teamId) {
-        if (player == null || room == null || teamId == null) {
-            return false;
-        }
-        String equipmentSetId = switch (teamId) {
-            case CAMP_A -> room.commonConfig().campAEquipmentSetId();
-            case CAMP_B -> room.commonConfig().campBEquipmentSetId();
-        };
-        if (equipmentSetId == null || equipmentSetId.isBlank()) {
-            return false;
-        }
-        EquipmentSetDataModel data = ConquestDataManager.of(server).equipmentSets().get();
-        EquipmentSetDataModel.EquipmentSetEntry entry = data.getEntriesById().get(equipmentSetId);
-        if (entry == null) {
-            return false;
-        }
-        player.setItemSlot(EquipmentSlot.HEAD, deserializeEquipmentItem(entry.getHeadItemSnbt()));
-        player.setItemSlot(EquipmentSlot.CHEST, deserializeEquipmentItem(entry.getChestItemSnbt()));
-        player.setItemSlot(EquipmentSlot.LEGS, deserializeEquipmentItem(entry.getLegsItemSnbt()));
-        player.setItemSlot(EquipmentSlot.FEET, deserializeEquipmentItem(entry.getFeetItemSnbt()));
-        return true;
+        grantService.applyArmorLoadout(player, room, equipmentData, classType, teamId);
     }
 
     private ItemStack deserializeEquipmentItem(String itemSnbt) {
-        if (itemSnbt == null || itemSnbt.isBlank()) {
-            return ItemStack.EMPTY;
-        }
-        try {
-            CompoundTag tag = TagParser.parseTag(itemSnbt);
-            return ItemStack.of(tag);
-        } catch (Exception ignored) {
-            return ItemStack.EMPTY;
-        }
+        return grantService.deserializeEquipmentItem(itemSnbt);
     }
 
     private PreparedLoadoutStack prepareConfiguredLoadoutStack(
@@ -410,255 +301,20 @@ public final class RoomPlayerLoadoutService {
         boolean refreshRandomSelection,
         boolean applyStoredAttachments
     ) {
-        if (equipmentStack == null || equipmentStack.isEmpty()) {
-            return new PreparedLoadoutStack(ItemStack.EMPTY, false);
-        }
-        ItemStack preparedStack = equipmentStack.copy();
-        if (!WeaponAttachmentService.supportsSlot(slot)
-            || entry == null
-            || attachmentData == null
-            || attachmentCompatService == null
-            || !attachmentCompatService.isAvailable()) {
-            return new PreparedLoadoutStack(preparedStack, false);
-        }
-        String loadoutEntryId = CustomLoadoutService.normalizeEquipmentId(entry.getId());
-        if (loadoutEntryId.isBlank()) {
-            return new PreparedLoadoutStack(preparedStack, false);
-        }
-        if (!attachmentCompatService.isTaczGun(preparedStack)) {
-            return new PreparedLoadoutStack(preparedStack, false);
-        }
-        if (isRandomizedAttachmentEnabled(roomContext)) {
-            applyRandomizedWeaponAttachments(
-                roomContext == null ? null : roomContext.state(),
-                player,
-                preparedStack,
-                loadoutEntryId,
-                attachmentData,
-                attachmentCompatService,
-                refreshRandomSelection
-            );
-            return new PreparedLoadoutStack(preparedStack, false);
-        }
-        if (!applyStoredAttachments || playerData == null) {
-            return new PreparedLoadoutStack(preparedStack, false);
-        }
-        boolean playerDataChanged = WeaponAttachmentService.sanitizeSelectionForWeapon(
+        RoomLoadoutGrantService.PreparedWeaponStack prepared = grantService.prepareConfiguredWeaponStack(
+            slot,
+            entry,
+            equipmentStack,
             playerData,
-            loadoutEntryId,
-            preparedStack,
             attachmentData,
             playerLevel,
-            attachmentCompatService
+            roomContext == null ? null : roomContext.state(),
+            player,
+            isRandomizedAttachmentEnabled(roomContext),
+            refreshRandomSelection,
+            applyStoredAttachments
         );
-        applyStoredWeaponAttachments(preparedStack, playerData, loadoutEntryId, attachmentData, attachmentCompatService);
-        return new PreparedLoadoutStack(preparedStack, playerDataChanged);
-    }
-
-    private void applyStoredWeaponAttachments(
-        ItemStack gunStack,
-        PlayerDataModel playerData,
-        String loadoutEntryId,
-        WeaponAttachmentDataModel attachmentData,
-        TaczAttachmentCompatService attachmentCompatService
-    ) {
-        if (gunStack == null
-            || gunStack.isEmpty()
-            || playerData == null
-            || attachmentData == null
-            || attachmentCompatService == null
-            || loadoutEntryId == null
-            || loadoutEntryId.isBlank()) {
-            return;
-        }
-        for (String attachmentType : WeaponAttachmentService.ORDERED_ATTACHMENT_TYPES) {
-            if (!WeaponAttachmentService.hasStoredSelection(playerData, loadoutEntryId, attachmentType)
-                || !attachmentCompatService.allowAttachmentType(gunStack, attachmentType)) {
-                continue;
-            }
-            attachmentCompatService.unloadAttachment(gunStack, attachmentType);
-            String attachmentId = WeaponAttachmentService.getSelectedAttachmentId(playerData, loadoutEntryId, attachmentType);
-            if (attachmentId.isBlank()) {
-                continue;
-            }
-            WeaponAttachmentDataModel.WeaponAttachmentEntry attachmentEntry = attachmentData.getAttachmentById().get(attachmentId);
-            if (attachmentEntry == null) {
-                continue;
-            }
-            ItemStack attachmentStack = attachmentCompatService.deserializeStack(attachmentEntry.getItemSnbt());
-            if (attachmentStack.isEmpty()) {
-                continue;
-            }
-            attachmentCompatService.installAttachment(gunStack, attachmentStack);
-        }
-    }
-
-    private void applyRandomizedWeaponAttachments(
-        RunningRuntimeState state,
-        ServerPlayer player,
-        ItemStack gunStack,
-        String loadoutEntryId,
-        WeaponAttachmentDataModel attachmentData,
-        TaczAttachmentCompatService attachmentCompatService,
-        boolean refreshRandomSelection
-    ) {
-        if (state == null
-            || player == null
-            || gunStack == null
-            || gunStack.isEmpty()
-            || attachmentData == null
-            || attachmentCompatService == null) {
-            return;
-        }
-        String normalizedLoadoutEntryId = CustomLoadoutService.normalizeEquipmentId(loadoutEntryId);
-        if (normalizedLoadoutEntryId.isBlank()) {
-            return;
-        }
-        Map<String, List<WeaponAttachmentDataModel.WeaponAttachmentEntry>> candidatesByType =
-            buildRandomAttachmentCandidatesByType(gunStack.copy(), attachmentData, attachmentCompatService);
-        Map<String, Map<String, String>> byLoadoutEntry = state.getRandomizedAttachmentSelectionIdsByPlayerLoadoutEntry()
-            .computeIfAbsent(player.getUUID(), ignored -> new LinkedHashMap<>());
-        Map<String, String> storedSelection = refreshRandomSelection ? null : byLoadoutEntry.get(normalizedLoadoutEntryId);
-        Map<String, String> resolvedSelection = new LinkedHashMap<>();
-        for (String attachmentType : WeaponAttachmentService.ORDERED_ATTACHMENT_TYPES) {
-            List<WeaponAttachmentDataModel.WeaponAttachmentEntry> candidates = candidatesByType.get(attachmentType);
-            if (candidates == null || candidates.isEmpty()) {
-                continue;
-            }
-            attachmentCompatService.unloadAttachment(gunStack, attachmentType);
-            RandomAttachmentChoice chosen = resolveRandomAttachmentChoice(
-                player,
-                gunStack,
-                candidates,
-                storedSelection == null ? "" : storedSelection.get(attachmentType),
-                attachmentCompatService
-            );
-            if (chosen == null) {
-                continue;
-            }
-            if (chosen.explicitNone()) {
-                resolvedSelection.put(attachmentType, RANDOM_ATTACHMENT_NONE_SELECTION_ID);
-                continue;
-            }
-            WeaponAttachmentDataModel.WeaponAttachmentEntry chosenEntry = chosen.entry();
-            if (chosenEntry == null) {
-                continue;
-            }
-            ItemStack attachmentStack = attachmentCompatService.deserializeStack(chosenEntry.getItemSnbt());
-            if (attachmentStack.isEmpty() || !attachmentCompatService.installAttachment(gunStack, attachmentStack)) {
-                continue;
-            }
-            resolvedSelection.put(attachmentType, chosen.selectionId());
-        }
-        if (resolvedSelection.isEmpty()) {
-            byLoadoutEntry.remove(normalizedLoadoutEntryId);
-            if (byLoadoutEntry.isEmpty()) {
-                state.getRandomizedAttachmentSelectionIdsByPlayerLoadoutEntry().remove(player.getUUID());
-            }
-            return;
-        }
-        byLoadoutEntry.put(normalizedLoadoutEntryId, resolvedSelection);
-    }
-
-    private Map<String, List<WeaponAttachmentDataModel.WeaponAttachmentEntry>> buildRandomAttachmentCandidatesByType(
-        ItemStack weaponStack,
-        WeaponAttachmentDataModel attachmentData,
-        TaczAttachmentCompatService attachmentCompatService
-    ) {
-        if (weaponStack == null || weaponStack.isEmpty() || attachmentData == null || attachmentCompatService == null) {
-            return Map.of();
-        }
-        Map<String, List<WeaponAttachmentDataModel.WeaponAttachmentEntry>> candidatesByType = new LinkedHashMap<>();
-        for (String attachmentType : WeaponAttachmentService.ORDERED_ATTACHMENT_TYPES) {
-            if (attachmentCompatService.allowAttachmentType(weaponStack, attachmentType)) {
-                candidatesByType.put(attachmentType, new ArrayList<>());
-            }
-        }
-        if (candidatesByType.isEmpty()) {
-            return Map.of();
-        }
-        for (WeaponAttachmentDataModel.WeaponAttachmentEntry entry : attachmentData.getAttachmentById().values()) {
-            if (entry == null) {
-                continue;
-            }
-            String attachmentType = WeaponAttachmentService.normalizeAttachmentType(entry.getAttachmentType());
-            List<WeaponAttachmentDataModel.WeaponAttachmentEntry> candidates = candidatesByType.get(attachmentType);
-            if (candidates == null) {
-                continue;
-            }
-            ItemStack attachmentStack = attachmentCompatService.deserializeStack(entry.getItemSnbt());
-            if (attachmentStack.isEmpty() || !attachmentCompatService.allowAttachment(weaponStack, attachmentStack)) {
-                continue;
-            }
-            candidates.add(entry);
-        }
-        candidatesByType.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue().isEmpty());
-        return candidatesByType.isEmpty() ? Map.of() : candidatesByType;
-    }
-
-    private RandomAttachmentChoice resolveRandomAttachmentChoice(
-        ServerPlayer player,
-        ItemStack currentGunStack,
-        List<WeaponAttachmentDataModel.WeaponAttachmentEntry> candidates,
-        String storedAttachmentId,
-        TaczAttachmentCompatService attachmentCompatService
-    ) {
-        if (player == null || currentGunStack == null || currentGunStack.isEmpty() || candidates == null || candidates.isEmpty()) {
-            return null;
-        }
-        if (RANDOM_ATTACHMENT_NONE_SELECTION_ID.equalsIgnoreCase(storedAttachmentId == null ? "" : storedAttachmentId.trim())) {
-            return RandomAttachmentChoice.none();
-        }
-        String normalizedStoredAttachmentId = WeaponAttachmentService.normalizeAttachmentId(storedAttachmentId);
-        if (!normalizedStoredAttachmentId.isBlank()) {
-            for (WeaponAttachmentDataModel.WeaponAttachmentEntry candidate : candidates) {
-                if (candidate == null || !normalizedStoredAttachmentId.equalsIgnoreCase(WeaponAttachmentService.normalizeAttachmentId(candidate.getId()))) {
-                    continue;
-                }
-                ItemStack attachmentStack = attachmentCompatService.deserializeStack(candidate.getItemSnbt());
-                if (!attachmentStack.isEmpty() && attachmentCompatService.allowAttachment(currentGunStack, attachmentStack)) {
-                    return RandomAttachmentChoice.withEntry(candidate);
-                }
-                break;
-            }
-        }
-        List<WeaponAttachmentDataModel.WeaponAttachmentEntry> runtimeCandidates = new ArrayList<>();
-        for (WeaponAttachmentDataModel.WeaponAttachmentEntry candidate : candidates) {
-            if (candidate == null) {
-                continue;
-            }
-            ItemStack attachmentStack = attachmentCompatService.deserializeStack(candidate.getItemSnbt());
-            if (attachmentStack.isEmpty() || !attachmentCompatService.allowAttachment(currentGunStack, attachmentStack)) {
-                continue;
-            }
-            runtimeCandidates.add(candidate);
-        }
-        if (runtimeCandidates.isEmpty()) {
-            return RandomAttachmentChoice.none();
-        }
-        int totalWeight = RANDOM_ATTACHMENT_WITH_ITEM_WEIGHT + RANDOM_ATTACHMENT_NONE_WEIGHT;
-        if (player.getRandom().nextInt(totalWeight) < RANDOM_ATTACHMENT_NONE_WEIGHT) {
-            return RandomAttachmentChoice.none();
-        }
-        return RandomAttachmentChoice.withEntry(runtimeCandidates.get(player.getRandom().nextInt(runtimeCandidates.size())));
-    }
-
-    private record RandomAttachmentChoice(
-        String selectionId,
-        WeaponAttachmentDataModel.WeaponAttachmentEntry entry,
-        boolean explicitNone
-    ) {
-        private static RandomAttachmentChoice withEntry(WeaponAttachmentDataModel.WeaponAttachmentEntry entry) {
-            return new RandomAttachmentChoice(
-                entry == null ? "" : WeaponAttachmentService.normalizeAttachmentId(entry.getId()),
-                entry,
-                false
-            );
-        }
-
-        public static RandomAttachmentChoice none() {
-            return new RandomAttachmentChoice(RANDOM_ATTACHMENT_NONE_SELECTION_ID, null, true);
-        }
+        return new PreparedLoadoutStack(prepared.stack(), prepared.playerDataChanged());
     }
 
     public Map<CustomLoadoutSlot, ResolvedLoadoutItem> resolveConfiguredLoadoutItems(ServerPlayer player) {
@@ -748,7 +404,13 @@ public final class RoomPlayerLoadoutService {
             return AmmoSupplyResult.EMPTY;
         }
         LoadoutAmmoContext primary = resolveLoadoutAmmoContext(player, CustomLoadoutSlot.PRIMARY_WEAPON, PRIMARY_WEAPON_HOTBAR_SLOT, PRIMARY_AMMO_ROW_START, PRIMARY_AMMO_ROW_END);
-        LoadoutAmmoContext secondary = resolveLoadoutAmmoContext(player, CustomLoadoutSlot.SECONDARY_WEAPON, SECONDARY_WEAPON_HOTBAR_SLOT, SECONDARY_AMMO_ROW_START, SECONDARY_AMMO_ROW_END);
+        LoadoutAmmoContext secondary = resolveLoadoutAmmoContext(
+            player,
+            CustomLoadoutSlot.SECONDARY_WEAPON,
+            SECONDARY_WEAPON_HOTBAR_SLOT,
+            SECONDARY_AMMO_ROW_START,
+            SECONDARY_AMMO_ROW_END
+        );
         int remaining = maxRounds;
         int primaryAdded = 0;
         int secondaryAdded = 0;
@@ -817,10 +479,7 @@ public final class RoomPlayerLoadoutService {
     }
 
     private void grantConfiguredWeaponAmmoByExtraData(ServerPlayer player, ItemStack gunStack, int extraData, int[] preferredSlots) {
-        if (grantTaczAmmoByExtraData(player, gunStack, extraData, preferredSlots)) {
-            return;
-        }
-        grantSuperbWarfareAmmoByExtraData(gunStack, extraData);
+        grantService.grantConfiguredWeaponAmmoByExtraData(player, gunStack, extraData, preferredSlots);
     }
 
     private boolean grantTaczAmmoByExtraData(ServerPlayer player, ItemStack gunStack, int extraData, int[] preferredSlots) {
@@ -871,49 +530,13 @@ public final class RoomPlayerLoadoutService {
     }
 
     private int addTaczAmmoToPreferredSlots(ServerPlayer player, TaczAmmoMeta ammoMeta, ItemStack sampleAmmoStack, int amount, int[] preferredSlots) {
-        if (player == null || ammoMeta == null || amount <= 0 || preferredSlots == null || preferredSlots.length == 0) {
-            return 0;
-        }
-        ItemStack sampleAmmo = sampleAmmoStack == null ? createTaczAmmoStack(ammoMeta.ammoId(), 1) : sampleAmmoStack;
-        if (sampleAmmo.isEmpty()) {
-            return 0;
-        }
-        int remaining = amount;
-        int added = 0;
-        for (int slot : preferredSlots) {
-            if (remaining <= 0) {
-                break;
-            }
-            if (slot < 0 || slot >= player.getInventory().items.size()) {
-                continue;
-            }
-            ItemStack existing = player.getInventory().getItem(slot);
-            if (!existing.isEmpty()) {
-                if (!ItemStack.isSameItemSameTags(existing, sampleAmmo)) {
-                    continue;
-                }
-                int max = Math.max(1, existing.getMaxStackSize());
-                int canAdd = Math.max(0, max - existing.getCount());
-                if (canAdd <= 0) {
-                    continue;
-                }
-                int delta = Math.min(canAdd, remaining);
-                existing.grow(delta);
-                player.getInventory().setItem(slot, existing);
-                remaining -= delta;
-                added += delta;
-                continue;
-            }
-            int count = Math.min(ammoMeta.stackSize(), remaining);
-            ItemStack ammoStack = createTaczAmmoStack(ammoMeta.ammoId(), count);
-            if (ammoStack.isEmpty()) {
-                continue;
-            }
-            player.getInventory().setItem(slot, ammoStack);
-            remaining -= count;
-            added += count;
-        }
-        return added;
+        return grantService.addTaczAmmoToPreferredSlots(
+            player,
+            ammoMeta == null ? null : new RoomLoadoutGrantService.TaczAmmoMeta(ammoMeta.ammoId(), ammoMeta.stackSize()),
+            sampleAmmoStack,
+            amount,
+            preferredSlots
+        );
     }
 
     private int countAmmoInInventory(ServerPlayer player, TaczAmmoMeta ammoMeta) {
@@ -1358,74 +981,12 @@ public final class RoomPlayerLoadoutService {
     }
 
     private TaczAmmoMeta resolveTaczAmmoMeta(ItemStack gunStack) {
-        try {
-            Class<?> iGunClass = Class.forName("com.tacz.guns.api.item.IGun");
-            Method getIGunOrNull = iGunClass.getMethod("getIGunOrNull", ItemStack.class);
-            Object iGun = getIGunOrNull.invoke(null, gunStack);
-            if (iGun == null) {
-                return null;
-            }
-            Method getGunId = iGunClass.getMethod("getGunId", ItemStack.class);
-            Object gunIdObject = getGunId.invoke(iGun, gunStack);
-            if (!(gunIdObject instanceof ResourceLocation gunId)) {
-                return null;
-            }
-
-            Class<?> timelessApiClass = Class.forName("com.tacz.guns.api.TimelessAPI");
-            Method getCommonGunIndex = timelessApiClass.getMethod("getCommonGunIndex", ResourceLocation.class);
-            Object gunIndexOptionalObject = getCommonGunIndex.invoke(null, gunId);
-            if (!(gunIndexOptionalObject instanceof Optional<?> gunIndexOptional) || gunIndexOptional.isEmpty()) {
-                return null;
-            }
-            Object gunIndex = gunIndexOptional.get();
-            Method getGunData = gunIndex.getClass().getMethod("getGunData");
-            Object gunData = getGunData.invoke(gunIndex);
-            if (gunData == null) {
-                return null;
-            }
-            Method getAmmoId = gunData.getClass().getMethod("getAmmoId");
-            Object ammoIdObject = getAmmoId.invoke(gunData);
-            if (!(ammoIdObject instanceof ResourceLocation ammoId)) {
-                return null;
-            }
-
-            int stackSize = 64;
-            Method getCommonAmmoIndex = timelessApiClass.getMethod("getCommonAmmoIndex", ResourceLocation.class);
-            Object ammoIndexOptionalObject = getCommonAmmoIndex.invoke(null, ammoId);
-            if (ammoIndexOptionalObject instanceof Optional<?> ammoIndexOptional && ammoIndexOptional.isPresent()) {
-                Object ammoIndex = ammoIndexOptional.get();
-                Method getStackSize = ammoIndex.getClass().getMethod("getStackSize");
-                Object stackSizeObject = getStackSize.invoke(ammoIndex);
-                if (stackSizeObject instanceof Integer ammoStackSize && ammoStackSize > 0) {
-                    stackSize = ammoStackSize;
-                }
-            }
-            return new TaczAmmoMeta(ammoId, stackSize);
-        } catch (Throwable ignored) {
-            return null;
-        }
+        RoomLoadoutGrantService.TaczAmmoMeta ammoMeta = grantService.resolveTaczAmmoMeta(gunStack);
+        return ammoMeta == null ? null : new TaczAmmoMeta(ammoMeta.ammoId(), ammoMeta.stackSize());
     }
 
     private ItemStack createTaczAmmoStack(ResourceLocation ammoId, int count) {
-        if (ammoId == null || count <= 0) {
-            return ItemStack.EMPTY;
-        }
-        try {
-            Class<?> builderClass = Class.forName("com.tacz.guns.api.item.builder.AmmoItemBuilder");
-            Method create = builderClass.getMethod("create");
-            Object builder = create.invoke(null);
-            Method setId = builderClass.getMethod("setId", ResourceLocation.class);
-            Method setCount = builderClass.getMethod("setCount", int.class);
-            Method build = builderClass.getMethod("build");
-            builder = setId.invoke(builder, ammoId);
-            builder = setCount.invoke(builder, count);
-            Object ammoStackObject = build.invoke(builder);
-            if (ammoStackObject instanceof ItemStack ammoStack) {
-                return ammoStack;
-            }
-        } catch (Throwable ignored) {
-        }
-        return ItemStack.EMPTY;
+        return grantService.createTaczAmmoStack(ammoId, count);
     }
 
     private ItemStack placeLoadoutItem(ServerPlayer player, CustomLoadoutSlot slot, ItemStack stack) {
@@ -1442,93 +1003,11 @@ public final class RoomPlayerLoadoutService {
     }
 
     private boolean removeTotems(ServerPlayer player) {
-        boolean removed = false;
-        if (player == null) return false;
-        ItemStack offhand = player.getOffhandItem();
-        if (!offhand.isEmpty() && offhand.is(Items.TOTEM_OF_UNDYING)) {
-            player.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
-            removed = true;
-        }
-        for (int slot = 0; slot < player.getInventory().items.size(); slot++) {
-            ItemStack stack = player.getInventory().items.get(slot);
-            if (stack != null && !stack.isEmpty() && stack.is(Items.TOTEM_OF_UNDYING)) {
-                player.getInventory().items.set(slot, ItemStack.EMPTY);
-                removed = true;
-            }
-        }
-        return removed;
+        return grantService.removeTotems(player);
     }
 
     private void moveConfiguredTotemToOffhand(ServerPlayer player) {
-        if (player == null) {
-            return;
-        }
-        ItemStack offhand = player.getOffhandItem();
-        if (!offhand.isEmpty() && offhand.is(Items.TOTEM_OF_UNDYING)) {
-            return;
-        }
-        for (int slot = 0; slot < player.getInventory().items.size(); slot++) {
-            ItemStack stack = player.getInventory().items.get(slot);
-            if (stack == null || stack.isEmpty() || !stack.is(Items.TOTEM_OF_UNDYING)) {
-                continue;
-            }
-            player.setItemSlot(EquipmentSlot.OFFHAND, stack.copyWithCount(1));
-            if (stack.getCount() <= 1) {
-                player.getInventory().items.set(slot, ItemStack.EMPTY);
-            } else {
-                stack.shrink(1);
-            }
-            return;
-        }
-    }
-
-    private void applyOptionalRoomGoatHorn(ServerPlayer player) {
-        if (player == null || player.server == null) {
-            return;
-        }
-        RoomDefinition room = resolvePlayerRoom(player);
-        if (room == null || !room.commonConfig().enableGoatHorn()) {
-            return;
-        }
-        if (GOAT_HORN_HOTBAR_SLOT < 0 || GOAT_HORN_HOTBAR_SLOT >= player.getInventory().items.size()) {
-            return;
-        }
-        ItemStack goatHorn = createRandomRoomGoatHorn(player);
-        if (goatHorn.isEmpty()) {
-            return;
-        }
-        player.getInventory().setItem(GOAT_HORN_HOTBAR_SLOT, goatHorn);
-    }
-
-    private void applyOptionalParachute(RoomRuntimeContext roomContext, ServerPlayer player) {
-        if (player == null || roomContext == null || roomContext.room() == null) {
-            return;
-        }
-        if (!roomContext.room().commonConfig().enableParachute()) {
-            return;
-        }
-        if (!CuriosCompatBridge.isLoaded()) {
-            return;
-        }
-        ResourceLocation parachuteId = ResourceLocation.tryParse("superbwarfare:parachute");
-        if (parachuteId == null) {
-            return;
-        }
-        net.minecraft.world.item.Item parachuteItem = ForgeRegistries.ITEMS.getValue(parachuteId);
-        if (parachuteItem == null || parachuteItem == Items.AIR) {
-            return;
-        }
-        CuriosCompatBridge.setCurio(player, "back", 0, new ItemStack(parachuteItem));
-    }
-
-    private void applyOptionalRoomSupportItem(RoomRuntimeContext roomContext, ServerPlayer player) {
-        if (player == null || roomContext == null || roomContext.room() == null) {
-            return;
-        }
-        if (SUPPORT_HOTBAR_SLOT < 0 || SUPPORT_HOTBAR_SLOT >= player.getInventory().items.size()) {
-            return;
-        }
-        player.getInventory().setItem(SUPPORT_HOTBAR_SLOT, new ItemStack(ConquestItems.SUPPORT_ITEM.get()));
+        grantService.moveConfiguredTotemToOffhand(player);
     }
 
     private RoomDefinition resolvePlayerRoom(ServerPlayer player) {

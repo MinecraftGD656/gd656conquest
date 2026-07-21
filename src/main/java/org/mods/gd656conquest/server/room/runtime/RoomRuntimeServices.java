@@ -12,6 +12,7 @@ public record RoomRuntimeServices(
     RoomDeploySelectionService deploySelectionService,
     RoomPlayerRespawnService playerRespawnService,
     RoomPlayerLoadoutService playerLoadoutService,
+    RoomGunmasterLoadoutService gunmasterLoadoutService,
     RoomItemReplenishService itemReplenishService,
     RoomDeathSupportDropService deathSupportDropService,
     RoomSupportBoxService supportBoxService,
@@ -38,6 +39,7 @@ public record RoomRuntimeServices(
         Objects.requireNonNull(deploySelectionService, "deploySelectionService");
         Objects.requireNonNull(playerRespawnService, "playerRespawnService");
         Objects.requireNonNull(playerLoadoutService, "playerLoadoutService");
+        Objects.requireNonNull(gunmasterLoadoutService, "gunmasterLoadoutService");
         Objects.requireNonNull(itemReplenishService, "itemReplenishService");
         Objects.requireNonNull(deathSupportDropService, "deathSupportDropService");
         Objects.requireNonNull(supportBoxService, "supportBoxService");

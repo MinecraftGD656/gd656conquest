@@ -824,7 +824,6 @@ public final class RoomDefinitionGroupConfigEditor {
             || "dmammoboxpositions".equals(canonical)
             || "dmmedicalboxpositions".equals(canonical)
             || "gmsolospawnpositions".equals(canonical)
-            || "gmammoboxpositions".equals(canonical)
             || "gmmedicalboxpositions".equals(canonical);
     }
 
@@ -918,7 +917,6 @@ public final class RoomDefinitionGroupConfigEditor {
             case "dmammoboxpositions" -> "deathmatchConfig.ammoBoxPositions";
             case "dmmedicalboxpositions" -> "deathmatchConfig.medicalBoxPositions";
             case "gmsolospawnpositions" -> "gunmasterConfig.soloSpawnPositions";
-            case "gmammoboxpositions" -> "gunmasterConfig.ammoBoxPositions";
             case "gmmedicalboxpositions" -> "gunmasterConfig.medicalBoxPositions";
             default -> throw new IllegalArgumentException("未知支援箱数据组: " + canonical);
         };

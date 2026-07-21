@@ -10,6 +10,7 @@ import org.mods.gd656conquest.server.room.core.RoomRuntimeState;
 import org.mods.gd656conquest.server.room.runtime.RoomAudioRuntimeService;
 import org.mods.gd656conquest.server.room.runtime.RoomDeathSupportDropService;
 import org.mods.gd656conquest.server.room.runtime.RoomDeploySelectionService;
+import org.mods.gd656conquest.server.room.runtime.RoomGunmasterLoadoutService;
 import org.mods.gd656conquest.server.room.runtime.RoomHudSyncService;
 import org.mods.gd656conquest.server.room.runtime.RoomItemReplenishService;
 import org.mods.gd656conquest.server.room.runtime.RoomInventorySnapshotService;
@@ -58,9 +59,10 @@ public final class RoomRuntimeServicesFactory {
         VehicleBoundaryPenaltyService vehicleBoundaryPenaltyService = new VehicleBoundaryPenaltyService(vehicleRuntimeService);
         RoomDeploySelectionService deploySelectionService = new RoomDeploySelectionService(server, squadBeaconService, vehicleDeploySelectionService);
         RoomPlayerLoadoutService playerLoadoutService = new RoomPlayerLoadoutService(server);
-        RoomItemReplenishService itemReplenishService = new RoomItemReplenishService(server, playerLoadoutService);
+        RoomGunmasterLoadoutService gunmasterLoadoutService = new RoomGunmasterLoadoutService(server);
+        RoomItemReplenishService itemReplenishService = new RoomItemReplenishService(server, playerLoadoutService, gunmasterLoadoutService);
         RoomDeathSupportDropService deathSupportDropService = new RoomDeathSupportDropService(server, runtimeRepository, playerSessionService);
-        RoomSupportBoxService supportBoxService = new RoomSupportBoxService(server, runtimeRepository, playerSessionService, playerLoadoutService);
+        RoomSupportBoxService supportBoxService = new RoomSupportBoxService(server, runtimeRepository, playerSessionService, playerLoadoutService, gunmasterLoadoutService);
         RoomMarkerRuntimeService markerRuntimeService = new RoomMarkerRuntimeService(server);
         RoomInventorySnapshotService inventorySnapshotService = new RoomInventorySnapshotService();
         RoomPlayerRejoinService playerRejoinService = new RoomPlayerRejoinService(runtimeRepository);
@@ -95,11 +97,13 @@ public final class RoomRuntimeServicesFactory {
                 playerTransferQueueService,
                 deploySelectionService,
                 playerLoadoutService,
+                gunmasterLoadoutService,
                 audioRuntimeService,
                 vehicleDeployExecutionService,
                 markerRuntimeService
             ),
             playerLoadoutService,
+            gunmasterLoadoutService,
             itemReplenishService,
             deathSupportDropService,
             supportBoxService,

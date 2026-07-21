@@ -25,11 +25,12 @@ public final class ClientHudRenderer {
     private static final int GUNMASTER_STAGE_PADDING_WIDTH = 4;
     private static final int GUNMASTER_FIRST_STAGE_COLOR = 0xFF184A93;
     private static final int GUNMASTER_UNLOCKED_STAGE_COLOR = 0xFF2F78FF;
-    private static final int GUNMASTER_LOCKED_STAGE_COLOR = 0xFFB5333F;
+    private static final int GUNMASTER_LOCKED_STAGE_COLOR = 0xFFA43A45;
     private static final int GUNMASTER_LAST_STAGE_COLOR = 0xFF91262B;
     private static final int GUNMASTER_MARKER_COLOR = 0xFFFFFFFF;
     private static final int GUNMASTER_SELF_MARKER_COLOR = 0xFF9BC2FF;
     private static final int GUNMASTER_ENEMY_MARKER_COLOR = 0xFFFFA2A8;
+    private static final int GUNMASTER_LAST_STAGE_ALERT_COLOR = 0xFFFFA2A8;
 
     public void render(RenderGuiOverlayEvent.Post event) {
         render(event.getGuiGraphics());
@@ -232,7 +233,7 @@ public final class ClientHudRenderer {
             int width = widths.get(index);
             int barHeight = resolveGunmasterStageHeight(index, payload.stageCount);
             int barY = targetCenterY - barHeight / 2;
-            int fillColor = resolveGunmasterStageColor(index, payload.stageCount, payload.currentStageIndex);
+            int fillColor = resolveGunmasterStageColor(index, payload.stageCount, payload.currentStageIndex, payload.finalEnemyAlert);
             gui.fill(startX, barY, startX + width, barY + barHeight, fillColor);
             drawGunmasterStageMarkers(
                 gui,
@@ -445,14 +446,35 @@ public final class ClientHudRenderer {
         return GUNMASTER_BAR_HEIGHT;
     }
 
-    private int resolveGunmasterStageColor(int stageIndex, int stageCount, int currentStageIndex) {
+    private int resolveGunmasterStageColor(int stageIndex, int stageCount, int currentStageIndex, boolean finalEnemyAlert) {
         if (stageIndex <= 0) {
             return GUNMASTER_FIRST_STAGE_COLOR;
         }
         if (stageIndex >= Math.max(0, stageCount - 1)) {
-            return GUNMASTER_LAST_STAGE_COLOR;
+            return finalEnemyAlert
+                ? mixColorByPulse(GUNMASTER_LAST_STAGE_COLOR, GUNMASTER_LAST_STAGE_ALERT_COLOR)
+                : GUNMASTER_LAST_STAGE_COLOR;
         }
         return stageIndex < currentStageIndex ? GUNMASTER_UNLOCKED_STAGE_COLOR : GUNMASTER_LOCKED_STAGE_COLOR;
+    }
+
+    private int mixColorByPulse(int fromColor, int toColor) {
+        long time = System.currentTimeMillis();
+        float wave = (float) ((Math.sin(time / 180.0D) + 1.0D) * 0.5D);
+        return mixArgb(fromColor, toColor, wave);
+    }
+
+    private int mixArgb(int fromColor, int toColor, float ratio) {
+        float clamped = Math.max(0.0F, Math.min(1.0F, ratio));
+        int a = mixChannel((fromColor >>> 24) & 0xFF, (toColor >>> 24) & 0xFF, clamped);
+        int r = mixChannel((fromColor >>> 16) & 0xFF, (toColor >>> 16) & 0xFF, clamped);
+        int g = mixChannel((fromColor >>> 8) & 0xFF, (toColor >>> 8) & 0xFF, clamped);
+        int b = mixChannel(fromColor & 0xFF, toColor & 0xFF, clamped);
+        return (a << 24) | (r << 16) | (g << 8) | b;
+    }
+
+    private int mixChannel(int from, int to, float ratio) {
+        return Math.max(0, Math.min(255, Math.round(from + (to - from) * ratio)));
     }
 
     private String formatSeconds(int totalSeconds) {
@@ -469,6 +491,7 @@ public final class ClientHudRenderer {
                 "SCAR-H",
                 new int[]{1, 2, 4, 5, 2, 1, 0, 0, 0, 0},
             new int[]{0, 0, 1, 1, 1, 1, 0, 0, 0, 0},
+            false,
             false
             );
         }
@@ -478,6 +501,7 @@ public final class ClientHudRenderer {
             "M4A1",
             new int[]{2, 3, 4, 2, 1, 0, 0, 0, 0, 0},
             new int[]{0, 1, 1, 1, 0, 0, 0, 0, 0, 0},
+            false,
             false
         );
     }
@@ -489,6 +513,7 @@ public final class ClientHudRenderer {
         int stageCount = 10;
         int currentStageIndex = 1;
         boolean soloGrouping = false;
+        boolean finalEnemyAlert = false;
         String nextWeapon = "-";
         int[] counts = new int[stageCount];
         int[] enemy = new int[stageCount];
@@ -505,6 +530,15 @@ public final class ClientHudRenderer {
                 nextWeapon = value;
             } else if ("solo".equalsIgnoreCase(key)) {
                 soloGrouping = "1".equals(value) || "true".equalsIgnoreCase(value);
+            } else if ("finalalert".equalsIgnoreCase(key)) {
+                finalEnemyAlert = "1".equals(value) || "true".equalsIgnoreCase(value);
+            } else if ("sequence".equalsIgnoreCase(key)) {
+                try {
+                    stageCount = Math.max(1, Integer.parseInt(value));
+                    counts = new int[stageCount];
+                    enemy = new int[stageCount];
+                } catch (NumberFormatException ignored) {
+                }
             } else if ("stage".equalsIgnoreCase(key)) {
                 try {
                     currentStageIndex = Math.max(1, Integer.parseInt(value));
@@ -516,7 +550,7 @@ public final class ClientHudRenderer {
                 enemy = parseIntArray(value, stageCount);
             }
         }
-        return new GunmasterHudPayload(stageCount, currentStageIndex, nextWeapon, counts, enemy, soloGrouping);
+        return new GunmasterHudPayload(stageCount, currentStageIndex, nextWeapon, counts, enemy, soloGrouping, finalEnemyAlert);
     }
 
     private int[] parseIntArray(String text, int expectedSize) {
@@ -541,7 +575,8 @@ public final class ClientHudRenderer {
         String nextWeaponName,
         int[] stagePlayerCounts,
         int[] stageEnemyCounts,
-        boolean soloGrouping
+        boolean soloGrouping,
+        boolean finalEnemyAlert
     ) {
     }
 }

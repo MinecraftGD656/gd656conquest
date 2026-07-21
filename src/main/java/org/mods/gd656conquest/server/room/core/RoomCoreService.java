@@ -46,6 +46,7 @@ import org.mods.gd656conquest.server.room.runtime.RoomMatchingActionBarService;
 import org.mods.gd656conquest.server.room.runtime.RoomAudioRuntimeService;
 import org.mods.gd656conquest.server.room.runtime.RoomDeathSupportDropService;
 import org.mods.gd656conquest.server.room.runtime.RoomDeploySelectionService;
+import org.mods.gd656conquest.server.room.runtime.RoomGunmasterLoadoutService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerLaunchService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerLoadoutService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerRespawnService;
@@ -86,6 +87,7 @@ public final class RoomCoreService {
     private final RoomDeploySelectionService deploySelectionService;
     private final RoomPlayerRespawnService playerRespawnService;
     private final RoomPlayerLoadoutService playerLoadoutService;
+    private final RoomGunmasterLoadoutService gunmasterLoadoutService;
     private final RoomItemReplenishService itemReplenishService;
     private final RoomDeathSupportDropService deathSupportDropService;
     private final RoomSupportBoxService supportBoxService;
@@ -120,6 +122,7 @@ public final class RoomCoreService {
         this.deploySelectionService = resolved.deploySelectionService();
         this.playerRespawnService = resolved.playerRespawnService();
         this.playerLoadoutService = resolved.playerLoadoutService();
+        this.gunmasterLoadoutService = resolved.gunmasterLoadoutService();
         this.itemReplenishService = resolved.itemReplenishService();
         this.deathSupportDropService = resolved.deathSupportDropService();
         this.supportBoxService = resolved.supportBoxService();
@@ -1040,6 +1043,9 @@ public final class RoomCoreService {
     }
 
     public RoomPlayerLoadoutService.AmmoSupplyResult trySupplyAmmoByBag(ServerPlayer player, int maxRounds) {
+        if (gunmasterLoadoutService.isGunmasterPlayer(player)) {
+            return RoomPlayerLoadoutService.AmmoSupplyResult.EMPTY;
+        }
         return playerLoadoutService.trySupplyAmmoByBag(player, maxRounds);
     }
 
@@ -1051,7 +1057,11 @@ public final class RoomCoreService {
             .filter(slot -> slot.runtime().getRunningState().getRoomPlayers().contains(player.getUUID()))
             .map(slot -> {
                 HeroKitSupportService.endHeroKitState(server, slot.runtime().getRunningState(), player.getUUID(), server.getTickCount());
-                playerLoadoutService.applySpawnLoadout(slot.runtime().getRunningState(), player);
+                if (gunmasterLoadoutService.isGunmasterRoom(slot.room())) {
+                    gunmasterLoadoutService.applySpawnLoadout(slot.room(), slot.runtime().getRunningState(), player);
+                } else {
+                    playerLoadoutService.applySpawnLoadout(slot.runtime().getRunningState(), player);
+                }
                 slot.runtime().getRunningState().getHeroKitLoadoutResetPendingPlayers().remove(player.getUUID());
                 return true;
             })

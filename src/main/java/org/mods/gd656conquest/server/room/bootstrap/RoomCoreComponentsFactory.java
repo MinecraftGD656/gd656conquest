@@ -36,6 +36,7 @@ public final class RoomCoreComponentsFactory {
             runtimeServices.deploySelectionService(),
             runtimeServices.playerRespawnService(),
             runtimeServices.playerLoadoutService(),
+            runtimeServices.gunmasterLoadoutService(),
             runtimeServices.itemReplenishService(),
             runtimeServices.deathSupportDropService(),
             runtimeServices.supportBoxService(),

@@ -16,10 +16,16 @@ import java.util.UUID;
 public final class RoomItemReplenishService {
     private final MinecraftServer server;
     private final RoomPlayerLoadoutService loadoutService;
+    private final RoomGunmasterLoadoutService gunmasterLoadoutService;
 
-    public RoomItemReplenishService(MinecraftServer server, RoomPlayerLoadoutService loadoutService) {
+    public RoomItemReplenishService(
+        MinecraftServer server,
+        RoomPlayerLoadoutService loadoutService,
+        RoomGunmasterLoadoutService gunmasterLoadoutService
+    ) {
         this.server = Objects.requireNonNull(server, "server");
         this.loadoutService = Objects.requireNonNull(loadoutService, "loadoutService");
+        this.gunmasterLoadoutService = Objects.requireNonNull(gunmasterLoadoutService, "gunmasterLoadoutService");
     }
 
     public void tick(RoomDefinition room, RunningRuntimeState state, long gameTick) {
@@ -39,6 +45,9 @@ public final class RoomItemReplenishService {
     }
 
     private boolean replenishPlayerItems(RunningRuntimeState state, ServerPlayer player, long gameTick) {
+        if (gunmasterLoadoutService.isGunmasterPlayer(player)) {
+            return false;
+        }
         Map<Integer, Long> lastReplenishTickBySlot = state.getLoadoutItemLastReplenishTickByPlayerSlot()
             .computeIfAbsent(player.getUUID(), ignored -> new HashMap<>());
         boolean changed = false;

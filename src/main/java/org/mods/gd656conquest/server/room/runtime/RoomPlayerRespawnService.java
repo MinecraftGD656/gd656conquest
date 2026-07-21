@@ -111,6 +111,7 @@ public final class RoomPlayerRespawnService {
     private final RoomPlayerTransferQueueService playerTransferQueueService;
     private final RoomDeploySelectionService deploySelectionService;
     private final RoomPlayerLoadoutService loadoutService;
+    private final RoomGunmasterLoadoutService gunmasterLoadoutService;
     private final RoomAudioRuntimeService audioRuntimeService;
     private final RoomVehicleDeployExecutionService vehicleDeployExecutionService;
     private final RoomMarkerRuntimeService markerRuntimeService;
@@ -122,6 +123,7 @@ public final class RoomPlayerRespawnService {
         RoomPlayerTransferQueueService playerTransferQueueService,
         RoomDeploySelectionService deploySelectionService,
         RoomPlayerLoadoutService loadoutService,
+        RoomGunmasterLoadoutService gunmasterLoadoutService,
         RoomAudioRuntimeService audioRuntimeService,
         RoomVehicleDeployExecutionService vehicleDeployExecutionService,
         RoomMarkerRuntimeService markerRuntimeService
@@ -132,6 +134,7 @@ public final class RoomPlayerRespawnService {
         this.playerTransferQueueService = Objects.requireNonNull(playerTransferQueueService, "playerTransferQueueService");
         this.deploySelectionService = Objects.requireNonNull(deploySelectionService, "deploySelectionService");
         this.loadoutService = Objects.requireNonNull(loadoutService, "loadoutService");
+        this.gunmasterLoadoutService = Objects.requireNonNull(gunmasterLoadoutService, "gunmasterLoadoutService");
         this.audioRuntimeService = Objects.requireNonNull(audioRuntimeService, "audioRuntimeService");
         this.vehicleDeployExecutionService = Objects.requireNonNull(vehicleDeployExecutionService, "vehicleDeployExecutionService");
         this.markerRuntimeService = Objects.requireNonNull(markerRuntimeService, "markerRuntimeService");
@@ -1077,7 +1080,7 @@ public final class RoomPlayerRespawnService {
         playerLaunchService.teleportToRoomPosition(player, room, spawn);
         HeroKitSupportService.endHeroKitState(server, state, playerId, gameTick);
         state.getHeroKitLoadoutResetPendingPlayers().remove(playerId);
-        loadoutService.applySpawnLoadout(state, player);
+        applyRespawnLoadout(room, state, player);
         markInitialMovementLocked(state, playerId);
         playerStateService.applyRespawnState(room, playerId, gameTick);
         applyPostDeploySelectedHotbarSlot(room, player, false);
@@ -1689,7 +1692,7 @@ public final class RoomPlayerRespawnService {
         PlayerAnimatorDebugDimensionsState.stopPreview(target);
         playerStateService.applyRevivedState(room, target, gameTick, revivedByAssault);
         if (state.getHeroKitLoadoutResetPendingPlayers().remove(targetId)) {
-            loadoutService.applySpawnLoadout(state, target);
+            applyRespawnLoadout(room, state, target);
         }
         target.setDeltaMovement(0.0D, 0.0D, 0.0D);
         applyReviveBlindEffect(target);
@@ -1779,7 +1782,7 @@ public final class RoomPlayerRespawnService {
         clearVanillaPotionEffects(player);
         HeroKitSupportService.endHeroKitState(server, state, playerId, gameTick);
         state.getHeroKitLoadoutResetPendingPlayers().remove(playerId);
-        loadoutService.applySpawnLoadout(state, player);
+        applyRespawnLoadout(room, state, player);
         if (pendingVehicleDeploy != null) {
             playerStateService.applyRespawnState(room, playerId, gameTick);
             VehicleDeployExecutionResult executionResult = vehicleDeployExecutionService.execute(room, state, player, pendingVehicleDeploy, gameTick);
@@ -2031,6 +2034,14 @@ public final class RoomPlayerRespawnService {
         }
     }
 
+    private void applyRespawnLoadout(RoomDefinition room, RunningRuntimeState state, ServerPlayer player) {
+        if (gunmasterLoadoutService.isGunmasterRoom(room)) {
+            gunmasterLoadoutService.applySpawnLoadout(room, state, player);
+            return;
+        }
+        loadoutService.applySpawnLoadout(state, player);
+    }
+
     private int resolvePostDeployInfantryHotbarSlot(ServerPlayer player) {
         if (player == null) {
             return 0;
@@ -2096,6 +2107,10 @@ public final class RoomPlayerRespawnService {
     }
 
     private Component buildInitialCombatCountdownSubtitle(RoomDefinition room, RoomTeamId teamId) {
+        if (room != null && RoomGameplayId.GUNMASTER.equals(room.gameplayId())) {
+            return Component.literal("击杀敌军升级枪械")
+                .withStyle(style -> style.withColor(INITIAL_SUBTITLE_COLOR).withBold(true));
+        }
         if (isArenaGameplay(room)) {
             return Component.literal("击杀敌人并完成竞技模式目标")
                 .withStyle(style -> style.withColor(INITIAL_SUBTITLE_COLOR).withBold(true));

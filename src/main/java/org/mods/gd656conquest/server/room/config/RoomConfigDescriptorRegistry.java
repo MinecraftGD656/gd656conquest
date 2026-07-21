@@ -230,7 +230,6 @@ public final class RoomConfigDescriptorRegistry {
         gunmasterGroup(descriptors, RoomConfigCategory.EQUIPMENT, "gmInitialWeaponPool", "枪王模式初始武器池", "gunmasterConfig.initialWeaponPool", RoomConfigValueType.DATA_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.EQUIPMENT, "gmMiddleWeaponPool", "枪王模式中段武器池", "gunmasterConfig.middleWeaponPool", RoomConfigValueType.DATA_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.EQUIPMENT, "gmFinalWeaponPool", "枪王模式末段武器池", "gunmasterConfig.finalWeaponPool", RoomConfigValueType.DATA_GROUP);
-        gunmasterGroup(descriptors, RoomConfigCategory.TRANSPORT, "gmAmmoBoxPositions", "枪王模式对局弹药箱数据组", "gunmasterConfig.ammoBoxPositions", RoomConfigValueType.POSITION_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.TRANSPORT, "gmMedicalBoxPositions", "枪王模式对局医疗箱数据组", "gunmasterConfig.medicalBoxPositions", RoomConfigValueType.POSITION_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.RULES, "gmCampABoundary", "枪王模式团队A活动范围", "gunmasterConfig.campABoundary", RoomConfigValueType.POSITION_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.RULES, "gmCampBBoundary", "枪王模式团队B活动范围", "gunmasterConfig.campBBoundary", RoomConfigValueType.POSITION_GROUP);

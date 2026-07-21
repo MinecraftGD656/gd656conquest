@@ -75,6 +75,7 @@ public final class RoomSupportBoxService {
     private final RoomRuntimeRepository<RoomRuntimeState> runtimeRepository;
     private final RoomPlayerSessionService playerSessionService;
     private final RoomPlayerLoadoutService playerLoadoutService;
+    private final RoomGunmasterLoadoutService gunmasterLoadoutService;
 
     private final Set<UUID> pendingAmmoBoxThrows = new HashSet<>();
     private final Set<UUID> activeAmmoBoxIds = new HashSet<>();
@@ -97,12 +98,14 @@ public final class RoomSupportBoxService {
         MinecraftServer server,
         RoomRuntimeRepository<RoomRuntimeState> runtimeRepository,
         RoomPlayerSessionService playerSessionService,
-        RoomPlayerLoadoutService playerLoadoutService
+        RoomPlayerLoadoutService playerLoadoutService,
+        RoomGunmasterLoadoutService gunmasterLoadoutService
     ) {
         this.server = Objects.requireNonNull(server, "server");
         this.runtimeRepository = Objects.requireNonNull(runtimeRepository, "runtimeRepository");
         this.playerSessionService = Objects.requireNonNull(playerSessionService, "playerSessionService");
         this.playerLoadoutService = Objects.requireNonNull(playerLoadoutService, "playerLoadoutService");
+        this.gunmasterLoadoutService = Objects.requireNonNull(gunmasterLoadoutService, "gunmasterLoadoutService");
     }
 
     public void tick(long gameTick) {
@@ -171,6 +174,10 @@ public final class RoomSupportBoxService {
 
     public boolean tryUseAmmoBoxItem(ServerPlayer player, InteractionHand hand) {
         if (player == null || hand == null) {
+            return false;
+        }
+        RunningPlayerContext context = findRunningPlayerContext(player.getUUID());
+        if (context != null && gunmasterLoadoutService.isGunmasterRoom(context.room())) {
             return false;
         }
         ItemStack held = player.getItemInHand(hand);
@@ -431,6 +438,9 @@ public final class RoomSupportBoxService {
     private boolean tryConsumeAmmoBoxForPlayer(AmmoBoxEntity ammoBox, ServerPlayer player, long gameTick) {
         RunningPlayerContext context = findRunningPlayerContext(player.getUUID());
         if (context == null) {
+            return false;
+        }
+        if (gunmasterLoadoutService.isGunmasterRoom(context.room())) {
             return false;
         }
         UUID boxId = ammoBox.getUUID();
@@ -832,6 +842,9 @@ public final class RoomSupportBoxService {
 
     private List<RoomPosition> resolvePermanentAmmoBoxPositions(RoomDefinition room) {
         if (room == null) {
+            return List.of();
+        }
+        if (gunmasterLoadoutService.isGunmasterRoom(room)) {
             return List.of();
         }
         if (room.isArenaGameplay()) {
