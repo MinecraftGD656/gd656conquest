@@ -40,7 +40,7 @@ public final class RoomKilliconService {
         String[] panelTeams = new String[]{"", "", "", ""};
         
         if (isSolo) {
-            panelTeams[0] = "__all__";
+            panelTeams[0] = "__conquest_solo__";
         } else {
             RoomTeamId requesterTeam = normalizeRequesterTeam(resolveTeam(room, runtimeState, requester), enabledTeams);
             RoomTeamId enemyTeam = resolveEnemyTeam(enabledTeams, requesterTeam);
