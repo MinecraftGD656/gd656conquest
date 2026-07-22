@@ -32,12 +32,21 @@ public final class RoomKilliconService {
         if (enabledTeams.size() < 2) {
             return null;
         }
-        int columns = 2;
+        boolean isSolo = org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) 
+            && room.gunmasterConfig() != null 
+            && room.gunmasterConfig().isSoloGrouping();
+
+        int columns = isSolo ? 1 : 2;
         String[] panelTeams = new String[]{"", "", "", ""};
-        RoomTeamId requesterTeam = normalizeRequesterTeam(resolveTeam(room, runtimeState, requester), enabledTeams);
-        RoomTeamId enemyTeam = resolveEnemyTeam(enabledTeams, requesterTeam);
-        panelTeams[0] = buildScoreboardPanelBinding(room, requesterTeam);
-        panelTeams[1] = buildScoreboardPanelBinding(room, enemyTeam);
+        
+        if (isSolo) {
+            panelTeams[0] = "__all__";
+        } else {
+            RoomTeamId requesterTeam = normalizeRequesterTeam(resolveTeam(room, runtimeState, requester), enabledTeams);
+            RoomTeamId enemyTeam = resolveEnemyTeam(enabledTeams, requesterTeam);
+            panelTeams[0] = buildScoreboardPanelBinding(room, requesterTeam);
+            panelTeams[1] = buildScoreboardPanelBinding(room, enemyTeam);
+        }
 
         Set<UUID> roomPlayers = resolveVisiblePlayers(room, runtimeState);
         if (roomPlayers.isEmpty()) {

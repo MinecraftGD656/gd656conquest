@@ -25,7 +25,7 @@ public final class ClientHudRenderer {
     private static final int GUNMASTER_STAGE_PADDING_WIDTH = 4;
     private static final int GUNMASTER_FIRST_STAGE_COLOR = 0xFF184A93;
     private static final int GUNMASTER_UNLOCKED_STAGE_COLOR = 0xFF2F78FF;
-    private static final int GUNMASTER_LOCKED_STAGE_COLOR = 0xFFA43A45;
+    private static final int GUNMASTER_LOCKED_STAGE_COLOR = 0xFFCC6670;
     private static final int GUNMASTER_LAST_STAGE_COLOR = 0xFF91262B;
     private static final int GUNMASTER_MARKER_COLOR = 0xFFFFFFFF;
     private static final int GUNMASTER_SELF_MARKER_COLOR = 0xFF9BC2FF;
@@ -59,7 +59,13 @@ public final class ClientHudRenderer {
         int centerX = width / 2;
         int y1 = 8;
         drawTopScoreLine(gui, font, centerX, y1);
-        ClientHudSubtitleManager.render(gui, font, centerX, 43);
+        int subtitleY = 43;
+        if ("GUNMASTER".equalsIgnoreCase(roomState) || "GUNMASTER".equalsIgnoreCase(ClientHudDebugState.getScoreMethod())) {
+            subtitleY = 26;
+        } else if ("DEATHMATCH".equalsIgnoreCase(roomState) || "DEATHMATCH".equalsIgnoreCase(ClientHudDebugState.getScoreMethod())) {
+            subtitleY = 25;
+        }
+        ClientHudSubtitleManager.render(gui, font, centerX, subtitleY);
         ClientParkourRuntimeState.render(gui, font);
         ClientDownedState.render(gui, font);
     }
@@ -95,6 +101,9 @@ public final class ClientHudRenderer {
             drawGunmasterPreview(gui, font, centerX, y, ClientHudDebugPreviewState.mode());
         } else {
             drawConquestPreviewTopLine(gui, font, centerX, y);
+            if (ClientHudDebugPreviewState.mode().startsWith("DEATHMATCH")) {
+                ClientHudSubtitleManager.renderPreviewText(gui, font, centerX, 25, "我军累计分数已经过半");
+            }
         }
     }
 
@@ -102,7 +111,13 @@ public final class ClientHudRenderer {
         drawBreakthroughPreviewTopLine(gui, font, centerX, y, previewMode);
         String subtitle = resolveBreakthroughPreviewSubtitle(previewMode);
         if (!subtitle.isBlank()) {
-            ClientHudSubtitleManager.renderPreviewText(gui, font, centerX, 43, subtitle);
+            int subtitleY = 43;
+            if (previewMode.startsWith("GUNMASTER")) {
+                subtitleY = 26;
+            } else if (previewMode.startsWith("DEATHMATCH")) {
+                subtitleY = 25;
+            }
+            ClientHudSubtitleManager.renderPreviewText(gui, font, centerX, subtitleY, subtitle);
         }
     }
 
@@ -197,6 +212,10 @@ public final class ClientHudRenderer {
 
     private void drawGunmasterPreview(GuiGraphics gui, Font font, int centerX, int y, String previewMode) {
         drawGunmasterTopLine(gui, font, centerX, y, previewGunmasterPayload(previewMode));
+        String subtitle = resolveGunmasterPreviewSubtitle(previewMode);
+        if (!subtitle.isBlank()) {
+            ClientHudSubtitleManager.renderPreviewText(gui, font, centerX, 26, subtitle);
+        }
     }
 
     private void drawGunmasterTopLine(GuiGraphics gui, Font font, int centerX, int y, GunmasterHudPayload payload) {
@@ -224,8 +243,8 @@ public final class ClientHudRenderer {
         int startX = centerX - totalWidth / 2;
         float labelScale = 1.1F;
         int scaledFontHeight = Math.round(font.lineHeight * labelScale);
-        int targetCenterY = y + 1 + scaledFontHeight / 2;
-        int textY = y + 1;
+        int targetCenterY = y + 6; // Keep the bars exactly where they were
+        int textY = y + 3; // Shift text down by 2 pixels to perfectly align visually with bars
         int timeGap = 10;
         int nextWeaponGap = 10;
         int timeX = startX - timeGap - leftTextWidth;
@@ -387,10 +406,9 @@ public final class ClientHudRenderer {
     private void drawScaledText(GuiGraphics gui, Font font, String text, int x, int y, int color, float scale, boolean shadow) {
         float usingScale = Math.max(0.1F, scale);
         gui.pose().pushPose();
+        gui.pose().translate(x, y, 0);
         gui.pose().scale(usingScale, usingScale, 1.0F);
-        int sx = (int) (x / usingScale);
-        int sy = (int) (y / usingScale);
-        gui.drawString(font, text, sx, sy, color, shadow);
+        gui.drawString(font, text, 0, 0, color, shadow);
         gui.pose().popPose();
     }
 
@@ -411,6 +429,13 @@ public final class ClientHudRenderer {
             return "-";
         }
         return String.valueOf((char) ('A' + Math.max(0, Math.min(5, stageIndex - 1))));
+    }
+
+    private String resolveGunmasterPreviewSubtitle(String previewMode) {
+        return switch (previewMode) {
+            case "GUNMASTER_ENEMY_PUSH" -> "敌军已有玩家解锁至最后一把武器";
+            default -> "击败他们并使用最后一把武器击杀敌军";
+        };
     }
 
     private String resolveBreakthroughPreviewSubtitle(String previewMode) {

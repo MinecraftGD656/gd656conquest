@@ -36,6 +36,30 @@ public final class RoomHudSubtitleBroadcastService {
         }
     }
 
+    public void broadcastGlobalOnce(
+        RunningRuntimeState runningState,
+        String key,
+        String text
+    ) {
+        if (runningState == null || text == null || text.isBlank()) {
+            return;
+        }
+        for (UUID playerId : List.copyOf(runningState.getRoomPlayers())) {
+            ServerPlayer player = resolvePlayer(playerId);
+            if (player == null) {
+                continue;
+            }
+            NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.showOnce(key, text));
+        }
+    }
+
+    public void broadcastPlayerOnce(ServerPlayer player, String key, String text) {
+        if (player == null || text == null || text.isBlank()) {
+            return;
+        }
+        NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.showOnce(key, text));
+    }
+
     private ServerPlayer resolvePlayer(UUID playerId) {
         Objects.requireNonNull(playerId, "playerId");
         return net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(playerId);

@@ -36,9 +36,17 @@ public class DeathmatchGameplayRuntime implements
     RoomGameplayDeployPresentationProvider {
     private final MinecraftServer server;
     private final RunningRuntimeState runningState;
+     private final org.mods.gd656conquest.server.room.gameplay.RoomHudSubtitleBroadcastService subtitleBroadcastService = new org.mods.gd656conquest.server.room.gameplay.RoomHudSubtitleBroadcastService();
     private long enteredTick = -1L;
     private int campAScore;
     private int campBScore;
+    private RoomTeamId previousLeader;
+    private boolean campA50Sent;
+    private boolean campB50Sent;
+    private boolean campA80Sent;
+    private boolean campB80Sent;
+    private boolean campALeading20Sent;
+    private boolean campBLeading20Sent;
     private RoomMatchEndRequest pendingEndRequest;
 
     public DeathmatchGameplayRuntime(MinecraftServer server, RunningRuntimeState runningState) {
@@ -51,6 +59,13 @@ public class DeathmatchGameplayRuntime implements
         enteredTick = gameTick + RoomPlayerRespawnService.initialCombatUnlockDelayTicks(room);
         campAScore = 0;
         campBScore = 0;
+        previousLeader = null;
+        campA50Sent = false;
+        campB50Sent = false;
+        campA80Sent = false;
+        campB80Sent = false;
+        campALeading20Sent = false;
+        campBLeading20Sent = false;
         pendingEndRequest = null;
     }
 
@@ -92,15 +107,54 @@ public class DeathmatchGameplayRuntime implements
         if (killerTeam == null || killerTeam == teamId) {
             return;
         }
+        int target = room.arenaConfig().targetScore();
         if (killerTeam == RoomTeamId.CAMP_A) {
             campAScore++;
-            if (campAScore >= room.arenaConfig().targetScore()) {
+            if (campAScore >= target) {
                 pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, room.gameplayTeamDisplayName(RoomTeamId.CAMP_A) + "达到目标得分");
+            } else {
+                if (!campA50Sent && campAScore >= target * 0.5f) {
+                    campA50Sent = true;
+                    subtitleBroadcastService.broadcastPerspectiveOnce(runningState, "dm_campa_50", RoomTeamId.CAMP_A, "我军累计分数已经过半", "敌军累计分数已经过半");
+                }
+                if (!campA80Sent && campAScore >= target * 0.8f) {
+                    campA80Sent = true;
+                    subtitleBroadcastService.broadcastPerspectiveOnce(runningState, "dm_campa_80", RoomTeamId.CAMP_A, "我军累计分数仅剩20%", "敌军累计分数仅剩20%");
+                }
+                if (campAScore > campBScore && previousLeader != RoomTeamId.CAMP_A) {
+                    if (previousLeader == RoomTeamId.CAMP_B) {
+                        subtitleBroadcastService.broadcastPerspectiveOnce(runningState, "dm_campa_overtake_" + campAScore, RoomTeamId.CAMP_A, "我军已经反超比分", "敌军已经反超比分");
+                    }
+                    previousLeader = RoomTeamId.CAMP_A;
+                }
+                if (!campALeading20Sent && (campAScore - campBScore) >= target * 0.2f) {
+                    campALeading20Sent = true;
+                    subtitleBroadcastService.broadcastPerspectiveOnce(runningState, "dm_campa_lead20", RoomTeamId.CAMP_A, "我军保持领先优势", "敌军占据了上风");
+                }
             }
         } else if (killerTeam == RoomTeamId.CAMP_B) {
             campBScore++;
-            if (campBScore >= room.arenaConfig().targetScore()) {
+            if (campBScore >= target) {
                 pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, room.gameplayTeamDisplayName(RoomTeamId.CAMP_B) + "达到目标得分");
+            } else {
+                if (!campB50Sent && campBScore >= target * 0.5f) {
+                    campB50Sent = true;
+                    subtitleBroadcastService.broadcastPerspectiveOnce(runningState, "dm_campb_50", RoomTeamId.CAMP_B, "我军累计分数已经过半", "敌军累计分数已经过半");
+                }
+                if (!campB80Sent && campBScore >= target * 0.8f) {
+                    campB80Sent = true;
+                    subtitleBroadcastService.broadcastPerspectiveOnce(runningState, "dm_campb_80", RoomTeamId.CAMP_B, "我军累计分数仅剩20%", "敌军累计分数仅剩20%");
+                }
+                if (campBScore > campAScore && previousLeader != RoomTeamId.CAMP_B) {
+                    if (previousLeader == RoomTeamId.CAMP_A) {
+                        subtitleBroadcastService.broadcastPerspectiveOnce(runningState, "dm_campb_overtake_" + campBScore, RoomTeamId.CAMP_B, "我军已经反超比分", "敌军已经反超比分");
+                    }
+                    previousLeader = RoomTeamId.CAMP_B;
+                }
+                if (!campBLeading20Sent && (campBScore - campAScore) >= target * 0.2f) {
+                    campBLeading20Sent = true;
+                    subtitleBroadcastService.broadcastPerspectiveOnce(runningState, "dm_campb_lead20", RoomTeamId.CAMP_B, "我军保持领先优势", "敌军占据了上风");
+                }
             }
         }
     }

@@ -24,7 +24,8 @@
     "client.PlayerTabOverlayMixin",
     "client.PlayerTeamColorMixin",
     "client.compat.explosionoverhaul.ExplosionOverhaulAmbientCaveDustDisableMixin",
-    "client.compat.explosionoverhaul.ExplosionOverhaulBlockParticleGuardMixin"
+    "client.compat.explosionoverhaul.ExplosionOverhaulBlockParticleGuardMixin",
+    "client.compat.lrtactical.AttackKeysMixin"
   ],
   "injectors": {
     "defaultRequire": 1

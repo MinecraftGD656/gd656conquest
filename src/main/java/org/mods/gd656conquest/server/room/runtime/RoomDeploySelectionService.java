@@ -58,7 +58,7 @@ public final class RoomDeploySelectionService {
             return updateTeamSelection(state, playerId, teamId, targetIdRaw);
         }
         if ("teammate".equals(kind)) {
-            return updateTeammateSelection(state, playerId, teamId, targetIdRaw);
+            return updateTeammateSelection(room, state, playerId, teamId, targetIdRaw);
         }
         if ("beacon".equals(kind)) {
             return updateBeaconSelection(state, playerId, teamId, targetIdRaw);
@@ -90,7 +90,7 @@ public final class RoomDeploySelectionService {
             }
             return null;
         }
-        return validateTeammateSelection(state, playerId, teamId, targetIdRaw, server.getTickCount()).failureMessage();
+        return validateTeammateSelection(room, state, playerId, teamId, targetIdRaw, server.getTickCount()).failureMessage();
     }
 
     public RoomPosition resolveSelectedSpawn(
@@ -113,7 +113,7 @@ public final class RoomDeploySelectionService {
         } else if ("team".equals(kind)) {
             spawn = resolveTeamFallbackSpawn(room, state, player, teamId);
         } else if ("teammate".equals(kind)) {
-            spawn = resolveTeammateSpawn(state, player.getUUID(), teamId, targetId);
+            spawn = resolveTeammateSpawn(room, state, player.getUUID(), teamId, targetId);
         } else if ("beacon".equals(kind)) {
             spawn = squadBeaconService.consumeDeploySpawn(room, state, player.getUUID(), teamId, targetId, server.getTickCount());
         } else if ("vehicle".equals(kind)) {
@@ -161,8 +161,8 @@ public final class RoomDeploySelectionService {
         return true;
     }
 
-    private boolean updateTeammateSelection(RunningRuntimeState state, UUID playerId, RoomTeamId teamId, String targetIdRaw) {
-        TeammateSelectionResult validation = validateTeammateSelection(state, playerId, teamId, targetIdRaw, server.getTickCount());
+    private boolean updateTeammateSelection(RoomDefinition room, RunningRuntimeState state, UUID playerId, RoomTeamId teamId, String targetIdRaw) {
+        TeammateSelectionResult validation = validateTeammateSelection(room, state, playerId, teamId, targetIdRaw, server.getTickCount());
         if (!validation.success()) {
             return false;
         }
@@ -193,8 +193,8 @@ public final class RoomDeploySelectionService {
         return true;
     }
 
-    private RoomPosition resolveTeammateSpawn(RunningRuntimeState state, UUID selfId, RoomTeamId selfTeam, String teammateIdRaw) {
-        TeammateSelectionResult validation = validateTeammateSelection(state, selfId, selfTeam, teammateIdRaw, server.getTickCount());
+    private RoomPosition resolveTeammateSpawn(RoomDefinition room, RunningRuntimeState state, UUID selfId, RoomTeamId selfTeam, String teammateIdRaw) {
+        TeammateSelectionResult validation = validateTeammateSelection(room, state, selfId, selfTeam, teammateIdRaw, server.getTickCount());
         if (!validation.success()) {
             return null;
         }
@@ -362,12 +362,16 @@ public final class RoomDeploySelectionService {
     }
 
     private TeammateSelectionResult validateTeammateSelection(
+        RoomDefinition room,
         RunningRuntimeState state,
         UUID playerId,
         RoomTeamId teamId,
         String targetIdRaw,
         long gameTick
     ) {
+        if (room != null && RoomGameplayId.GUNMASTER.equals(room.gameplayId()) && room.gunmasterConfig() != null && room.gunmasterConfig().isSoloGrouping()) {
+            return TeammateSelectionResult.failure("个人战模式无法部署到其他玩家位置");
+        }
         UUID teammateId;
         try {
             teammateId = UUID.fromString(targetIdRaw == null ? "" : targetIdRaw.trim());

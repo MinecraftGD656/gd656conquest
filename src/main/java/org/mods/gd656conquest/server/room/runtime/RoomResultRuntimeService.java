@@ -326,6 +326,12 @@ public final class RoomResultRuntimeService {
         }
         KilliconScoreboardBridge.TempSnapshot snapshot = KilliconScoreboardBridge.getPlayerSnapshot(state, playerId);
         PlayerLevelService.MatchOutcome outcome = resolveMatchOutcome(playerId, state.getRoomTeams().get(playerId), winner, winnerPlayerId);
+        
+        int rank = -1;
+        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) && room.gunmasterConfig().isSoloGrouping()) {
+            rank = resolveGunmasterSoloRank(state, playerId);
+        }
+
         PlayerLevelService.awardAndNotifyMatchExperience(
             player,
             new PlayerLevelService.MatchStats(
@@ -333,7 +339,8 @@ public final class RoomResultRuntimeService {
                 snapshot.kill(),
                 snapshot.assist(),
                 snapshot.death(),
-                resolveMatchDurationSeconds(state, gameTick)
+                resolveMatchDurationSeconds(state, gameTick),
+                rank
             ),
             outcome
         );

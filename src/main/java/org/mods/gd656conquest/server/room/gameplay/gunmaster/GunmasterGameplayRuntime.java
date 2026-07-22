@@ -46,8 +46,14 @@ public final class GunmasterGameplayRuntime implements
     private final MinecraftServer gunmasterServer;
     private final RunningRuntimeState gunmasterRunningState;
     private final RoomGunmasterLoadoutService gunmasterLoadoutService;
+    private final org.mods.gd656conquest.server.room.gameplay.RoomHudSubtitleBroadcastService subtitleBroadcastService = new org.mods.gd656conquest.server.room.gameplay.RoomHudSubtitleBroadcastService();
     private long enteredTick = -1L;
     private RoomMatchEndRequest pendingEndRequest;
+    private boolean startupSent;
+    private boolean campALastStageSent;
+    private boolean campBLastStageSent;
+    private final java.util.Set<UUID> stage50SentByPlayer = new java.util.HashSet<>();
+    private final java.util.Set<UUID> soloLastStageSentByPlayer = new java.util.HashSet<>();
 
     public GunmasterGameplayRuntime(MinecraftServer server, RunningRuntimeState runningState) {
         this.gunmasterServer = Objects.requireNonNull(server, "server");
@@ -59,6 +65,11 @@ public final class GunmasterGameplayRuntime implements
     public void onEnterMainPhase(RoomDefinition room, long gameTick) {
         enteredTick = gameTick + RoomPlayerRespawnService.initialCombatUnlockDelayTicks(room);
         pendingEndRequest = null;
+        startupSent = false;
+        campALastStageSent = false;
+        campBLastStageSent = false;
+        stage50SentByPlayer.clear();
+        soloLastStageSentByPlayer.clear();
         gunmasterRunningState.getGunmasterStageIndexByPlayer().clear();
         gunmasterRunningState.getGunmasterStageKillsByPlayer().clear();
         gunmasterRunningState.getGunmasterMatchWeaponSequenceIds().clear();
@@ -74,6 +85,16 @@ public final class GunmasterGameplayRuntime implements
     public void tick(RoomDefinition room, long gameTick) {
         if (pendingEndRequest != null || room == null || enteredTick < 0L) {
             return;
+        }
+        if (!startupSent && gameTick >= enteredTick) {
+            startupSent = true;
+            if (room.gunmasterConfig().isSoloGrouping()) {
+                subtitleBroadcastService.broadcastGlobalOnce(gunmasterRunningState, "gm_start_solo_1", "所有人都是你的对手");
+                subtitleBroadcastService.broadcastGlobalOnce(gunmasterRunningState, "gm_start_solo_2", "击败他们并使用最后一把武器击杀敌军");
+            } else {
+                subtitleBroadcastService.broadcastGlobalOnce(gunmasterRunningState, "gm_start_team_1", "协助队内玩家解锁至最后一把武器");
+                subtitleBroadcastService.broadcastGlobalOnce(gunmasterRunningState, "gm_start_team_2", "击败敌军赢得胜利");
+            }
         }
         int durationMinutes = room.gunmasterConfig().matchDurationMinutes();
         if (durationMinutes <= 0) {
@@ -474,11 +495,37 @@ public final class GunmasterGameplayRuntime implements
             return;
         }
         if (nextKills >= killsNeeded) {
-            gunmasterRunningState.getGunmasterStageIndexByPlayer().put(killerId, currentStage + 1);
+            int newStage = currentStage + 1;
+            gunmasterRunningState.getGunmasterStageIndexByPlayer().put(killerId, newStage);
             gunmasterRunningState.getGunmasterStageKillsByPlayer().put(killerId, 0);
             ServerPlayer killer = gunmasterServer.getPlayerList().getPlayer(killerId);
             if (killer != null) {
                 gunmasterLoadoutService.applyStageSwitchLoadout(room, gunmasterRunningState, killer);
+                
+                if (!stage50SentByPlayer.contains(killerId) && newStage >= finalStageIndex * 0.5f) {
+                    stage50SentByPlayer.add(killerId);
+                    subtitleBroadcastService.broadcastPlayerOnce(killer, "gm_50_progress", "您的进度已达50%");
+                }
+                
+                if (newStage == finalStageIndex) {
+                    if (room.gunmasterConfig().isSoloGrouping()) {
+                        if (!soloLastStageSentByPlayer.contains(killerId)) {
+                            soloLastStageSentByPlayer.add(killerId);
+                            subtitleBroadcastService.broadcastGlobalOnce(gunmasterRunningState, "gm_solo_last_" + killerId, killer.getScoreboardName() + " 已达到赛点");
+                        }
+                    } else {
+                        RoomTeamId killerTeam = gunmasterRunningState.getRoomTeams().get(killerId);
+                        if (killerTeam == RoomTeamId.CAMP_A && !campALastStageSent) {
+                            campALastStageSent = true;
+                            subtitleBroadcastService.broadcastPerspectiveOnce(gunmasterRunningState, "gm_campa_last", RoomTeamId.CAMP_A, "我军已有玩家解锁至最后一把武器", "敌军已有玩家解锁至最后一把武器");
+                            subtitleBroadcastService.broadcastPerspectiveOnce(gunmasterRunningState, "gm_campa_last_point", RoomTeamId.CAMP_A, "我军已经达到赛点", "敌军已经达到赛点");
+                        } else if (killerTeam == RoomTeamId.CAMP_B && !campBLastStageSent) {
+                            campBLastStageSent = true;
+                            subtitleBroadcastService.broadcastPerspectiveOnce(gunmasterRunningState, "gm_campb_last", RoomTeamId.CAMP_B, "我军已有玩家解锁至最后一把武器", "敌军已有玩家解锁至最后一把武器");
+                            subtitleBroadcastService.broadcastPerspectiveOnce(gunmasterRunningState, "gm_campb_last_point", RoomTeamId.CAMP_B, "我军已经达到赛点", "敌军已经达到赛点");
+                        }
+                    }
+                }
             }
         } else {
             gunmasterRunningState.getGunmasterStageKillsByPlayer().put(killerId, nextKills);

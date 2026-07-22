@@ -30,6 +30,51 @@ public final class RoomNametagVisibilityService {
             return;
         }
         Scoreboard scoreboard = server.getScoreboard();
+        boolean isSolo = org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) 
+            && room.gunmasterConfig() != null 
+            && room.gunmasterConfig().isSoloGrouping();
+
+        if (isSolo) {
+            removeTeamIfPresent(scoreboard, buildTeamName(room, RoomTeamId.CAMP_A));
+            removeTeamIfPresent(scoreboard, buildTeamName(room, RoomTeamId.CAMP_B));
+
+            String prefix = buildSoloTeamPrefix(room);
+            Set<String> activeSoloTeams = new LinkedHashSet<>();
+
+            for (UUID playerId : runningState.getRoomPlayers()) {
+                ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+                if (player == null) {
+                    continue;
+                }
+                String playerName = player.getScoreboardName();
+                String teamName = buildSoloTeamName(room, playerName);
+                activeSoloTeams.add(teamName);
+
+                PlayerTeam soloTeam = scoreboard.getPlayerTeam(teamName);
+                if (soloTeam == null) {
+                    soloTeam = scoreboard.addPlayerTeam(teamName);
+                }
+                soloTeam.setAllowFriendlyFire(true);
+                soloTeam.setColor(ChatFormatting.RED);
+                soloTeam.setDisplayName(Component.literal(playerName));
+                soloTeam.setNameTagVisibility(Team.Visibility.HIDE_FOR_OTHER_TEAMS);
+                soloTeam.setCollisionRule(Team.CollisionRule.ALWAYS);
+
+                if (!soloTeam.getPlayers().contains(playerName)) {
+                    scoreboard.removePlayerFromTeam(playerName);
+                    scoreboard.addPlayerToTeam(playerName, soloTeam);
+                }
+            }
+
+            // Cleanup stale solo teams
+            for (PlayerTeam team : new java.util.ArrayList<>(scoreboard.getPlayerTeams())) {
+                if (team.getName().startsWith(prefix) && !activeSoloTeams.contains(team.getName())) {
+                    scoreboard.removePlayerTeam(team);
+                }
+            }
+            return;
+        }
+
         PlayerTeam campATeam = ensureTeam(scoreboard, room, runningState, RoomTeamId.CAMP_A);
         PlayerTeam campBTeam = ensureTeam(scoreboard, room, runningState, RoomTeamId.CAMP_B);
         Set<String> desiredCampAPlayers = new LinkedHashSet<>();
@@ -55,8 +100,20 @@ public final class RoomNametagVisibilityService {
             return;
         }
         Scoreboard scoreboard = server.getScoreboard();
+        boolean isSolo = org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) 
+            && room.gunmasterConfig() != null 
+            && room.gunmasterConfig().isSoloGrouping();
+
         removeTeamIfPresent(scoreboard, buildTeamName(room, RoomTeamId.CAMP_A));
         removeTeamIfPresent(scoreboard, buildTeamName(room, RoomTeamId.CAMP_B));
+
+        String prefix = buildSoloTeamPrefix(room);
+        for (PlayerTeam team : new java.util.ArrayList<>(scoreboard.getPlayerTeams())) {
+            if (team.getName().startsWith(prefix)) {
+                scoreboard.removePlayerTeam(team);
+            }
+        }
+
         syncRunningRoom(room, runningState);
     }
 
@@ -77,6 +134,29 @@ public final class RoomNametagVisibilityService {
             return;
         }
         Scoreboard scoreboard = player.server.getScoreboard();
+        
+        boolean isSolo = org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) 
+            && room.gunmasterConfig() != null 
+            && room.gunmasterConfig().isSoloGrouping();
+
+        if (isSolo) {
+            String playerName = player.getScoreboardName();
+            String teamName = buildSoloTeamName(room, playerName);
+            PlayerTeam soloTeam = scoreboard.getPlayerTeam(teamName);
+            if (soloTeam == null) {
+                soloTeam = scoreboard.addPlayerTeam(teamName);
+            }
+            soloTeam.setAllowFriendlyFire(true);
+            soloTeam.setColor(ChatFormatting.RED);
+            soloTeam.setDisplayName(Component.literal(playerName));
+            soloTeam.setNameTagVisibility(Team.Visibility.HIDE_FOR_OTHER_TEAMS);
+            soloTeam.setCollisionRule(Team.CollisionRule.ALWAYS);
+
+            scoreboard.removePlayerFromTeam(playerName);
+            scoreboard.addPlayerToTeam(playerName, soloTeam);
+            return;
+        }
+
         RoomTeamId teamId = runningState.getRoomTeams().get(player.getUUID());
         if (teamId != RoomTeamId.CAMP_A && teamId != RoomTeamId.CAMP_B) {
             clearPlayer(player);
@@ -95,6 +175,13 @@ public final class RoomNametagVisibilityService {
         Scoreboard scoreboard = server.getScoreboard();
         removeTeamIfPresent(scoreboard, buildTeamName(room, RoomTeamId.CAMP_A));
         removeTeamIfPresent(scoreboard, buildTeamName(room, RoomTeamId.CAMP_B));
+
+        String prefix = buildSoloTeamPrefix(room);
+        for (PlayerTeam team : new java.util.ArrayList<>(scoreboard.getPlayerTeams())) {
+            if (team.getName().startsWith(prefix)) {
+                scoreboard.removePlayerTeam(team);
+            }
+        }
     }
 
     private PlayerTeam ensureTeam(Scoreboard scoreboard, RoomDefinition room, RunningRuntimeState runningState, RoomTeamId teamId) {
@@ -139,12 +226,21 @@ public final class RoomNametagVisibilityService {
         return normalizedRoom + "_" + (teamId == RoomTeamId.CAMP_A ? "camp_a" : "camp_b");
     }
 
+    private String buildSoloTeamPrefix(RoomDefinition room) {
+        String normalizedRoom = room.roomId().toLowerCase(Locale.ROOT);
+        return normalizedRoom + "_solo_";
+    }
+
+    private String buildSoloTeamName(RoomDefinition room, String playerName) {
+        return buildSoloTeamPrefix(room) + playerName.toLowerCase(Locale.ROOT);
+    }
+
     private boolean isRoomCampTeam(String teamName) {
         if (teamName == null) {
             return false;
         }
         String normalized = teamName.trim().toLowerCase(Locale.ROOT);
-        return normalized.endsWith("_camp_a") || normalized.endsWith("_camp_b");
+        return normalized.endsWith("_camp_a") || normalized.endsWith("_camp_b") || normalized.contains("_solo_");
     }
 
     private ChatFormatting resolveTeamColor(RoomTeamId teamId) {
