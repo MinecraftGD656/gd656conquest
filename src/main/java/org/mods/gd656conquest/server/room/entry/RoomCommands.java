@@ -24,6 +24,7 @@ import org.mods.gd656conquest.server.room.config.RoomValidationMessageFormatter;
 import org.mods.gd656conquest.server.room.config.RoomDefinitionGroupConfigEditor;
 import org.mods.gd656conquest.server.room.config.RoomDefinitionScalarConfigEditor;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.server.room.model.RoomCommonConfig;
 import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
@@ -40,6 +41,7 @@ import org.mods.gd656conquest.server.shared.text.ServerText;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -112,6 +114,9 @@ public final class RoomCommands {
             .then(Commands.literal("saveRoom")
                 .requires(source -> source.hasPermission(2))
                 .executes(RoomCommands::executeSaveRoom))
+            .then(Commands.literal("mergeWeaponWhitelist")
+                .requires(source -> source.hasPermission(2))
+                .executes(RoomCommands::executeMergeWeaponWhitelist))
             .then(Commands.literal("maintenanceRoom")
                 .requires(source -> source.hasPermission(2))
                 .executes(RoomCommands::executeMaintenanceRoom))
@@ -1255,5 +1260,102 @@ public final class RoomCommands {
             }
         }
         return actor + "::" + (actionToken == null ? "" : actionToken.trim().toLowerCase(Locale.ROOT));
+    }
+
+    private static int executeMergeWeaponWhitelist(CommandContext<CommandSourceStack> context) {
+        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
+        if (!manager.isInitialized()) {
+            return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
+        }
+        RoomDefinition room = manager.findRoom(roomId).orElse(null);
+        if (room == null) {
+            return replyFailure(context.getSource(), "未找到房间: " + roomId);
+        }
+        RoomCommonConfig common = room.commonConfig();
+
+        List<List<String>> campA = List.of(
+            common.campAPrimaryWeaponIds(),
+            common.campASecondaryWeaponIds(),
+            common.campAMeleeWeaponIds(),
+            common.campAGadget1Ids(),
+            common.campAGadget2Ids(),
+            common.campAThrowableIds()
+        );
+        List<List<String>> campB = List.of(
+            common.campBPrimaryWeaponIds(),
+            common.campBSecondaryWeaponIds(),
+            common.campBMeleeWeaponIds(),
+            common.campBGadget1Ids(),
+            common.campBGadget2Ids(),
+            common.campBThrowableIds()
+        );
+
+        List<List<String>> merged = new ArrayList<>(6);
+        for (int i = 0; i < 6; i++) {
+            LinkedHashSet<String> union = new LinkedHashSet<>(campA.get(i));
+            union.addAll(campB.get(i));
+            merged.add(union.isEmpty() ? List.of() : List.copyOf(union));
+        }
+
+        RoomCommonConfig updatedCommon = new RoomCommonConfig(
+            common.matchingConfig(),
+            common.dimensionId(),
+            common.queueSpawn(),
+            common.respawnDelaySeconds(),
+            common.vehicleBackend(),
+            common.playerStateConfig(),
+            common.outsideBoundaryDeathSeconds(),
+            common.aircraftOutsideBoundaryCleanupSeconds(),
+            common.playerMaxY(),
+            common.aircraftPassengerMaxY(),
+            common.campADisplayName(),
+            common.campBDisplayName(),
+            common.campAVoicePack(),
+            common.campBVoicePack(),
+            common.progressSpeed(),
+            common.resultConfig(),
+            common.disableHunger(),
+            common.enableAutoTeamSwitchPrompt(),
+            common.disableInventoryChange(),
+            common.enableGoatHorn(),
+            common.enablePlayerDowned(),
+            common.enableRespawnCountdownWhileDowned(),
+            common.enableBackAgainstWall(),
+            common.enableRandomLoadout(),
+            common.enableRandomAttachments(),
+            common.enableParachute(),
+            common.enableDeathSupportDrop(),
+            common.disableUndyingTotem(),
+            common.allowPlayerCampSwitch(),
+            common.supportCampAHeroKits(),
+            common.supportCampBHeroKits(),
+            common.supportCampAShellings(),
+            common.supportCampBShellings(),
+            merged.get(0), merged.get(1), merged.get(2),
+            merged.get(3), merged.get(4), merged.get(5),
+            merged.get(0), merged.get(1), merged.get(2),
+            merged.get(3), merged.get(4), merged.get(5),
+            common.campAEquipmentSetId(),
+            common.campBEquipmentSetId()
+        );
+
+        RoomDefinition updated = new RoomDefinition(
+            room.roomId(), room.displayName(), room.gameplayId(),
+            room.lifecycleState(), updatedCommon, room.gameplayConfig()
+        );
+
+        try {
+            RoomDefinition persisted = ConquestDataManager.of(context.getSource().getServer())
+                .roomDefinitions()
+                .saveDefinition(updated);
+            manager.hotUpdateRoomDefinition(persisted, context.getSource().getServer().getTickCount());
+            return replyInfo(context.getSource(), "已合并房间 " + roomId + " 的武器白名单：6个槽位已统一两个阵营的限制数据");
+        } catch (Exception exception) {
+            String detail = exception.getMessage() == null || exception.getMessage().isBlank()
+                ? exception.getClass().getSimpleName()
+                : exception.getMessage();
+            return replyFailure(context.getSource(), "合并武器白名单失败: " + detail);
+        }
     }
 }

@@ -50,8 +50,6 @@ public final class GunmasterGameplayRuntime implements
     private long enteredTick = -1L;
     private RoomMatchEndRequest pendingEndRequest;
     private boolean startupSent;
-    private boolean campALastStageSent;
-    private boolean campBLastStageSent;
     private final java.util.Set<UUID> stage50SentByPlayer = new java.util.HashSet<>();
     private final java.util.Set<UUID> soloLastStageSentByPlayer = new java.util.HashSet<>();
 
@@ -66,8 +64,6 @@ public final class GunmasterGameplayRuntime implements
         enteredTick = gameTick + RoomPlayerRespawnService.initialCombatUnlockDelayTicks(room);
         pendingEndRequest = null;
         startupSent = false;
-        campALastStageSent = false;
-        campBLastStageSent = false;
         stage50SentByPlayer.clear();
         soloLastStageSentByPlayer.clear();
         gunmasterRunningState.getGunmasterStageIndexByPlayer().clear();
@@ -248,6 +244,10 @@ public final class GunmasterGameplayRuntime implements
             return List.of();
         }
         List<List<RoomPosition>> boundaries = new ArrayList<>();
+        if (room.gunmasterConfig().isSoloGrouping()) {
+            addBoundaryIfValid(boundaries, room.gunmasterConfig().soloBoundary());
+            return boundaries;
+        }
         if (teamId == RoomTeamId.CAMP_A) {
             addBoundaryIfValid(boundaries, room.arenaConfig().campABoundary());
         } else if (teamId == RoomTeamId.CAMP_B) {
@@ -259,6 +259,10 @@ public final class GunmasterGameplayRuntime implements
     @Override
     public void collectBoundaryElements(List<RoomDeployHudElement> elements, RoomDeployHudBuildContext context) {
         if (elements == null || context == null || context.room() == null) {
+            return;
+        }
+        if (context.room().gunmasterConfig().isSoloGrouping()) {
+            appendBoundaryRows(elements, context.room().gunmasterConfig().soloBoundary(), "N", "gm_solo");
             return;
         }
         appendBoundaryRows(elements, context.room().arenaConfig().campABoundary(), "T", "gm_camp_a");
@@ -484,13 +488,15 @@ public final class GunmasterGameplayRuntime implements
         int nextKills = gunmasterRunningState.getGunmasterStageKillsByPlayer().getOrDefault(killerId, 0) + 1;
         int finalStageIndex = Math.max(0, sequence.size() - 1);
         if (currentStage >= finalStageIndex) {
-            if (nextKills >= killsNeeded) {
-                RoomTeamId killerTeam = gunmasterRunningState.getRoomTeams().get(killerId);
-                pendingEndRequest = room.gunmasterConfig().isSoloGrouping()
-                    ? new RoomMatchEndRequest(killerId, "最终武器达成击杀")
-                    : new RoomMatchEndRequest(killerTeam, killerId, room.gameplayTeamDisplayName(killerTeam) + "以最终武器完成终结击杀");
+            if (room.gunmasterConfig().isSoloGrouping()) {
+                if (nextKills >= killsNeeded) {
+                    pendingEndRequest = new RoomMatchEndRequest(killerId, "最终武器达成击杀");
+                } else {
+                    gunmasterRunningState.getGunmasterStageKillsByPlayer().put(killerId, nextKills);
+                }
             } else {
-                gunmasterRunningState.getGunmasterStageKillsByPlayer().put(killerId, nextKills);
+                RoomTeamId killerTeam = gunmasterRunningState.getRoomTeams().get(killerId);
+                pendingEndRequest = buildTeamCompletedUnlockEndRequest(room, killerTeam, killerId);
             }
             return;
         }
@@ -515,21 +521,24 @@ public final class GunmasterGameplayRuntime implements
                         }
                     } else {
                         RoomTeamId killerTeam = gunmasterRunningState.getRoomTeams().get(killerId);
-                        if (killerTeam == RoomTeamId.CAMP_A && !campALastStageSent) {
-                            campALastStageSent = true;
-                            subtitleBroadcastService.broadcastPerspectiveOnce(gunmasterRunningState, "gm_campa_last", RoomTeamId.CAMP_A, "我军已有玩家解锁至最后一把武器", "敌军已有玩家解锁至最后一把武器");
-                            subtitleBroadcastService.broadcastPerspectiveOnce(gunmasterRunningState, "gm_campa_last_point", RoomTeamId.CAMP_A, "我军已经达到赛点", "敌军已经达到赛点");
-                        } else if (killerTeam == RoomTeamId.CAMP_B && !campBLastStageSent) {
-                            campBLastStageSent = true;
-                            subtitleBroadcastService.broadcastPerspectiveOnce(gunmasterRunningState, "gm_campb_last", RoomTeamId.CAMP_B, "我军已有玩家解锁至最后一把武器", "敌军已有玩家解锁至最后一把武器");
-                            subtitleBroadcastService.broadcastPerspectiveOnce(gunmasterRunningState, "gm_campb_last_point", RoomTeamId.CAMP_B, "我军已经达到赛点", "敌军已经达到赛点");
-                        }
+                        pendingEndRequest = buildTeamCompletedUnlockEndRequest(room, killerTeam, killerId);
                     }
                 }
             }
         } else {
             gunmasterRunningState.getGunmasterStageKillsByPlayer().put(killerId, nextKills);
         }
+    }
+
+    private RoomMatchEndRequest buildTeamCompletedUnlockEndRequest(RoomDefinition room, RoomTeamId winnerTeam, UUID winnerPlayerId) {
+        if (winnerTeam == null) {
+            return new RoomMatchEndRequest((RoomTeamId) null, "枪神团队战胜方缺失，判定平局");
+        }
+        return new RoomMatchEndRequest(
+            winnerTeam,
+            winnerPlayerId,
+            room.gameplayTeamDisplayName(winnerTeam) + "已有玩家完成全部枪械解锁，直接获胜"
+        );
     }
 
     private ServerPlayer resolveKillerPlayer(int killerEntityId) {
@@ -582,6 +591,13 @@ public final class GunmasterGameplayRuntime implements
                 ? new RoomMatchEndRequest((RoomTeamId) null, "达到时长，判定平局")
                 : new RoomMatchEndRequest(winnerId, "达到时长，当前排名第一的玩家获胜");
         }
+        RoomTeamId completedUnlockWinner = resolveCompletedUnlockWinner();
+        if (completedUnlockWinner != null) {
+            return new RoomMatchEndRequest(
+                completedUnlockWinner,
+                "达到时长，" + room.gameplayTeamDisplayName(completedUnlockWinner) + "已有玩家完成全部枪械解锁"
+            );
+        }
         RoomTeamId winnerTeam = resolveLeadingTeam();
         return winnerTeam == null
             ? new RoomMatchEndRequest((RoomTeamId) null, "达到时长，判定平局")
@@ -593,9 +609,7 @@ public final class GunmasterGameplayRuntime implements
         int campBProgress = 0;
         for (UUID playerId : gunmasterRunningState.getRoomPlayers()) {
             RoomTeamId teamId = gunmasterRunningState.getRoomTeams().get(playerId);
-            int stageIndex = Math.max(0, gunmasterRunningState.getGunmasterStageIndexByPlayer().getOrDefault(playerId, 0));
-            int kills = Math.max(0, gunmasterRunningState.getGunmasterStageKillsByPlayer().getOrDefault(playerId, 0));
-            int progress = stageIndex * 1000 + kills;
+            int progress = resolvePlayerProgress(playerId);
             if (teamId == RoomTeamId.CAMP_A) {
                 campAProgress = Math.max(campAProgress, progress);
             } else if (teamId == RoomTeamId.CAMP_B) {
@@ -615,9 +629,7 @@ public final class GunmasterGameplayRuntime implements
         UUID leaderId = null;
         int bestProgress = Integer.MIN_VALUE;
         for (UUID playerId : gunmasterRunningState.getRoomPlayers()) {
-            int stageIndex = Math.max(0, gunmasterRunningState.getGunmasterStageIndexByPlayer().getOrDefault(playerId, 0));
-            int kills = Math.max(0, gunmasterRunningState.getGunmasterStageKillsByPlayer().getOrDefault(playerId, 0));
-            int progress = stageIndex * 1000 + kills;
+            int progress = resolvePlayerProgress(playerId);
             if (progress > bestProgress) {
                 bestProgress = progress;
                 leaderId = playerId;
@@ -628,11 +640,46 @@ public final class GunmasterGameplayRuntime implements
         return leaderId;
     }
 
+    private RoomTeamId resolveCompletedUnlockWinner() {
+        List<String> sequence = gunmasterRunningState.getGunmasterMatchWeaponSequenceIds();
+        if (sequence.isEmpty()) {
+            return null;
+        }
+        int finalStageIndex = Math.max(0, sequence.size() - 1);
+        boolean campACompleted = false;
+        boolean campBCompleted = false;
+        for (UUID playerId : gunmasterRunningState.getRoomPlayers()) {
+            if (Math.max(0, gunmasterRunningState.getGunmasterStageIndexByPlayer().getOrDefault(playerId, 0)) < finalStageIndex) {
+                continue;
+            }
+            RoomTeamId teamId = gunmasterRunningState.getRoomTeams().get(playerId);
+            if (teamId == RoomTeamId.CAMP_A) {
+                campACompleted = true;
+            } else if (teamId == RoomTeamId.CAMP_B) {
+                campBCompleted = true;
+            }
+        }
+        if (campACompleted == campBCompleted) {
+            return null;
+        }
+        return campACompleted ? RoomTeamId.CAMP_A : RoomTeamId.CAMP_B;
+    }
+
+    private int resolvePlayerProgress(UUID playerId) {
+        int stageIndex = Math.max(0, gunmasterRunningState.getGunmasterStageIndexByPlayer().getOrDefault(playerId, 0));
+        int kills = Math.max(0, gunmasterRunningState.getGunmasterStageKillsByPlayer().getOrDefault(playerId, 0));
+        return stageIndex * 1000 + kills;
+    }
+
     private List<List<RoomPosition>> resolveConfiguredBoundaries(RoomDefinition room) {
         if (room == null) {
             return List.of();
         }
         List<List<RoomPosition>> boundaries = new ArrayList<>();
+        if (room.gunmasterConfig().isSoloGrouping()) {
+            addBoundaryIfValid(boundaries, room.gunmasterConfig().soloBoundary());
+            return boundaries;
+        }
         addBoundaryIfValid(boundaries, room.arenaConfig().campABoundary());
         addBoundaryIfValid(boundaries, room.arenaConfig().campBBoundary());
         return boundaries;

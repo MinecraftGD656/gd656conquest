@@ -806,7 +806,8 @@ public final class RoomDefinitionGroupConfigEditor {
 
     private static boolean isArenaBoundaryGroup(String canonical) {
         return canonical.startsWith("dmcamp") && canonical.endsWith("boundary")
-            || canonical.startsWith("gmcamp") && canonical.endsWith("boundary");
+            || canonical.startsWith("gmcamp") && canonical.endsWith("boundary")
+            || "gmsoloboundary".equals(canonical);
     }
 
     private static boolean isArenaSpawnGroup(String canonical) {
@@ -892,6 +893,7 @@ public final class RoomDefinitionGroupConfigEditor {
             case "dmcampbboundary" -> "deathmatchConfig.campBBoundary";
             case "gmcampaboundary" -> "gunmasterConfig.campABoundary";
             case "gmcampbboundary" -> "gunmasterConfig.campBBoundary";
+            case "gmsoloboundary" -> "gunmasterConfig.soloBoundary";
             default -> throw new IllegalArgumentException("未知团队死斗边界: " + canonical);
         };
     }

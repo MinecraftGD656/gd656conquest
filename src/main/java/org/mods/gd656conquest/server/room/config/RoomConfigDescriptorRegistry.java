@@ -227,6 +227,7 @@ public final class RoomConfigDescriptorRegistry {
         gunmaster(descriptors, RoomConfigCategory.RULES, "gmKillsPerWeaponSwitch", "枪王模式玩家切换武器所需击杀数", "gunmasterConfig.killsPerWeaponSwitch", RoomConfigValueType.NUMBER, List.of());
         gunmaster(descriptors, RoomConfigCategory.TRANSPORT, "gmDeployViewPosition", "枪王模式部署界面视角", "gunmasterConfig.deployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
         gunmasterGroup(descriptors, RoomConfigCategory.TRANSPORT, "gmSoloSpawnPositions", "枪王模式个人战出生点数据组", "gunmasterConfig.soloSpawnPositions", RoomConfigValueType.POSITION_GROUP);
+        gunmasterGroup(descriptors, RoomConfigCategory.RULES, "gmSoloBoundary", "枪王模式个人战活动范围", "gunmasterConfig.soloBoundary", RoomConfigValueType.POSITION_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.EQUIPMENT, "gmInitialWeaponPool", "枪王模式初始武器池", "gunmasterConfig.initialWeaponPool", RoomConfigValueType.DATA_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.EQUIPMENT, "gmMiddleWeaponPool", "枪王模式中段武器池", "gunmasterConfig.middleWeaponPool", RoomConfigValueType.DATA_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.EQUIPMENT, "gmFinalWeaponPool", "枪王模式末段武器池", "gunmasterConfig.finalWeaponPool", RoomConfigValueType.DATA_GROUP);

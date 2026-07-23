@@ -20,6 +20,7 @@ public record RoomGunmasterConfig(
     List<RoomPosition> medicalBoxPositions,
     RoomGunmasterGroupingMode groupingMode,
     List<RoomPosition> soloSpawnPositions,
+    List<RoomPosition> soloBoundary,
     List<String> initialWeaponPool,
     List<String> middleWeaponPool,
     List<String> finalWeaponPool,
@@ -41,6 +42,7 @@ public record RoomGunmasterConfig(
         medicalBoxPositions = copyBoundary(medicalBoxPositions);
         groupingMode = groupingMode == null ? RoomGunmasterGroupingMode.TEAM : groupingMode;
         soloSpawnPositions = copyBoundary(soloSpawnPositions);
+        soloBoundary = copyBoundary(soloBoundary);
         initialWeaponPool = copyStringList(initialWeaponPool);
         middleWeaponPool = copyStringList(middleWeaponPool);
         finalWeaponPool = copyStringList(finalWeaponPool);
@@ -63,6 +65,7 @@ public record RoomGunmasterConfig(
             List.of(),
             List.of(),
             RoomGunmasterGroupingMode.TEAM,
+            List.of(),
             List.of(),
             List.of(),
             List.of(),
@@ -136,6 +139,9 @@ public record RoomGunmasterConfig(
         if (isSoloGrouping()) {
             if (soloSpawnPositions == null || soloSpawnPositions.isEmpty()) {
                 result.addMissing("gunmaster.soloSpawnPositions", "gmSoloSpawnPositions");
+            }
+            if (soloBoundary == null || soloBoundary.isEmpty()) {
+                result.addMissing("gunmaster.soloBoundary", "gmSoloBoundary");
             }
         } else {
             RoomConfigValidator.validateRoomSpawnGroup(result, "gunmaster.campASpawnGroup", "gmCampASpawnGroup", campASpawnGroup, true);

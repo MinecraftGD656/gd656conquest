@@ -297,23 +297,26 @@ public final class RoomResultRuntimeService {
             summary = "对局结束：本局平局";
             type = ClientMessageType.INFO;
         } else if (resultType == MatchResultType.VICTORY) {
-            summary = winnerPlayerId != null ? "对局结束：你获得胜利" : "对局结束：你所在阵营获胜";
+            summary = winner != null ? "对局结束：你所在阵营获胜" : "对局结束：你获得胜利";
             type = ClientMessageType.SUCCESS;
+        } else if (winner != null) {
+            summary = "对局结束：你所在阵营战败";
+            type = ClientMessageType.FAILURE;
         } else if (winnerPlayerId != null) {
             summary = "对局结束：你未能取得胜利";
-            type = ClientMessageType.FAILURE;
-        } else if (selfTeam == RoomTeamId.CAMP_A || selfTeam == RoomTeamId.CAMP_B) {
-            summary = "对局结束：你所在阵营战败";
             type = ClientMessageType.FAILURE;
         } else {
             summary = "对局结束：" + resolveTeamDisplayName(room, state, winner) + " 获胜";
             type = ClientMessageType.INFO;
         }
         ServerLogger.sendToClient(player, type, summary);
-        if (winnerPlayerId != null) {
-            ServerLogger.sendToClient(player, ClientMessageType.INFO, "胜者：%s", resolvePlayerName(winnerPlayerId));
-        } else if (winner != null) {
+        if (winner != null) {
             ServerLogger.sendToClient(player, ClientMessageType.INFO, "胜方：%s", resolveTeamDisplayName(room, state, winner));
+            if (winnerPlayerId != null) {
+                ServerLogger.sendToClient(player, ClientMessageType.INFO, "达成者：%s", resolvePlayerName(winnerPlayerId));
+            }
+        } else if (winnerPlayerId != null) {
+            ServerLogger.sendToClient(player, ClientMessageType.INFO, "胜者：%s", resolvePlayerName(winnerPlayerId));
         }
         if (reason != null && !reason.isBlank() && !"-".equals(reason)) {
             ServerLogger.sendToClient(player, ClientMessageType.INFO, "结束原因：%s", reason);
@@ -347,31 +350,31 @@ public final class RoomResultRuntimeService {
     }
 
     private PlayerLevelService.MatchOutcome resolveMatchOutcome(UUID selfPlayerId, RoomTeamId selfTeam, RoomTeamId winner, UUID winnerPlayerId) {
+        if (winner != null) {
+            return winner == selfTeam
+                ? PlayerLevelService.MatchOutcome.WIN
+                : PlayerLevelService.MatchOutcome.LOSE;
+        }
         if (winnerPlayerId != null) {
             return winnerPlayerId.equals(selfPlayerId)
                 ? PlayerLevelService.MatchOutcome.WIN
                 : PlayerLevelService.MatchOutcome.LOSE;
         }
-        if (winner == null) {
-            return PlayerLevelService.MatchOutcome.DRAW;
-        }
-        return winner == selfTeam
-            ? PlayerLevelService.MatchOutcome.WIN
-            : PlayerLevelService.MatchOutcome.LOSE;
+        return PlayerLevelService.MatchOutcome.DRAW;
     }
 
     private MatchResultType resolveResultType(UUID selfPlayerId, RoomTeamId selfTeam, RoomTeamId winner, UUID winnerPlayerId) {
+        if (winner != null) {
+            return winner == selfTeam
+                ? MatchResultType.VICTORY
+                : MatchResultType.DEFEAT;
+        }
         if (winnerPlayerId != null) {
             return winnerPlayerId.equals(selfPlayerId)
                 ? MatchResultType.VICTORY
                 : MatchResultType.DEFEAT;
         }
-        if (winner == null) {
-            return MatchResultType.DRAW;
-        }
-        return winner == selfTeam
-            ? MatchResultType.VICTORY
-            : MatchResultType.DEFEAT;
+        return MatchResultType.DRAW;
     }
 
     private int resolveMatchDurationSeconds(RunningRuntimeState state, long gameTick) {

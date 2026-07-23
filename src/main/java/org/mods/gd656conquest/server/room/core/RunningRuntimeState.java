@@ -30,6 +30,9 @@ public final class RunningRuntimeState {
     private final Map<UUID, Long> deployReadyTicks = new LinkedHashMap<>();
     private final Map<UUID, Long> respawnFinalizeTicks = new LinkedHashMap<>();
     private final Map<UUID, RoomPosition> respawnTargetPositions = new LinkedHashMap<>();
+    private final Map<UUID, Float> respawnTargetYRot = new LinkedHashMap<>();
+    private final Map<UUID, Float> respawnTargetXRot = new LinkedHashMap<>();
+    private final Map<UUID, net.minecraft.world.entity.Pose> respawnTargetPose = new LinkedHashMap<>();
     private final Map<UUID, VehicleDeployResolution> pendingVehicleDeployResolutions = new LinkedHashMap<>();
     private final Map<UUID, String> deploySelectionKinds = new LinkedHashMap<>();
     private final Map<UUID, String> deploySelectionTargetIds = new LinkedHashMap<>();
@@ -160,6 +163,18 @@ public final class RunningRuntimeState {
 
     public Map<UUID, RoomPosition> getRespawnTargetPositions() {
         return respawnTargetPositions;
+    }
+
+    public Map<UUID, Float> getRespawnTargetYRot() {
+        return respawnTargetYRot;
+    }
+
+    public Map<UUID, Float> getRespawnTargetXRot() {
+        return respawnTargetXRot;
+    }
+
+    public Map<UUID, net.minecraft.world.entity.Pose> getRespawnTargetPose() {
+        return respawnTargetPose;
     }
 
     public Map<UUID, VehicleDeployResolution> getPendingVehicleDeployResolutions() {
@@ -586,8 +601,6 @@ public final class RunningRuntimeState {
         randomizedLoadoutSelectionIdsByPlayerSlot.remove(playerId);
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.remove(playerId);
         fixedRoomLoadoutSelectionIdsByPlayerSlot.remove(playerId);
-        gunmasterStageIndexByPlayer.remove(playerId);
-        gunmasterStageKillsByPlayer.remove(playerId);
         outsideBoundarySinceTicks.remove(playerId);
         respawnCountdownLastShownSeconds.remove(playerId);
         boundaryPenaltyLastShownSeconds.remove(playerId);
@@ -616,6 +629,9 @@ public final class RunningRuntimeState {
         deployReadyTicks.clear();
         respawnFinalizeTicks.clear();
         respawnTargetPositions.clear();
+        respawnTargetYRot.clear();
+        respawnTargetXRot.clear();
+        respawnTargetPose.clear();
         pendingVehicleDeployResolutions.clear();
         deploySelectionKinds.clear();
         deploySelectionTargetIds.clear();
@@ -688,11 +704,15 @@ public final class RunningRuntimeState {
         deployReadyTicks.remove(playerId);
         respawnFinalizeTicks.remove(playerId);
         respawnTargetPositions.remove(playerId);
+        respawnTargetYRot.remove(playerId);
+        respawnTargetXRot.remove(playerId);
+        respawnTargetPose.remove(playerId);
         pendingVehicleDeployResolutions.remove(playerId);
         deploySelectionKinds.remove(playerId);
         deploySelectionKinds.remove(playerId);
         deploySelectionTargetIds.remove(playerId);
         deploySelectionChangedTicks.remove(playerId);
+        deployReadyTicks.remove(playerId);
         deployAutoStartOnReadyPlayers.remove(playerId);
         deployAllowFallbackOnMissingSelectionPlayers.remove(playerId);
         deployExplicitConfirmRequiredPlayers.remove(playerId);
@@ -717,6 +737,9 @@ public final class RunningRuntimeState {
         deployReadyTicks.remove(playerId);
         respawnFinalizeTicks.remove(playerId);
         respawnTargetPositions.remove(playerId);
+        respawnTargetYRot.remove(playerId);
+        respawnTargetXRot.remove(playerId);
+        respawnTargetPose.remove(playerId);
         pendingVehicleDeployResolutions.remove(playerId);
         deploySelectionKinds.remove(playerId);
         deploySelectionTargetIds.remove(playerId);
@@ -745,6 +768,9 @@ public final class RunningRuntimeState {
         deployReadyTicks.remove(playerId);
         respawnFinalizeTicks.remove(playerId);
         respawnTargetPositions.remove(playerId);
+        respawnTargetYRot.remove(playerId);
+        respawnTargetXRot.remove(playerId);
+        respawnTargetPose.remove(playerId);
         pendingVehicleDeployResolutions.remove(playerId);
         deploySelectionKinds.remove(playerId);
         deploySelectionTargetIds.remove(playerId);
@@ -834,6 +860,9 @@ public final class RunningRuntimeState {
         deployReadyTicks.remove(playerId);
         respawnFinalizeTicks.remove(playerId);
         respawnTargetPositions.remove(playerId);
+        respawnTargetYRot.remove(playerId);
+        respawnTargetXRot.remove(playerId);
+        respawnTargetPose.remove(playerId);
         pendingVehicleDeployResolutions.remove(playerId);
         deploySelectionKinds.remove(playerId);
         deploySelectionTargetIds.remove(playerId);
@@ -853,6 +882,9 @@ public final class RunningRuntimeState {
             return;
         }
         respawnTargetPositions.remove(playerId);
+        respawnTargetYRot.remove(playerId);
+        respawnTargetXRot.remove(playerId);
+        respawnTargetPose.remove(playerId);
         pendingVehicleDeployResolutions.remove(playerId);
         deploySelectionKinds.remove(playerId);
         deploySelectionTargetIds.remove(playerId);

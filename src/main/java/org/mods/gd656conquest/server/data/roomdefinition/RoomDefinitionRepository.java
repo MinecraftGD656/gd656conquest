@@ -325,6 +325,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 gunmaster.medicalBoxPositions(),
                 gunmaster.groupingMode(),
                 gunmaster.soloSpawnPositions(),
+                gunmaster.soloBoundary(),
                 gunmaster.initialWeaponPool(),
                 gunmaster.middleWeaponPool(),
                 gunmaster.finalWeaponPool(),

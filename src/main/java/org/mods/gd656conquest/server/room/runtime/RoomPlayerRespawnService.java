@@ -1391,14 +1391,16 @@ public final class RoomPlayerRespawnService {
         ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
         playerStateService.setSpectator(player);
         playerLaunchService.teleportToRoomPosition(player, room, spawn);
+        Float transitionYRot = state.getRespawnTargetYRot().get(playerId);
+        Float transitionXRot = state.getRespawnTargetXRot().get(playerId);
         NetworkManager.sendToPlayer(
             player,
             RoomDeathFlowPacket.startRespawnTransition(
                 spawn.x() + 0.5D,
                 spawn.y() + player.getEyeHeight(),
                 spawn.z() + 0.5D,
-                player.getYRot(),
-                0.0F,
+                transitionYRot != null ? transitionYRot : player.getYRot(),
+                transitionXRot != null ? transitionXRot : 0.0F,
                 RESPAWN_TRAVEL_TICKS
             )
         );
@@ -1777,7 +1779,18 @@ public final class RoomPlayerRespawnService {
             return true;
         }
         VehicleDeployResolution pendingVehicleDeploy = state.getPendingVehicleDeployResolutions().get(playerId);
-        player.setXRot(0.0F);
+        Float targetYRot = state.getRespawnTargetYRot().remove(playerId);
+        Float targetXRot = state.getRespawnTargetXRot().remove(playerId);
+        net.minecraft.world.entity.Pose targetPose = state.getRespawnTargetPose().remove(playerId);
+        if (targetYRot != null) {
+            player.setYRot(targetYRot);
+            player.setYBodyRot(targetYRot);
+            player.setYHeadRot(targetYRot);
+        }
+        player.setXRot(targetXRot != null ? targetXRot : 0.0F);
+        if (targetPose != null) {
+            player.setPose(targetPose);
+        }
         playerLaunchService.teleportToRoomPosition(player, room, spawn);
         clearVanillaPotionEffects(player);
         HeroKitSupportService.endHeroKitState(server, state, playerId, gameTick);

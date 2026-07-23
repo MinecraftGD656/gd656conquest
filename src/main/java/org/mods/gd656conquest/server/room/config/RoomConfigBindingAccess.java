@@ -166,6 +166,7 @@ final class RoomConfigBindingAccess {
                     java.util.List.of(),
                     java.util.List.of(),
                     java.util.List.of(),
+                    java.util.List.of(),
                     10,
                     1
                 );

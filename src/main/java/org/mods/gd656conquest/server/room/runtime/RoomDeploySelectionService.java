@@ -199,6 +199,9 @@ public final class RoomDeploySelectionService {
             return null;
         }
         ServerPlayer teammate = validation.teammate();
+        state.getRespawnTargetYRot().put(selfId, teammate.getYRot());
+        state.getRespawnTargetXRot().put(selfId, teammate.getXRot());
+        state.getRespawnTargetPose().put(selfId, teammate.getPose());
         return new RoomPosition(Mth.floor(teammate.getX()), Mth.floor(teammate.getY()), Mth.floor(teammate.getZ()));
     }
 
