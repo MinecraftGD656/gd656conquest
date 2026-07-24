@@ -301,7 +301,12 @@ public final class RoomSupportBoxService {
         level.addFreshEntity(ammoBox);
         activeAmmoBoxIds.add(ammoBox.getUUID());
         ownerActiveAmmoBoxId.put(ownerId, ammoBox.getUUID());
-        emitSupportBoxVoice(ownerId, null, ammoBox.position(), RoomThirdPersonAudioCueRegistry.PLAYER_THROW_AMMO);
+        ServerPlayer owner = server.getPlayerList().getPlayer(ownerId);
+        if (owner != null) {
+            FrontlineVoiceBridge.playCue(owner, RoomThirdPersonAudioCueRegistry.PLAYER_THROW_AMMO);
+        } else {
+            emitSupportBoxVoice(ownerId, null, ammoBox.position(), RoomThirdPersonAudioCueRegistry.PLAYER_THROW_AMMO);
+        }
         itemEntity.discard();
     }
 
@@ -709,9 +714,7 @@ public final class RoomSupportBoxService {
         if (sourcePlayer == null) {
             return;
         }
-        if (!FrontlineVoiceBridge.playCueAt(sourcePlayer, boxPosition, cueId)) {
-            FrontlineVoiceBridge.playCue(sourcePlayer, cueId);
-        }
+        FrontlineVoiceBridge.playCue(sourcePlayer, cueId);
     }
 
     private void removeExistingAmmoBoxOfOwner(UUID ownerId) {

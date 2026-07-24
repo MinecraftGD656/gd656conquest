@@ -1096,41 +1096,6 @@ public final class RoomCoreService {
             .orElse(false);
     }
 
-    public boolean handleNearbyHeadshotPraise(ServerPlayer killer) {
-        if (killer == null || killer.server == null || killer.isSpectator()) {
-            return false;
-        }
-        final boolean[] played = {false};
-        UUID killerId = killer.getUUID();
-        findRunningSlotByPlayer(killerId)
-            .filter(slot -> slot.room().lifecycleState() == RoomLifecycleState.RUNNING)
-            .ifPresent(slot -> {
-                RunningRuntimeState state = slot.runtime().getRunningState();
-                if (!state.getRoomPlayers().contains(killerId)) {
-                    return;
-                }
-                RoomTeamId killerTeam = state.getRoomTeams().get(killerId);
-                for (UUID playerId : state.getRoomPlayers()) {
-                    if (playerId == null || playerId.equals(killerId)) {
-                        continue;
-                    }
-                    if (killerTeam != null && state.getRoomTeams().get(playerId) != killerTeam) {
-                        continue;
-                    }
-                    ServerPlayer observer = playerLaunchService.findOnlinePlayer(playerId);
-                    if (observer == null || observer.isSpectator() || !observer.isAlive() || observer.level() != killer.level()) {
-                        continue;
-                    }
-                    if (observer.distanceToSqr(killer) > 25.0D) {
-                        continue;
-                    }
-                    audioRuntimeService.emitPlayerThirdPersonCue(slot.room(), state, observer, RoomThirdPersonAudioCueRegistry.PLAYER_NICE_SHOT);
-                    played[0] = true;
-                }
-            });
-        return played[0];
-    }
-
     public Optional<RoomJoinResult> joinMatching(UUID playerId, String roomId, long gameTick) {
         RoomRuntimeSlot<RoomRuntimeState> slot = requireRoomSlot(roomId);
         ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);

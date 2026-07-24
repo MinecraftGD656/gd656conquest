@@ -527,13 +527,6 @@ public final class RoomCoreRuntimeManager {
         return coreService.emitPlayerThirdPersonAudioCue(playerId, cueId);
     }
 
-    public boolean handleNearbyHeadshotPraise(ServerPlayer killer) {
-        if (coreService == null || killer == null) {
-            return false;
-        }
-        return coreService.handleNearbyHeadshotPraise(killer);
-    }
-
     public void tryRestoreInventorySnapshot(ServerPlayer player) {
         if (coreService == null || player == null) {
             return;
