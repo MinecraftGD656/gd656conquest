@@ -488,15 +488,15 @@ public final class GunmasterGameplayRuntime implements
         int nextKills = gunmasterRunningState.getGunmasterStageKillsByPlayer().getOrDefault(killerId, 0) + 1;
         int finalStageIndex = Math.max(0, sequence.size() - 1);
         if (currentStage >= finalStageIndex) {
-            if (room.gunmasterConfig().isSoloGrouping()) {
-                if (nextKills >= killsNeeded) {
+            if (nextKills >= killsNeeded) {
+                if (room.gunmasterConfig().isSoloGrouping()) {
                     pendingEndRequest = new RoomMatchEndRequest(killerId, "最终武器达成击杀");
                 } else {
-                    gunmasterRunningState.getGunmasterStageKillsByPlayer().put(killerId, nextKills);
+                    RoomTeamId killerTeam = gunmasterRunningState.getRoomTeams().get(killerId);
+                    pendingEndRequest = buildTeamCompletedUnlockEndRequest(room, killerTeam, killerId);
                 }
             } else {
-                RoomTeamId killerTeam = gunmasterRunningState.getRoomTeams().get(killerId);
-                pendingEndRequest = buildTeamCompletedUnlockEndRequest(room, killerTeam, killerId);
+                gunmasterRunningState.getGunmasterStageKillsByPlayer().put(killerId, nextKills);
             }
             return;
         }
@@ -520,8 +520,10 @@ public final class GunmasterGameplayRuntime implements
                             subtitleBroadcastService.broadcastGlobalOnce(gunmasterRunningState, "gm_solo_last_" + killerId, killer.getScoreboardName() + " 已达到赛点");
                         }
                     } else {
-                        RoomTeamId killerTeam = gunmasterRunningState.getRoomTeams().get(killerId);
-                        pendingEndRequest = buildTeamCompletedUnlockEndRequest(room, killerTeam, killerId);
+                        if (!soloLastStageSentByPlayer.contains(killerId)) {
+                            soloLastStageSentByPlayer.add(killerId);
+                            subtitleBroadcastService.broadcastPlayerOnce(killer, "gm_team_last_" + killerId, "你已达到最终武器，累计击杀以赢得胜利");
+                        }
                     }
                 }
             }
