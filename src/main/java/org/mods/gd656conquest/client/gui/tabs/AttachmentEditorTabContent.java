@@ -69,12 +69,12 @@ public class AttachmentEditorTabContent implements ConfigScreenHeader.TabContent
         int x1 = LEFT;
         int y1 = top + ROW_H + 1;
         int x2 = screenWidth - LEFT;
-        int y2 = screenHeight - 20;
+        int y2 = screenHeight - 17;
         int viewHeight = Math.max(1, y2 - y1);
         int contentHeight = entries.size() * (ROW_H + ROW_GAP);
         scrollState.update(baseMouseY, viewHeight, contentHeight);
 
-        guiGraphics.drawString(minecraft.font, "枪械配件数据编辑器", LEFT, top - 10, 0xFFFFD78A, false);
+        guiGraphics.drawString(minecraft.font, "枪械配件数据编辑器", LEFT, top - 10, GuiConstants.COLOR_TITLE_TEXT, false);
 
         if (headerRenderer == null) {
             headerRenderer = new GDRowRenderer(x1, top, x2, top + ROW_H,
@@ -84,7 +84,7 @@ public class AttachmentEditorTabContent implements ConfigScreenHeader.TabContent
         headerRenderer.resetColumnConfig();
         headerRenderer.addColumn("", ROW_H, GuiConstants.COLOR_WHITE, true, true, null);
         headerRenderer.addColumn("配件ID", 84, 0xFF9FD3FF, false, false, null);
-        headerRenderer.addColumn("配件名称", 120, 0xFFFFE39F, true, false, null);
+        headerRenderer.addColumn("配件名称", 120, GuiConstants.COLOR_HEADER_TEXT, true, false, null);
         headerRenderer.addColumn("配件类型", 64, 0xFFC8B6FF, true, true, null);
         headerRenderer.addColumn("解锁等级", 52, 0xFFBDF5BD, false, true, null);
         headerRenderer.addColumn("未来条件", 88, 0xFFD6D9FF, true, false, null);
@@ -108,7 +108,7 @@ public class AttachmentEditorTabContent implements ConfigScreenHeader.TabContent
         guiGraphics.disableScissor();
         scrollState.renderScrollbar(guiGraphics, x1, y1, x2, y2, contentHeight);
 
-        guiGraphics.drawString(minecraft.font, "总数: " + entries.size(), LEFT, screenHeight - 20, 0xFFB8C6D6, false);
+        guiGraphics.drawString(minecraft.font, "总数: " + entries.size(), LEFT, screenHeight - 17, 0xFFB8C6D6, false);
 
         if (textInputDialog != null && textInputDialog.isVisible()) {
             textInputDialog.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -155,7 +155,7 @@ public class AttachmentEditorTabContent implements ConfigScreenHeader.TabContent
                 btn -> openFieldEditor(entry, "id", "编辑配件ID", entry.id()));
         row.addColumn(safe(entry.displayName()), 120, 0xFFEDEDED, true, false,
                 btn -> openFieldEditor(entry, "display_name", "编辑配件名称", safe(entry.displayName())));
-        row.addColumn(safe(entry.attachmentType()), 64, 0xFFFFD68A, true, true, null);
+        row.addColumn(safe(entry.attachmentType()), 64, GuiConstants.COLOR_DATA_TEXT, true, true, null);
         row.addColumn(String.valueOf(entry.unlockLevel()), 52, 0xFFB6FFB6, false, true,
                 btn -> openFieldEditor(entry, "unlock_level", "编辑解锁等级", String.valueOf(entry.unlockLevel())));
         row.addColumn(snbtPreview(entry.futureRequirement()), 88, 0xFFD3C7FF, true, false,
@@ -222,7 +222,7 @@ public class AttachmentEditorTabContent implements ConfigScreenHeader.TabContent
         int x1 = LEFT;
         int y1 = top + ROW_H + 1;
         int x2 = screenWidth - LEFT;
-        int y2 = screenHeight - 20;
+        int y2 = screenHeight - 17;
         if (mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2) {
             double adjustedY = mouseY + scrollState.scrollY();
             for (int i = 0; i < entries.size(); i++) {
@@ -252,7 +252,7 @@ public class AttachmentEditorTabContent implements ConfigScreenHeader.TabContent
         int x1 = LEFT;
         int y1 = top + ROW_H + 1;
         int x2 = screenWidth - LEFT;
-        int y2 = screenHeight - 20;
+        int y2 = screenHeight - 17;
         if (mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2) {
             return scrollState.mouseScrolled(delta, y2 - y1, entries.size() * (ROW_H + ROW_GAP));
         }

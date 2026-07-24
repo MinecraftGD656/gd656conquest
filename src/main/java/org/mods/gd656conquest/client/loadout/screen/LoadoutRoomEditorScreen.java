@@ -70,8 +70,8 @@ public class LoadoutRoomEditorScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        this.backButton = new GDButton(this.width - 86, this.height - 26, 72, 20, Component.literal("返回"), btn -> closeToParent());
-        this.refreshButton = new GDButton(this.width - 166, this.height - 26, 72, 20, Component.literal("刷新"), btn -> requestSnapshot(false));
+        this.backButton = new GDButton(this.width - 86, this.height - 28, 72, 20, Component.literal("返回"), btn -> closeToParent());
+        this.refreshButton = new GDButton(this.width - 166, this.height - 28, 72, 20, Component.literal("刷新"), btn -> requestSnapshot(false));
         this.textInputDialog = new TextInputDialog(minecraft, null, null);
         this.choiceListDialog = new ChoiceListDialog(minecraft);
         this.confirmDialog = new ConfirmDialog(minecraft, null, null);
@@ -104,12 +104,12 @@ public class LoadoutRoomEditorScreen extends Screen {
         renderPanels(guiGraphics, baseMouseX, baseMouseY, partialTick);
         if (backButton != null) {
             backButton.setX(this.width - 86);
-            backButton.setY(this.height - 26);
+            backButton.setY(this.height - 28);
             backButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         if (refreshButton != null) {
             refreshButton.setX(this.width - 166);
-            refreshButton.setY(this.height - 26);
+            refreshButton.setY(this.height - 28);
             refreshButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         if (choiceListDialog != null && choiceListDialog.isVisible()) {
@@ -138,7 +138,7 @@ public class LoadoutRoomEditorScreen extends Screen {
         int contentY1 = TOP + ROW_H + 1;
         int contentY2 = this.height - 36;
 
-        guiGraphics.drawString(this.font, "房间数据编辑器", PADDING, 6, 0xFFFFD78A, false);
+        guiGraphics.drawString(this.font, "房间数据编辑器", PADDING, 6, GuiConstants.COLOR_TITLE_TEXT, false);
         ClientRoomEditorState.RoomState selected = getSelectedRoom();
         boolean hasMissingRequired = selected != null && selected.hasMissingRequirements();
         if (selected != null && selected.hasMissingRequirements()) {
@@ -151,7 +151,7 @@ public class LoadoutRoomEditorScreen extends Screen {
         leftHeader.setBounds(leftX1, TOP, leftX2, TOP + ROW_H);
         leftHeader.resetColumnConfig();
         leftHeader.addColumn("房间ID", LEFT_ID_W, 0xFF9FD3FF, true, false, null);
-        leftHeader.addColumn("房间显示名", -1, 0xFFFFE39F, true, false, null);
+        leftHeader.addColumn("房间显示名", -1, GuiConstants.COLOR_HEADER_TEXT, true, false, null);
         leftHeader.addColumn("状态", LEFT_STATE_W, 0xFFC8B6FF, true, true, null);
         leftHeader.addColumn("人数", LEFT_PLAYERS_W, 0xFFBDF5BD, false, true, null);
         leftHeader.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -164,7 +164,7 @@ public class LoadoutRoomEditorScreen extends Screen {
         rightHeader.setBounds(rightX1, TOP, rightX2, TOP + ROW_H);
         rightHeader.resetColumnConfig();
         rightHeader.addColumn("配置项", -1, 0xFF9FD3FF, true, false, null);
-        rightHeader.addColumn("值", RIGHT_VALUE_W, 0xFFFFE39F, true, false, null);
+        rightHeader.addColumn("值", RIGHT_VALUE_W, GuiConstants.COLOR_HEADER_TEXT, true, false, null);
         rightHeader.addColumn(hasMissingRequired ? "缺失" : "已配置", 50, hasMissingRequired ? 0xFFFF8787 : 0xFFBDF5BD, false, true, null);
         rightHeader.render(guiGraphics, mouseX, mouseY, partialTick);
 
@@ -195,7 +195,7 @@ public class LoadoutRoomEditorScreen extends Screen {
             row.setBackgroundAlpha(i % 2 == 0 ? 0.18f : 0.32f);
             row.addColumn(room.roomId(), LEFT_ID_W, room.roomId().equals(selectedRoomId) ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_SKY_BLUE, true, false, btn -> selectRoom(room.roomId()));
             row.addColumn(safe(room.displayName()), -1, 0xFFEDEDED, true, false, btn -> openRoomDisplayNameEditor(room));
-            row.addColumn(room.stateDisplayName(), LEFT_STATE_W, 0xFFFFD68A, true, true, btn -> openRoomStateChoice(room));
+            row.addColumn(room.stateDisplayName(), LEFT_STATE_W, GuiConstants.COLOR_DATA_TEXT, true, true, btn -> openRoomStateChoice(room));
             row.addColumn(room.currentPlayers() + "/" + room.maxPlayers(), LEFT_PLAYERS_W, 0xFFB6FFB6, false, true, null);
             row.render(guiGraphics, mouseX, (int) (mouseY + leftScrollState.scrollY()), partialTick);
         }
@@ -944,7 +944,7 @@ public class LoadoutRoomEditorScreen extends Screen {
             return 0xFF7E8794;
         }
         if (rowData.highlighted) {
-            return 0xFFFFD68A;
+            return GuiConstants.COLOR_DATA_TEXT;
         }
         if (rowData.groupParent || rowData.groupChild) {
             return 0xFF8FD7A8;
@@ -956,16 +956,16 @@ public class LoadoutRoomEditorScreen extends Screen {
             return 0xFFBDF5BD;
         }
         if ("POSITION".equalsIgnoreCase(rowData.valueType) || "VIEW_POSITION".equalsIgnoreCase(rowData.valueType)) {
-            return 0xFFFFD68A;
+            return GuiConstants.COLOR_DATA_TEXT;
         }
         if (!rowData.suggestionValues.isEmpty() || "room.state".equalsIgnoreCase(rowData.keyPath)) {
-            return 0xFFFFD68A;
+            return GuiConstants.COLOR_DATA_TEXT;
         }
         String value = rowData.rawValue == null ? "" : rowData.rawValue.trim();
         if ("POSITION_GROUP".equalsIgnoreCase(rowData.valueType) || "DATA_GROUP".equalsIgnoreCase(rowData.valueType) || isJsonGroup(value)) {
             return 0xFF8FD7A8;
         }
-        return rowData.required ? 0xFFFFB6B6 : 0xFFEDEDED;
+        return rowData.required ? 0xFFB0C0F0 : 0xFFEDEDED;
     }
 
     private boolean isNumericValue(String value) {

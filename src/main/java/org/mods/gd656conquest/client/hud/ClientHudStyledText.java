@@ -28,7 +28,7 @@ final class ClientHudStyledText {
         }
         return switch (style) {
             case "BT_LAST_STAND_STATUS", "BT_LAST_STAND_PERSISTENT" ->
-                new Descriptor(content, 0xFFFFD85A, 0xFFFFD85A, false);
+                new Descriptor(content, 0xFFA0D0F0, 0xFFA0D0F0, false);
             case "BT_BURN_BOATS_STATUS", "BT_BURN_BOATS_PERSISTENT" ->
                 new Descriptor(content, 0xFFFF5555, 0xFFFF5555, false);
             default -> new Descriptor(content, fallbackColor, fallbackColor, false);

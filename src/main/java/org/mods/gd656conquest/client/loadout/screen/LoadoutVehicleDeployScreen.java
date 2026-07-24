@@ -235,7 +235,7 @@ public final class LoadoutVehicleDeployScreen extends Screen {
             String healthText = entry.healthCurrent() > 0 && entry.healthMax() > 0
                 ? "耐久 " + entry.healthCurrent() + "/" + entry.healthMax() + "  (" + entry.healthPercent() + "%)"
                 : "耐久 " + entry.healthPercent() + "%";
-            guiGraphics.drawString(this.font, healthText, rowRight - BUTTON_WIDTH - 124, rowY + 8, entry.lowHealth() ? 0xFFFFD85A : 0xFF9FD3A9, false);
+            guiGraphics.drawString(this.font, healthText, rowRight - BUTTON_WIDTH - 124, rowY + 8, entry.lowHealth() ? GuiConstants.COLOR_TITLE_TEXT : 0xFF9FD3A9, false);
         }
         if (entry.seatCount() > 0) {
             String seatText = "席位 " + entry.occupiedSeatCount() + "/" + entry.seatCount();
@@ -245,7 +245,7 @@ public final class LoadoutVehicleDeployScreen extends Screen {
             guiGraphics.drawString(this.font, crewText, rowRight - BUTTON_WIDTH - 124, rowY + 22, 0xFF8CC4FF, false);
         } else if (resolveDisplayedReadyRemainSeconds(entry) > 0) {
             String readyText = "倒计时 " + resolveDisplayedReadyRemainSeconds(entry) + "秒";
-            guiGraphics.drawString(this.font, readyText, rowRight - BUTTON_WIDTH - 124, rowY + 22, 0xFFFFD85A, false);
+            guiGraphics.drawString(this.font, readyText, rowRight - BUTTON_WIDTH - 124, rowY + 22, GuiConstants.COLOR_TITLE_TEXT, false);
         }
         if (rowButton != null) {
             rowButton.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -253,8 +253,8 @@ public final class LoadoutVehicleDeployScreen extends Screen {
     }
 
     private void rebuildStaticButtons() {
-        backButton = new GDButton(LEFT, this.height - 26, 88, 20, Component.translatable("gd656conquest.client.gui.loadout.vehicle.back"), btn -> closeToParent());
-        closeButton = new GDButton(this.width - 86, this.height - 26, 72, 20, Component.translatable("gd656conquest.client.gui.loadout.close"), btn -> onClose());
+        backButton = new GDButton(LEFT, this.height - 28, 88, 20, Component.translatable("gd656conquest.client.gui.loadout.vehicle.back"), btn -> closeToParent());
+        closeButton = new GDButton(this.width - 86, this.height - 28, 72, 20, Component.translatable("gd656conquest.client.gui.loadout.close"), btn -> onClose());
     }
 
     private void syncVehicleButtons() {
@@ -325,7 +325,7 @@ public final class LoadoutVehicleDeployScreen extends Screen {
             return 0xFF9AA3AD;
         }
         if (entry.lowHealth()) {
-            return 0xFFFFD85A;
+            return GuiConstants.COLOR_TITLE_TEXT;
         }
         String token = entry.stateToken() == null ? "" : entry.stateToken().trim().toUpperCase();
         return switch (token) {

@@ -7,7 +7,7 @@ package org.mods.gd656conquest.client.gui;
 public class GuiConstants {
     // ==================== 布局常量 ====================
     /** 所有UI元素距离屏幕边缘的统一距离 */
-    public static final int SCREEN_EDGE_DISTANCE = 18;
+    public static final int SCREEN_EDGE_DISTANCE = 8;
     public static final int HEADER_HEIGHT = 25;
     public static final int GOLD_BAR_HEIGHT = 1;
     public static final int DEFAULT_PADDING = 8;
@@ -32,6 +32,13 @@ public class GuiConstants {
     public static final int COLOR_DARK_GRAY   = 0xFF666666;
     public static final int COLOR_BG          = 0x4D444444;
     public static final int COLOR_HOVER_BORDER = 0x40808080;
+    /** 浅蓝色字幕/标题 */
+    public static final int COLOR_TITLE_TEXT  = 0xFFA0D0F0;
+    /** 浅蓝色表头文字 */
+    public static final int COLOR_HEADER_TEXT = 0xFF9BC2FF;
+    /** 浅蓝色数据文字 */
+    public static final int COLOR_DATA_TEXT   = 0xFF8FC4FF;
+
     public static final int COLOR_RED         = 0xFFFF0000;
     public static final int COLOR_GREEN       = 0xFF00FF00;
     public static final int COLOR_SKY_BLUE    = 0xFF87CEEB;

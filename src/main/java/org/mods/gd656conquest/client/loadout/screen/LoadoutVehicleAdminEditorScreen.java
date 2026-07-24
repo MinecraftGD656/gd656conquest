@@ -59,8 +59,8 @@ public class LoadoutVehicleAdminEditorScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        this.backButton = new GDButton(this.width - 86, this.height - 26, 72, 20, Component.literal("返回"), btn -> closeToParent());
-        this.refreshButton = new GDButton(this.width - 166, this.height - 26, 72, 20, Component.literal("刷新"), btn -> requestSnapshot(false));
+        this.backButton = new GDButton(this.width - 86, this.height - 28, 72, 20, Component.literal("返回"), btn -> closeToParent());
+        this.refreshButton = new GDButton(this.width - 166, this.height - 28, 72, 20, Component.literal("刷新"), btn -> requestSnapshot(false));
         this.textInputDialog = new TextInputDialog(minecraft, null, null);
         this.choiceListDialog = new ChoiceListDialog(minecraft);
         this.leftScrollState.reset();
@@ -92,12 +92,12 @@ public class LoadoutVehicleAdminEditorScreen extends Screen {
         renderPanels(guiGraphics, baseMouseX, baseMouseY, partialTick);
         if (backButton != null) {
             backButton.setX(this.width - 86);
-            backButton.setY(this.height - 26);
+            backButton.setY(this.height - 28);
             backButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         if (refreshButton != null) {
             refreshButton.setX(this.width - 166);
-            refreshButton.setY(this.height - 26);
+            refreshButton.setY(this.height - 28);
             refreshButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         if (choiceListDialog != null && choiceListDialog.isVisible()) {
@@ -122,7 +122,7 @@ public class LoadoutVehicleAdminEditorScreen extends Screen {
         int contentY1 = TOP + ROW_H + 1;
         int contentY2 = this.height - 36;
 
-        guiGraphics.drawString(this.font, "房间载具编辑器", PADDING, 6, 0xFFFFD78A, false);
+        guiGraphics.drawString(this.font, "房间载具编辑器", PADDING, 6, GuiConstants.COLOR_TITLE_TEXT, false);
         ClientVehicleAdminEditorState.RoomState selected = getSelectedRoom();
         if (selected != null) {
             guiGraphics.drawString(
@@ -141,7 +141,7 @@ public class LoadoutVehicleAdminEditorScreen extends Screen {
         leftHeader.setBounds(leftX1, TOP, leftX2, TOP + ROW_H);
         leftHeader.resetColumnConfig();
         leftHeader.addColumn("房间ID", LEFT_ID_W, 0xFF9FD3FF, true, false, null);
-        leftHeader.addColumn("房间显示名", -1, 0xFFFFE39F, true, false, null);
+        leftHeader.addColumn("房间显示名", -1, GuiConstants.COLOR_HEADER_TEXT, true, false, null);
         leftHeader.addColumn("状态", LEFT_STATE_W, 0xFFC8B6FF, true, true, null);
         leftHeader.addColumn("人数", LEFT_PLAYERS_W, 0xFFBDF5BD, false, true, null);
         leftHeader.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -154,7 +154,7 @@ public class LoadoutVehicleAdminEditorScreen extends Screen {
         rightHeader.setBounds(rightX1, TOP, rightX2, TOP + ROW_H);
         rightHeader.resetColumnConfig();
         rightHeader.addColumn("配置项", -1, 0xFF9FD3FF, true, false, null);
-        rightHeader.addColumn("值", RIGHT_VALUE_W, 0xFFFFE39F, true, false, null);
+        rightHeader.addColumn("值", RIGHT_VALUE_W, GuiConstants.COLOR_HEADER_TEXT, true, false, null);
         rightHeader.addColumn("状态", 50, 0xFFBDF5BD, false, true, null);
         rightHeader.render(guiGraphics, mouseX, mouseY, partialTick);
 
@@ -185,7 +185,7 @@ public class LoadoutVehicleAdminEditorScreen extends Screen {
             row.setBackgroundAlpha(i % 2 == 0 ? 0.18f : 0.32f);
             row.addColumn(room.roomId(), LEFT_ID_W, room.roomId().equals(selectedRoomId) ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_SKY_BLUE, true, false, btn -> selectRoom(room.roomId()));
             row.addColumn(safe(room.displayName()), -1, 0xFFEDEDED, true, false, btn -> selectRoom(room.roomId()));
-            row.addColumn(room.stateDisplayName(), LEFT_STATE_W, 0xFFFFD68A, true, true, btn -> selectRoom(room.roomId()));
+            row.addColumn(room.stateDisplayName(), LEFT_STATE_W, GuiConstants.COLOR_DATA_TEXT, true, true, btn -> selectRoom(room.roomId()));
             row.addColumn(room.currentPlayers() + "/" + room.maxPlayers(), LEFT_PLAYERS_W, 0xFFB6FFB6, false, true, null);
             row.render(guiGraphics, mouseX, (int) (mouseY + leftScrollState.scrollY()), partialTick);
         }
@@ -227,7 +227,7 @@ public class LoadoutVehicleAdminEditorScreen extends Screen {
             } else if (rowData.vehicleRow) {
                 row.setBackgroundColor((i % 2 == 0 ? 0x001A2332 : 0x00111922) & 0xFFFFFF);
                 row.setBackgroundAlpha(i % 2 == 0 ? 0.28f : 0.36f);
-                row.addColumn(rowData.leftText, -1, 0xFFFFD68A, true, false, btn -> toggleVehicle(rowData.roomVehicleKey));
+                row.addColumn(rowData.leftText, -1, GuiConstants.COLOR_DATA_TEXT, true, false, btn -> toggleVehicle(rowData.roomVehicleKey));
                 row.addColumn(rowData.middleText, RIGHT_VALUE_W, 0xFFEDEDED, true, false, btn -> toggleVehicle(rowData.roomVehicleKey));
                 row.addColumn(rowData.enabled ? "启用" : "停用", 50, rowData.enabled ? 0xFF8EF7A2 : 0xFFFF8787, false, true, null);
             } else {
@@ -424,7 +424,7 @@ public class LoadoutVehicleAdminEditorScreen extends Screen {
             return 0xFFBDF5BD;
         }
         if ("team".equalsIgnoreCase(rowData.fieldKey)) {
-            return 0xFFFFD68A;
+            return GuiConstants.COLOR_DATA_TEXT;
         }
         return rowData.editable ? 0xFFEDEDED : 0xFF7E8794;
     }

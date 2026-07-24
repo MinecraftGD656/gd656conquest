@@ -45,8 +45,8 @@ public class LoadoutAttachmentEditorScreen extends Screen {
         super.init();
         this.textInputDialog = new TextInputDialog(minecraft, null, null);
         this.confirmDialog = new ConfirmDialog(minecraft, null, null);
-        this.backButton = new GDButton(this.width - 86, this.height - 26, 72, 20, Component.literal("返回"), btn -> closeToParent());
-        this.refreshButton = new GDButton(this.width - 166, this.height - 26, 72, 20, Component.literal("刷新"), btn -> refreshFromSnapshot());
+        this.backButton = new GDButton(this.width - 86, this.height - 28, 72, 20, Component.literal("返回"), btn -> closeToParent());
+        this.refreshButton = new GDButton(this.width - 166, this.height - 28, 72, 20, Component.literal("刷新"), btn -> refreshFromSnapshot());
         this.scrollState.reset();
         refreshFromSnapshot();
     }
@@ -79,7 +79,7 @@ public class LoadoutAttachmentEditorScreen extends Screen {
         int contentHeight = entries.size() * (ROW_H + ROW_GAP);
         scrollState.update(baseMouseY, viewHeight, contentHeight);
 
-        guiGraphics.drawString(this.font, "枪械配件数据编辑器", LEFT, 6, 0xFFFFD78A, false);
+        guiGraphics.drawString(this.font, "枪械配件数据编辑器", LEFT, 6, GuiConstants.COLOR_TITLE_TEXT, false);
 
         if (headerRenderer == null) {
             headerRenderer = new GDRowRenderer(x1, TOP, x2, TOP + ROW_H, GuiConstants.COLOR_GOLD_ORANGE & 0x00FFFFFF, 0.76f, true);
@@ -88,7 +88,7 @@ public class LoadoutAttachmentEditorScreen extends Screen {
         headerRenderer.resetColumnConfig();
         headerRenderer.addColumn("", ROW_H, GuiConstants.COLOR_WHITE, true, true, null);
         headerRenderer.addColumn("配件ID", 84, 0xFF9FD3FF, false, false, null);
-        headerRenderer.addColumn("配件名称", 120, 0xFFFFE39F, true, false, null);
+        headerRenderer.addColumn("配件名称", 120, GuiConstants.COLOR_HEADER_TEXT, true, false, null);
         headerRenderer.addColumn("配件类型", 64, 0xFFC8B6FF, true, true, null);
         headerRenderer.addColumn("解锁等级", 52, 0xFFBDF5BD, false, true, null);
         headerRenderer.addColumn("未来条件", 88, 0xFFD6D9FF, true, false, null);
@@ -115,12 +115,12 @@ public class LoadoutAttachmentEditorScreen extends Screen {
 
         if (backButton != null) {
             backButton.setX(this.width - 86);
-            backButton.setY(this.height - 26);
+            backButton.setY(this.height - 28);
             backButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         if (refreshButton != null) {
             refreshButton.setX(this.width - 166);
-            refreshButton.setY(this.height - 26);
+            refreshButton.setY(this.height - 28);
             refreshButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         guiGraphics.drawString(this.font, "总数: " + entries.size(), LEFT, this.height - 20, 0xFFB8C6D6, false);
@@ -167,7 +167,7 @@ public class LoadoutAttachmentEditorScreen extends Screen {
         }
         row.addColumn(entry.id(), 84, GuiConstants.COLOR_SKY_BLUE, false, false, btn -> openFieldEditor(entry, "id", "编辑配件ID", entry.id()));
         row.addColumn(safe(entry.displayName()), 120, 0xFFEDEDED, true, false, btn -> openFieldEditor(entry, "display_name", "编辑配件名称", safe(entry.displayName())));
-        row.addColumn(safe(entry.attachmentType()), 64, 0xFFFFD68A, true, true, null);
+        row.addColumn(safe(entry.attachmentType()), 64, GuiConstants.COLOR_DATA_TEXT, true, true, null);
         row.addColumn(String.valueOf(entry.unlockLevel()), 52, 0xFFB6FFB6, false, true, btn -> openFieldEditor(entry, "unlock_level", "编辑解锁等级", String.valueOf(entry.unlockLevel())));
         row.addColumn(snbtPreview(entry.futureRequirement()), 88, 0xFFD3C7FF, true, false, btn -> openFieldEditor(entry, "future_requirement", "编辑未来扩展条件", safe(entry.futureRequirement())));
         row.addColumn(snbtPreview(entry.itemSnbt()), -1, 0xFF9FC7AF, true, false, btn -> openFieldEditor(entry, "item_snbt", "编辑物品SNBT", safe(entry.itemSnbt())));

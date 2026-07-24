@@ -20,7 +20,7 @@ public final class SupportScreen extends Screen {
     private static final int LEFT = 18;
     private static final int TOP = 38;
     private static final int RIGHT = 18;
-    private static final int BOTTOM = 34;
+    private static final int BOTTOM = 36;
     private static final int PANEL_GAP = 12;
     private static final int LEFT_WIDTH = 248;
     private static final int OVERVIEW_MIN_WIDTH = 112;
@@ -163,7 +163,7 @@ public final class SupportScreen extends Screen {
     }
 
     private void rebuildStaticButtons() {
-        int bottomY = this.height - 26;
+        int bottomY = this.height - 28;
         refreshButton = new GDButton(LEFT, bottomY, 88, BUTTON_HEIGHT, Component.literal("刷新"), btn -> requestSnapshot(true));
         closeButton = new GDButton(this.width - RIGHT - 72, bottomY, 72, BUTTON_HEIGHT, Component.literal("关闭"), btn -> closeNow());
     }
@@ -187,9 +187,9 @@ public final class SupportScreen extends Screen {
         int right = layout.overviewRight();
         int bottom = layout.overviewBottom();
         guiGraphics.fill(left, top, right, bottom, 0x4410181F);
-        guiGraphics.fill(left, top, right, top + 1, 0x66FFD78A);
+        guiGraphics.fill(left, top, right, top + 1, 0x6690B0D0);
 
-        guiGraphics.drawString(this.font, "支援概览", left + 10, top + 8, 0xFFFFD78A, false);
+        guiGraphics.drawString(this.font, "支援概览", left + 10, top + 8, GuiConstants.COLOR_TITLE_TEXT, false);
         if (snapshot == null) {
             guiGraphics.drawString(this.font, "正在等待服务器返回数据", left + 10, top + 28, 0xFFB8C6D6, false);
             guiGraphics.drawString(this.font, "界面会自动刷新", left + 10, top + 42, 0xFF8E9BA9, false);
@@ -204,7 +204,7 @@ public final class SupportScreen extends Screen {
         lineY += 16;
         drawLabelValue(guiGraphics, "当前分数", String.valueOf(snapshot.currentScore()), left + 10, lineY, valueMaxWidth, 0xFFEDEDED);
         lineY += 16;
-        drawLabelValue(guiGraphics, "已消耗", String.valueOf(snapshot.spentScore()), left + 10, lineY, valueMaxWidth, 0xFFFFB870);
+        drawLabelValue(guiGraphics, "已消耗", String.valueOf(snapshot.spentScore()), left + 10, lineY, valueMaxWidth, 0xFFA0C0E0);
         lineY += 16;
         drawLabelValue(guiGraphics, "剩余分数", String.valueOf(snapshot.remainingScore()), left + 10, lineY, valueMaxWidth, 0xFF8FF0A4);
 
@@ -271,7 +271,7 @@ public final class SupportScreen extends Screen {
         int left = layout.listLeft();
         int right = layout.listRight();
         int accentColor = entry.available()
-            ? (entry.isShelling() ? 0xFFF0B35D : 0xFF6DE08B)
+            ? (entry.isShelling() ? 0xFF90B8E0 : 0xFF6DE08B)
             : 0xFF9AA3AD;
         int backgroundColor = entry.available() ? 0x33151A20 : 0x2621262C;
         guiGraphics.fill(left, rowY, right, rowY + ROW_HEIGHT, backgroundColor);
@@ -318,7 +318,7 @@ public final class SupportScreen extends Screen {
             entry.isShelling() ? "炮" : "?",
             x + size / 2,
             y + 12,
-            entry.isShelling() ? 0xFFFFD78A : 0xFFB8C6D6
+            entry.isShelling() ? GuiConstants.COLOR_TITLE_TEXT : 0xFFB8C6D6
         );
     }
 

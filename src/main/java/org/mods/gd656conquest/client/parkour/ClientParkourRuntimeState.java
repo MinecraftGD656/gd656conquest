@@ -82,7 +82,7 @@ public final class ClientParkourRuntimeState {
         String text = formatElapsed(elapsedMillis);
         int x = (guiGraphics.guiWidth() - font.width(text)) / 2;
         int y = guiGraphics.guiHeight() - 88 - font.lineHeight;
-        guiGraphics.drawString(font, text, x, y, 0xFFFFD78A, true);
+        guiGraphics.drawString(font, text, x, y, 0xFFA0D0F0, true);
     }
 
     public static synchronized void clear() {

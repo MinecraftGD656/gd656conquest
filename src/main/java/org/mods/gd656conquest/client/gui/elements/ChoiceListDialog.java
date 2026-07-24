@@ -817,7 +817,7 @@ public class ChoiceListDialog {
             int selEndRel = minecraft.font.width(filterText.substring(0, getSelectionEnd()));
             int sx = drawX + selStartRel;
             int ex = drawX + selEndRel;
-            guiGraphics.fill(sx, drawY - 1, ex, drawY + minecraft.font.lineHeight + 1, 0x66FFD700);
+            guiGraphics.fill(sx, drawY - 1, ex, drawY + minecraft.font.lineHeight + 1, 0x6690B0D0);
         }
 
         guiGraphics.drawString(minecraft.font, filterText, drawX, drawY, GuiConstants.COLOR_WHITE, true);

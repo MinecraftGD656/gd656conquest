@@ -110,16 +110,16 @@ public class VehicleAdminEditorTabContent implements TabContent {
         int rightX1 = leftX2 + edge, rightX2 = screenWidth - edge;
         int top = contentTop + HEADER_TOP;
         int contentY1 = top + ROW_H + 1;
-        int contentY2 = screenHeight - edge - 10;
+        int contentY2 = screenHeight - edge;
 
-        guiGraphics.drawString(minecraft.font, "房间载具编辑器", edge, top - 10, 0xFFFFD78A, false);
+        guiGraphics.drawString(minecraft.font, "房间载具编辑器", edge, top - 10, GuiConstants.COLOR_TITLE_TEXT, false);
 
         if (leftHeader == null)
             leftHeader = new GDRowRenderer(leftX1, top, leftX2, top + ROW_H, GuiConstants.COLOR_GOLD_ORANGE & 0x00FFFFFF, 0.76f, true);
         leftHeader.setBounds(leftX1, top, leftX2, top + ROW_H);
         leftHeader.resetColumnConfig();
         leftHeader.addColumn("房间ID", LEFT_ID_W, 0xFF9FD3FF, true, false, null);
-        leftHeader.addColumn("房间显示名", -1, 0xFFFFE39F, true, false, null);
+        leftHeader.addColumn("房间显示名", -1, GuiConstants.COLOR_HEADER_TEXT, true, false, null);
         leftHeader.addColumn("状态", LEFT_STATE_W, 0xFFC8B6FF, true, true, null);
         leftHeader.addColumn("人数", LEFT_PLAYERS_W, 0xFFBDF5BD, false, true, null);
         leftHeader.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -130,7 +130,7 @@ public class VehicleAdminEditorTabContent implements TabContent {
         rightHeader.setBounds(rightX1, top, rightX2, top + ROW_H);
         rightHeader.resetColumnConfig();
         rightHeader.addColumn("配置项", -1, 0xFF9FD3FF, true, false, null);
-        rightHeader.addColumn("值", RIGHT_VALUE_W, 0xFFFFE39F, true, false, null);
+        rightHeader.addColumn("值", RIGHT_VALUE_W, GuiConstants.COLOR_HEADER_TEXT, true, false, null);
         rightHeader.addColumn("状态", 50, 0xFFBDF5BD, false, true, null);
         rightHeader.render(guiGraphics, mouseX, mouseY, partialTick);
         renderRightRows(guiGraphics, mouseX, mouseY, partialTick, rightX1, rightX2, contentY1, contentY2);
@@ -156,7 +156,7 @@ public class VehicleAdminEditorTabContent implements TabContent {
             row.setBackgroundAlpha(i % 2 == 0 ? 0.18f : 0.32f);
             row.addColumn(room.roomId(), LEFT_ID_W, room.roomId().equals(selectedRoomId) ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_SKY_BLUE, true, false, btn -> selectRoom(room.roomId()));
             row.addColumn(safe(room.displayName()), -1, 0xFFEDEDED, true, false, btn -> selectRoom(room.roomId()));
-            row.addColumn(room.stateDisplayName(), LEFT_STATE_W, 0xFFFFD68A, true, true, btn -> selectRoom(room.roomId()));
+            row.addColumn(room.stateDisplayName(), LEFT_STATE_W, GuiConstants.COLOR_DATA_TEXT, true, true, btn -> selectRoom(room.roomId()));
             row.addColumn(room.currentPlayers() + "/" + room.maxPlayers(), LEFT_PLAYERS_W, 0xFFB6FFB6, false, true, null);
             row.render(guiGraphics, mouseX, (int) (mouseY + leftScrollState.scrollY()), partialTick);
         }
@@ -194,7 +194,7 @@ public class VehicleAdminEditorTabContent implements TabContent {
             } else if (rowData.vehicleRow) {
                 row.setBackgroundColor((i % 2 == 0 ? 0x001A2332 : 0x00111922) & 0xFFFFFF);
                 row.setBackgroundAlpha(i % 2 == 0 ? 0.28f : 0.36f);
-                row.addColumn(rowData.leftText, -1, 0xFFFFD68A, true, false, btn -> toggleVehicle(rowData.roomVehicleKey));
+                row.addColumn(rowData.leftText, -1, GuiConstants.COLOR_DATA_TEXT, true, false, btn -> toggleVehicle(rowData.roomVehicleKey));
                 row.addColumn(rowData.middleText, RIGHT_VALUE_W, 0xFFEDEDED, true, false, btn -> toggleVehicle(rowData.roomVehicleKey));
                 row.addColumn(rowData.enabled ? "启用" : "停用", 50, rowData.enabled ? 0xFF8EF7A2 : 0xFFFF8787, false, true, null);
             } else {
@@ -222,7 +222,7 @@ public class VehicleAdminEditorTabContent implements TabContent {
         int rightX1 = leftX2 + edge, rightX2 = screenWidth - edge;
         int top = contentTop + HEADER_TOP;
         int contentY1 = top + ROW_H + 1;
-        int contentY2 = screenHeight - edge - 10;
+        int contentY2 = screenHeight - edge;
 
         if (mouseX >= leftX1 && mouseX <= leftX2 && mouseY >= contentY1 && mouseY <= contentY2) {
             double adjustedY = mouseY + leftScrollState.scrollY();
@@ -255,7 +255,7 @@ public class VehicleAdminEditorTabContent implements TabContent {
         int rightX1 = leftX2 + edge, rightX2 = screenWidth - edge;
         int top = contentTop + HEADER_TOP;
         int contentY1 = top + ROW_H + 1;
-        int contentY2 = screenHeight - edge - 10;
+        int contentY2 = screenHeight - edge;
         if (mouseX >= leftX1 && mouseX <= leftX2 && mouseY >= contentY1 && mouseY <= contentY2)
             return leftScrollState.mouseScrolled(delta, contentY2 - contentY1, roomEntries.size() * (ROW_H + ROW_GAP));
         if (mouseX >= rightX1 && mouseX <= rightX2 && mouseY >= contentY1 && mouseY <= contentY2)

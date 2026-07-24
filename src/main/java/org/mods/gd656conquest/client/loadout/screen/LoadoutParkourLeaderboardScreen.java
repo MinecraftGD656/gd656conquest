@@ -40,9 +40,9 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        this.backButton = new GDButton(this.width - 86, this.height - 26, 72, 20, Component.literal("返回"), btn -> closeToParent());
-        this.refreshButton = new GDButton(this.width - 166, this.height - 26, 72, 20, Component.literal("刷新"), btn -> requestSnapshot(true));
-        this.quickJoinButton = new GDButton(PADDING, this.height - 26, 96, 20, Component.literal("快速加入跑酷"), btn -> quickJoin());
+        this.backButton = new GDButton(this.width - 86, this.height - 28, 72, 20, Component.literal("返回"), btn -> closeToParent());
+        this.refreshButton = new GDButton(this.width - 166, this.height - 28, 72, 20, Component.literal("刷新"), btn -> requestSnapshot(true));
+        this.quickJoinButton = new GDButton(PADDING, this.height - 28, 96, 20, Component.literal("快速加入跑酷"), btn -> quickJoin());
         this.quickJoinButton.setAutoScaleTextToFit(true);
         this.quickJoinButton.setMinAutoScale(0.58F);
         this.rightScroll.reset();
@@ -66,7 +66,7 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
         int contentY1 = TOP + ROW_H + 1;
         int contentY2 = this.height - 36;
 
-        guiGraphics.drawString(this.font, "跑酷排行榜", PADDING, 6, 0xFFFFD78A, false);
+        guiGraphics.drawString(this.font, "跑酷排行榜", PADDING, 6, GuiConstants.COLOR_TITLE_TEXT, false);
 
         renderLeftPanel(guiGraphics, leftX1, leftX2, headerY, contentY1, contentY2);
         renderRightPanel(guiGraphics, mouseX, mouseY, partialTick, rightX1, rightX2, headerY, contentY1, contentY2);
@@ -76,17 +76,17 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
             boolean active = snapshot != null && snapshot.quickJoinAvailable();
             quickJoinButton.active = active;
             quickJoinButton.setTextColor(active ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY);
-            quickJoinButton.setY(this.height - 26);
+            quickJoinButton.setY(this.height - 28);
             quickJoinButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
         if (refreshButton != null) {
             refreshButton.setX(this.width - 166);
-            refreshButton.setY(this.height - 26);
+            refreshButton.setY(this.height - 28);
             refreshButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
         if (backButton != null) {
             backButton.setX(this.width - 86);
-            backButton.setY(this.height - 26);
+            backButton.setY(this.height - 28);
             backButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
     }
@@ -147,7 +147,7 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
         textY += lineGap;
         drawInfoLine(guiGraphics, x1 + 6, textY, "最佳成绩", formatTime(snapshot == null ? 0L : snapshot.bestTimeMillis()), GuiConstants.COLOR_WHITE);
         textY += lineGap;
-        drawInfoLine(guiGraphics, x1 + 6, textY, "上次成绩", formatTime(snapshot == null ? 0L : snapshot.lastTimeMillis()), 0xFFFFD78A);
+        drawInfoLine(guiGraphics, x1 + 6, textY, "上次成绩", formatTime(snapshot == null ? 0L : snapshot.lastTimeMillis()), GuiConstants.COLOR_TITLE_TEXT);
         textY += lineGap;
         drawInfoLine(guiGraphics, x1 + 6, textY, "全服纪录", snapshot == null || snapshot.recordHolderName().isBlank() ? "-" : snapshot.recordHolderName(), 0xFFEDEDED);
         textY += lineGap;
@@ -155,16 +155,16 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
         textY += lineGap;
         drawInfoLine(guiGraphics, x1 + 6, textY, "当前状态", snapshot != null && snapshot.inParkour() ? "已加入跑酷" : "未加入", snapshot != null && snapshot.inParkour() ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY);
         if (snapshot == null) {
-            guiGraphics.drawString(this.font, "正在同步排行榜...", x1 + 6, contentY2 - 16, 0xFFFFD78A, false);
+            guiGraphics.drawString(this.font, "正在同步排行榜...", x1 + 6, contentY2 - 16, GuiConstants.COLOR_TITLE_TEXT, false);
         }
     }
 
     private void renderRightPanel(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int x1, int x2, int headerY, int contentY1, int contentY2) {
         GDRowRenderer header = new GDRowRenderer(x1, headerY, x2, headerY + ROW_H, GuiConstants.COLOR_GOLD_ORANGE & 0x00FFFFFF, 0.76f, true);
         header.resetColumnConfig();
-        header.addColumn("排名", 40, 0xFFFFE39F, true, true, null);
+        header.addColumn("排名", 40, GuiConstants.COLOR_HEADER_TEXT, true, true, null);
         header.addColumn("玩家", -1, GuiConstants.COLOR_WHITE, true, false, null);
-        header.addColumn("用时", 84, 0xFFFFE39F, true, false, null);
+        header.addColumn("用时", 84, GuiConstants.COLOR_HEADER_TEXT, true, false, null);
         header.render(guiGraphics, mouseX, mouseY, partialTick);
 
         ClientParkourLeaderboardState.Snapshot snapshot = ClientParkourLeaderboardState.snapshot();
@@ -254,7 +254,7 @@ public class LoadoutParkourLeaderboardScreen extends Screen {
         return switch (rank) {
             case 1 -> 0xFFFF4A4A;
             case 2 -> 0xFFFF9A3D;
-            case 3 -> 0xFFFFD84D;
+            case 3 -> GuiConstants.COLOR_TITLE_TEXT;
             default -> 0xFF5DA8FF;
         };
     }

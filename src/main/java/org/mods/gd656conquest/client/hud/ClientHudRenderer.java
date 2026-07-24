@@ -74,7 +74,7 @@ public final class ClientHudRenderer {
         List<String> lines = ClientAudioManager.getInstance().snapshotDebugLines();
         int right = gui.guiWidth() - 8;
         int y = 8;
-        drawDebugLine(gui, font, "音频调试", right, y, 0xFFE7C75A);
+        drawDebugLine(gui, font, "音频调试", right, y, 0xFFA0D0F0);
         y += 10;
         if (lines.isEmpty()) {
             drawDebugLine(gui, font, "(当前无音频播放)", right, y, 0xFF9A9A9A);
@@ -321,7 +321,7 @@ public final class ClientHudRenderer {
         int themePrimary = selfCampB ? 0xFFFF4A4A : 0xFF4A96FF;
         int themeText = selfCampB ? 0xFFFF9B9B : 0xFF9BC2FF;
         String timeText = burnBoats ? "01:00" : backToWall ? "03:00" : "07:28";
-        int timeColor = burnBoats ? 0xFFFF5555 : backToWall ? 0xFFFFD85A : 0xFFFFFFFF;
+        int timeColor = burnBoats ? 0xFFFF5555 : backToWall ? 0xFFA0D0F0 : 0xFFFFFFFF;
         String leftText = attackTroops < 0 ? "∞" : String.valueOf(attackTroops);
         String rightText = "阶段" + stageLetter(stageIndex);
         int timeWidth = font.width(timeText);
@@ -453,7 +453,7 @@ public final class ClientHudRenderer {
             return 0xFFFF5555;
         }
         if ("背水一战".equals(text)) {
-            return 0xFFFFD85A;
+            return 0xFFA0D0F0;
         }
         return 0xFFFFFFFF;
     }

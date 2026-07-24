@@ -347,7 +347,7 @@ public class LoadoutConfigScreen extends Screen {
     }
 
     private int getRightContentViewportBottom() {
-        return this.height - 16;
+        return this.height - GuiConstants.SCREEN_EDGE_DISTANCE;
     }
 
     private int getRightContentHeight() {
@@ -436,7 +436,7 @@ public class LoadoutConfigScreen extends Screen {
         guiGraphics.fill(left, topY, right, bottom, 0x4410181F);
         guiGraphics.fill(left, topY, right, topY + 1, 0x66FFD78A);
         String title = slot == CustomLoadoutSlot.PRIMARY_WEAPON ? "主武器配件" : "副武器配件";
-        guiGraphics.drawString(this.font, title, left + 8, topY + 6, 0xFFFFD78A, false);
+        guiGraphics.drawString(this.font, title, left + 8, topY + 6, GuiConstants.COLOR_TITLE_TEXT, false);
         ClientLoadoutUiState.WeaponAttachmentPanelState panel = getAttachmentPanel(slot);
         if (panel == null || !panel.available()) {
             drawClampedString(guiGraphics, "当前未选择武器，请先在左侧选择 " + (slot == CustomLoadoutSlot.PRIMARY_WEAPON ? "主武器" : "副武器"), left + 8, topY + 20, 0xFF9AA6B8, getCardInnerWidth());
@@ -1092,7 +1092,7 @@ public class LoadoutConfigScreen extends Screen {
         final int left = LEFT;
         final int right = this.width - RIGHT;
         final int listTop = contentTop + 24;
-        final int listBottom = this.height - 16;
+        final int listBottom = this.height - GuiConstants.SCREEN_EDGE_DISTANCE;
 
         // Back button
         if (vehicleBackButton == null)
@@ -1155,14 +1155,14 @@ public class LoadoutConfigScreen extends Screen {
             String healthText = entry.healthCurrent() > 0 && entry.healthMax() > 0
                 ? "耐久 " + entry.healthCurrent() + "/" + entry.healthMax() + "  (" + entry.healthPercent() + "%)"
                 : "耐久 " + entry.healthPercent() + "%";
-            guiGraphics.drawString(this.font, healthText, right - VEHICLE_BUTTON_W - 132, rowY + 8, entry.lowHealth() ? 0xFFFFD85A : 0xFF9FD3A9, false);
+            guiGraphics.drawString(this.font, healthText, right - VEHICLE_BUTTON_W - 132, rowY + 8, entry.lowHealth() ? GuiConstants.COLOR_TITLE_TEXT : 0xFF9FD3A9, false);
         }
         if (entry.seatCount() > 0)
             guiGraphics.drawString(this.font, "席位 " + entry.occupiedSeatCount() + "/" + entry.seatCount(), right - VEHICLE_BUTTON_W - 132, rowY + 22, 0xFF8CC4FF, false);
         else if (entry.occupiedSeatCount() > 0)
             guiGraphics.drawString(this.font, "乘员 " + entry.occupiedSeatCount(), right - VEHICLE_BUTTON_W - 132, rowY + 22, 0xFF8CC4FF, false);
         else if (resolveVehicleDeployRemainSeconds(entry) > 0)
-            guiGraphics.drawString(this.font, "倒计时 " + resolveVehicleDeployRemainSeconds(entry) + "秒", right - VEHICLE_BUTTON_W - 132, rowY + 22, 0xFFFFD85A, false);
+            guiGraphics.drawString(this.font, "倒计时 " + resolveVehicleDeployRemainSeconds(entry) + "秒", right - VEHICLE_BUTTON_W - 132, rowY + 22, GuiConstants.COLOR_TITLE_TEXT, false);
     }
 
     private void tickVehicleDeployPage() {
@@ -1217,7 +1217,7 @@ public class LoadoutConfigScreen extends Screen {
             if (vehicleBackButton != null && vehicleBackButton.mouseClicked(mouseX, mouseY, button)) return true;
             for (GDButton b : vehicleDeployButtons.values()) if (b.mouseClicked(mouseX, mouseY, button)) return true;
             final int left = LEFT, right = this.width - RIGHT;
-            final int listTop = getContentTop() + 4, listBottom = this.height - 16;
+            final int listTop = getContentTop() + 4, listBottom = this.height - GuiConstants.SCREEN_EDGE_DISTANCE;
             if (mouseX >= left && mouseX <= right && mouseY >= listTop && mouseY <= listBottom) {
                 vehicleDeployScroll.startDragging(mouseX, mouseY, left, listTop, right, listBottom,
                         sortedVehicleEntries().size() * (VEHICLE_ROW_HEIGHT + VEHICLE_ROW_GAP));
@@ -1229,7 +1229,7 @@ public class LoadoutConfigScreen extends Screen {
 
     private boolean mouseScrolledVehicleDeployPage(double mouseX, double mouseY, double delta) {
         final int left = LEFT, right = this.width - RIGHT;
-        final int listTop = getContentTop() + 4, listBottom = this.height - 16;
+        final int listTop = getContentTop() + 4, listBottom = this.height - GuiConstants.SCREEN_EDGE_DISTANCE;
         if (mouseX >= left && mouseX <= right && mouseY >= listTop && mouseY <= listBottom)
             return vehicleDeployScroll.mouseScrolled(delta, listBottom - listTop, sortedVehicleEntries().size() * (VEHICLE_ROW_HEIGHT + VEHICLE_ROW_GAP));
         return false;
@@ -1264,7 +1264,7 @@ public class LoadoutConfigScreen extends Screen {
     private int resolveVehicleStateColor(ClientLoadoutUiState.VehicleEntryState e) {
         if (e == null) return 0xFFFFFFFF;
         if (isVehicleWaitingDeploy(e)) return 0xFF9AA3AD;
-        if (e.lowHealth()) return 0xFFFFD85A;
+        if (e.lowHealth()) return GuiConstants.COLOR_TITLE_TEXT;
         return switch (safe(e.stateToken()).toUpperCase()) {
             case "EMPTY" -> 0xFFD0D0D0;
             case "SQUAD" -> 0xFF6DE08B;

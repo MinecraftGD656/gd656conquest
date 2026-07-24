@@ -69,12 +69,12 @@ public class ItemEditorTabContent implements ConfigScreenHeader.TabContent {
         int x1 = LEFT;
         int y1 = top + ROW_H + 1;
         int x2 = screenWidth - LEFT;
-        int y2 = screenHeight - 20;
+        int y2 = screenHeight - 17;
         int viewH = Math.max(1, y2 - y1);
         int contentHeight = entries.size() * (ROW_H + ROW_GAP);
         scrollState.update(baseMouseY, viewH, contentHeight);
 
-        guiGraphics.drawString(minecraft.font, "装备数据编辑器", LEFT, top - 10, 0xFFFFD78A, false);
+        guiGraphics.drawString(minecraft.font, "装备数据编辑器", LEFT, top - 10, GuiConstants.COLOR_TITLE_TEXT, false);
 
         if (headerRenderer == null) {
             headerRenderer = new GDRowRenderer(x1, top, x2, top + ROW_H,
@@ -84,10 +84,10 @@ public class ItemEditorTabContent implements ConfigScreenHeader.TabContent {
         headerRenderer.resetColumnConfig();
         headerRenderer.addColumn("", ROW_H, GuiConstants.COLOR_WHITE, true, true, null);
         headerRenderer.addColumn("物品ID", 72, 0xFF9FD3FF, false, false, null);
-        headerRenderer.addColumn("物品显示名称", -1, 0xFFFFE39F, true, false, null);
+        headerRenderer.addColumn("物品显示名称", -1, GuiConstants.COLOR_HEADER_TEXT, true, false, null);
         headerRenderer.addColumn("物品槽位", 42, 0xFFC8B6FF, true, true, null);
         headerRenderer.addColumn("解锁等级", 42, 0xFFBDF5BD, false, true, null);
-        headerRenderer.addColumn("可用兵种", 42, 0xFFFFB6DE, true, true, null);
+        headerRenderer.addColumn("可用兵种", 42, GuiConstants.COLOR_HEADER_TEXT, true, true, null);
         headerRenderer.addColumn("附加数据", 42, 0xFFD6D9FF, false, true, null);
         headerRenderer.addColumn("补全秒", 42, 0xFFC8F5C8, true, true, null);
         headerRenderer.addColumn("弹药补给", 52, 0xFFB8D8FF, false, true, null);
@@ -111,7 +111,7 @@ public class ItemEditorTabContent implements ConfigScreenHeader.TabContent {
         guiGraphics.disableScissor();
         scrollState.renderScrollbar(guiGraphics, x1, y1, x2, y2, contentHeight);
 
-        guiGraphics.drawString(minecraft.font, "总数: " + entries.size(), LEFT, screenHeight - 20, 0xFFB8C6D6, false);
+        guiGraphics.drawString(minecraft.font, "总数: " + entries.size(), LEFT, screenHeight - 17, 0xFFB8C6D6, false);
 
         if (textInputDialog != null && textInputDialog.isVisible()) {
             textInputDialog.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -154,11 +154,11 @@ public class ItemEditorTabContent implements ConfigScreenHeader.TabContent {
                 btn -> openFieldEditor(entry, "id", "编辑ID", entry.id()));
         row.addColumn(safe(entry.displayName()), -1, 0xFFEDEDED, true, false,
                 btn -> openFieldEditor(entry, "display_name", "编辑显示名", safe(entry.displayName())));
-        row.addColumn(String.valueOf(entry.slot()), 42, 0xFFFFD68A, true, true,
+        row.addColumn(String.valueOf(entry.slot()), 42, GuiConstants.COLOR_DATA_TEXT, true, true,
                 btn -> openFieldEditor(entry, "slot", "编辑槽位(1~6)", String.valueOf(entry.slot())));
         row.addColumn(String.valueOf(entry.unlockLevel()), 42, 0xFFB6FFB6, false, true,
                 btn -> openFieldEditor(entry, "unlock_level", "编辑解锁等级", String.valueOf(entry.unlockLevel())));
-        row.addColumn(String.valueOf(entry.availableClasses()), 42, 0xFFFFB6DE, true, true,
+        row.addColumn(String.valueOf(entry.availableClasses()), 42, GuiConstants.COLOR_HEADER_TEXT, true, true,
                 btn -> openFieldEditor(entry, "available_classes", "编辑可用兵种数字", String.valueOf(entry.availableClasses())));
         row.addColumn(String.valueOf(entry.extraData()), 42, 0xFFD3C7FF, false, true,
                 btn -> openFieldEditor(entry, "extra_data", "编辑额外数据", String.valueOf(entry.extraData())));
@@ -228,7 +228,7 @@ public class ItemEditorTabContent implements ConfigScreenHeader.TabContent {
         int x1 = LEFT;
         int y1 = top + ROW_H + 1;
         int x2 = screenWidth - LEFT;
-        int y2 = screenHeight - 20;
+        int y2 = screenHeight - 17;
         if (mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2) {
             double adjustedY = mouseY + scrollState.scrollY();
             for (int i = 0; i < entries.size(); i++) {
@@ -258,7 +258,7 @@ public class ItemEditorTabContent implements ConfigScreenHeader.TabContent {
         int x1 = LEFT;
         int y1 = top + ROW_H + 1;
         int x2 = screenWidth - LEFT;
-        int y2 = screenHeight - 20;
+        int y2 = screenHeight - 17;
         if (mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2) {
             return scrollState.mouseScrolled(delta, y2 - y1, entries.size() * (ROW_H + ROW_GAP));
         }

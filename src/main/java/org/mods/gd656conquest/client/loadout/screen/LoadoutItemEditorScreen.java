@@ -46,8 +46,8 @@ public class LoadoutItemEditorScreen extends Screen {
         super.init();
         this.textInputDialog = new TextInputDialog(minecraft, null, null);
         this.confirmDialog = new ConfirmDialog(minecraft, null, null);
-        this.backButton = new GDButton(this.width - 86, this.height - 26, 72, 20, Component.literal("返回"), btn -> closeToParent());
-        this.refreshButton = new GDButton(this.width - 166, this.height - 26, 72, 20, Component.literal("刷新"), btn -> refreshFromSnapshot());
+        this.backButton = new GDButton(this.width - 86, this.height - 28, 72, 20, Component.literal("返回"), btn -> closeToParent());
+        this.refreshButton = new GDButton(this.width - 166, this.height - 28, 72, 20, Component.literal("刷新"), btn -> refreshFromSnapshot());
         this.scrollState.reset();
         refreshFromSnapshot();
     }
@@ -80,7 +80,7 @@ public class LoadoutItemEditorScreen extends Screen {
         int contentHeight = entries.size() * (ROW_H + ROW_GAP);
         scrollState.update(baseMouseY, viewH, contentHeight);
 
-        guiGraphics.drawString(this.font, "装备数据编辑器", LEFT, 6, 0xFFFFD78A, false);
+        guiGraphics.drawString(this.font, "装备数据编辑器", LEFT, 6, GuiConstants.COLOR_TITLE_TEXT, false);
 
         if (headerRenderer == null) {
             headerRenderer = new GDRowRenderer(x1, TOP, x2, TOP + ROW_H, GuiConstants.COLOR_GOLD_ORANGE & 0x00FFFFFF, 0.76f, true);
@@ -89,10 +89,10 @@ public class LoadoutItemEditorScreen extends Screen {
         headerRenderer.resetColumnConfig();
         headerRenderer.addColumn("", ROW_H, GuiConstants.COLOR_WHITE, true, true, null);
         headerRenderer.addColumn("物品ID", 72, 0xFF9FD3FF, false, false, null);
-        headerRenderer.addColumn("物品显示名称", -1, 0xFFFFE39F, true, false, null);
+        headerRenderer.addColumn("物品显示名称", -1, GuiConstants.COLOR_HEADER_TEXT, true, false, null);
         headerRenderer.addColumn("物品槽位", 42, 0xFFC8B6FF, true, true, null);
         headerRenderer.addColumn("解锁等级", 42, 0xFFBDF5BD, false, true, null);
-        headerRenderer.addColumn("可用兵种", 42, 0xFFFFB6DE, true, true, null);
+        headerRenderer.addColumn("可用兵种", 42, GuiConstants.COLOR_HEADER_TEXT, true, true, null);
         headerRenderer.addColumn("附加数据", 42, 0xFFD6D9FF, false, true, null);
         headerRenderer.addColumn("补全秒", 42, 0xFFC8F5C8, true, true, null);
         headerRenderer.addColumn("弹药补给", 52, 0xFFB8D8FF, false, true, null);
@@ -119,12 +119,12 @@ public class LoadoutItemEditorScreen extends Screen {
 
         if (backButton != null) {
             backButton.setX(this.width - 86);
-            backButton.setY(this.height - 26);
+            backButton.setY(this.height - 28);
             backButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         if (refreshButton != null) {
             refreshButton.setX(this.width - 166);
-            refreshButton.setY(this.height - 26);
+            refreshButton.setY(this.height - 28);
             refreshButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
         guiGraphics.drawString(this.font, "总数: " + entries.size(), LEFT, this.height - 20, 0xFFB8C6D6, false);
@@ -171,9 +171,9 @@ public class LoadoutItemEditorScreen extends Screen {
         }
         row.addColumn(entry.id(), 72, GuiConstants.COLOR_SKY_BLUE, false, false, btn -> openFieldEditor(entry, "id", "编辑ID", entry.id()));
         row.addColumn(safe(entry.displayName()), -1, 0xFFEDEDED, true, false, btn -> openFieldEditor(entry, "display_name", "编辑显示名", safe(entry.displayName())));
-        row.addColumn(String.valueOf(entry.slot()), 42, 0xFFFFD68A, true, true, btn -> openFieldEditor(entry, "slot", "编辑槽位(1~6)", String.valueOf(entry.slot())));
+        row.addColumn(String.valueOf(entry.slot()), 42, GuiConstants.COLOR_DATA_TEXT, true, true, btn -> openFieldEditor(entry, "slot", "编辑槽位(1~6)", String.valueOf(entry.slot())));
         row.addColumn(String.valueOf(entry.unlockLevel()), 42, 0xFFB6FFB6, false, true, btn -> openFieldEditor(entry, "unlock_level", "编辑解锁等级", String.valueOf(entry.unlockLevel())));
-        row.addColumn(String.valueOf(entry.availableClasses()), 42, 0xFFFFB6DE, true, true, btn -> openFieldEditor(entry, "available_classes", "编辑可用兵种数字", String.valueOf(entry.availableClasses())));
+        row.addColumn(String.valueOf(entry.availableClasses()), 42, GuiConstants.COLOR_HEADER_TEXT, true, true, btn -> openFieldEditor(entry, "available_classes", "编辑可用兵种数字", String.valueOf(entry.availableClasses())));
         row.addColumn(String.valueOf(entry.extraData()), 42, 0xFFD3C7FF, false, true, btn -> openFieldEditor(entry, "extra_data", "编辑额外数据", String.valueOf(entry.extraData())));
         row.addColumn(String.valueOf(entry.replenishSeconds()), 42, 0xFFB6FFB6, true, true, btn -> openFieldEditor(entry, "replenish_seconds", "编辑自动补全秒数(0关闭)", String.valueOf(entry.replenishSeconds())));
         row.addColumn(entry.ammoBoxRefillEnabled() ? "true" : "false", 52, 0xFFB8D8FF, false, true, btn -> openFieldEditor(entry, "ammo_box_refill_enabled", "是否允许弹药箱补给(true/false)", String.valueOf(entry.ammoBoxRefillEnabled())));

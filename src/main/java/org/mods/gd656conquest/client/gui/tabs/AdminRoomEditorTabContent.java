@@ -122,9 +122,9 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
         int rightX1 = leftX2 + PADDING;
         int rightX2 = screenWidth - PADDING;
         int contentY1 = top + ROW_H + 1;
-        int contentY2 = screenHeight - 30;
+        int contentY2 = screenHeight - PADDING;
 
-        guiGraphics.drawString(minecraft.font, "房间数据编辑器", PADDING, top - 10, 0xFFFFD78A, false);
+        guiGraphics.drawString(minecraft.font, "房间数据编辑器", PADDING, top - 10, GuiConstants.COLOR_TITLE_TEXT, false);
         ClientRoomEditorState.RoomState selected = getSelectedRoom();
         if (selected != null && selected.hasMissingRequirements()) {
             guiGraphics.drawString(minecraft.font, "存在必填未配置项: " + selected.missingSummaryCount(),
@@ -137,7 +137,7 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
         leftHeader.setBounds(leftX1, top, leftX2, top + ROW_H);
         leftHeader.resetColumnConfig();
         leftHeader.addColumn("房间ID", LEFT_ID_W, 0xFF9FD3FF, true, false, null);
-        leftHeader.addColumn("房间显示名", -1, 0xFFFFE39F, true, false, null);
+        leftHeader.addColumn("房间显示名", -1, GuiConstants.COLOR_HEADER_TEXT, true, false, null);
         leftHeader.addColumn("状态", LEFT_STATE_W, 0xFFC8B6FF, true, true, null);
         leftHeader.addColumn("人数", LEFT_PLAYERS_W, 0xFFBDF5BD, false, true, null);
         leftHeader.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -150,7 +150,7 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
         rightHeader.resetColumnConfig();
         boolean hasMissing = selected != null && selected.hasMissingRequirements();
         rightHeader.addColumn("配置项", -1, 0xFF9FD3FF, true, false, null);
-        rightHeader.addColumn("值", RIGHT_VALUE_W, 0xFFFFE39F, true, false, null);
+        rightHeader.addColumn("值", RIGHT_VALUE_W, GuiConstants.COLOR_HEADER_TEXT, true, false, null);
         rightHeader.addColumn(hasMissing ? "缺失" : "已配置", 50,
                 hasMissing ? 0xFFFF8787 : 0xFFBDF5BD, false, true, null);
         rightHeader.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -182,7 +182,7 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
                     true, false, btn -> selectRoom(room.roomId()));
             row.addColumn(safe(room.displayName()), -1, 0xFFEDEDED, true, false,
                     btn -> openRoomDisplayNameEditor(room));
-            row.addColumn(room.stateDisplayName(), LEFT_STATE_W, 0xFFFFD68A, true, true,
+            row.addColumn(room.stateDisplayName(), LEFT_STATE_W, GuiConstants.COLOR_DATA_TEXT, true, true,
                     btn -> openRoomStateChoice(room));
             row.addColumn(room.currentPlayers() + "/" + room.maxPlayers(), LEFT_PLAYERS_W, 0xFFB6FFB6, false, true, null);
             row.render(guiGraphics, mouseX, (int) (mouseY + leftScrollState.scrollY()), partialTick);
@@ -660,16 +660,16 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
     private int resolveTypeColor(RightRow rowData) {
         if (rowData == null) return 0xFF9FD3FF;
         if (!rowData.applicable) return 0xFF7E8794;
-        if (rowData.highlighted) return 0xFFFFD68A;
+        if (rowData.highlighted) return GuiConstants.COLOR_DATA_TEXT;
         if (rowData.groupParent || rowData.groupChild) return 0xFF8FD7A8;
         if ("BOOLEAN".equalsIgnoreCase(rowData.valueType)) return 0xFF9FD3FF;
         if ("NUMBER".equalsIgnoreCase(rowData.valueType)) return 0xFFBDF5BD;
-        if ("POSITION".equalsIgnoreCase(rowData.valueType) || "VIEW_POSITION".equalsIgnoreCase(rowData.valueType)) return 0xFFFFD68A;
-        if (!rowData.suggestionValues.isEmpty() || "room.state".equalsIgnoreCase(rowData.keyPath)) return 0xFFFFD68A;
+        if ("POSITION".equalsIgnoreCase(rowData.valueType) || "VIEW_POSITION".equalsIgnoreCase(rowData.valueType)) return GuiConstants.COLOR_DATA_TEXT;
+        if (!rowData.suggestionValues.isEmpty() || "room.state".equalsIgnoreCase(rowData.keyPath)) return GuiConstants.COLOR_DATA_TEXT;
         String v = rowData.rawValue == null ? "" : rowData.rawValue.trim();
         if ("POSITION_GROUP".equalsIgnoreCase(rowData.valueType) || "DATA_GROUP".equalsIgnoreCase(rowData.valueType) || isJsonGroup(v))
             return 0xFF8FD7A8;
-        return rowData.required ? 0xFFFFB6B6 : 0xFFEDEDED;
+        return rowData.required ? 0xFFB0C0F0 : 0xFFEDEDED;
     }
 
     // ---------- Event handlers ----------
@@ -690,7 +690,7 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
             int split = (screenWidth - PADDING * 3) / 2;
             int lx1 = PADDING, lx2 = lx1 + split;
             int rx1 = lx2 + PADDING, rx2 = screenWidth - PADDING;
-            int cy1 = top + ROW_H + 1, cy2 = screenHeight - 30;
+            int cy1 = top + ROW_H + 1, cy2 = screenHeight - PADDING;
             if (mouseX >= lx1 && mouseX <= lx2 && mouseY >= cy1 && mouseY <= cy2) {
                 for (int i = 0; i < leftRows.size() && i < roomEntries.size(); i++) {
                     int rt = cy1 + i * (ROW_H + ROW_GAP), rb = rt + ROW_H;
@@ -729,7 +729,7 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
         int split = (screenWidth - PADDING * 3) / 2;
         int lx1 = PADDING, lx2 = lx1 + split;
         int rx1 = lx2 + PADDING, rx2 = screenWidth - PADDING;
-        int cy1 = top + ROW_H + 1, cy2 = screenHeight - 30;
+        int cy1 = top + ROW_H + 1, cy2 = screenHeight - PADDING;
         if (mouseX >= lx1 && mouseX <= lx2 && mouseY >= cy1 && mouseY <= cy2)
             return leftScrollState.mouseScrolled(delta, cy2 - cy1, roomEntries.size() * (ROW_H + ROW_GAP));
         if (mouseX >= rx1 && mouseX <= rx2 && mouseY >= cy1 && mouseY <= cy2)
