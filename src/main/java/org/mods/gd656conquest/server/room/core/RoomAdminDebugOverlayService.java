@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class RoomAdminDebugOverlayService {
+    private static final int MAX_PAYLOAD_BYTES = 32767;
     private final RoomRuntimeRepository<RoomRuntimeState> runtimeRepository;
     private final RoomDefinitionRepository roomDefinitionRepository;
 
@@ -83,7 +84,16 @@ public final class RoomAdminDebugOverlayService {
             appendCaptureSpawnGroups(builder, roomId, room.configuredObjectivePoints(), captureState, false, null);
         }
         appendBoundaryPoints(builder, room);
-        return builder.length() == 0 ? "-" : builder.toString();
+        String payload = builder.length() == 0 ? "-" : builder.toString();
+        if (!"-".equals(payload) && payload.length() > MAX_PAYLOAD_BYTES) {
+            int lastValidSemi = payload.lastIndexOf(';', MAX_PAYLOAD_BYTES);
+            if (lastValidSemi > 0) {
+                payload = payload.substring(0, lastValidSemi);
+            } else {
+                payload = payload.substring(0, MAX_PAYLOAD_BYTES);
+            }
+        }
+        return payload;
     }
 
     private RoomObjectiveRuntimeView resolveCaptureState(RoomRuntimeState runtimeState) {

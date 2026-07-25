@@ -62,14 +62,22 @@ public final class LoadoutUiService {
     }
 
     public static void sendSnapshot(ServerPlayer player, boolean openPanel) {
-        sendSnapshot(player, openPanel, false);
+        sendSnapshot(player, openPanel, false, 0);
+    }
+
+    public static void sendSnapshot(ServerPlayer player, boolean openPanel, int targetTabIndex) {
+        sendSnapshot(player, openPanel, false, targetTabIndex);
     }
 
     public static void sendSnapshot(ServerPlayer player, boolean openPanel, boolean forceSend) {
+        sendSnapshot(player, openPanel, forceSend, 0);
+    }
+
+    public static void sendSnapshot(ServerPlayer player, boolean openPanel, boolean forceSend, int targetTabIndex) {
         if (player == null || player.server == null) {
             return;
         }
-        NetworkManager.sendToPlayer(player, buildSnapshot(player, openPanel));
+        NetworkManager.sendToPlayer(player, buildSnapshot(player, openPanel, targetTabIndex));
     }
 
     public static void handleAction(ServerPlayer player, String action, String classKey, int slotIndex, String itemId) {
@@ -1226,7 +1234,7 @@ public final class LoadoutUiService {
         return true;
     }
 
-    private static LoadoutUiOpenPacket buildSnapshot(ServerPlayer player, boolean openPanel) {
+    private static LoadoutUiOpenPacket buildSnapshot(ServerPlayer player, boolean openPanel, int targetTabIndex) {
         ConquestDataManager dataManager = ConquestDataManager.of(player.server);
         EquipmentDataModel equipmentData = dataManager.equipmentData().getData();
         WeaponAttachmentDataModel attachmentData = dataManager.weaponAttachments().getData();
@@ -1381,6 +1389,7 @@ public final class LoadoutUiService {
             playerTitleText,
             currentClass.getKey(),
             openPanel,
+            targetTabIndex,
             isAdmin,
             vehiclePageSnapshot.available(),
             classes,

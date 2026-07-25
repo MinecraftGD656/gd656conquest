@@ -1337,7 +1337,9 @@ public final class RoomCommands {
             merged.get(0), merged.get(1), merged.get(2),
             merged.get(3), merged.get(4), merged.get(5),
             common.campAEquipmentSetId(),
-            common.campBEquipmentSetId()
+            common.campBEquipmentSetId(),
+            common.mapName(),
+            common.roomDescription()
         );
 
         RoomDefinition updated = new RoomDefinition(

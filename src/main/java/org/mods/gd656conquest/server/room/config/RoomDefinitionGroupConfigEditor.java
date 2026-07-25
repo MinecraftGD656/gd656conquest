@@ -233,7 +233,9 @@ public final class RoomDefinitionGroupConfigEditor {
             "campbgadget2ids".equals(canonical) ? updatedValues : common.campBGadget2Ids(),
             "campbthrowableids".equals(canonical) ? updatedValues : common.campBThrowableIds(),
             common.campAEquipmentSetId(),
-            common.campBEquipmentSetId()
+            common.campBEquipmentSetId(),
+            common.mapName(),
+            common.roomDescription()
         );
         return new RoomDefinition(
             definition.roomId(),

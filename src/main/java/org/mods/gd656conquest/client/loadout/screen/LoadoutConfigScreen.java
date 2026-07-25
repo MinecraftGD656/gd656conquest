@@ -17,6 +17,7 @@ import org.mods.gd656conquest.client.gui.tabs.AdminRoomEditorTabContent;
 import org.mods.gd656conquest.client.gui.tabs.AttachmentEditorTabContent;
 import org.mods.gd656conquest.client.gui.tabs.ItemEditorTabContent;
 import org.mods.gd656conquest.client.gui.tabs.ParkourTabContent;
+import org.mods.gd656conquest.client.gui.tabs.RoomSelectionTabContent;
 import org.mods.gd656conquest.client.gui.tabs.VehicleAdminEditorTabContent;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.client.room.ClientRoomLockState;
@@ -67,6 +68,7 @@ public class LoadoutConfigScreen extends Screen {
     private static final List<String> ATTACHMENT_TYPE_ORDER = List.of("scope", "muzzle", "stock", "grip", "laser", "extended_mag");
 
     private final Screen parent;
+    private final int targetTabIndex;
     private ConfigScreenHeader header;
 
     private ChoiceListDialog choiceDialog;
@@ -85,6 +87,7 @@ public class LoadoutConfigScreen extends Screen {
     private boolean weaponPropertyPanelVisible;
 
     // Admin tab content
+    private RoomSelectionTabContent roomSelectionTab;
     private VehicleAdminEditorTabContent vehicleEditorTab;
     private AdminRoomEditorTabContent roomEditorTab;
     private AttachmentEditorTabContent attachmentEditorTab;
@@ -99,8 +102,13 @@ public class LoadoutConfigScreen extends Screen {
     private boolean awaitingSuccessfulDeployClose;
 
     public LoadoutConfigScreen(Screen parent) {
+        this(parent, 0);
+    }
+
+    public LoadoutConfigScreen(Screen parent, int targetTabIndex) {
         super(Component.translatable("gd656conquest.client.gui.loadout.title"));
         this.parent = parent;
+        this.targetTabIndex = targetTabIndex;
     }
 
     @Override
@@ -118,6 +126,8 @@ public class LoadoutConfigScreen extends Screen {
         // Create header and tabs
         header = new ConfigScreenHeader();
         header.addTab(new HomeTab());
+        roomSelectionTab = new RoomSelectionTabContent(minecraft);
+        header.addTab(roomSelectionTab);
         if (isAdmin()) {
             initAdminTabs();
             header.addTab(vehicleEditorTab);
@@ -126,6 +136,10 @@ public class LoadoutConfigScreen extends Screen {
             header.addTab(itemEditorTab);
         }
         header.addTab(getOrCreateParkourTab());
+
+        if (targetTabIndex > 0 && targetTabIndex < header.getTabCount()) {
+            header.setSelectedTab(targetTabIndex);
+        }
 
         rebuildButtons();
         if (!isOutOfGame()) {
@@ -215,16 +229,17 @@ public class LoadoutConfigScreen extends Screen {
         }
         requestSnapshotIfNeeded();
 
-        // Tick admin tabs
+        // Tick tabs
         int tabIdx = header != null ? header.getSelectedTabIndex() : 0;
+        if (tabIdx == 1 && roomSelectionTab != null) roomSelectionTab.tick();
         if (isAdmin()) {
-            // Tab 1: 房间载具, Tab 2: 房间数据, Tab 3: 配件数据, Tab 4: 物品数据
-            if (tabIdx == 1 && vehicleEditorTab != null) vehicleEditorTab.tick();
-            else if (tabIdx == 2 && roomEditorTab != null) roomEditorTab.tick();
-            else if (tabIdx == 3 && attachmentEditorTab != null) attachmentEditorTab.tick();
-            else if (tabIdx == 4 && itemEditorTab != null) itemEditorTab.tick();
+            // Tab 2: 房间载具, Tab 3: 房间数据, Tab 4: 配件数据, Tab 5: 物品数据
+            if (tabIdx == 2 && vehicleEditorTab != null) vehicleEditorTab.tick();
+            else if (tabIdx == 3 && roomEditorTab != null) roomEditorTab.tick();
+            else if (tabIdx == 4 && attachmentEditorTab != null) attachmentEditorTab.tick();
+            else if (tabIdx == 5 && itemEditorTab != null) itemEditorTab.tick();
         }
-        int parkourIdx = isAdmin() ? 5 : 1;
+        int parkourIdx = isAdmin() ? 6 : 2;
         if (tabIdx == parkourIdx && parkourTab != null) parkourTab.tick();
 
         // Tick vehicle deploy inline page
@@ -258,12 +273,14 @@ public class LoadoutConfigScreen extends Screen {
         // Render active tab content
         if (activeTab == 0) {
             renderHomeTab(guiGraphics, mouseX, mouseY, partialTick);
+        } else if (activeTab == 1 && roomSelectionTab != null) {
+            roomSelectionTab.render(guiGraphics, mouseX, mouseY, partialTick, this.width, this.height, contentTop);
         } else if (isAdmin()) {
             ConfigScreenHeader.TabContent content = getAdminTabContent(activeTab);
             if (content != null)
                 content.render(guiGraphics, mouseX, mouseY, partialTick, this.width, this.height, contentTop);
         }
-        int parkourIdx = isAdmin() ? 5 : 1;
+        int parkourIdx = isAdmin() ? 6 : 2;
         if (activeTab == parkourIdx && parkourTab != null) {
             parkourTab.render(guiGraphics, mouseX, mouseY, partialTick, this.width, this.height, contentTop);
         }
@@ -555,6 +572,9 @@ public class LoadoutConfigScreen extends Screen {
         if (activeTab == 0) {
             return mouseClickedHome(mouseX, mouseY, button);
         }
+        if (activeTab == 1 && roomSelectionTab != null) {
+            return roomSelectionTab.mouseClicked(mouseX, mouseY, button);
+        }
         if (isAdmin()) {
             ConfigScreenHeader.TabContent content = getAdminTabContent(activeTab);
             if (content != null) {
@@ -562,7 +582,7 @@ public class LoadoutConfigScreen extends Screen {
                 return mouseClickedAdminContent(content, mouseX, mouseY, button, contentTop);
             }
         }
-        int parkourIdx = isAdmin() ? 5 : 1;
+        int parkourIdx = isAdmin() ? 6 : 2;
         if (activeTab == parkourIdx && parkourTab != null) {
             if (parkourTab.mouseClicked(mouseX, mouseY, button)) return true;
             return parkourTab.mouseClickedContent(mouseX, mouseY, button, this.width, this.height, contentTop);
@@ -595,15 +615,16 @@ public class LoadoutConfigScreen extends Screen {
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (header != null) header.mouseReleased(mouseX, mouseY, button);
         if (choiceDialog != null) choiceDialog.mouseReleased(mouseX, mouseY, button);
+        int activeTab = header != null ? header.getSelectedTabIndex() : 0;
+        if (activeTab == 1 && roomSelectionTab != null) roomSelectionTab.mouseReleased(mouseX, mouseY, button);
         rightContentScroll.stopDragging();
 
-        int activeTab = header != null ? header.getSelectedTabIndex() : 0;
         if (vehicleDeployPageVisible) return false;
         if (isAdmin()) {
             ConfigScreenHeader.TabContent content = getAdminTabContent(activeTab);
             if (content != null) content.mouseReleased(mouseX, mouseY, button);
         }
-        int parkourIdx = isAdmin() ? 5 : 1;
+        int parkourIdx = isAdmin() ? 6 : 2;
         if (activeTab == parkourIdx && parkourTab != null) parkourTab.mouseReleased(mouseX, mouseY, button);
         return super.mouseReleased(mouseX, mouseY, button);
     }
@@ -611,6 +632,8 @@ public class LoadoutConfigScreen extends Screen {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (header != null && header.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
+        int activeTab = header != null ? header.getSelectedTabIndex() : 0;
+        if (activeTab == 1 && roomSelectionTab != null && roomSelectionTab.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
@@ -632,12 +655,14 @@ public class LoadoutConfigScreen extends Screen {
                 return rightContentScroll.mouseScrolled(delta,
                         getRightContentViewportBottom() - getRightContentViewportTop(), getRightContentHeight());
             }
+        } else if (activeTab == 1 && roomSelectionTab != null) {
+            return roomSelectionTab.mouseScrolled(mouseX, mouseY, delta);
         } else if (isAdmin()) {
             ConfigScreenHeader.TabContent content = getAdminTabContent(activeTab);
             if (content != null)
                 return mouseScrolledAdminContent(content, mouseX, mouseY, delta, contentTop);
         }
-        int parkourIdx = isAdmin() ? 5 : 1;
+        int parkourIdx = isAdmin() ? 6 : 2;
         if (activeTab == parkourIdx && parkourTab != null)
             return parkourTab.mouseScrolledContent(mouseX, mouseY, delta, this.width, this.height, contentTop);
         return super.mouseScrolled(mouseX, mouseY, delta);
@@ -649,11 +674,12 @@ public class LoadoutConfigScreen extends Screen {
 
         int activeTab = header != null ? header.getSelectedTabIndex() : 0;
         if (vehicleDeployPageVisible) return false;
+        if (activeTab == 1 && roomSelectionTab != null && roomSelectionTab.keyPressed(keyCode, scanCode, modifiers)) return true;
         if (isAdmin()) {
             ConfigScreenHeader.TabContent content = getAdminTabContent(activeTab);
             if (content != null && content.keyPressed(keyCode, scanCode, modifiers)) return true;
         }
-        int parkourIdx = isAdmin() ? 5 : 1;
+        int parkourIdx = isAdmin() ? 6 : 2;
         if (activeTab == parkourIdx && parkourTab != null && parkourTab.keyPressed(keyCode, scanCode, modifiers)) return true;
 
         return super.keyPressed(keyCode, scanCode, modifiers);
@@ -669,7 +695,7 @@ public class LoadoutConfigScreen extends Screen {
             ConfigScreenHeader.TabContent content = getAdminTabContent(activeTab);
             if (content != null && content.charTyped(codePoint, modifiers)) return true;
         }
-        int parkourIdx = isAdmin() ? 5 : 1;
+        int parkourIdx = isAdmin() ? 6 : 2;
         if (activeTab == parkourIdx && parkourTab != null && parkourTab.charTyped(codePoint, modifiers)) return true;
 
         return super.charTyped(codePoint, modifiers);
@@ -829,10 +855,10 @@ public class LoadoutConfigScreen extends Screen {
 
     private ConfigScreenHeader.TabContent getAdminTabContent(int tabIndex) {
         return switch (tabIndex) {
-            case 1 -> vehicleEditorTab;
-            case 2 -> roomEditorTab;
-            case 3 -> attachmentEditorTab;
-            case 4 -> itemEditorTab;
+            case 2 -> vehicleEditorTab;
+            case 3 -> roomEditorTab;
+            case 4 -> attachmentEditorTab;
+            case 5 -> itemEditorTab;
             default -> null;
         };
     }

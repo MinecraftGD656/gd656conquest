@@ -54,7 +54,9 @@ public record RoomCommonConfig(
     List<String> campBGadget2Ids,
     List<String> campBThrowableIds,
     String campAEquipmentSetId,
-    String campBEquipmentSetId
+    String campBEquipmentSetId,
+    String mapName,
+    String roomDescription
 ) {
     public RoomCommonConfig {
         matchingConfig = matchingConfig == null ? RoomMatchingConfig.defaults() : matchingConfig;
@@ -91,6 +93,8 @@ public record RoomCommonConfig(
         campBThrowableIds = normalizeStringIds(campBThrowableIds, true);
         campAEquipmentSetId = normalizeEquipmentSetId(campAEquipmentSetId);
         campBEquipmentSetId = normalizeEquipmentSetId(campBEquipmentSetId);
+        mapName = normalizeMapName(mapName);
+        roomDescription = normalizeRoomDescription(roomDescription);
     }
 
     public static RoomCommonConfig defaults() {
@@ -141,6 +145,8 @@ public record RoomCommonConfig(
             List.of(),
             List.of(),
             "",
+            "",
+            "",
             ""
         );
     }
@@ -189,6 +195,14 @@ public record RoomCommonConfig(
     }
 
     private static String normalizeEquipmentSetId(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static String normalizeMapName(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static String normalizeRoomDescription(String value) {
         return value == null ? "" : value.trim();
     }
 

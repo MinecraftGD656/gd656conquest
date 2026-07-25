@@ -30,7 +30,15 @@ public final class HubDimensionService {
     }
 
     public static boolean isHubDimension(Level level) {
-        return level != null && HUB_DIMENSION.equals(level.dimension());
+        if (level == null) {
+            return false;
+        }
+        if (HUB_DIMENSION.equals(level.dimension())) {
+            return true;
+        }
+        // When the custom hub dimension does not exist, resolveHubLevel falls back to overworld.
+        // Treat overworld as an effective hub to avoid a teleport loop in enforceStandaloneWorldPolicy.
+        return Level.OVERWORLD.equals(level.dimension());
     }
 
     public static boolean isConquestDimension(Level level) {

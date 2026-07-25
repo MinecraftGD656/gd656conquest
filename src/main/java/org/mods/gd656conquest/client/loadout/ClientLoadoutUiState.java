@@ -12,6 +12,7 @@ import net.minecraft.nbt.TagParser;
 public final class ClientLoadoutUiState {
     private static Snapshot snapshot;
     private static boolean requestOpenPanel;
+    private static int requestOpenTabIndex;
     private static long snapshotUpdatedAtMs;
     
     private static final int MAX_CACHE_SIZE = 500;
@@ -183,6 +184,7 @@ public final class ClientLoadoutUiState {
         snapshotUpdatedAtMs = System.currentTimeMillis();
         if (packet.isOpenPanel()) {
             requestOpenPanel = true;
+            requestOpenTabIndex = packet.getTargetTabIndex();
         }
     }
 
@@ -196,9 +198,16 @@ public final class ClientLoadoutUiState {
         return current;
     }
 
+    public static synchronized int consumeOpenTabIndex() {
+        int current = requestOpenTabIndex;
+        requestOpenTabIndex = 0;
+        return current;
+    }
+
     public static synchronized void clear() {
         snapshot = null;
         requestOpenPanel = false;
+        requestOpenTabIndex = 0;
         snapshotUpdatedAtMs = 0L;
         ITEM_STACK_CACHE.clear();
     }

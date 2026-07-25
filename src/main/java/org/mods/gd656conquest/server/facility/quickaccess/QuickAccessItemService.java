@@ -125,22 +125,7 @@ public final class QuickAccessItemService {
     }
 
     private static boolean showRoomList(ServerPlayer player) {
-        RoomCoreRuntimeManager coreManager = RoomCoreRuntimeManager.of(player.server);
-        List<RoomDefinition> rooms = coreManager.listRooms();
-        player.sendSystemMessage(Component.literal("========== 房间列表 ==========").withStyle(ChatFormatting.GOLD));
-        player.sendSystemMessage(Component.literal("房间").withStyle(ChatFormatting.AQUA)
-            .append(Component.literal(" | ").withStyle(ChatFormatting.GOLD))
-            .append(Component.literal("名称").withStyle(ChatFormatting.WHITE))
-            .append(Component.literal(" | ").withStyle(ChatFormatting.GOLD))
-            .append(Component.literal("状态").withStyle(ChatFormatting.WHITE))
-            .append(Component.literal(" | ").withStyle(ChatFormatting.GOLD))
-            .append(Component.literal("人数").withStyle(ChatFormatting.WHITE))
-            .append(Component.literal(" | ").withStyle(ChatFormatting.GOLD))
-            .append(Component.literal("操作").withStyle(ChatFormatting.WHITE)));
-        for (RoomDefinition room : rooms.stream().sorted(Comparator.comparing(RoomDefinition::roomId, String.CASE_INSENSITIVE_ORDER)).toList()) {
-            player.sendSystemMessage(RoomListPresentationService.buildRoomListLine(room, player, coreManager));
-        }
-        player.sendSystemMessage(Component.literal("共 " + rooms.size() + " 个房间").withStyle(ChatFormatting.GRAY));
+        LoadoutUiService.sendSnapshot(player, true, 1);
         return true;
     }
 

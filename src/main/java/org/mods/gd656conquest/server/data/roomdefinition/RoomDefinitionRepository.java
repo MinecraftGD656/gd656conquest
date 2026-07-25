@@ -279,7 +279,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().campBGadget2Ids(),
             base.commonConfig().campBThrowableIds(),
             base.commonConfig().campAEquipmentSetId(),
-            base.commonConfig().campBEquipmentSetId()
+            base.commonConfig().campBEquipmentSetId(),
+            base.commonConfig().mapName(),
+            base.commonConfig().roomDescription()
         );
         org.mods.gd656conquest.server.room.model.IRoomGameplayConfig gameplayConfig;
         if (base.gameplayConfig() instanceof RoomConquestConfig conquest) {
@@ -432,6 +434,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             List.of(),
             List.of(),
             List.of(),
+            "",
+            "",
             "",
             ""
         );

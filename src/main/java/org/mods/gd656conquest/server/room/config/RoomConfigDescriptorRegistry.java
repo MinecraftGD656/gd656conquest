@@ -81,6 +81,8 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.ROOM, "gameplayId", "玩法类型", "gameplayId", RoomConfigValueType.STRING, List.of("CONQUEST", "BREAKTHROUGH", "DEATHMATCH", "GUNMASTER"), "gameplayType");
         common(descriptors, RoomConfigCategory.ROOM, "displayName", "房间名称", "displayName", RoomConfigValueType.STRING, List.of());
         common(descriptors, RoomConfigCategory.ROOM, "dimensionId", "房间维度ID", "commonConfig.dimensionId", RoomConfigValueType.STRING, List.of());
+        common(descriptors, RoomConfigCategory.ROOM, "mapName", "地图名称", "commonConfig.mapName", RoomConfigValueType.STRING, List.of());
+        common(descriptors, RoomConfigCategory.ROOM, "roomDescription", "房间描述", "commonConfig.roomDescription", RoomConfigValueType.STRING, List.of());
         common(descriptors, RoomConfigCategory.MATCHING, "minStartPlayers", "最低开局人数", "commonConfig.matchingConfig.minStartPlayers", RoomConfigValueType.NUMBER, List.of(), "queueMinStartPlayers");
         common(descriptors, RoomConfigCategory.MATCHING, "queueMaxPlayers", "匹配最大人数", "commonConfig.matchingConfig.totalMaxPlayers", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.MATCHING, "waitAfterMinSeconds", "最低人数后最短等待", "commonConfig.matchingConfig.waitAfterMinSeconds", RoomConfigValueType.NUMBER, List.of(), "queueWaitAfterMinSeconds");

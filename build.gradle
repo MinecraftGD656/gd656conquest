@@ -306,12 +306,39 @@ tasks.register('clientBypassJar', Jar) {
     finalizedBy 'reobfClientBypassJar'
 }
 
+tasks.register('noResourcesJar', Jar) {
+    archiveClassifier = 'nores'
+    dependsOn tasks.named('classes')
+    from(sourceSets.main.output)
+    exclude 'assets/**'
+    manifest {
+        attributes(["Specification-Title"     : mod_id,
+                    "Specification-Vendor"    : mod_authors,
+                    "Specification-Version"   : "1",
+                    "Implementation-Title"    : project.name,
+                    "Implementation-Version"  : project.version,
+                    "Implementation-Vendor"   : mod_authors,
+                    "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")])
+    }
+    finalizedBy 'reobfNoResourcesJar'
+}
+
 reobf {
     clientBypassJar {}
+    noResourcesJar {}
 }
 
 tasks.named('assemble').configure {
-    dependsOn tasks.named('clientBypassJar')
+    dependsOn tasks.named('clientBypassJar'), tasks.named('noResourcesJar'), tasks.named('resourcesZip')
+}
+
+tasks.register('resourcesZip', Zip) {
+    archiveClassifier = 'resources'
+    dependsOn tasks.named('processResources')
+    from(layout.buildDirectory.dir('resources/main')) {
+        include 'assets/**'
+    }
+    destinationDirectory = layout.buildDirectory.dir('libs')
 }
 
 tasks.withType(JavaCompile).configureEach {

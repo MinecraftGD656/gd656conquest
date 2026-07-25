@@ -24,6 +24,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.*;
 
 final class ClientCaptureWorldIconRenderer {
+    private static final float ICON_DEDUP_RADIUS_PIXELS = 12.0F;
     private final ClientCaptureDebugIconSupport debugSupport = new ClientCaptureDebugIconSupport();
 
     void renderWorldAnchoredCaptureIcons(
@@ -50,9 +51,13 @@ final class ClientCaptureWorldIconRenderer {
         }
         ScreenProjection selectedProjection = null;
         String selectedRenderId = state.selectedDeployIconId;
+        Map<ClientCaptureOverlayModel.IconKind, List<ScreenProjection>> renderedByKind = new EnumMap<>(ClientCaptureOverlayModel.IconKind.class);
         for (CaptureIconEntry entry : state.cachedCaptureIcons) {
             ScreenProjection projection = projectToScreen(state, minecraft, entry);
             if (projection == null) {
+                continue;
+            }
+            if (isDuplicateWithinRadius(renderedByKind, entry.kind(), projection)) {
                 continue;
             }
             if (entry.isTeammateMarker() || entry.isVehicleMarker()) {
@@ -770,5 +775,29 @@ final class ClientCaptureWorldIconRenderer {
         return GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS
             || GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS
             || GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_MIDDLE) == GLFW.GLFW_PRESS;
+    }
+
+    private boolean isDuplicateWithinRadius(
+        Map<ClientCaptureOverlayModel.IconKind, List<ScreenProjection>> rendered,
+        ClientCaptureOverlayModel.IconKind kind,
+        ScreenProjection current
+    ) {
+        List<ScreenProjection> existing = rendered.get(kind);
+        if (existing == null) {
+            List<ScreenProjection> list = new ArrayList<>();
+            list.add(current);
+            rendered.put(kind, list);
+            return false;
+        }
+        double radiusSq = (double) ICON_DEDUP_RADIUS_PIXELS * ICON_DEDUP_RADIUS_PIXELS;
+        for (ScreenProjection p : existing) {
+            double dx = current.screenX() - p.screenX();
+            double dy = current.screenY() - p.screenY();
+            if (dx * dx + dy * dy < radiusSq) {
+                return true;
+            }
+        }
+        existing.add(current);
+        return false;
     }
 }

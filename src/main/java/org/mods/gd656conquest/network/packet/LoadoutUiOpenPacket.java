@@ -16,6 +16,7 @@ public final class LoadoutUiOpenPacket {
     private final String playerTitleText;
     private final String currentClassKey;
     private final boolean openPanel;
+    private final int targetTabIndex;
     private final boolean admin;
     private final boolean vehiclePageAvailable;
     private final List<ClassPayload> classes;
@@ -29,6 +30,7 @@ public final class LoadoutUiOpenPacket {
         String playerTitleText,
         String currentClassKey,
         boolean openPanel,
+        int targetTabIndex,
         boolean admin,
         boolean vehiclePageAvailable,
         List<ClassPayload> classes,
@@ -41,6 +43,7 @@ public final class LoadoutUiOpenPacket {
         this.playerTitleText = playerTitleText == null ? "" : playerTitleText;
         this.currentClassKey = currentClassKey == null ? "" : currentClassKey;
         this.openPanel = openPanel;
+        this.targetTabIndex = Math.max(0, targetTabIndex);
         this.admin = admin;
         this.vehiclePageAvailable = vehiclePageAvailable;
         this.classes = classes == null ? List.of() : List.copyOf(classes);
@@ -64,6 +67,10 @@ public final class LoadoutUiOpenPacket {
 
     public boolean isOpenPanel() {
         return openPanel;
+    }
+
+    public int getTargetTabIndex() {
+        return targetTabIndex;
     }
 
     public boolean isAdmin() {
@@ -99,6 +106,7 @@ public final class LoadoutUiOpenPacket {
         buffer.writeUtf(packet.playerTitleText);
         buffer.writeUtf(packet.currentClassKey);
         buffer.writeBoolean(packet.openPanel);
+        buffer.writeInt(packet.targetTabIndex);
         buffer.writeBoolean(packet.admin);
         buffer.writeBoolean(packet.vehiclePageAvailable);
         buffer.writeInt(packet.classes.size());
@@ -201,6 +209,7 @@ public final class LoadoutUiOpenPacket {
         String playerTitleText = buffer.readUtf();
         String currentClassKey = buffer.readUtf();
         boolean openPanel = buffer.readBoolean();
+        int targetTabIndex = buffer.readInt();
         boolean admin = buffer.readBoolean();
         boolean vehiclePageAvailable = buffer.readBoolean();
         int classCount = Math.max(0, buffer.readInt());
@@ -343,6 +352,7 @@ public final class LoadoutUiOpenPacket {
             playerTitleText,
             currentClassKey,
             openPanel,
+            targetTabIndex,
             admin,
             vehiclePageAvailable,
             classes,

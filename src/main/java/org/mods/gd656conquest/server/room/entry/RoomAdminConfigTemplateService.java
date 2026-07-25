@@ -172,7 +172,9 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.campBGadget2Ids(),
             sourceCommon.campBThrowableIds(),
             sourceCommon.campAEquipmentSetId(),
-            sourceCommon.campBEquipmentSetId()
+            sourceCommon.campBEquipmentSetId(),
+            sourceCommon.mapName(),
+            sourceCommon.roomDescription()
         );
         return new RoomDefinition(
             target.roomId(),

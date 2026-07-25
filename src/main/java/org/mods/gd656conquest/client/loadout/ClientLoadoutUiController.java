@@ -52,7 +52,8 @@ public final class ClientLoadoutUiController {
         if (isLoadoutScreen(minecraft.screen)) {
             return;
         }
-        minecraft.setScreen(new LoadoutConfigScreen(minecraft.screen));
+        int targetTabIndex = ClientLoadoutUiState.consumeOpenTabIndex();
+        minecraft.setScreen(new LoadoutConfigScreen(minecraft.screen, targetTabIndex));
     }
 
     public void toggleConfigScreen() {

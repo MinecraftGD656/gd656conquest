@@ -25,6 +25,8 @@ import org.mods.gd656conquest.network.packet.RoomDownedStatePacket;
 import org.mods.gd656conquest.network.packet.RoomEditorRequestPacket;
 import org.mods.gd656conquest.network.packet.RoomEditorSnapshotPacket;
 import org.mods.gd656conquest.network.packet.RoomEditorUpdatePacket;
+import org.mods.gd656conquest.network.packet.RoomSelectionRequestPacket;
+import org.mods.gd656conquest.network.packet.RoomSelectionSnapshotPacket;
 import org.mods.gd656conquest.network.packet.VehicleAdminEditorRequestPacket;
 import org.mods.gd656conquest.network.packet.VehicleAdminEditorSnapshotPacket;
 import org.mods.gd656conquest.network.packet.VehicleAdminEditorUpdatePacket;
@@ -60,7 +62,7 @@ import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "097";
+    private static final String PROTOCOL_VERSION = "098";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -429,6 +431,20 @@ public final class NetworkManager {
                 ServerboundBoundaryHeightStatePacket::encode,
                 ServerboundBoundaryHeightStatePacket::decode,
                 ServerboundBoundaryHeightStatePacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                RoomSelectionRequestPacket.class,
+                RoomSelectionRequestPacket::encode,
+                RoomSelectionRequestPacket::decode,
+                RoomSelectionRequestPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                RoomSelectionSnapshotPacket.class,
+                RoomSelectionSnapshotPacket::encode,
+                RoomSelectionSnapshotPacket::decode,
+                RoomSelectionSnapshotPacket::handle
         );
     }
 
