@@ -19,7 +19,7 @@ import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
 public final class PlayerItemInteractionService {
     private static final int PICKUP_USE_MEDICAL_DURATION_TICKS = 3 * 20;
     private static final int PICKUP_USE_MEDICAL_AMPLIFIER = 2;
-    private static final int PICKUP_USE_AMMO_AMOUNT = 10;
+    private static final int PICKUP_USE_AMMO_AMOUNT = 40;
 
     private PlayerItemInteractionService() {
     }

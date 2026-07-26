@@ -10,8 +10,10 @@ import org.mods.gd656conquest.server.room.gameplay.RoomGameplayBoundaryPolicyPro
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentationProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayHudState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayVehicleDeployRuleProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
@@ -33,7 +35,8 @@ public class DeathmatchGameplayRuntime implements
     RoomGameplayBoundaryHudProvider,
     RoomGameplayBoundaryPolicyProvider,
     RoomGameplayPresentationProvider,
-    RoomGameplayDeployPresentationProvider {
+    RoomGameplayDeployPresentationProvider,
+    RoomGameplayVehicleDeployRuleProvider {
     private final MinecraftServer server;
     private final RunningRuntimeState runningState;
      private final org.mods.gd656conquest.server.room.gameplay.RoomHudSubtitleBroadcastService subtitleBroadcastService = new org.mods.gd656conquest.server.room.gameplay.RoomHudSubtitleBroadcastService();
@@ -52,6 +55,11 @@ public class DeathmatchGameplayRuntime implements
     public DeathmatchGameplayRuntime(MinecraftServer server, RunningRuntimeState runningState) {
         this.server = Objects.requireNonNull(server, "server");
         this.runningState = Objects.requireNonNull(runningState, "runningState");
+    }
+
+    @Override
+    public boolean supportsVehicleDeploy(RoomDefinition room, RunningRuntimeState state) {
+        return room != null && room.lifecycleState() == RoomLifecycleState.RUNNING;
     }
 
     @Override

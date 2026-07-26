@@ -108,6 +108,7 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "allowPlayerCampSwitch", "是否允许玩家切换阵营", "commonConfig.allowPlayerCampSwitch", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
         common(descriptors, RoomConfigCategory.RULES, "enableParachute", "启用对局降落伞", "commonConfig.enableParachute", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableParachute");
         common(descriptors, RoomConfigCategory.RULES, "enableDeathSupportDrop", "启用死亡掉落补给包", "commonConfig.enableDeathSupportDrop", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
+        common(descriptors, RoomConfigCategory.RULES, "enableGiveArrow", "是否给予玩家箭矢", "commonConfig.enableGiveArrow", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
         commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampAHeroKits", "阵地支援-campA可用精英兵", "commonConfig.supportCampAHeroKits", RoomConfigValueType.DATA_GROUP);
         commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampBHeroKits", "阵地支援-campB可用精英兵", "commonConfig.supportCampBHeroKits", RoomConfigValueType.DATA_GROUP);
         commonGroup(descriptors, RoomConfigCategory.EQUIPMENT, "supportCampAShellings", "阵地支援-campA可用炮击", "commonConfig.supportCampAShellings", RoomConfigValueType.DATA_GROUP);

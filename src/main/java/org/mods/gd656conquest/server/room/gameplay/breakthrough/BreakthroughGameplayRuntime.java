@@ -1342,20 +1342,13 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (activePoints.isEmpty()) {
             return false;
         }
-        int neutralDrivenByAttackers = 0;
         for (RoomCapturePointDefinition point : activePoints) {
-            String code = point.code();
-            RoomTeamId owner = runtimeState.getOwnerByCode().get(code);
-            RoomTeamId driving = runtimeState.getDrivingTeamByCode().get(code);
-            if (owner == null && driving == RoomTeamId.CAMP_A) {
-                neutralDrivenByAttackers++;
-                continue;
-            }
-            if (!runtimeState.isFullyControlledBy(code, RoomTeamId.CAMP_A)) {
-                return false;
+            RoomTeamId driving = runtimeState.getDrivingTeamByCode().get(point.code());
+            if (driving == RoomTeamId.CAMP_A) {
+                return true;
             }
         }
-        return neutralDrivenByAttackers == 1;
+        return false;
     }
 
     private boolean areAllActiveObjectivesFullyControlledByDefenders(RoomDefinition room) {

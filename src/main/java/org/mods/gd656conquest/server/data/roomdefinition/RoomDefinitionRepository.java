@@ -260,6 +260,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().enableRandomAttachments(),
             base.commonConfig().enableParachute(),
             base.commonConfig().enableDeathSupportDrop(),
+            base.commonConfig().enableGiveArrow(),
             base.commonConfig().disableUndyingTotem(),
             base.commonConfig().allowPlayerCampSwitch(),
             base.commonConfig().supportCampAHeroKits(),
@@ -416,6 +417,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             false, // enableRandomAttachments
             false, // enableParachute
             true,  // enableDeathSupportDrop
+            false, // enableGiveArrow
             false, // disableUndyingTotem
             true,  // allowPlayerCampSwitch
             List.of(),

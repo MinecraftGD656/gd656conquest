@@ -214,6 +214,7 @@ public final class RoomDefinitionGroupConfigEditor {
             common.enableRandomAttachments(),
             common.enableParachute(),
             common.enableDeathSupportDrop(),
+            common.enableGiveArrow(),
             common.disableUndyingTotem(),
             common.allowPlayerCampSwitch(),
             "supportcampaherokits".equals(canonical) ? updatedValues : common.supportCampAHeroKits(),

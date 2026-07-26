@@ -7,6 +7,7 @@ import org.mods.gd656conquest.client.loadout.state.ClientRoomSelectionState;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +39,9 @@ public final class RoomSelectionRequestPacket {
                 RoomDefinition def = opt.get();
                 String mapName = def.commonConfig().mapName();
                 String roomDescription = def.commonConfig().roomDescription();
+                int currentPlayers = def.lifecycleState() == RoomLifecycleState.MATCHING
+                    ? manager.findMatchingState(roomId).map(state -> state.getQueuePlayers().size()).orElse(0)
+                    : manager.countRoomPlayers(roomId);
                 entries.add(new ClientRoomSelectionState.Entry(
                     def.roomId(),
                     def.displayName(),
@@ -45,7 +49,7 @@ public final class RoomSelectionRequestPacket {
                     roomDescription != null ? roomDescription : "",
                     def.gameplayId().value(),
                     def.lifecycleState().name(),
-                    manager.countRoomPlayers(roomId),
+                    currentPlayers,
                     def.commonConfig().matchingConfig().totalMaxPlayers()
                 ));
             }

@@ -153,6 +153,7 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.enableRandomAttachments(),
             sourceCommon.enableParachute(),
             sourceCommon.enableDeathSupportDrop(),
+            sourceCommon.enableGiveArrow(),
             sourceCommon.disableUndyingTotem(),
             sourceCommon.allowPlayerCampSwitch(),
             sourceCommon.supportCampAHeroKits(),

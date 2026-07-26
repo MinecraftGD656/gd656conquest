@@ -1537,21 +1537,30 @@ public final class RoomPlayerRespawnService {
         record Candidate(ServerPlayer player, double distanceSqr, boolean squadMate, boolean assault) {
         }
         List<Candidate> candidates = new ArrayList<>();
-        for (UUID teammateId : state.getRoomPlayers()) {
-            if (teammateId == null || teammateId.equals(selfId) || state.getRoomTeams().get(teammateId) != teamId || state.isInRespawnFlow(teammateId)) {
+        for (UUID candidateId : state.getRoomPlayers()) {
+            if (candidateId == null || candidateId.equals(selfId) || state.isInRespawnFlow(candidateId)) {
                 continue;
             }
-            ServerPlayer teammate = server.getPlayerList().getPlayer(teammateId);
-            if (teammate == null || !teammate.isAlive() || teammate.isSpectator()) {
+            ServerPlayer candidate = server.getPlayerList().getPlayer(candidateId);
+            if (candidate == null || !candidate.isAlive() || candidate.isSpectator()) {
                 continue;
             }
-            double distanceSqr = teammate.distanceToSqr(downedPlayer);
+            // 倒地玩家和正在被救援的玩家无法救人，排除
+            if (state.isPlayerDowned(candidateId) || state.isPlayerBeingRevived(candidateId)) {
+                continue;
+            }
+            double distanceSqr = candidate.distanceToSqr(downedPlayer);
             if (distanceSqr > 30.0D * 30.0D) {
                 continue;
             }
-            boolean squadMate = isSameSquad(selfSquad, state.getSquadLabelsByPlayer().get(teammateId));
-            boolean assault = resolvePlayerClassType(teammate) == PlayerClassType.ASSAULT;
-            candidates.add(new Candidate(teammate, distanceSqr, squadMate, assault));
+            boolean isSameTeam = state.getRoomTeams().get(candidateId) == teamId;
+            boolean isAssault = resolvePlayerClassType(candidate) == PlayerClassType.ASSAULT;
+            // 只显示队友或突击兵
+            if (!isSameTeam && !isAssault) {
+                continue;
+            }
+            boolean squadMate = isSameTeam && isSameSquad(selfSquad, state.getSquadLabelsByPlayer().get(candidateId));
+            candidates.add(new Candidate(candidate, distanceSqr, squadMate, isAssault));
         }
         candidates.sort(
             Comparator.<Candidate>comparingInt(candidate -> candidate.assault() ? 0 : 1)

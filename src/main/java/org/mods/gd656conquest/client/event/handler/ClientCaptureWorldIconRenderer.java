@@ -57,7 +57,7 @@ final class ClientCaptureWorldIconRenderer {
             if (projection == null) {
                 continue;
             }
-            if (isDuplicateWithinRadius(renderedByKind, entry.kind(), projection)) {
+            if (entry.isDebugMarker() && isDuplicateWithinRadius(renderedByKind, entry.kind(), projection)) {
                 continue;
             }
             if (entry.isTeammateMarker() || entry.isVehicleMarker()) {

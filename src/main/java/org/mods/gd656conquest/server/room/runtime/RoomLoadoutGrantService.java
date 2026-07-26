@@ -31,6 +31,7 @@ import org.mods.gd656conquest.server.loadout.application.WeaponAttachmentService
 import org.mods.gd656conquest.server.loadout.domain.CustomLoadoutSlot;
 import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 
@@ -45,6 +46,7 @@ import java.util.Optional;
 public final class RoomLoadoutGrantService {
     private static final int GOAT_HORN_HOTBAR_SLOT = 7;
     private static final int SUPPORT_HOTBAR_SLOT = 8;
+    private static final int ARROW_HOTBAR_SLOT = 8;
     private static final String RANDOM_ATTACHMENT_NONE_SELECTION_ID = "__none__";
     private static final int RANDOM_ATTACHMENT_WITH_ITEM_WEIGHT = 3;
     private static final int RANDOM_ATTACHMENT_NONE_WEIGHT = 1;
@@ -145,6 +147,7 @@ public final class RoomLoadoutGrantService {
         applyOptionalRoomGoatHorn(player, room);
         applyOptionalRoomSupportItem(player);
         applyOptionalParachute(player, room);
+        applyOptionalRoomArrows(player, room);
     }
 
     public void grantConfiguredWeaponAmmoByExtraData(ServerPlayer player, ItemStack gunStack, int extraData, int[] preferredSlots) {
@@ -628,6 +631,19 @@ public final class RoomLoadoutGrantService {
             return;
         }
         player.getInventory().setItem(SUPPORT_HOTBAR_SLOT, new ItemStack(ConquestItems.SUPPORT_ITEM.get()));
+    }
+
+    private void applyOptionalRoomArrows(ServerPlayer player, RoomDefinition room) {
+        if (player == null || room == null || !room.commonConfig().enableGiveArrow()) {
+            return;
+        }
+        if (RoomGameplayId.GUNMASTER.equals(room.gameplayId())) {
+            return;
+        }
+        if (ARROW_HOTBAR_SLOT < 0 || ARROW_HOTBAR_SLOT >= player.getInventory().items.size()) {
+            return;
+        }
+        player.getInventory().setItem(ARROW_HOTBAR_SLOT, new ItemStack(Items.ARROW));
     }
 
     private ItemStack createRandomRoomGoatHorn(ServerPlayer player) {

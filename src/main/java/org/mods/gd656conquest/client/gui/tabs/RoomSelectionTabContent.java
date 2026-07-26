@@ -61,6 +61,8 @@ public class RoomSelectionTabContent implements ConfigScreenHeader.TabContent {
         final String roomDisplayName;
         final int currentPlayers;
         final int maxPlayers;
+        final String lifecycleState;
+        final boolean isJoinable;
 
         private LeftRowEntry(String gameplayId, String displayName) {
             this.isGroupHeader = true;
@@ -70,9 +72,11 @@ public class RoomSelectionTabContent implements ConfigScreenHeader.TabContent {
             this.roomDisplayName = null;
             this.currentPlayers = 0;
             this.maxPlayers = 0;
+            this.lifecycleState = null;
+            this.isJoinable = false;
         }
 
-        private LeftRowEntry(String roomId, String roomDisplayName, int currentPlayers, int maxPlayers, String gameplayId) {
+        private LeftRowEntry(String roomId, String roomDisplayName, int currentPlayers, int maxPlayers, String gameplayId, String lifecycleState, boolean isAdmin) {
             this.isGroupHeader = false;
             this.gameplayId = gameplayId;
             this.displayName = null;
@@ -80,6 +84,9 @@ public class RoomSelectionTabContent implements ConfigScreenHeader.TabContent {
             this.roomDisplayName = roomDisplayName;
             this.currentPlayers = currentPlayers;
             this.maxPlayers = maxPlayers;
+            this.lifecycleState = lifecycleState;
+            this.isJoinable = "RUNNING".equals(lifecycleState) || "MATCHING".equals(lifecycleState) || "IDLE".equals(lifecycleState)
+                || ("MAINTENANCE".equals(lifecycleState) && isAdmin);
         }
     }
 
@@ -123,10 +130,11 @@ public class RoomSelectionTabContent implements ConfigScreenHeader.TabContent {
         int rightX1 = leftX2 + PADDING;
         int rightX2 = screenWidth - PADDING;
 
-        guiGraphics.drawString(minecraft.font, "房间选择", PADDING, contentTop - 10, GuiConstants.COLOR_TITLE_TEXT, false);
+        int top = contentTop + 6;
+        guiGraphics.drawString(minecraft.font, "房间选择", PADDING, top - 10, GuiConstants.COLOR_TITLE_TEXT, false);
 
-        renderLeftPanel(guiGraphics, mouseX, mouseY, partialTick, leftX1, leftX2, contentTop, screenHeight);
-        renderRightPanel(guiGraphics, mouseX, mouseY, partialTick, rightX1, rightX2, contentTop, screenHeight);
+        renderLeftPanel(guiGraphics, mouseX, mouseY, partialTick, leftX1, leftX2, top, screenHeight);
+        renderRightPanel(guiGraphics, mouseX, mouseY, partialTick, rightX1, rightX2, top, screenHeight);
 
         if (joinButton != null) {
             joinButton.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -137,6 +145,7 @@ public class RoomSelectionTabContent implements ConfigScreenHeader.TabContent {
 
     private void rebuildLeftRows(ClientRoomSelectionState.Snapshot snapshot) {
         leftRowEntries.clear();
+        boolean isAdmin = minecraft != null && minecraft.player != null && minecraft.player.hasPermissions(2);
         Map<String, List<ClientRoomSelectionState.Entry>> grouped = new LinkedHashMap<>();
         for (GameplayGroup g : GAMEPLAY_GROUPS) {
             grouped.put(g.gameplayId, new ArrayList<>());
@@ -154,9 +163,18 @@ public class RoomSelectionTabContent implements ConfigScreenHeader.TabContent {
             if (!collapsedGroups.contains(g.gameplayId)) {
                 List<ClientRoomSelectionState.Entry> rooms = grouped.get(g.gameplayId);
                 if (rooms != null) {
-                    for (ClientRoomSelectionState.Entry e : rooms) {
+                    // 排序：可进入的排在不可进入之前
+                    List<ClientRoomSelectionState.Entry> sorted = new ArrayList<>(rooms);
+                    sorted.sort(Comparator.comparingInt(e -> {
+                        boolean joinable = "RUNNING".equals(e.lifecycleState())
+                            || "MATCHING".equals(e.lifecycleState())
+                            || "IDLE".equals(e.lifecycleState())
+                            || ("MAINTENANCE".equals(e.lifecycleState()) && isAdmin);
+                        return joinable ? 0 : 1;
+                    }));
+                    for (ClientRoomSelectionState.Entry e : sorted) {
                         leftRowEntries.add(new LeftRowEntry(e.roomId(), e.displayName(),
-                            e.currentPlayers(), e.maxPlayers(), g.gameplayId));
+                            e.currentPlayers(), e.maxPlayers(), g.gameplayId, e.lifecycleState(), isAdmin));
                     }
                 }
             }
@@ -173,7 +191,7 @@ public class RoomSelectionTabContent implements ConfigScreenHeader.TabContent {
                 GuiConstants.COLOR_GOLD_ORANGE & 0x00FFFFFF, 0.76f, true);
         leftHeader.setBounds(x1, top, x2, top + ROW_H);
         leftHeader.resetColumnConfig();
-        leftHeader.addColumn("房间", 120, 0xFF9FD3FF, true, false, null);
+        leftHeader.addColumn("房间", -1, 0xFF9FD3FF, true, false, null);
         leftHeader.addColumn("人数", 30, 0xFFBDF5BD, false, true, null);
         leftHeader.render(guiGraphics, mouseX, mouseY, partialTick);
 
@@ -210,10 +228,12 @@ public class RoomSelectionTabContent implements ConfigScreenHeader.TabContent {
                 row.setBackgroundColor((i % 2 == 0 ? 0x00161F2C : 0x0010181F) & 0xFFFFFF);
                 row.setBackgroundAlpha(i % 2 == 0 ? 0.18f : 0.32f);
                 String label = entry.roomId + " " + entry.roomDisplayName;
-                row.addColumn(label, -1, selected ? GuiConstants.COLOR_GOLD :
-                    GuiConstants.COLOR_SKY_BLUE, true, false, btn -> selectRoom(entry.roomId));
+                int nameColor = selected ? GuiConstants.COLOR_GOLD
+                    : entry.isJoinable ? GuiConstants.COLOR_SKY_BLUE : 0xFF888888;
+                row.addColumn(label, -1, nameColor, true, false, btn -> selectRoom(entry.roomId));
                 String playerStr = entry.currentPlayers + "/" + entry.maxPlayers;
-                row.addColumn(playerStr, 30, 0xFFB6FFB6, false, true, null);
+                int playerColor = getStateColor(entry.lifecycleState);
+                row.addColumn(playerStr, 30, playerColor, false, true, null);
             }
             row.render(guiGraphics, mouseX, (int) (mouseY + leftScrollState.scrollY()), partialTick);
         }
@@ -496,13 +516,13 @@ public class RoomSelectionTabContent implements ConfigScreenHeader.TabContent {
 
     private static int getStateColor(String state) {
         return switch (state) {
-            case "IDLE" -> 0xFF88BB88;
-            case "MATCHING" -> 0xFFF0C060;
-            case "RUNNING" -> 0xFFFF7070;
-            case "ENDING" -> 0xFFFF9070;
+            case "IDLE"       -> 0xFFAACCFF;
+            case "MATCHING"   -> 0xFF55DD55;
+            case "RUNNING"    -> 0xFFF0C060;
+            case "ENDING"     -> 0xFFFF6060;
             case "MAINTENANCE" -> 0xFFC080FF;
-            case "DISABLED" -> 0xFF888888;
-            default -> 0xFFAAAAAA;
+            case "DISABLED"   -> 0xFF666666;
+            default           -> 0xFF888888;
         };
     }
 }

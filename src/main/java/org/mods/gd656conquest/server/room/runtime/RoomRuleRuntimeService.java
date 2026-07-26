@@ -174,7 +174,7 @@ public final class RoomRuleRuntimeService {
         }
         for (UUID playerId : state.getRoomPlayers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
-            if (player == null || !player.isAlive()) {
+            if (player == null || !player.isAlive() || player.isSpectator()) {
                 vehicleBoundaryPenaltyService.updateAircraftBoundaryState(room, state, player, null, false, gameTick);
                 clearBoundaryPenalty(player, state, playerId);
                 continue;

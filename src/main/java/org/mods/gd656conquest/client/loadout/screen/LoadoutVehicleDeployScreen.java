@@ -8,7 +8,6 @@ import org.mods.gd656conquest.client.gui.GuiConstants;
 import org.mods.gd656conquest.client.gui.elements.GDButton;
 import org.mods.gd656conquest.client.gui.elements.GDScrollState;
 import org.mods.gd656conquest.client.loadout.ClientLoadoutUiState;
-import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.client.room.ClientRoomLockState;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.LoadoutUiRequestPacket;
@@ -66,13 +65,10 @@ public final class LoadoutVehicleDeployScreen extends Screen {
             onClose();
             return;
         }
-        if (awaitingSuccessfulDeployClose
-            && ClientDeathFlowState.hasActiveCameraOverride()
-            && !ClientRoomLockState.shouldReleaseMouseForUi()) {
+        if (awaitingSuccessfulDeployClose && !ClientRoomLockState.shouldReleaseMouseForUi()) {
             closeToGameplay();
             return;
         }
-        syncVehicleButtons();
         requestSnapshotIfNeeded();
     }
 
@@ -107,6 +103,8 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         int viewHeight = Math.max(1, listY2 - listY1);
         int contentHeight = sortedEntries().size() * (ROW_HEIGHT + ROW_GAP);
         listScrollState.update(mouseY, viewHeight, contentHeight);
+
+        syncVehicleButtons();
 
         List<ClientLoadoutUiState.VehicleEntryState> entries = sortedEntries();
         if (entries.isEmpty()) {
@@ -155,10 +153,6 @@ public final class LoadoutVehicleDeployScreen extends Screen {
                 if (rowButton.mouseClicked(mouseX, mouseY, button)) {
                     return true;
                 }
-            }
-            if (mouseX >= LEFT && mouseX <= this.width - 18 && mouseY >= TOP && mouseY <= this.height - 36) {
-                listScrollState.startDragging(mouseX, mouseY, LEFT, TOP, this.width - 18, this.height - 36, sortedEntries().size() * (ROW_HEIGHT + ROW_GAP));
-                return true;
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -470,7 +464,6 @@ public final class LoadoutVehicleDeployScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        listScrollState.stopDragging();
         return super.mouseReleased(mouseX, mouseY, button);
     }
 }

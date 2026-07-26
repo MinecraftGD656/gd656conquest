@@ -5,6 +5,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import org.lwjgl.glfw.GLFW;
 import org.mods.gd656conquest.client.gui.ConfigScreenHeader;
 import org.mods.gd656conquest.client.gui.GuiConstants;
 import org.mods.gd656conquest.client.compat.tacz.TaczClientAttachmentCompat;
@@ -618,8 +619,6 @@ public class LoadoutConfigScreen extends Screen {
         int activeTab = header != null ? header.getSelectedTabIndex() : 0;
         if (activeTab == 1 && roomSelectionTab != null) roomSelectionTab.mouseReleased(mouseX, mouseY, button);
         rightContentScroll.stopDragging();
-
-        if (vehicleDeployPageVisible) return false;
         if (isAdmin()) {
             ConfigScreenHeader.TabContent content = getAdminTabContent(activeTab);
             if (content != null) content.mouseReleased(mouseX, mouseY, button);
@@ -673,7 +672,12 @@ public class LoadoutConfigScreen extends Screen {
         if (choiceDialog != null && choiceDialog.isVisible() && choiceDialog.keyPressed(keyCode, scanCode, modifiers)) return true;
 
         int activeTab = header != null ? header.getSelectedTabIndex() : 0;
-        if (vehicleDeployPageVisible) return false;
+        if (vehicleDeployPageVisible) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                vehicleDeployPageVisible = false;
+            }
+            return true;
+        }
         if (activeTab == 1 && roomSelectionTab != null && roomSelectionTab.keyPressed(keyCode, scanCode, modifiers)) return true;
         if (isAdmin()) {
             ConfigScreenHeader.TabContent content = getAdminTabContent(activeTab);
@@ -1120,19 +1124,16 @@ public class LoadoutConfigScreen extends Screen {
         final int listTop = contentTop + 24;
         final int listBottom = this.height - GuiConstants.SCREEN_EDGE_DISTANCE;
 
-        // Back button
+        // Back button — right edge aligned with list right edge
         if (vehicleBackButton == null)
-            vehicleBackButton = new GDButton(right - 48, contentTop + 2, 40, 16, Component.literal("返回"), btn -> vehicleDeployPageVisible = false);
-        vehicleBackButton.setX(right - 48);
-        vehicleBackButton.setY(contentTop + 2);
+            vehicleBackButton = new GDButton(right - 40, contentTop + 4, 40, 16, Component.literal("返回"), btn -> vehicleDeployPageVisible = false);
+        vehicleBackButton.setX(right - 40);
+        vehicleBackButton.setY(contentTop + 4);
         vehicleBackButton.setWidth(40);
         vehicleBackButton.setHeight(16);
         vehicleBackButton.render(guiGraphics, mouseX, mouseY, partialTick);
 
-        guiGraphics.drawString(this.font, "载具部署", left, contentTop + 4, 0xFFEDEDED, false);
-        guiGraphics.drawString(this.font,
-                ClientRoomLockState.shouldReleaseMouseForUi() ? "已就绪，可部署" : "未就绪，暂时无法部署",
-                right - this.font.width("未就绪，暂时无法部署"), contentTop + 4, 0xFFB8C6D6, false);
+        guiGraphics.drawString(this.font, "载具部署", left, contentTop + 6, 0xFFEDEDED, false);
 
         List<ClientLoadoutUiState.VehicleEntryState> entries = sortedVehicleEntries();
         int viewHeight = Math.max(1, listBottom - listTop);
@@ -1203,7 +1204,7 @@ public class LoadoutConfigScreen extends Screen {
     private void syncVehicleButtons(List<ClientLoadoutUiState.VehicleEntryState> entries, int contentTop) {
         final int right = this.width - RIGHT;
         int buttonX = right - VEHICLE_BUTTON_W - 8;
-        final int listTop = contentTop + 4;
+        final int listTop = contentTop + 24;
         for (int i = 0; i < entries.size(); i++) {
             ClientLoadoutUiState.VehicleEntryState entry = entries.get(i);
             int rowY = listTop + i * (VEHICLE_ROW_HEIGHT + VEHICLE_ROW_GAP) - (int) Math.round(vehicleDeployScroll.scrollY());
@@ -1242,13 +1243,6 @@ public class LoadoutConfigScreen extends Screen {
         if (button == 0) {
             if (vehicleBackButton != null && vehicleBackButton.mouseClicked(mouseX, mouseY, button)) return true;
             for (GDButton b : vehicleDeployButtons.values()) if (b.mouseClicked(mouseX, mouseY, button)) return true;
-            final int left = LEFT, right = this.width - RIGHT;
-            final int listTop = getContentTop() + 4, listBottom = this.height - GuiConstants.SCREEN_EDGE_DISTANCE;
-            if (mouseX >= left && mouseX <= right && mouseY >= listTop && mouseY <= listBottom) {
-                vehicleDeployScroll.startDragging(mouseX, mouseY, left, listTop, right, listBottom,
-                        sortedVehicleEntries().size() * (VEHICLE_ROW_HEIGHT + VEHICLE_ROW_GAP));
-                return true;
-            }
         }
         return false;
     }

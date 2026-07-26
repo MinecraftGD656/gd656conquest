@@ -22,7 +22,7 @@ import org.mods.gd656conquest.server.room.runtime.audio.RoomThirdPersonAudioCueR
 
 public class AmmoBagItem extends ConquestGeoItem {
     private static final int ITEM_COOLDOWN_TICKS = 5 * 20;
-    private static final int MAX_AMMO_PER_USE = 50;
+    private static final int MAX_AMMO_PER_USE = 75;
     private static final ResourceLocation AMMO_BAG_THROW_SOUND_ID = ResourceLocation.fromNamespaceAndPath("gd656conquest", "sfx.ammo_bag_throw");
 
     public AmmoBagItem(Properties properties, ResourceLocation geoModel, ResourceLocation texture, ResourceLocation animation) {
