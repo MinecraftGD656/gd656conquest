@@ -46,7 +46,7 @@ import java.util.Optional;
 public final class RoomLoadoutGrantService {
     private static final int GOAT_HORN_HOTBAR_SLOT = 7;
     private static final int SUPPORT_HOTBAR_SLOT = 8;
-    private static final int ARROW_HOTBAR_SLOT = 8;
+    private static final int ARROW_INVENTORY_SLOT = 17;
     private static final String RANDOM_ATTACHMENT_NONE_SELECTION_ID = "__none__";
     private static final int RANDOM_ATTACHMENT_WITH_ITEM_WEIGHT = 3;
     private static final int RANDOM_ATTACHMENT_NONE_WEIGHT = 1;
@@ -640,10 +640,10 @@ public final class RoomLoadoutGrantService {
         if (RoomGameplayId.GUNMASTER.equals(room.gameplayId())) {
             return;
         }
-        if (ARROW_HOTBAR_SLOT < 0 || ARROW_HOTBAR_SLOT >= player.getInventory().items.size()) {
+        if (ARROW_INVENTORY_SLOT < 0 || ARROW_INVENTORY_SLOT >= player.getInventory().items.size()) {
             return;
         }
-        player.getInventory().setItem(ARROW_HOTBAR_SLOT, new ItemStack(Items.ARROW));
+        player.getInventory().setItem(ARROW_INVENTORY_SLOT, new ItemStack(Items.ARROW));
     }
 
     private ItemStack createRandomRoomGoatHorn(ServerPlayer player) {

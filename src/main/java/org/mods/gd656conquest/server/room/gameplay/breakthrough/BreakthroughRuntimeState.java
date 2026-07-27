@@ -242,6 +242,11 @@ public final class BreakthroughRuntimeState {
         advanceCountdownEndTick = -1L;
         advanceCountdownLastShownSecondsByPlayer.clear();
         retreatCountdownLastShownSecondsByPlayer.clear();
+        for (String code : drivingTeamByCode.keySet()) {
+            drivingTeamByCode.put(code, null);
+            campACountByCode.put(code, 0);
+            campBCountByCode.put(code, 0);
+        }
     }
 
     public void startAdvanceCountdown(long gameTick, int countdownSeconds) {
