@@ -1172,7 +1172,9 @@ public final class ClientRoomMarkerState {
             }
             return Mth.clamp(phaseMs / (float) HELP_PULSE_DURATION_MS, 0.0F, 1.0F);
         }
-        if (!marker.kind().isDownedMarker()) {
+        if (!marker.kind().isDownedMarker()
+            && marker.kind() != MarkerKind.ALLY_PERSISTENT
+            && marker.kind() != MarkerKind.SQUAD_PERSISTENT) {
             return -1.0F;
         }
         UUID pulsePlayerId = marker.targetPlayerId() != null ? marker.targetPlayerId() : marker.ownerId();
