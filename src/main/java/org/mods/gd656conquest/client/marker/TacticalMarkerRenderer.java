@@ -100,10 +100,10 @@ public final class TacticalMarkerRenderer {
         if (visual.pulseEffect() && helpPulseProgress >= 0.0F && helpPulseProgress < 1.0F) {
             float pulseFade = 1.0F - helpPulseProgress;
             float pulseScale = 1.0F + helpPulseProgress * 2.55F;
-            float pulseAlpha = pulseFade * Math.max(0.40F, visual.opacityMultiplier()) * clampedAlpha;
+            float pulseAlpha = pulseFade * 0.85F;
             drawShape(gui, matrix, visual, scale * pulseScale, red, green, blue, pulseAlpha, targetClass, supportBoxAlert);
             float outerPulseScale = 1.28F + helpPulseProgress * 3.15F;
-            float outerPulseAlpha = pulseFade * pulseFade * Math.max(0.20F, visual.opacityMultiplier() * 0.52F) * clampedAlpha;
+            float outerPulseAlpha = pulseFade * pulseFade * 0.442F;
             drawShape(gui, matrix, visual, scale * outerPulseScale, red, green, blue, outerPulseAlpha, targetClass, supportBoxAlert);
         }
         RenderSystem.enableCull();
@@ -365,8 +365,8 @@ public final class TacticalMarkerRenderer {
                 case ENEMY_GROUND -> new MarkerVisual(MarkerShape.DIAMOND, 0.84F, 0.20F, 0.20F, 0.90F, DIAMOND_HALF_DIAGONAL, null, false, false, false);
                 case ENEMY_TRACKED -> new MarkerVisual(MarkerShape.TRIANGLE, 0.84F, 0.20F, 0.20F, 0.90F, TRIANGLE_HALF_WIDTH, null, false, false, false);
                 case AUTO_ENEMY -> new MarkerVisual(MarkerShape.TRIANGLE, 0.84F, 0.20F, 0.20F, 0.60F, TRIANGLE_HALF_WIDTH, null, false, false, false);
-                case ALLY_PERSISTENT -> new MarkerVisual(MarkerShape.CIRCLE, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.50F, ALLY_DOT_RADIUS, null, false, false, false);
-                case SQUAD_PERSISTENT -> new MarkerVisual(MarkerShape.CIRCLE, SQUAD_GREEN_RED, SQUAD_GREEN_GREEN, SQUAD_GREEN_BLUE, 0.50F, ALLY_DOT_RADIUS, null, false, false, true);
+                case ALLY_PERSISTENT -> new MarkerVisual(MarkerShape.CIRCLE, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.50F, ALLY_DOT_RADIUS, null, false, true, false);
+                case SQUAD_PERSISTENT -> new MarkerVisual(MarkerShape.CIRCLE, SQUAD_GREEN_RED, SQUAD_GREEN_GREEN, SQUAD_GREEN_BLUE, 0.50F, ALLY_DOT_RADIUS, null, false, true, true);
                 case DOWNED_ALLY -> new MarkerVisual(MarkerShape.CIRCLE, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.85F, DOWNED_RADIUS, TEX_DOWNED_MEDICAL, true, true, false);
                 case DOWNED_SQUAD -> new MarkerVisual(MarkerShape.CIRCLE, SQUAD_GREEN_RED, SQUAD_GREEN_GREEN, SQUAD_GREEN_BLUE, 0.85F, DOWNED_RADIUS, TEX_DOWNED_MEDICAL, true, true, true);
                 case NEED_AMMO_ALLY -> new MarkerVisual(MarkerShape.CIRCLE, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.85F, DOWNED_RADIUS, TEX_NEED_AMMO, false, true, false);

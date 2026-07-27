@@ -1342,13 +1342,24 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (activePoints.isEmpty()) {
             return false;
         }
+        // 背水一战/破釜沉舟触发条件：
+        // 当前阶段有且仅有一个据点不被进攻方控制，其余据点均被进攻方控制，
+        // 且那个唯一未被控制的据点正在被进攻方拉动进度。
+        String contestedCode = null;
         for (RoomCapturePointDefinition point : activePoints) {
-            RoomTeamId driving = runtimeState.getDrivingTeamByCode().get(point.code());
-            if (driving == RoomTeamId.CAMP_A) {
-                return true;
+            RoomTeamId owner = runtimeState.getOwnerByCode().get(point.code());
+            if (owner != RoomTeamId.CAMP_A) {
+                if (contestedCode != null) {
+                    return false;
+                }
+                contestedCode = point.code();
             }
         }
-        return false;
+        if (contestedCode == null) {
+            return false;
+        }
+        RoomTeamId driving = runtimeState.getDrivingTeamByCode().get(contestedCode);
+        return driving == RoomTeamId.CAMP_A;
     }
 
     private boolean areAllActiveObjectivesFullyControlledByDefenders(RoomDefinition room) {

@@ -403,10 +403,17 @@ public final class ClientDownedState {
             if (distanceSqr > MAX_RESCUER_DISTANCE_SQR) {
                 continue;
             }
+            // 只显示能实际救援的队友：突击兵或同小队成员
+            boolean isAssault = "assault".equalsIgnoreCase(ClientRoomTeamMirror.getPlayerClass(other));
+            boolean isSquad = ClientRoomTeamMirror.isSquadMate(other);
+            if (!isAssault && !isSquad) {
+                continue;
+            }
             candidates.add(other);
         }
         candidates.sort(
-            Comparator.<Player>comparingInt(other -> ClientRoomTeamMirror.isSquadMate(other) ? 0 : 1)
+            Comparator.<Player>comparingInt(other -> "assault".equalsIgnoreCase(ClientRoomTeamMirror.getPlayerClass(other)) ? 0 : 1)
+                .thenComparingInt(other -> ClientRoomTeamMirror.isSquadMate(other) ? 0 : 1)
                 .thenComparingDouble(other -> other.distanceToSqr(self))
         );
         List<RescuerEntry> result = new ArrayList<>();

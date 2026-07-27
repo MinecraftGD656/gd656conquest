@@ -1554,12 +1554,15 @@ public final class RoomPlayerRespawnService {
                 continue;
             }
             boolean isSameTeam = state.getRoomTeams().get(candidateId) == teamId;
-            boolean isAssault = resolvePlayerClassType(candidate) == PlayerClassType.ASSAULT;
-            // 只显示队友或突击兵
-            if (!isSameTeam && !isAssault) {
+            if (!isSameTeam) {
                 continue;
             }
-            boolean squadMate = isSameTeam && isSameSquad(selfSquad, state.getSquadLabelsByPlayer().get(candidateId));
+            boolean isAssault = resolvePlayerClassType(candidate) == PlayerClassType.ASSAULT;
+            boolean squadMate = isSameSquad(selfSquad, state.getSquadLabelsByPlayer().get(candidateId));
+            // 只显示能实际救援的队友：突击兵或同小队成员
+            if (!isAssault && !squadMate) {
+                continue;
+            }
             candidates.add(new Candidate(candidate, distanceSqr, squadMate, isAssault));
         }
         candidates.sort(
