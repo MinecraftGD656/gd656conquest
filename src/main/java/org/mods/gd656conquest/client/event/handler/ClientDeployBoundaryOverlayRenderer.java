@@ -332,14 +332,35 @@ final class ClientDeployBoundaryOverlayRenderer {
         if (alpha <= 0 || fills == null || fills.isEmpty()) {
             return;
         }
-        int color = alpha << 24;
+        float a = alpha / 255.0F;
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(0.0F, 0.0F, GUI_MASK_Z);
+        Matrix4f matrix = guiGraphics.pose().last().pose();
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
+        RenderSystem.disableCull();
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        Tesselator tesselator = Tesselator.getInstance();
+        BufferBuilder buffer = tesselator.getBuilder();
+        buffer.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         for (MaskFill fill : fills) {
-            if (fill.endY() > fill.startY()) {
-                guiGraphics.fill(fill.startX(), fill.startY(), fill.endX(), fill.endY(), color);
+            if (fill.endY() <= fill.startY()) {
+                continue;
             }
+            float left = (float) fill.startX();
+            float top = (float) fill.startY();
+            float right = (float) fill.endX();
+            float bottom = (float) fill.endY();
+            buffer.vertex(matrix, left, top, 0.0F).color(0.0F, 0.0F, 0.0F, a).endVertex();
+            buffer.vertex(matrix, left, bottom, 0.0F).color(0.0F, 0.0F, 0.0F, a).endVertex();
+            buffer.vertex(matrix, right, bottom, 0.0F).color(0.0F, 0.0F, 0.0F, a).endVertex();
+            buffer.vertex(matrix, right, top, 0.0F).color(0.0F, 0.0F, 0.0F, a).endVertex();
         }
+        BufferUploader.drawWithShader(buffer.end());
+        RenderSystem.enableCull();
+        RenderSystem.enableDepthTest();
+        RenderSystem.disableBlend();
         guiGraphics.pose().popPose();
     }
 

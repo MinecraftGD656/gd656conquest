@@ -26,6 +26,7 @@ public final class ServerConfigDataModel {
     private RoomVehicleBackend vehicleBackend = RoomVehicleBackend.defaultValue();
     private Boolean enablePackValidation = false;
     private Double missileKillRadius = 35.0;
+    private Boolean boolEnableExperimentalPlayerBalance = false;
 
     public Boolean getBoolOverworldInvulnerable() {
         return boolOverworldInvulnerable;
@@ -201,5 +202,13 @@ public final class ServerConfigDataModel {
 
     public void setMissileKillRadius(Double missileKillRadius) {
         this.missileKillRadius = missileKillRadius;
+    }
+
+    public Boolean getBoolEnableExperimentalPlayerBalance() {
+        return boolEnableExperimentalPlayerBalance;
+    }
+
+    public void setBoolEnableExperimentalPlayerBalance(Boolean boolEnableExperimentalPlayerBalance) {
+        this.boolEnableExperimentalPlayerBalance = boolEnableExperimentalPlayerBalance;
     }
 }

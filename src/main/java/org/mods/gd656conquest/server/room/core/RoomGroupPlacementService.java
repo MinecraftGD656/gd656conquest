@@ -13,10 +13,8 @@ import org.mods.gd656conquest.server.room.runtime.RoomNametagVisibilityService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerLaunchService;
 import org.mods.gd656conquest.server.room.runtime.RoomSquadAssignmentService;
 
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class RoomGroupPlacementService {
     private final RoomRuntimeRepository<RoomRuntimeState> runtimeRepository;
@@ -267,19 +265,25 @@ public final class RoomGroupPlacementService {
             return null;
         }
         RoomMatchingConfig config = room.commonConfig().matchingConfig();
-        RoomTeamId bestTeam = null;
-        int bestCount = Integer.MAX_VALUE;
+        List<RoomTeamId> candidates = new ArrayList<>();
+        int lowestCount = Integer.MAX_VALUE;
         for (RoomTeamId teamId : config.enabledTeams()) {
             int occupied = countRunningOccupiedTeamSlots(state, joiningPlayerId, teamId);
             if (occupied + requiredSlots > config.maxPlayersForTeam(teamId)) {
                 continue;
             }
-            if (occupied < bestCount) {
-                bestCount = occupied;
-                bestTeam = teamId;
+            if (occupied < lowestCount) {
+                lowestCount = occupied;
+                candidates.clear();
+                candidates.add(teamId);
+            } else if (occupied == lowestCount) {
+                candidates.add(teamId);
             }
         }
-        return bestTeam;
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
     }
 
     private int countRunningOccupiedTeamSlots(RunningRuntimeState state, UUID joiningPlayerId, RoomTeamId teamId) {

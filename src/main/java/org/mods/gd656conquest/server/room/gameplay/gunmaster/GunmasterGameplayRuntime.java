@@ -26,6 +26,7 @@ import org.mods.gd656conquest.server.room.runtime.RoomGunmasterLoadoutService;
 import org.mods.gd656conquest.server.room.runtime.RoomGunmasterWeaponPoolRules;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerRespawnService;
 import org.mods.gd656conquest.server.room.runtime.RoomSpawnCandidateSelectionService;
+import org.mods.gd656conquest.server.shared.log.ServerLogger;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -399,9 +400,13 @@ public final class GunmasterGameplayRuntime implements
         if (room == null) {
             return List.of();
         }
-        List<String> initialCandidates = normalizePool(room.gunmasterConfig().initialWeaponPool());
-        List<String> middleCandidates = normalizePool(room.gunmasterConfig().middleWeaponPool());
-        List<String> finalCandidates = normalizePool(room.gunmasterConfig().finalWeaponPool());
+        EquipmentDataModel equipmentData = ConquestDataManager.of(gunmasterServer).equipmentData().getData();
+        List<String> initialCandidates = validatePoolAgainstRegistry(
+            normalizePool(room.gunmasterConfig().initialWeaponPool()), equipmentData, "initial");
+        List<String> middleCandidates = validatePoolAgainstRegistry(
+            normalizePool(room.gunmasterConfig().middleWeaponPool()), equipmentData, "middle");
+        List<String> finalCandidates = validatePoolAgainstRegistry(
+            normalizePool(room.gunmasterConfig().finalWeaponPool()), equipmentData, "final");
         List<String> sequence = new ArrayList<>();
         String initial = pickSingleWeapon(initialCandidates);
         if (!initial.isBlank()) {
@@ -413,6 +418,21 @@ public final class GunmasterGameplayRuntime implements
             sequence.add(ending);
         }
         return List.copyOf(sequence);
+    }
+
+    private List<String> validatePoolAgainstRegistry(List<String> pool, EquipmentDataModel equipmentData, String poolName) {
+        if (equipmentData == null || pool.isEmpty()) {
+            return pool;
+        }
+        List<String> valid = new ArrayList<>();
+        for (String id : pool) {
+            if (RoomGunmasterWeaponPoolRules.resolveEntry(equipmentData, id) != null) {
+                valid.add(id);
+            } else {
+                ServerLogger.failure("枪神武器池[%s]包含无效武器ID: %s，已跳过", poolName, id);
+            }
+        }
+        return valid;
     }
 
     private String resolveNextWeaponName(int currentStageIndex) {

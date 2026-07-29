@@ -73,6 +73,8 @@ public final class RunningRuntimeState {
     private long autoTeamBalanceImbalanceSinceTick = -1L;
     private long autoTeamBalanceLastPromptTick = -1L;
     private int autoTeamBalanceLastDelta;
+    private UUID topScorerBalanceTarget;
+    private long topScorerBalanceSinceTick = -1L;
     private final Map<UUID, Long> outsideBoundarySinceTicks = new LinkedHashMap<>();
     private final Map<UUID, Long> aircraftOutsideBoundarySinceTicks = new LinkedHashMap<>();
     private final Map<UUID, Integer> boundaryPenaltyLastShownSeconds = new LinkedHashMap<>();
@@ -990,6 +992,22 @@ public final class RunningRuntimeState {
 
     public void clearAllShellingRequests() {
         activeShellingsByPlayer.clear();
+    }
+
+    public UUID getTopScorerBalanceTarget() {
+        return topScorerBalanceTarget;
+    }
+
+    public void setTopScorerBalanceTarget(UUID topScorerBalanceTarget) {
+        this.topScorerBalanceTarget = topScorerBalanceTarget;
+    }
+
+    public long getTopScorerBalanceSinceTick() {
+        return topScorerBalanceSinceTick;
+    }
+
+    public void setTopScorerBalanceSinceTick(long topScorerBalanceSinceTick) {
+        this.topScorerBalanceSinceTick = topScorerBalanceSinceTick;
     }
 
     public record RejoinTicket(

@@ -1,7 +1,6 @@
 package org.mods.gd656conquest.server.facility.quickaccess;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.facility.parkour.ParkourRuntimeManager;
 import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
@@ -18,10 +17,9 @@ import org.mods.gd656conquest.server.social.party.presentation.PartyActionContro
 import org.mods.gd656conquest.server.social.party.presentation.PartyUiFacade;
 import org.mods.gd656conquest.server.title.PlayerTitleService;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class QuickAccessItemService {
@@ -93,6 +91,7 @@ public final class QuickAccessItemService {
         }
         List<RoomDefinition> joinables = coreManager.listRooms().stream()
             .filter(room -> RoomListPresentationService.isJoinableForPlayer(room, player, coreManager))
+            .filter(room -> room.lifecycleState() != RoomLifecycleState.MAINTENANCE)
             .sorted(Comparator
                 .comparingInt((RoomDefinition room) -> RoomListPresentationService.resolveRoomPlayerCount(room, coreManager)).reversed()
                 .thenComparing(RoomDefinition::roomId, String.CASE_INSENSITIVE_ORDER))
@@ -215,26 +214,26 @@ public final class QuickAccessItemService {
                 }
             }
         }
-        List<RoomDefinition> occupiedRooms = joinables.stream()
-            .filter(Objects::nonNull)
-            .filter(room -> RoomListPresentationService.resolveRoomPlayerCount(room, coreManager) > 0)
-            .toList();
-        if (!occupiedRooms.isEmpty()) {
-            return occupiedRooms.get(ThreadLocalRandom.current().nextInt(occupiedRooms.size()));
-        }
-        List<RoomDefinition> idleRooms = joinables.stream()
-            .filter(room -> room != null && room.lifecycleState() == RoomLifecycleState.IDLE)
-            .toList();
-        if (idleRooms.isEmpty()) {
-            List<RoomDefinition> fallbackRooms = joinables.stream()
-                .filter(Objects::nonNull)
-                .toList();
-            if (fallbackRooms.isEmpty()) {
-                return null;
+        int maxPlayers = 0;
+        for (RoomDefinition room : joinables) {
+            if (room == null) {
+                continue;
             }
-            return fallbackRooms.get(ThreadLocalRandom.current().nextInt(fallbackRooms.size()));
+            int count = RoomListPresentationService.resolveRoomPlayerCount(room, coreManager);
+            if (count > maxPlayers) {
+                maxPlayers = count;
+            }
         }
-        return idleRooms.get(ThreadLocalRandom.current().nextInt(idleRooms.size()));
+        List<RoomDefinition> candidates = new ArrayList<>();
+        for (RoomDefinition room : joinables) {
+            if (room != null && RoomListPresentationService.resolveRoomPlayerCount(room, coreManager) == maxPlayers) {
+                candidates.add(room);
+            }
+        }
+        if (candidates.isEmpty()) {
+            return joinables.get(0);
+        }
+        return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
     }
 
     private static String describeJoinSuccess(RoomDefinition room, RoomJoinResult result) {

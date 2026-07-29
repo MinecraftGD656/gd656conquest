@@ -3,10 +3,8 @@ package org.mods.gd656conquest.server.room.matching;
 import org.mods.gd656conquest.server.room.model.RoomMatchingConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
-import java.util.Comparator;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class RoomMatchingCoordinator {
     public boolean joinQueue(MatchingRuntimeState state, UUID playerId, long gameTick, RoomMatchingConfig config) {
@@ -85,16 +83,25 @@ public final class RoomMatchingCoordinator {
         if (state == null || config == null || requiredSlots <= 0) {
             return null;
         }
-        if (state.getQueuePlayers().isEmpty()) {
-            if (config.enabledTeams().contains(RoomTeamId.CAMP_A)
-                && availableSlots(state, config, RoomTeamId.CAMP_A) >= requiredSlots) {
-                return RoomTeamId.CAMP_A;
+        List<RoomTeamId> eligibleTeams = new ArrayList<>();
+        int minPlayers = Integer.MAX_VALUE;
+        for (RoomTeamId team : config.enabledTeams()) {
+            if (availableSlots(state, config, team) < requiredSlots) {
+                continue;
+            }
+            int count = countPlayersInTeam(state, team);
+            if (count < minPlayers) {
+                minPlayers = count;
+                eligibleTeams.clear();
+                eligibleTeams.add(team);
+            } else if (count == minPlayers) {
+                eligibleTeams.add(team);
             }
         }
-        return config.enabledTeams().stream()
-            .filter(team -> availableSlots(state, config, team) >= requiredSlots)
-            .min(Comparator.comparingInt(team -> countPlayersInTeam(state, team)))
-            .orElse(null);
+        if (eligibleTeams.isEmpty()) {
+            return null;
+        }
+        return eligibleTeams.get(ThreadLocalRandom.current().nextInt(eligibleTeams.size()));
     }
 
     private int availableSlots(MatchingRuntimeState state, RoomMatchingConfig config, RoomTeamId team) {

@@ -94,6 +94,10 @@ public final class RoomPlayerRespawnService {
     private static final String ACTIONBAR_SOURCE_DEPLOY_WAIT = "room_deploy_wait";
     private static final String ACTIONBAR_SOURCE_DEPLOY_NOTICE = "room_deploy_notice";
     private static final String ACTIONBAR_SOURCE_DEPLOY_HINT = "room_deploy_hint";
+    private static final String ACTIONBAR_SOURCE_DEPLOY_ENEMY_INCOMING = "room_deploy_enemy_incoming";
+    private static final double DEPLOY_ENEMY_INCOMING_RADIUS = 8.0;
+    private static final double DEPLOY_ENEMY_INCOMING_RADIUS_SQ = DEPLOY_ENEMY_INCOMING_RADIUS * DEPLOY_ENEMY_INCOMING_RADIUS;
+    private static final int DEPLOY_ENEMY_INCOMING_TICKS = 40 + 20;
     private static final String ACTIONBAR_SOURCE_DOWNED = "room_downed_wait";
     private static final String ACTIONBAR_SOURCE_DOWNED_RESCUE_TARGET = "room_downed_rescue_target";
     private static final String ACTIONBAR_SOURCE_DOWNED_RESCUE_PROMPT = "room_downed_rescue_prompt";
@@ -1385,6 +1389,7 @@ public final class RoomPlayerRespawnService {
         state.getDeployAllowFallbackOnMissingSelectionPlayers().remove(playerId);
         state.getDeployExplicitConfirmRequiredPlayers().remove(playerId);
         state.getDeployViewActivePlayers().remove(playerId);
+        notifyNearbyEnemiesDeployIncoming(state, spawn, playerId, teamId);
         state.getRespawnTargetPositions().put(playerId, spawn);
         state.getRespawnFinalizeTicks().put(playerId, gameTick + RESPAWN_TRAVEL_TICKS);
         ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_WAIT);
@@ -1431,6 +1436,7 @@ public final class RoomPlayerRespawnService {
         state.getDeployAllowFallbackOnMissingSelectionPlayers().remove(playerId);
         state.getDeployExplicitConfirmRequiredPlayers().remove(playerId);
         state.getDeployViewActivePlayers().remove(playerId);
+        notifyNearbyEnemiesDeployIncoming(state, transitionPosition, playerId, teamId);
         state.getRespawnTargetPositions().put(playerId, transitionPosition);
         state.getPendingVehicleDeployResolutions().put(playerId, resolution);
         state.getRespawnFinalizeTicks().put(playerId, gameTick + RESPAWN_TRAVEL_TICKS);
@@ -2234,6 +2240,41 @@ public final class RoomPlayerRespawnService {
             return;
         }
         ServerActionBarService.showText(player, ACTIONBAR_SOURCE_DEPLOY_NOTICE, "§6" + text, 50);
+    }
+
+    private void notifyNearbyEnemiesDeployIncoming(
+        RunningRuntimeState state,
+        RoomPosition spawn,
+        UUID deployerId,
+        RoomTeamId deployerTeam
+    ) {
+        double spawnX = spawn.x() + 0.5D;
+        double spawnY = spawn.y();
+        double spawnZ = spawn.z() + 0.5D;
+        for (UUID playerId : state.getRoomPlayers()) {
+            if (playerId.equals(deployerId)) {
+                continue;
+            }
+            RoomTeamId teamId = state.getRoomTeams().get(playerId);
+            if (teamId == null || teamId == deployerTeam) {
+                continue;
+            }
+            ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+            if (player == null || !player.isAlive()) {
+                continue;
+            }
+            double dx = player.getX() - spawnX;
+            double dy = player.getY() - spawnY;
+            double dz = player.getZ() - spawnZ;
+            if (dx * dx + dy * dy + dz * dz <= DEPLOY_ENEMY_INCOMING_RADIUS_SQ) {
+                ServerActionBarService.showText(
+                    player,
+                    ACTIONBAR_SOURCE_DEPLOY_ENEMY_INCOMING,
+                    "§c敌军逼近...",
+                    DEPLOY_ENEMY_INCOMING_TICKS
+                );
+            }
+        }
     }
 
     private void showDeathmatchDeployHint(ServerPlayer player) {

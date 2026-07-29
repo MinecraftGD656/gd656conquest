@@ -1284,6 +1284,9 @@ public final class RoomCoreService {
             }
             syncRunningNametagsIfDue(slot.room(), slot.runtime().getRunningState(), gameTick);
             detectZeroCampDraw(slot, gameTick);
+            if (ConquestDataManager.of(server).serverConfig().isExperimentalPlayerBalanceEnabled()) {
+                tickExperimentalBalance(slot, gameTick);
+            }
             if (slot.room().lifecycleState() == RoomLifecycleState.ENDING) {
                 syncRunningHudIfDue(slot.room(), slot.runtime().getRunningState(), gameTick);
                 return;
@@ -2024,12 +2027,22 @@ public final class RoomCoreService {
         if (ticket == null) {
             return Optional.empty();
         }
+        RoomTeamId targetTeam = ticket.teamId();
+        if (ConquestDataManager.of(player.server).serverConfig().isExperimentalPlayerBalanceEnabled()) {
+            int countA = countRoomPlayersByTeam(runningState, RoomTeamId.CAMP_A);
+            int countB = countRoomPlayersByTeam(runningState, RoomTeamId.CAMP_B);
+            if (targetTeam == RoomTeamId.CAMP_A && countA > countB) {
+                targetTeam = RoomTeamId.CAMP_B;
+            } else if (targetTeam == RoomTeamId.CAMP_B && countB > countA) {
+                targetTeam = RoomTeamId.CAMP_A;
+            }
+        }
         inventorySnapshotService.backupAndClear(player, slot.runtime());
         playerRejoinService.clearPlayerTickets(playerId);
         bindPlayerToRoom(playerId, slot.room().roomId());
         KilliconScoreboardBridge.ensurePlayerMatchSnapshot(runningState, playerId);
-        runningState.addRoomPlayer(playerId, ticket.teamId());
-        if (ticket.squadLabel() != null && !ticket.squadLabel().isBlank()) {
+        runningState.addRoomPlayer(playerId, targetTeam);
+        if (ticket.squadLabel() != null && !ticket.squadLabel().isBlank() && targetTeam == ticket.teamId()) {
             slot.runtime().getSquadLabelsByPlayer().put(playerId, ticket.squadLabel());
             runningState.getSquadLabelsByPlayer().put(playerId, ticket.squadLabel());
         }
@@ -2044,7 +2057,61 @@ public final class RoomCoreService {
         playerRespawnService.beginReconnectDeploy(slot.room(), runningState, player, gameTick);
         nametagVisibilityService.syncRunningRoom(slot.room(), runningState);
         hudSyncService.syncRunningRoom(slot.room(), runningState);
-        return Optional.of(new RoomJoinResult(RoomJoinResult.Kind.REJOIN_RUNNING, slot.room().roomId(), ticket.teamId()));
+        return Optional.of(new RoomJoinResult(RoomJoinResult.Kind.REJOIN_RUNNING, slot.room().roomId(), targetTeam));
+    }
+
+    private int countRoomPlayersByTeam(RunningRuntimeState runningState, RoomTeamId team) {
+        int count = 0;
+        for (UUID memberId : runningState.getRoomPlayers()) {
+            if (runningState.getRoomTeams().get(memberId) == team) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private void tickExperimentalBalance(RoomRuntimeSlot<RoomRuntimeState> slot, long gameTick) {
+        if (slot.room().lifecycleState() != RoomLifecycleState.RUNNING) {
+            return;
+        }
+        RunningRuntimeState runningState = slot.runtime().getRunningState();
+        int countA = countRoomPlayersByTeam(runningState, RoomTeamId.CAMP_A);
+        int countB = countRoomPlayersByTeam(runningState, RoomTeamId.CAMP_B);
+        if (Math.abs(countA - countB) <= 1) {
+            runningState.setTopScorerBalanceTarget(null);
+            runningState.setTopScorerBalanceSinceTick(-1L);
+            return;
+        }
+        RoomTeamId largerTeam = countA > countB ? RoomTeamId.CAMP_A : RoomTeamId.CAMP_B;
+        UUID topScorerId = null;
+        float topScore = Float.NEGATIVE_INFINITY;
+        for (UUID playerId : runningState.getRoomPlayers()) {
+            if (runningState.getRoomTeams().get(playerId) != largerTeam) {
+                continue;
+            }
+            float score = org.mods.gd656conquest.server.integration.KilliconScoreboardBridge
+                .getPlayerSnapshot(runningState, playerId).score();
+            if (score > topScore) {
+                topScore = score;
+                topScorerId = playerId;
+            }
+        }
+        if (topScorerId == null) {
+            runningState.setTopScorerBalanceTarget(null);
+            runningState.setTopScorerBalanceSinceTick(-1L);
+            return;
+        }
+        if (!topScorerId.equals(runningState.getTopScorerBalanceTarget())) {
+            runningState.setTopScorerBalanceTarget(topScorerId);
+            runningState.setTopScorerBalanceSinceTick(gameTick);
+            return;
+        }
+        long elapsed = gameTick - runningState.getTopScorerBalanceSinceTick();
+        if (elapsed >= 600L) {
+            switchPlayerToOppositeTeam(slot.room().roomId(), topScorerId, "<实验性自动平衡>", gameTick);
+            runningState.setTopScorerBalanceTarget(null);
+            runningState.setTopScorerBalanceSinceTick(-1L);
+        }
     }
 
     private Optional<RoomJoinResult> tryMidJoinRunningMatch(
