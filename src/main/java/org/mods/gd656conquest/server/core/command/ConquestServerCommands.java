@@ -92,7 +92,8 @@ public final class ConquestServerCommands {
         "parkourBestTitleId",
         "enablePackValidation",
         "missileKillRadius",
-        "boolEnableExperimentalPlayerBalance"
+        "boolEnableExperimentalPlayerBalance",
+        "boolMaintenanceMode"
     );
 
     private ConquestServerCommands() {
@@ -497,6 +498,7 @@ public final class ConquestServerCommands {
         CommandFeedbacks.line(context.getSource(), ServerText.colored("enablePackValidation=" + store.isPackValidationEnabled(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("missileKillRadius=" + formatDecimal(store.getMissileKillRadius()), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("boolEnableExperimentalPlayerBalance=" + store.isExperimentalPlayerBalanceEnabled(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("boolMaintenanceMode=" + store.isMaintenanceModeEnabled(), net.minecraft.ChatFormatting.AQUA));
         return 1;
     }
 
@@ -535,6 +537,7 @@ public final class ConquestServerCommands {
             case "enablePackValidation" -> config.setEnablePackValidation(parseBooleanStrict(rawValue));
             case "missileKillRadius" -> config.setMissileKillRadius(parseNonNegativeDouble(rawValue));
             case "boolEnableExperimentalPlayerBalance" -> config.setBoolEnableExperimentalPlayerBalance(parseBooleanStrict(rawValue));
+            case "boolMaintenanceMode" -> config.setBoolMaintenanceMode(parseBooleanStrict(rawValue));
             default -> throw new SimpleCommandExceptionType(Component.literal("未知配置项: " + configId)).create();
         }
         store.save(config);
@@ -587,6 +590,8 @@ public final class ConquestServerCommands {
                 SharedSuggestionProvider.suggest(List.of("30.0", "35.0", "40.0"), builder);
             case "boolEnableExperimentalPlayerBalance" ->
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
+            case "boolMaintenanceMode" ->
+                SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
             default -> builder.buildFuture();
         };
     }
@@ -627,6 +632,7 @@ public final class ConquestServerCommands {
             case "enablepackvalidation", "packvalidation", "checkpacks", "packcheck" -> "enablePackValidation";
             case "missilekillradius", "missileradius", "missilekill" -> "missileKillRadius";
             case "boolenableexperimentalplayerbalance", "experimentalplayerbalance", "playerbalance", "teambalance" -> "boolEnableExperimentalPlayerBalance";
+            case "boolmaintenancemode", "maintenancemode", "maintenance" -> "boolMaintenanceMode";
             default -> null;
         };
     }
@@ -657,6 +663,7 @@ public final class ConquestServerCommands {
             case "enablePackValidation" -> String.valueOf(store.isPackValidationEnabled());
             case "missileKillRadius" -> formatDecimal(store.getMissileKillRadius());
             case "boolEnableExperimentalPlayerBalance" -> String.valueOf(store.isExperimentalPlayerBalanceEnabled());
+            case "boolMaintenanceMode" -> String.valueOf(store.isMaintenanceModeEnabled());
             default -> "-";
         };
     }

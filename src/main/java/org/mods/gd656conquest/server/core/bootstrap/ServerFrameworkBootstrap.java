@@ -9,6 +9,7 @@ import org.mods.gd656conquest.server.facility.quickaccess.QuickAccessServerModul
 import org.mods.gd656conquest.server.facility.range.RangeServerModule;
 import org.mods.gd656conquest.server.facility.sign.SignServerModule;
 import org.mods.gd656conquest.server.loadout.LoadoutServerModule;
+import org.mods.gd656conquest.server.maintenance.MaintenanceServerModule;
 import org.mods.gd656conquest.server.pack.PackValidationServerModule;
 import org.mods.gd656conquest.server.player.PlayerServerModule;
 import org.mods.gd656conquest.server.player.state.SleepRuleServerModule;
@@ -27,6 +28,7 @@ public final class ServerFrameworkBootstrap {
         return new ServerLifecycleCoordinator(
             new ServerModuleRegistry(List.of(
                 new DataServerModule(),
+                new MaintenanceServerModule(),
                 new ConquestCommandModule(),
                 new TaczShellingServerModule(),
                 new PackValidationServerModule(),

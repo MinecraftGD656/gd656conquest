@@ -101,6 +101,10 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         return Boolean.TRUE.equals(get().getBoolEnableExperimentalPlayerBalance());
     }
 
+    public synchronized boolean isMaintenanceModeEnabled() {
+        return Boolean.TRUE.equals(get().getBoolMaintenanceMode());
+    }
+
     public synchronized double getMissileKillRadius() {
         Double value = get().getMissileKillRadius();
         return value == null || value < 0.0 ? 35.0 : value;
@@ -186,6 +190,9 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         }
         if (model.getBoolEnableExperimentalPlayerBalance() == null) {
             model.setBoolEnableExperimentalPlayerBalance(false);
+        }
+        if (model.getBoolMaintenanceMode() == null) {
+            model.setBoolMaintenanceMode(false);
         }
         if (model.getOverworldSpawn() == null) {
             BlockPos shared = server.overworld().getSharedSpawnPos();

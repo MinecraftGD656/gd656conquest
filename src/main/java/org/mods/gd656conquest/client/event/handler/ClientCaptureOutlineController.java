@@ -97,6 +97,13 @@ final class ClientCaptureOutlineController {
         cachedCaptureOutlineFacades = List.of();
     }
 
+    String buildDiagnosticInfo() {
+        return String.format("轮廓:fac=%d blk=%d nby=%d",
+            cachedCaptureOutlineFacades.size(),
+            cachedCaptureOutlineBlocks.size(),
+            cachedNearbyCaptureBlocks.size());
+    }
+
     void renderCaptureBlockOutlineLines(RenderLevelStageEvent event, TeamToken selfTeam) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null || minecraft.level == null || minecraft.player == null || cachedCaptureOutlineFacades.isEmpty()) {

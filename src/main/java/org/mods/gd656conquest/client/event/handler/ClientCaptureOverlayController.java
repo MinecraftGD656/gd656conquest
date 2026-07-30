@@ -24,6 +24,10 @@ final class ClientCaptureOverlayController {
         runtime.handleClientLogout();
     }
 
+    ClientCaptureOverlayState state() {
+        return runtime.state();
+    }
+
     boolean isDeployMouseScreen(Screen screen) {
         return runtime.isDeployMouseScreen(screen);
     }

@@ -27,6 +27,7 @@ public final class ServerConfigDataModel {
     private Boolean enablePackValidation = false;
     private Double missileKillRadius = 35.0;
     private Boolean boolEnableExperimentalPlayerBalance = false;
+    private Boolean boolMaintenanceMode = false;
 
     public Boolean getBoolOverworldInvulnerable() {
         return boolOverworldInvulnerable;
@@ -210,5 +211,13 @@ public final class ServerConfigDataModel {
 
     public void setBoolEnableExperimentalPlayerBalance(Boolean boolEnableExperimentalPlayerBalance) {
         this.boolEnableExperimentalPlayerBalance = boolEnableExperimentalPlayerBalance;
+    }
+
+    public Boolean getBoolMaintenanceMode() {
+        return boolMaintenanceMode;
+    }
+
+    public void setBoolMaintenanceMode(Boolean boolMaintenanceMode) {
+        this.boolMaintenanceMode = boolMaintenanceMode;
     }
 }

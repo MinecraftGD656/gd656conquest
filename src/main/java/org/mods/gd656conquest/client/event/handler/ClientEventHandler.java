@@ -190,6 +190,9 @@ public final class ClientEventHandler {
         try {
             if (!ClientMatchResultOverlayState.shouldHideConquestHud()) {
                 hudRenderer.render(guiGraphics);
+                if (org.mods.gd656conquest.client.hud.ClientHudDebugState.isAdminDebugActive()) {
+                    renderTopLeftDiagnosticOverlay(guiGraphics);
+                }
                 captureOverlayController.renderCaptureIconHudOverlay(guiGraphics);
                 ClientRoomMarkerState.renderHudOverlay(guiGraphics);
             }
@@ -238,6 +241,50 @@ public final class ClientEventHandler {
     }
 
     public void handleClientDimensionChange(ClientPlayerNetworkEvent.Clone event) {
+        ClientDeathFlowState.clear();
+        captureOverlayController.handleClientLogout();
+        captureOutlineController.clear();
+        ClientRoomLockState.reset();
+        ClientRoomMarkerState.reset();
+        ClientRoomTeamMirror.reset();
+        ClientHudDebugState.reset();
+        ClientHudSubtitleManager.reset();
+        ClientMatchResultOverlayState.clear();
+        ClientDownedState.clear();
+        ClientReviveState.reset();
+        ClientBoundaryHeightReportService.clear();
+        ClientPlayerAnimatorDebugState.reset();
+        ClientPackAuditService.clear();
+        ClientParkourRuntimeState.clear();
+        ClientParkourLeaderboardState.clear();
+        ClientMarkerDebugPreviewState.reset();
+        ClientHudDebugPreviewState.reset();
+        roomSessionController.handleDimensionChange();
+        TaczClientInputCompat.resetSuppression();
+        superbWarfareShellingHook.reset();
+    }
+
+    private void renderTopLeftDiagnosticOverlay(net.minecraft.client.gui.GuiGraphics gui) {
+        net.minecraft.client.gui.Font font = Minecraft.getInstance().font;
+        int x = 4;
+        int y = 4;
+        int color = 0xFFFFFF00;
+        gui.drawString(font, "=== 维度切换垃圾诊断 ===", x, y, 0xFFA0D0F0, true);
+        y += 10;
+        boolean camActive = ClientDeathFlowState.hasActiveCameraOverride();
+        boolean deployBoundaries = ClientDeathFlowState.shouldRenderDeployBoundaries();
+        boolean deployOpen = ClientDeathFlowState.isDeployOpenPhase();
+        gui.drawString(font, String.format("cam:%s depl:%s open:%s", camActive, deployBoundaries, deployOpen), x, y, color, true);
+        y += 10;
+        ClientCaptureOverlayState overlayState = captureOverlayController.state();
+        gui.drawString(font, String.format("覆盖:ico=%d poly=%d wr=%d hl=%d tm=%d",
+            overlayState.cachedCaptureIcons.size(),
+            overlayState.cachedRoomBoundaryPolygons.size() + overlayState.cachedDebugBoundaryPolygons.size(),
+            overlayState.worldIconRenderStates.size(),
+            overlayState.hudIconLayoutStates.size(),
+            overlayState.teammateIconScreenStates.size()), x, y, color, true);
+        y += 10;
+        gui.drawString(font, captureOutlineController.buildDiagnosticInfo(), x, y, color, true);
     }
 
     public void handleScreenOpening(ScreenEvent.Opening event) {
