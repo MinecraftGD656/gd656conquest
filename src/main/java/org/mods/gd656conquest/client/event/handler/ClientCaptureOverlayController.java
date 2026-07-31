@@ -24,8 +24,12 @@ final class ClientCaptureOverlayController {
         runtime.handleClientLogout();
     }
 
-    ClientCaptureOverlayState state() {
-        return runtime.state();
+    void clearRenderCaches() {
+        runtime.clearRenderCaches();
+    }
+
+    int debugTotalRendererCacheSize() {
+        return runtime.debugTotalCacheSize();
     }
 
     boolean isDeployMouseScreen(Screen screen) {

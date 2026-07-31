@@ -1,8 +1,11 @@
 package org.mods.gd656conquest.client.event.handler;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.network.chat.Component;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.MovementInputUpdateEvent;
@@ -176,6 +179,21 @@ public final class ClientEventHandler {
     public void renderBaseHudEffects(net.minecraftforge.client.gui.overlay.ForgeGui gui, net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
         captureOverlayController.renderDeployBoundaryHudOverlay(guiGraphics, screenWidth, screenHeight);
         roomSessionController.renderVignetteOverlay(guiGraphics, screenWidth, screenHeight);
+        renderDebugOverlayIfActive(guiGraphics);
+    }
+
+    private void renderDebugOverlayIfActive(net.minecraft.client.gui.GuiGraphics guiGraphics) {
+        if (!ClientHudDebugState.isAdminDebugActive()) {
+            return;
+        }
+        Font font = Minecraft.getInstance().font;
+        int x = 4;
+        int y = 4;
+        int rendererCache = captureOverlayController.debugTotalRendererCacheSize();
+        int outlineCache = captureOutlineController.debugTotalOutlineCacheSize();
+        int totalCache = rendererCache + outlineCache;
+        String line = "垃圾: R=" + rendererCache + " O=" + outlineCache + " T=" + totalCache;
+        guiGraphics.drawString(font, Component.literal(line).withStyle(ChatFormatting.GRAY), x, y, 0xFFFFFF);
     }
 
     public void renderMainHud(net.minecraftforge.client.gui.overlay.ForgeGui gui, net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
@@ -190,9 +208,6 @@ public final class ClientEventHandler {
         try {
             if (!ClientMatchResultOverlayState.shouldHideConquestHud()) {
                 hudRenderer.render(guiGraphics);
-                if (org.mods.gd656conquest.client.hud.ClientHudDebugState.isAdminDebugActive()) {
-                    renderTopLeftDiagnosticOverlay(guiGraphics);
-                }
                 captureOverlayController.renderCaptureIconHudOverlay(guiGraphics);
                 ClientRoomMarkerState.renderHudOverlay(guiGraphics);
             }
@@ -241,50 +256,11 @@ public final class ClientEventHandler {
     }
 
     public void handleClientDimensionChange(ClientPlayerNetworkEvent.Clone event) {
-        ClientDeathFlowState.clear();
-        captureOverlayController.handleClientLogout();
-        captureOutlineController.clear();
-        ClientRoomLockState.reset();
-        ClientRoomMarkerState.reset();
-        ClientRoomTeamMirror.reset();
-        ClientHudDebugState.reset();
-        ClientHudSubtitleManager.reset();
-        ClientMatchResultOverlayState.clear();
-        ClientDownedState.clear();
-        ClientReviveState.reset();
-        ClientBoundaryHeightReportService.clear();
-        ClientPlayerAnimatorDebugState.reset();
-        ClientPackAuditService.clear();
-        ClientParkourRuntimeState.clear();
-        ClientParkourLeaderboardState.clear();
-        ClientMarkerDebugPreviewState.reset();
-        ClientHudDebugPreviewState.reset();
-        roomSessionController.handleDimensionChange();
-        TaczClientInputCompat.resetSuppression();
-        superbWarfareShellingHook.reset();
-    }
-
-    private void renderTopLeftDiagnosticOverlay(net.minecraft.client.gui.GuiGraphics gui) {
-        net.minecraft.client.gui.Font font = Minecraft.getInstance().font;
-        int x = 4;
-        int y = 4;
-        int color = 0xFFFFFF00;
-        gui.drawString(font, "=== 维度切换垃圾诊断 ===", x, y, 0xFFA0D0F0, true);
-        y += 10;
-        boolean camActive = ClientDeathFlowState.hasActiveCameraOverride();
-        boolean deployBoundaries = ClientDeathFlowState.shouldRenderDeployBoundaries();
-        boolean deployOpen = ClientDeathFlowState.isDeployOpenPhase();
-        gui.drawString(font, String.format("cam:%s depl:%s open:%s", camActive, deployBoundaries, deployOpen), x, y, color, true);
-        y += 10;
-        ClientCaptureOverlayState overlayState = captureOverlayController.state();
-        gui.drawString(font, String.format("覆盖:ico=%d poly=%d wr=%d hl=%d tm=%d",
-            overlayState.cachedCaptureIcons.size(),
-            overlayState.cachedRoomBoundaryPolygons.size() + overlayState.cachedDebugBoundaryPolygons.size(),
-            overlayState.worldIconRenderStates.size(),
-            overlayState.hudIconLayoutStates.size(),
-            overlayState.teammateIconScreenStates.size()), x, y, color, true);
-        y += 10;
-        gui.drawString(font, captureOutlineController.buildDiagnosticInfo(), x, y, color, true);
+        String roomId = ClientHudDebugState.getRoomId();
+        if (roomId != null && !roomId.isBlank() && !"-".equals(roomId)) {
+            captureOverlayController.clearRenderCaches();
+            captureOutlineController.clear();
+        }
     }
 
     public void handleScreenOpening(ScreenEvent.Opening event) {

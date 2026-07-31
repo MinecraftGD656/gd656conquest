@@ -124,6 +124,7 @@ public final class ConquestServerCommands {
         root.then(buildHubAliasTree());
         root.then(buildLevelAliasTree());
         root.then(RoomCommands.buildRedeployTree());
+        root.then(buildDeployTree());
         root.then(LoadoutCommands.buildCompatibilityTree());
         
         root.then(Commands.literal("migrate")
@@ -258,6 +259,10 @@ public final class ConquestServerCommands {
                 .executes(ConquestServerCommands::executeHubMigrateOverworld));
     }
 
+    private static ArgumentBuilder<CommandSourceStack, ?> buildDeployTree() {
+        return Commands.literal("deploy").executes(ConquestServerCommands::executeDeploy);
+    }
+
     private static ArgumentBuilder<CommandSourceStack, ?> buildLevelAliasTree() {
         return Commands.literal("level")
             .requires(source -> source.hasPermission(2))
@@ -278,6 +283,13 @@ public final class ConquestServerCommands {
             return CommandFeedbacks.info(context.getSource(), result.deniedMessage());
         }
         return CommandFeedbacks.info(context.getSource(), result.operatorMessage());
+    }
+
+    private static int executeDeploy(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        String result = RoomCoreRuntimeManager.of(context.getSource().getServer())
+            .handleForceDeployCommand(player, context.getSource().getServer().getTickCount());
+        return CommandFeedbacks.info(context.getSource(), result);
     }
 
     private static int executeHubMigrateOverworld(CommandContext<CommandSourceStack> context) {

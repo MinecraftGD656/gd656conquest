@@ -100,6 +100,25 @@ final class ClientCaptureOverlayState {
         worldProjectionPartialTick = 0.0F;
     }
 
+    void clearRenderCaches() {
+        progressInterpolation.clear();
+        hudIconLayoutStates.clear();
+        teammateIconScreenStates.clear();
+        worldIconRenderStates.clear();
+        renderedDeployIcons.clear();
+        selectedCrosshairState = null;
+        hoveredDeployIcon = null;
+        clearProjectionState();
+    }
+
+    int debugTotalCacheSize() {
+        return progressInterpolation.size()
+            + hudIconLayoutStates.size()
+            + teammateIconScreenStates.size()
+            + worldIconRenderStates.size()
+            + renderedDeployIcons.size();
+    }
+
     void markBoundaryGeometryDirty() {
         boundaryGeometryVersion++;
     }

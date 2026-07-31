@@ -107,6 +107,7 @@ public final class ClientDeathFlowState {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null) {
+            clear();
             return;
         }
         TaczClientInputCompat.suppressCombatInputUntilRelease(minecraft);
@@ -287,7 +288,6 @@ public final class ClientDeathFlowState {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null) {
-            clear();
             return;
         }
         player.setDeltaMovement(0.0D, 0.0D, 0.0D);

@@ -364,22 +364,6 @@ final class ClientRoomSessionController {
 
     void handleLogout() {
         forceRestoreDeployFov(Minecraft.getInstance());
-        resetSessionState();
-        org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedVisible(false);
-        org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedHudOnly(false);
-        loadoutUiController.onClientLogout();
-    }
-
-    /**
-     * 维度切换（换房间）时的轻量清理。只复位 FOV / 鼠标 / 上传 状态，
-     * 不触碰 HUD 可见性覆盖和配装 UI —— 防止打断正在运行的部署流。
-     */
-    void handleDimensionChange() {
-        forceRestoreDeployFov(Minecraft.getInstance());
-        resetSessionState();
-    }
-
-    private void resetSessionState() {
         deathMouseReleased = false;
         wasDeployUiOpen = false;
         deployFovActive = false;
@@ -392,6 +376,9 @@ final class ClientRoomSessionController {
         lastUploadedMainHandItemId = "";
         lastUploadedMainHandDisplayName = "";
         lastUploadedMainHandTick = -1L;
+        org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedVisible(false);
+        org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedHudOnly(false);
+        loadoutUiController.onClientLogout();
     }
 
     private void syncClientTeamColors(Minecraft minecraft, String roomId, boolean inRoom) {

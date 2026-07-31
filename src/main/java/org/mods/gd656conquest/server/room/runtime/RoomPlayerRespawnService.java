@@ -343,6 +343,48 @@ public final class RoomPlayerRespawnService {
         return "重新部署触发失败，请稍后重试";
     }
 
+    public String handleForceDeployCommand(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long gameTick) {
+        if (room == null || state == null || player == null) {
+            return "当前不在任何房间";
+        }
+        if (room.lifecycleState() != org.mods.gd656conquest.server.room.model.RoomLifecycleState.RUNNING) {
+            return "仅在对局进行中可用";
+        }
+        UUID playerId = player.getUUID();
+        if (!state.getRoomPlayers().contains(playerId)) {
+            return "你不在该房间内";
+        }
+        if (!player.isAlive()) {
+            return "当前已死亡，无法部署";
+        }
+        Long deployReadyTick = state.getDeployReadyTicks().get(playerId);
+        if (deployReadyTick == null || state.getRespawnFinalizeTicks().containsKey(playerId)) {
+            return "当前不在部署状态";
+        }
+        RoomTeamId teamId = state.getRoomTeams().get(playerId);
+        if (teamId != RoomTeamId.CAMP_A && teamId != RoomTeamId.CAMP_B) {
+            return "无法确定阵营";
+        }
+        if (isArenaGameplay(room)) {
+            deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
+            state.getDeployExplicitConfirmRequiredPlayers().remove(playerId);
+            state.getDeployAutoStartOnReadyPlayers().add(playerId);
+            if (!tryStartSelectedDeploy(room, state, player, gameTick, true)) {
+                return "强制部署失败：无可用的部署点";
+            }
+            LoadoutUiService.sendSnapshot(player, false, true);
+            return "已强制部署";
+        }
+        deploySelectionService.replaceSelectionWithTeamFallback(state, playerId, teamId);
+        state.getDeployExplicitConfirmRequiredPlayers().remove(playerId);
+        state.getDeployAutoStartOnReadyPlayers().add(playerId);
+        if (!tryStartSelectedDeploy(room, state, player, gameTick, true)) {
+            return "强制部署失败：无可用的部署点";
+        }
+        LoadoutUiService.sendSnapshot(player, false, true);
+        return "已强制部署";
+    }
+
     private boolean forceRedeployDeath(ServerPlayer player) {
         if (player == null || !player.isAlive()) {
             return false;

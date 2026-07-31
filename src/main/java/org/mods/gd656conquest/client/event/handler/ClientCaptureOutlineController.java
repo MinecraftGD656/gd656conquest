@@ -97,11 +97,10 @@ final class ClientCaptureOutlineController {
         cachedCaptureOutlineFacades = List.of();
     }
 
-    String buildDiagnosticInfo() {
-        return String.format("轮廓:fac=%d blk=%d nby=%d",
-            cachedCaptureOutlineFacades.size(),
-            cachedCaptureOutlineBlocks.size(),
-            cachedNearbyCaptureBlocks.size());
+    int debugTotalOutlineCacheSize() {
+        return cachedCaptureOutlineFacades.size()
+            + cachedCaptureOutlineBlocks.size()
+            + cachedNearbyCaptureBlocks.size();
     }
 
     void renderCaptureBlockOutlineLines(RenderLevelStageEvent event, TeamToken selfTeam) {

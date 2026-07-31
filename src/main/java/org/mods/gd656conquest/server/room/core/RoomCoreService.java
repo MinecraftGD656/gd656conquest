@@ -663,6 +663,20 @@ public final class RoomCoreService {
         return playerRespawnService.requestRedeploy(slot.room(), slot.runtime().getRunningState(), player);
     }
 
+    public String handleForceDeployCommand(ServerPlayer player, long gameTick) {
+        if (player == null) {
+            return "当前不在任何房间";
+        }
+        return findRunningSlotByPlayer(player.getUUID())
+            .map(slot -> playerRespawnService.handleForceDeployCommand(
+                slot.room(),
+                slot.runtime().getRunningState(),
+                player,
+                gameTick
+            ))
+            .orElse("当前不在任何房间");
+    }
+
     public boolean handleDownedAction(ServerPlayer player, String action, long gameTick) {
         if (player == null) {
             return false;
@@ -2101,6 +2115,10 @@ public final class RoomCoreService {
             runningState.setTopScorerBalanceSinceTick(-1L);
             return;
         }
+        // 该玩家已有挂起的换队（之前已触发过自动平衡），等待换队完成再评估
+        if (runningState.getPendingTeamChanges().containsKey(topScorerId)) {
+            return;
+        }
         if (!topScorerId.equals(runningState.getTopScorerBalanceTarget())) {
             runningState.setTopScorerBalanceTarget(topScorerId);
             runningState.setTopScorerBalanceSinceTick(gameTick);
@@ -2109,8 +2127,6 @@ public final class RoomCoreService {
         long elapsed = gameTick - runningState.getTopScorerBalanceSinceTick();
         if (elapsed >= 600L) {
             switchPlayerToOppositeTeam(slot.room().roomId(), topScorerId, "<实验性自动平衡>", gameTick);
-            runningState.setTopScorerBalanceTarget(null);
-            runningState.setTopScorerBalanceSinceTick(-1L);
         }
     }
 

@@ -317,6 +317,13 @@ public final class RoomCoreRuntimeManager {
         return coreService.requestRedeploy(player);
     }
 
+    public String handleForceDeployCommand(ServerPlayer player, long gameTick) {
+        if (coreService == null) {
+            return ROOM_SERVICE_NOT_INITIALIZED;
+        }
+        return coreService.handleForceDeployCommand(player, gameTick);
+    }
+
     public boolean handleDownedAction(ServerPlayer player, String action, long gameTick) {
         if (coreService == null) {
             return false;

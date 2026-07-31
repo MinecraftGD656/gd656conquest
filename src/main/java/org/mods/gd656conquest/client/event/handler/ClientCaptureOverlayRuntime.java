@@ -41,6 +41,14 @@ final class ClientCaptureOverlayRuntime {
         state.reset();
     }
 
+    void clearRenderCaches() {
+        state.clearRenderCaches();
+    }
+
+    int debugTotalCacheSize() {
+        return state.debugTotalCacheSize();
+    }
+
     boolean ensureWorldReady() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null) {
