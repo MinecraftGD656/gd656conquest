@@ -10,6 +10,7 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.lwjgl.glfw.GLFW;
 import org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService;
+import org.mods.gd656conquest.client.hud.ClientMatchLoadState;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 
 public final class ClientHudVisibilityCycleListener {
@@ -43,6 +44,14 @@ public final class ClientHudVisibilityCycleListener {
 
         ResourceLocation id = event.getOverlay().id();
 
+        // Selectively hide vanilla HUD elements during match load
+        if (ClientMatchLoadState.shouldHideAllHud()) {
+            if (shouldHideDuringMatchLoad(id)) {
+                event.setCanceled(true);
+            }
+            return;
+        }
+
         if (ClientHudVisibilityCycleService.shouldApplyForcedHudOnlyFilter() && shouldHideOverlay(event)) {
             event.setCanceled(true);
             return;
@@ -58,6 +67,26 @@ public final class ClientHudVisibilityCycleListener {
                 event.setCanceled(true);
             }
         }
+    }
+
+    /**
+     * Selectively hide specific vanilla overlays during match-loading.
+     * Keeps other overlays (including our custom loading overlay) untouched.
+     */
+    private boolean shouldHideDuringMatchLoad(ResourceLocation id) {
+        return id.equals(VanillaGuiOverlay.HOTBAR.id())
+            || id.equals(VanillaGuiOverlay.EXPERIENCE_BAR.id())
+            || id.equals(VanillaGuiOverlay.PLAYER_HEALTH.id())
+            || id.equals(VanillaGuiOverlay.ARMOR_LEVEL.id())
+            || id.equals(VanillaGuiOverlay.FOOD_LEVEL.id())
+            || id.equals(VanillaGuiOverlay.AIR_LEVEL.id())
+            || id.equals(VanillaGuiOverlay.MOUNT_HEALTH.id())
+            || id.equals(VanillaGuiOverlay.JUMP_BAR.id())
+            || id.equals(VanillaGuiOverlay.CHAT_PANEL.id())
+            || id.equals(VanillaGuiOverlay.SCOREBOARD.id())
+            || id.equals(VanillaGuiOverlay.TITLE_TEXT.id())
+            || id.equals(VanillaGuiOverlay.SUBTITLES.id())
+            || id.equals(VanillaGuiOverlay.BOSS_EVENT_PROGRESS.id());
     }
 
     private boolean isBottomHudOverlay(ResourceLocation id) {
@@ -104,6 +133,7 @@ public final class ClientHudVisibilityCycleListener {
     @SubscribeEvent
     public void onClientLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         ClientHudVisibilityCycleService.reset();
+        ClientMatchLoadState.clear();
     }
 
     @SubscribeEvent

@@ -19,7 +19,11 @@ public final class StandalonePlayerStateService {
         if (player == null || player.server == null) {
             return;
         }
-        if (RoomCoreRuntimeManager.of(player.server).findPlayerRoomId(player.getUUID()).isPresent()) {
+        RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(player.server);
+        if (roomManager.findPlayerRoomId(player.getUUID()).isPresent()) {
+            return;
+        }
+        if (roomManager.isPlayerInMatchLoad(player.getUUID())) {
             return;
         }
         var config = ConquestDataManager.of(player.server).serverConfig();

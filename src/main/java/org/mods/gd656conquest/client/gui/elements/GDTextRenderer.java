@@ -36,11 +36,16 @@ public class GDTextRenderer {
     private boolean scrollingForward = true;
     private long lastTime;
     private static final float SCROLL_SPEED = 30.0f;     private static final long PAUSE_TIME_MS = 1000;      private boolean centered = false;     private Integer overrideColor = null;
+    private Integer backgroundColor = null;
 
     private float scrollY = 0;
 
     public void setOverrideColor(Integer color) {
         this.overrideColor = color;
+    }
+
+    public void setBackgroundColor(Integer backgroundColor) {
+        this.backgroundColor = backgroundColor;
     }
 
     public GDTextRenderer(String text, int x1, int y1, int x2, int y2, float fontSize, int color, boolean autoWrap) {
@@ -160,6 +165,7 @@ public class GDTextRenderer {
             if (centered) {
                 lineX = (maxWidth - minecraft.font.width(line)) / 2.0f;
             }
+            drawLineBackground(guiGraphics, lineX, i * 9, minecraft.font.width(line));
             guiGraphics.drawString(minecraft.font, line, (int)lineX, i * 9, overrideColor != null ? overrideColor : color, true);
         }
     }
@@ -181,6 +187,7 @@ public class GDTextRenderer {
                 }
                 
                 String part = remaining.substring(0, Math.max(1, count));
+                drawLineBackground(guiGraphics, currentX, yOffset, minecraft.font.width(part));
                 guiGraphics.drawString(minecraft.font, part, (int)currentX, yOffset, overrideColor != null ? overrideColor : ct.color, true);
                 
                 currentX += minecraft.font.width(part);
@@ -274,17 +281,22 @@ public class GDTextRenderer {
     private void drawInternal(GuiGraphics guiGraphics, int x, int y, float containerWidth) {
         if (coloredTexts == null) {
             float drawX = x;
+            int textWidth = minecraft.font.width(text);
             if (centered && !isCurrentlyScrolling()) {
-                drawX += (containerWidth - minecraft.font.width(text)) / 2.0f;
+                drawX += (containerWidth - textWidth) / 2.0f;
             }
+            int backgroundWidth = isCurrentlyScrolling() ? Math.max(0, (int) containerWidth) : textWidth;
+            drawLineBackground(guiGraphics, drawX, y, backgroundWidth);
             guiGraphics.drawString(minecraft.font, text, (int)drawX, y, overrideColor != null ? overrideColor : color, true);
         } else {
             float currentX = x;
+            float totalWidth = 0;
+            for (ColoredText ct : coloredTexts) totalWidth += minecraft.font.width(ct.text);
             if (centered && !isCurrentlyScrolling()) {
-                float totalWidth = 0;
-                for (ColoredText ct : coloredTexts) totalWidth += minecraft.font.width(ct.text);
                 currentX += (containerWidth - totalWidth) / 2.0f;
             }
+            int backgroundWidth = isCurrentlyScrolling() ? Math.max(0, (int) containerWidth) : (int) totalWidth;
+            drawLineBackground(guiGraphics, currentX, y, backgroundWidth);
             for (ColoredText ct : coloredTexts) {
                 guiGraphics.drawString(minecraft.font, ct.text, (int)currentX, y, overrideColor != null ? overrideColor : ct.color, true);
                 currentX += minecraft.font.width(ct.text);
@@ -339,6 +351,22 @@ public class GDTextRenderer {
             }
         }
         return result;
+    }
+
+    private void drawLineBackground(GuiGraphics guiGraphics, float drawX, int drawY, int lineWidth) {
+        if (backgroundColor == null || backgroundColor == 0 || !hasContent() || lineWidth <= 0) {
+            return;
+        }
+        int left = (int) Math.floor(drawX);
+        int right = (int) Math.ceil(drawX + lineWidth);
+        guiGraphics.fill(left, drawY, right, drawY + 9, backgroundColor);
+    }
+
+    private boolean hasContent() {
+        if (coloredTexts != null) {
+            return !coloredTexts.isEmpty();
+        }
+        return text != null && !text.isBlank();
     }
 
     private boolean isCurrentlyScrolling() {

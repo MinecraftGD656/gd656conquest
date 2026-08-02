@@ -14,6 +14,7 @@ import org.mods.gd656conquest.Gd656conquest;
 import org.mods.gd656conquest.client.animation.ClientPlayerAnimatorDebugState;
 import org.mods.gd656conquest.client.command.ClientCommandRegistrar;
 import org.mods.gd656conquest.client.render.entity.AmmoBoxEntityRenderer;
+import org.mods.gd656conquest.client.render.entity.GroundSensorEntityRenderer;
 import org.mods.gd656conquest.client.render.entity.MedicalBoxEntityRenderer;
 import org.mods.gd656conquest.client.event.listener.ClientEventListener;
 import org.mods.gd656conquest.client.event.listener.ClientHudVisibilityCycleListener;
@@ -57,6 +58,7 @@ public final class ClientCore {
     }
 
     private static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(ConquestEntities.GROUND_SENSOR.get(), GroundSensorEntityRenderer::new);
         event.registerEntityRenderer(ConquestEntities.SQUAD_DEPLOY_BEACON.get(), SquadDeployBeaconEntityRenderer::new);
         event.registerEntityRenderer(ConquestEntities.MEDICAL_BOX.get(), MedicalBoxEntityRenderer::new);
         event.registerEntityRenderer(ConquestEntities.AMMO_BOX.get(), AmmoBoxEntityRenderer::new);

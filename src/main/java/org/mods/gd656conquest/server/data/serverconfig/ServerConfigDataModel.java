@@ -26,6 +26,10 @@ public final class ServerConfigDataModel {
     private RoomVehicleBackend vehicleBackend = RoomVehicleBackend.defaultValue();
     private Boolean enablePackValidation = false;
     private Double missileKillRadius = 35.0;
+    private Double groundSensorScanRadius = 10.0;
+    private Integer groundSensorScanIntervalSeconds = 4;
+    private Integer groundSensorMarkDurationSeconds = 2;
+    private Integer groundSensorScanBonusCooldownSeconds = 10;
     private Boolean boolEnableExperimentalPlayerBalance = false;
     private Boolean boolMaintenanceMode = false;
 
@@ -203,6 +207,38 @@ public final class ServerConfigDataModel {
 
     public void setMissileKillRadius(Double missileKillRadius) {
         this.missileKillRadius = missileKillRadius;
+    }
+
+    public Double getGroundSensorScanRadius() {
+        return groundSensorScanRadius;
+    }
+
+    public void setGroundSensorScanRadius(Double groundSensorScanRadius) {
+        this.groundSensorScanRadius = groundSensorScanRadius;
+    }
+
+    public Integer getGroundSensorScanIntervalSeconds() {
+        return groundSensorScanIntervalSeconds;
+    }
+
+    public void setGroundSensorScanIntervalSeconds(Integer groundSensorScanIntervalSeconds) {
+        this.groundSensorScanIntervalSeconds = groundSensorScanIntervalSeconds;
+    }
+
+    public Integer getGroundSensorMarkDurationSeconds() {
+        return groundSensorMarkDurationSeconds;
+    }
+
+    public void setGroundSensorMarkDurationSeconds(Integer groundSensorMarkDurationSeconds) {
+        this.groundSensorMarkDurationSeconds = groundSensorMarkDurationSeconds;
+    }
+
+    public Integer getGroundSensorScanBonusCooldownSeconds() {
+        return groundSensorScanBonusCooldownSeconds;
+    }
+
+    public void setGroundSensorScanBonusCooldownSeconds(Integer groundSensorScanBonusCooldownSeconds) {
+        this.groundSensorScanBonusCooldownSeconds = groundSensorScanBonusCooldownSeconds;
     }
 
     public Boolean getBoolEnableExperimentalPlayerBalance() {

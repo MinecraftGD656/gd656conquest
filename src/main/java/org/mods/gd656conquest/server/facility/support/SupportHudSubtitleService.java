@@ -123,6 +123,18 @@ public final class SupportHudSubtitleService {
         );
     }
 
+    public static void broadcastFriendlyBombardmentOngoing(
+        RunningRuntimeState runningState,
+        RoomTeamId alliedTeam
+    ) {
+        broadcastToTeam(
+            runningState,
+            alliedTeam,
+            "shelling_ongoing",
+            "友军正在进行轰炸"
+        );
+    }
+
     private static String resolvePlayerName(ServerPlayer player) {
         if (player == null || player.getGameProfile() == null || player.getGameProfile().getName() == null) {
             return "";

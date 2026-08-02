@@ -39,6 +39,11 @@ public final class ConquestItems {
                     ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "geo/radio_beacon.geo.json"),
                     ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "textures/item/radio_beacon.png"),
                     STATIC_ITEM_ANIMATION));
+    public static final RegistryObject<Item> GROUND_SENSOR = ITEMS.register("ground_sensor", () ->
+            new GroundSensorItem(new Item.Properties().stacksTo(1),
+                    ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "geo/ground_sensor.geo.json"),
+                    ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "textures/item/ground_sensor.png"),
+                    STATIC_ITEM_ANIMATION));
     public static final RegistryObject<Item> QUICK_JOIN_ITEM = ITEMS.register("quick_join", () ->
             new UtilityActionItem(new Item.Properties().stacksTo(1), org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.QUICK_JOIN));
     public static final RegistryObject<Item> ROOM_LIST_ITEM = ITEMS.register("room_list", () ->
@@ -80,6 +85,7 @@ public final class ConquestItems {
             acceptIfPresent(event, MEDIC_BAG);
             acceptIfPresent(event, MED_BOX);
             acceptIfPresent(event, RADIO_BEACON);
+            acceptIfPresent(event, GROUND_SENSOR);
             acceptIfPresent(event, QUICK_JOIN_ITEM);
             acceptIfPresent(event, ROOM_LIST_ITEM);
             acceptIfPresent(event, PARTY_GUIDE_ITEM);

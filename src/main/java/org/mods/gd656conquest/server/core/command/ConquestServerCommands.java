@@ -92,6 +92,10 @@ public final class ConquestServerCommands {
         "parkourBestTitleId",
         "enablePackValidation",
         "missileKillRadius",
+        "groundSensorScanRadius",
+        "groundSensorScanIntervalSeconds",
+        "groundSensorMarkDurationSeconds",
+        "groundSensorScanBonusCooldownSeconds",
         "boolEnableExperimentalPlayerBalance",
         "boolMaintenanceMode"
     );
@@ -260,7 +264,11 @@ public final class ConquestServerCommands {
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildDeployTree() {
-        return Commands.literal("deploy").executes(ConquestServerCommands::executeDeploy);
+        return Commands.literal("deploy")
+            .requires(source -> source.hasPermission(2))
+            .executes(ConquestServerCommands::executeDeploySelf)
+            .then(Commands.argument("target", EntityArgument.player())
+                .executes(ConquestServerCommands::executeDeployTarget));
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildLevelAliasTree() {
@@ -285,11 +293,18 @@ public final class ConquestServerCommands {
         return CommandFeedbacks.info(context.getSource(), result.operatorMessage());
     }
 
-    private static int executeDeploy(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+    private static int executeDeploySelf(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
         String result = RoomCoreRuntimeManager.of(context.getSource().getServer())
             .handleForceDeployCommand(player, context.getSource().getServer().getTickCount());
         return CommandFeedbacks.info(context.getSource(), result);
+    }
+
+    private static int executeDeployTarget(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer target = EntityArgument.getPlayer(context, "target");
+        String result = RoomCoreRuntimeManager.of(context.getSource().getServer())
+            .handleForceDeployCommand(target, context.getSource().getServer().getTickCount());
+        return CommandFeedbacks.info(context.getSource(), target.getDisplayName().getString() + " " + result);
     }
 
     private static int executeHubMigrateOverworld(CommandContext<CommandSourceStack> context) {
@@ -509,6 +524,10 @@ public final class ConquestServerCommands {
         CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourBestTitleId=" + store.getParkourBestTitleId(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("enablePackValidation=" + store.isPackValidationEnabled(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("missileKillRadius=" + formatDecimal(store.getMissileKillRadius()), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("groundSensorScanRadius=" + formatDecimal(store.getGroundSensorScanRadius()), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("groundSensorScanIntervalSeconds=" + store.getGroundSensorScanIntervalSeconds(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("groundSensorMarkDurationSeconds=" + store.getGroundSensorMarkDurationSeconds(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("groundSensorScanBonusCooldownSeconds=" + store.getGroundSensorScanBonusCooldownSeconds(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("boolEnableExperimentalPlayerBalance=" + store.isExperimentalPlayerBalanceEnabled(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("boolMaintenanceMode=" + store.isMaintenanceModeEnabled(), net.minecraft.ChatFormatting.AQUA));
         return 1;
@@ -548,6 +567,10 @@ public final class ConquestServerCommands {
             case "parkourBestTitleId" -> config.setParkourBestTitleId(rawValue);
             case "enablePackValidation" -> config.setEnablePackValidation(parseBooleanStrict(rawValue));
             case "missileKillRadius" -> config.setMissileKillRadius(parseNonNegativeDouble(rawValue));
+            case "groundSensorScanRadius" -> config.setGroundSensorScanRadius(parseNonNegativeDouble(rawValue));
+            case "groundSensorScanIntervalSeconds" -> config.setGroundSensorScanIntervalSeconds(parsePositiveInt(rawValue));
+            case "groundSensorMarkDurationSeconds" -> config.setGroundSensorMarkDurationSeconds(parsePositiveInt(rawValue));
+            case "groundSensorScanBonusCooldownSeconds" -> config.setGroundSensorScanBonusCooldownSeconds(parsePositiveInt(rawValue));
             case "boolEnableExperimentalPlayerBalance" -> config.setBoolEnableExperimentalPlayerBalance(parseBooleanStrict(rawValue));
             case "boolMaintenanceMode" -> config.setBoolMaintenanceMode(parseBooleanStrict(rawValue));
             default -> throw new SimpleCommandExceptionType(Component.literal("未知配置项: " + configId)).create();
@@ -600,6 +623,14 @@ public final class ConquestServerCommands {
                 SharedSuggestionProvider.suggest(List.of("\"\"", "RUNNER", "PARKOUR_MASTER"), builder);
             case "missileKillRadius" ->
                 SharedSuggestionProvider.suggest(List.of("30.0", "35.0", "40.0"), builder);
+            case "groundSensorScanRadius" ->
+                SharedSuggestionProvider.suggest(List.of("8.0", "10.0", "12.0"), builder);
+            case "groundSensorScanIntervalSeconds" ->
+                SharedSuggestionProvider.suggest(List.of("2", "4", "6"), builder);
+            case "groundSensorMarkDurationSeconds" ->
+                SharedSuggestionProvider.suggest(List.of("1", "2", "3"), builder);
+            case "groundSensorScanBonusCooldownSeconds" ->
+                SharedSuggestionProvider.suggest(List.of("5", "10", "30", "60"), builder);
             case "boolEnableExperimentalPlayerBalance" ->
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
             case "boolMaintenanceMode" ->
@@ -643,6 +674,10 @@ public final class ConquestServerCommands {
             case "parkourbesttitleid", "parkourfirsttitle", "parkourrecordtitle" -> "parkourBestTitleId";
             case "enablepackvalidation", "packvalidation", "checkpacks", "packcheck" -> "enablePackValidation";
             case "missilekillradius", "missileradius", "missilekill" -> "missileKillRadius";
+            case "groundsensorscanradius", "groundsensorradius", "sensorradius" -> "groundSensorScanRadius";
+            case "groundsensorscanintervalseconds", "groundsensorinterval", "sensorinterval" -> "groundSensorScanIntervalSeconds";
+            case "groundsensormarkdurationseconds", "groundsensormarkduration", "sensormarkduration" -> "groundSensorMarkDurationSeconds";
+            case "groundsensorscanbonuscooldownseconds", "groundsensorbonuscooldown", "sensorbonuscooldown" -> "groundSensorScanBonusCooldownSeconds";
             case "boolenableexperimentalplayerbalance", "experimentalplayerbalance", "playerbalance", "teambalance" -> "boolEnableExperimentalPlayerBalance";
             case "boolmaintenancemode", "maintenancemode", "maintenance" -> "boolMaintenanceMode";
             default -> null;
@@ -674,6 +709,10 @@ public final class ConquestServerCommands {
             case "parkourBestTitleId" -> store.getParkourBestTitleId();
             case "enablePackValidation" -> String.valueOf(store.isPackValidationEnabled());
             case "missileKillRadius" -> formatDecimal(store.getMissileKillRadius());
+            case "groundSensorScanRadius" -> formatDecimal(store.getGroundSensorScanRadius());
+            case "groundSensorScanIntervalSeconds" -> String.valueOf(store.getGroundSensorScanIntervalSeconds());
+            case "groundSensorMarkDurationSeconds" -> String.valueOf(store.getGroundSensorMarkDurationSeconds());
+            case "groundSensorScanBonusCooldownSeconds" -> String.valueOf(store.getGroundSensorScanBonusCooldownSeconds());
             case "boolEnableExperimentalPlayerBalance" -> String.valueOf(store.isExperimentalPlayerBalanceEnabled());
             case "boolMaintenanceMode" -> String.valueOf(store.isMaintenanceModeEnabled());
             default -> "-";

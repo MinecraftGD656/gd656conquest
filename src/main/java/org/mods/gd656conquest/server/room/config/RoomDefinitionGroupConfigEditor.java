@@ -202,6 +202,7 @@ public final class RoomDefinitionGroupConfigEditor {
             common.campAVoicePack(),
             common.campBVoicePack(),
             common.progressSpeed(),
+            common.matchLoadViewPosition(),
             common.resultConfig(),
             common.disableHunger(),
             common.enableAutoTeamSwitchPrompt(),

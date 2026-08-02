@@ -1314,6 +1314,7 @@ public final class RoomCommands {
             common.campAVoicePack(),
             common.campBVoicePack(),
             common.progressSpeed(),
+            common.matchLoadViewPosition(),
             common.resultConfig(),
             common.disableHunger(),
             common.enableAutoTeamSwitchPrompt(),

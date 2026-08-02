@@ -209,6 +209,30 @@
       }
     ]
   },
+  "sfx.ground_sensor_activate": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/ground_sensor_activate",
+        "volume": 0.7
+      }
+    ]
+  },
+  "sfx.ground_sensor_beep": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/ground_sensor_beep",
+        "volume": 0.55
+      }
+    ]
+  },
+  "sfx.ground_sensor_fire_1p": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/ground_sensor_fire_1p",
+        "volume": 0.8
+      }
+    ]
+  },
   "sfx.revive_first_person": {
     "sounds": [
       {
@@ -739,6 +763,13 @@
     "sounds": [
       {
         "name": "gd656conquest:voice/shelling/artillery_friendly_3"
+      }
+    ]
+  },
+  "voice.shelling.artillery_friendly_promotion_wave": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/shelling/artillery_friendly_promotion_wave"
       }
     ]
   }

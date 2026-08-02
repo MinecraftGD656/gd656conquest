@@ -226,6 +226,13 @@ public final class RoomCoreRuntimeManager {
         return coreService.findPlayerRoomId(playerId);
     }
 
+    public boolean isPlayerInMatchLoad(UUID playerId) {
+        if (coreService == null) {
+            return false;
+        }
+        return coreService.isPlayerInMatchLoad(playerId);
+    }
+
     public Optional<String> findRejoinableRoomId(UUID playerId) {
         if (coreService == null) {
             return Optional.empty();
@@ -478,6 +485,13 @@ public final class RoomCoreRuntimeManager {
         return coreService.shouldCancelDamageToSquadBeacon(attacker, beacon);
     }
 
+    public boolean shouldCancelDamageToGroundSensor(ServerPlayer attacker, net.minecraft.world.entity.Entity sensor) {
+        if (coreService == null) {
+            return false;
+        }
+        return coreService.shouldCancelDamageToGroundSensor(attacker, sensor);
+    }
+
     public boolean shouldCancelDamageToVehicle(ServerPlayer attacker, Entity vehicle) {
         if (coreService == null) {
             return false;
@@ -518,6 +532,13 @@ public final class RoomCoreRuntimeManager {
             return false;
         }
         return coreService.tryUseMedicalBoxItem(player, hand);
+    }
+
+    public boolean tryUseGroundSensorItem(ServerPlayer player, net.minecraft.world.InteractionHand hand) {
+        if (coreService == null) {
+            return false;
+        }
+        return coreService.tryUseGroundSensorItem(player, hand);
     }
 
     public boolean tryUseNearbyAmmoBox(ServerPlayer player, long gameTick) {

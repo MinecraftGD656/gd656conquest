@@ -38,6 +38,7 @@ import org.mods.gd656conquest.network.packet.RoomHudSyncPacket;
 import org.mods.gd656conquest.network.packet.RoomMarkerActionPacket;
 import org.mods.gd656conquest.network.packet.RoomMarkerSyncPacket;
 import org.mods.gd656conquest.network.packet.RoomMatchResultPacket;
+import org.mods.gd656conquest.network.packet.RoomMatchLoadPacket;
 import org.mods.gd656conquest.network.packet.RoomTeamMirrorSyncPacket;
 import org.mods.gd656conquest.network.packet.AdminDebugOverlayPacket;
 import org.mods.gd656conquest.network.packet.HudDebugPreviewPacket;
@@ -445,6 +446,13 @@ public final class NetworkManager {
                 RoomSelectionSnapshotPacket::encode,
                 RoomSelectionSnapshotPacket::decode,
                 RoomSelectionSnapshotPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                RoomMatchLoadPacket.class,
+                RoomMatchLoadPacket::encode,
+                RoomMatchLoadPacket::decode,
+                RoomMatchLoadPacket::handle
         );
     }
 

@@ -45,6 +45,7 @@ public final class RoomShellingRuntimeService {
     public static final String ACTIONBAR_SOURCE_SHELLING_COUNTDOWN = "shelling_request_countdown";
     private static final int INDICATOR_OPEN_PROMPT_TICKS = 60;
     private static final long MISSILE_ALARM_INTERVAL_TICKS = 10L * 20L;
+    private static final long FRIENDLY_BOMBARDMENT_HUD_INTERVAL_TICKS = 10L * 20L;
     private static final long CONFIRMED_SLOT_RESTORE_DELAY_TICKS = 5L * 20L;
     private static final int MISSILE_COUNTDOWN_INTERVAL_SECONDS = 5;
     private static final int MISSILE_ALARM_COUNT = 2;
@@ -250,6 +251,9 @@ public final class RoomShellingRuntimeService {
             shellCount
         );
         activeSequences.put(sequence.sequenceId, sequence);
+        if (shouldBroadcastFriendlyBombardmentOngoing(sequence.kind)) {
+            sequence.nextOngoingHudTick = gameTick + FRIENDLY_BOMBARDMENT_HUD_INTERVAL_TICKS;
+        }
         trackExecutionLock(
             sequence.sequenceId,
             room.roomId(),
@@ -503,6 +507,7 @@ public final class RoomShellingRuntimeService {
                 }
                 broadcastMissileCountdownIfNeeded(state, sequence, gameTick);
             }
+            broadcastFriendlyBombardmentOngoingIfNeeded(state, sequence, gameTick);
             playDueSequenceLaunches(state, sequence, gameTick);
             while (sequence.spawnedShellCount < sequence.totalShellCount && gameTick >= sequence.nextShellSpawnTick) {
                 if (!spawnSequenceShell(state, sequence)) {
@@ -545,6 +550,25 @@ public final class RoomShellingRuntimeService {
             remainingSeconds,
             BlockPos.containing(sequence.targetCenter)
         );
+    }
+
+    private void broadcastFriendlyBombardmentOngoingIfNeeded(RunningRuntimeState state, ActiveShellingSequence sequence, long gameTick) {
+        if (state == null || sequence == null || sequence.teamId == null) {
+            return;
+        }
+        if (!shouldBroadcastFriendlyBombardmentOngoing(sequence.kind)) {
+            return;
+        }
+        while (gameTick >= sequence.nextOngoingHudTick) {
+            SupportHudSubtitleService.broadcastFriendlyBombardmentOngoing(state, sequence.teamId);
+            sequence.nextOngoingHudTick += FRIENDLY_BOMBARDMENT_HUD_INTERVAL_TICKS;
+        }
+    }
+
+    private boolean shouldBroadcastFriendlyBombardmentOngoing(ShellingSequenceKind kind) {
+        return kind != null
+            && kind != ShellingSequenceKind.MISSILE
+            && kind != ShellingSequenceKind.SMOKESHELL;
     }
 
     private boolean spawnSequenceShell(RunningRuntimeState state, ActiveShellingSequence sequence) {

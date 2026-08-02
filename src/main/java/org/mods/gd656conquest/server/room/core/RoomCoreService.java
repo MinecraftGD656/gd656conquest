@@ -11,6 +11,7 @@ import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.PlayerAnimatorDebugPacket;
 import org.mods.gd656conquest.network.packet.RoomDeathFlowPacket;
 import org.mods.gd656conquest.network.packet.RoomDownedStatePacket;
+import org.mods.gd656conquest.network.packet.RoomMatchLoadPacket;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.player.state.HubDimensionService;
 import org.mods.gd656conquest.server.facility.range.RangeRuntimeManager;
@@ -47,11 +48,13 @@ import org.mods.gd656conquest.server.room.runtime.RoomAudioRuntimeService;
 import org.mods.gd656conquest.server.room.runtime.RoomDeathSupportDropService;
 import org.mods.gd656conquest.server.room.runtime.RoomDeploySelectionService;
 import org.mods.gd656conquest.server.room.runtime.RoomGunmasterLoadoutService;
+import org.mods.gd656conquest.server.room.runtime.RoomGroundSensorService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerLaunchService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerLoadoutService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerRespawnService;
 import org.mods.gd656conquest.server.room.runtime.RoomShellingRuntimeService;
 import org.mods.gd656conquest.server.room.runtime.RoomResultRuntimeService;
+import org.mods.gd656conquest.server.room.runtime.RoomMatchLoadService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerStateService;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerTransferQueueService;
 import org.mods.gd656conquest.server.room.runtime.RoomRuleRuntimeService;
@@ -91,6 +94,7 @@ public final class RoomCoreService {
     private final RoomItemReplenishService itemReplenishService;
     private final RoomDeathSupportDropService deathSupportDropService;
     private final RoomSupportBoxService supportBoxService;
+    private final RoomGroundSensorService groundSensorService;
     private final RoomMarkerRuntimeService markerRuntimeService;
     private final RoomHudSyncService hudSyncService;
     private final RoomInventorySnapshotService inventorySnapshotService;
@@ -108,6 +112,7 @@ public final class RoomCoreService {
     private final RoomResultRuntimeService resultRuntimeService;
     private final RoomShellingRuntimeService shellingRuntimeService;
     private final RoomGroupPlacementService groupPlacementService;
+    private final RoomMatchLoadService matchLoadService;
 
     public RoomCoreService(RoomCoreComponents components) {
         RoomCoreComponents resolved = Objects.requireNonNull(components, "components");
@@ -127,6 +132,7 @@ public final class RoomCoreService {
         this.deathSupportDropService = resolved.deathSupportDropService();
         this.supportBoxService = resolved.supportBoxService();
         this.markerRuntimeService = resolved.markerRuntimeService();
+        this.groundSensorService = new RoomGroundSensorService(server, runtimeRepository, playerSessionService, this.markerRuntimeService);
         this.hudSyncService = resolved.hudSyncService();
         this.inventorySnapshotService = resolved.inventorySnapshotService();
         this.playerRejoinService = resolved.playerRejoinService();
@@ -152,6 +158,13 @@ public final class RoomCoreService {
             hudSyncService,
             nametagVisibilityService,
             this::resyncPlayerPresentation
+        );
+        this.matchLoadService = new RoomMatchLoadService(
+            server,
+            playerLaunchService,
+            playerStateService,
+            playerRespawnService,
+            resultRuntimeService
         );
     }
 
@@ -316,6 +329,13 @@ public final class RoomCoreService {
             return Optional.of(slot.room().roomId());
         }
         return Optional.empty();
+    }
+
+    public boolean isPlayerInMatchLoad(UUID playerId) {
+        if (playerId == null) {
+            return false;
+        }
+        return matchLoadService.isLoading(playerId);
     }
 
     public Optional<RoomTeamId> findRoomTeam(String roomId, UUID playerId) {
@@ -625,6 +645,7 @@ public final class RoomCoreService {
             return;
         }
         long gameTick = server.getTickCount();
+        matchLoadService.cancel(playerId, gameTick);
         runtimeRepository.find(roomId.get())
             .ifPresent(slot -> removePlayerFromSlot(playerId, slot, gameTick, true));
         playerSessionService.removePlayer(playerId);
@@ -1005,6 +1026,13 @@ public final class RoomCoreService {
         return squadBeaconService.shouldCancelDamageToSquadBeacon(attacker, squadBeacon);
     }
 
+    public boolean shouldCancelDamageToGroundSensor(ServerPlayer attacker, net.minecraft.world.entity.Entity sensor) {
+        if (!(sensor instanceof org.mods.gd656conquest.common.entity.GroundSensorEntity groundSensor)) {
+            return false;
+        }
+        return groundSensorService.shouldCancelDamageToGroundSensor(attacker, groundSensor);
+    }
+
     public boolean shouldCancelDamageToVehicle(ServerPlayer attacker, Entity vehicle) {
         if (attacker == null || vehicle == null || attacker.server == null || attacker.server != server) {
             return false;
@@ -1090,6 +1118,10 @@ public final class RoomCoreService {
         return supportBoxService.tryUseMedicalBoxItem(player, hand);
     }
 
+    public boolean tryUseGroundSensorItem(ServerPlayer player, net.minecraft.world.InteractionHand hand) {
+        return groundSensorService.tryUseGroundSensorItem(player, hand);
+    }
+
     public boolean tryUseNearbyAmmoBox(ServerPlayer player, long gameTick) {
         return supportBoxService.tryUseNearbyAmmoBox(player, gameTick);
     }
@@ -1140,6 +1172,16 @@ public final class RoomCoreService {
         }
         if (player != null) {
             inventorySnapshotService.backupAndClear(player, slot.runtime());
+            if (RoomMatchLoadService.isEnabled(slot.room())) {
+                // Intercept: use match-loading phase instead of direct queue teleport
+                playerRejoinService.clearPlayerTickets(playerId);
+                bindPlayerToRoom(playerId, roomId);
+                squadAssignmentService.assignMatchingPlayer(slot.runtime(), playerId, state.getQueueTeams().get(playerId));
+                matchLoadService.beginMatchLoad(
+                    player, slot.room(), slot.runtime().getRunningState(), gameTick,
+                    RoomMatchLoadService.EntryKind.MATCHING, state.getQueueTeams().get(playerId));
+                return Optional.of(new RoomJoinResult(RoomJoinResult.Kind.MATCHING, roomId, state.getQueueTeams().get(playerId)));
+            }
             if (!playerLaunchService.teleportToQueueSpawn(player, slot.room())) {
                 PlayerInventorySanitizer.clearArmorSlots(player);
                 inventorySnapshotService.restore(player, slot.runtime());
@@ -1267,7 +1309,7 @@ public final class RoomCoreService {
         slot.runtime().getRunningState().setGameplayRuntime(runtime);
         for (UUID playerId : slot.runtime().getMatchingState().getQueuePlayers()) {
             ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
-            if (player != null) {
+            if (player != null && !matchLoadService.isLoading(playerId)) {
                 playerRespawnService.beginInitialDeploy(slot.room(), slot.runtime().getRunningState(), player, gameTick);
             }
         }
@@ -1309,6 +1351,7 @@ public final class RoomCoreService {
             playerRespawnService.tick(slot.room(), slot.runtime().getRunningState(), gameTick);
             itemReplenishService.tick(slot.room(), slot.runtime().getRunningState(), gameTick);
             ruleRuntimeService.tick(slot.room(), slot.runtime().getRunningState(), gameTick);
+            groundSensorService.tickRoom(slot.room(), slot.runtime().getRunningState(), gameTick);
             squadBeaconService.tickRoom(slot.room(), slot.runtime().getRunningState(), gameTick);
             shellingRuntimeService.tickRoom(slot.room(), slot.runtime().getRunningState(), gameTick);
             markerRuntimeService.tickRoom(slot.room(), slot.runtime().getRunningState(), gameTick);
@@ -1324,9 +1367,11 @@ public final class RoomCoreService {
 
     public void tickPlayerStates(long gameTick) {
         supportBoxService.tick(gameTick);
+        groundSensorService.tickGlobal(gameTick);
         squadBeaconService.tickGlobal(gameTick);
         playerTransferQueueService.tick(gameTick);
         playerStateService.tick(gameTick);
+        matchLoadService.tick(gameTick);
     }
 
     public void tickRooms(long gameTick) {
@@ -1898,6 +1943,7 @@ public final class RoomCoreService {
         PlayerAnimatorDebugDimensionsState.clearPlayer(player);
         NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
+        NetworkManager.sendToPlayer(player, new RoomMatchLoadPacket(false, 0, "", "", "", "", "", "", ""));
         NetworkManager.sendToPlayer(player, PlayerAnimatorDebugPacket.stop(player.getUUID()));
     }
 
@@ -2061,6 +2107,13 @@ public final class RoomCoreService {
             runningState.getSquadLabelsByPlayer().put(playerId, ticket.squadLabel());
         }
         RoomMatchingActionBarService.clear(player);
+        if (RoomMatchLoadService.isEnabled(slot.room())) {
+            // Intercept: use match-loading phase before deploy
+            matchLoadService.beginMatchLoad(
+                player, slot.room(), runningState, gameTick,
+                RoomMatchLoadService.EntryKind.REJOIN, targetTeam);
+            return Optional.of(new RoomJoinResult(RoomJoinResult.Kind.REJOIN_RUNNING, slot.room().roomId(), targetTeam));
+        }
         if (slot.room().lifecycleState() == RoomLifecycleState.ENDING) {
             resultRuntimeService.syncRejoinedPlayer(slot.room(), runningState, player, gameTick);
             nametagVisibilityService.syncRunningRoom(slot.room(), runningState);
@@ -2101,6 +2154,9 @@ public final class RoomCoreService {
         float topScore = Float.NEGATIVE_INFINITY;
         for (UUID playerId : runningState.getRoomPlayers()) {
             if (runningState.getRoomTeams().get(playerId) != largerTeam) {
+                continue;
+            }
+            if (runningState.isInRespawnFlow(playerId)) {
                 continue;
             }
             float score = org.mods.gd656conquest.server.integration.KilliconScoreboardBridge
@@ -2152,6 +2208,13 @@ public final class RoomCoreService {
         squadAssignmentService.assignRunningPlayer(slot.runtime(), playerId, teamId);
         RoomMatchingActionBarService.clear(player);
         resultRuntimeService.clearPlayer(player);
+        if (RoomMatchLoadService.isEnabled(slot.room())) {
+            // Intercept: use match-loading phase before deploy
+            matchLoadService.beginMatchLoad(
+                player, slot.room(), runningState, gameTick,
+                RoomMatchLoadService.EntryKind.MIDJOIN, teamId);
+            return Optional.of(new RoomJoinResult(RoomJoinResult.Kind.MIDJOIN_RUNNING, slot.room().roomId(), teamId));
+        }
         playerRespawnService.beginMidJoinDeploy(slot.room(), runningState, player, gameTick);
         nametagVisibilityService.syncRunningRoom(slot.room(), runningState);
         hudSyncService.syncRunningRoom(slot.room(), runningState);

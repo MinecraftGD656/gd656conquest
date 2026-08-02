@@ -248,6 +248,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().campAVoicePack(),
             base.commonConfig().campBVoicePack(),
             base.commonConfig().progressSpeed(),
+            base.commonConfig().matchLoadViewPosition(),
             base.commonConfig().resultConfig(),
             base.commonConfig().disableHunger(),
             base.commonConfig().enableAutoTeamSwitchPrompt(),
@@ -405,6 +406,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             "",
             "",
             40.0D,
+            null, // matchLoadViewPosition
             RoomResultConfig.defaults(),
             false, // disableHunger
             false, // enableAutoTeamSwitchPrompt

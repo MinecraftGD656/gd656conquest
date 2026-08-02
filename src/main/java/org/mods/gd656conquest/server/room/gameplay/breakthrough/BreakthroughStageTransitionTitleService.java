@@ -33,8 +33,6 @@ public final class BreakthroughStageTransitionTitleService {
     private static final int COUNTDOWN_RED_COLOR = 0xFF5555;
     private static final int SUBTITLE_ATTACKER_COLOR = 0x55FFFF;
     private static final int SUBTITLE_DEFENDER_COLOR = 0xFF5555;
-    private static final int RETREAT_SUBTITLE_COLOR = 0xC6CCD1;
-
     private final MinecraftServer server;
 
     public BreakthroughStageTransitionTitleService(MinecraftServer server) {
@@ -83,7 +81,6 @@ public final class BreakthroughStageTransitionTitleService {
         if (room == null || state == null || runtimeState == null || captureRuntimeService == null || runtimeState.getRetreatDeadlineTick() <= 0L) {
             return;
         }
-        boolean useRetreatActionbar = room.breakthroughConfig().defenderRetreatSeconds() > 30;
         int remainingSeconds = (int) Math.max(1L, (runtimeState.getRetreatDeadlineTick() - gameTick + 19L) / 20L);
         int retreatStageIndex = runtimeState.getRetreatStageIndex();
         for (UUID playerId : state.getRoomPlayers()) {
@@ -106,13 +103,8 @@ public final class BreakthroughStageTransitionTitleService {
             if (lastShown == remainingSeconds) {
                 continue;
             }
-            if (useRetreatActionbar) {
-                clearSingleTitle(player, lastShown >= 0);
-                sendRetreatActionbar(player, remainingSeconds);
-            } else {
-                ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_RETREAT);
-                sendRetreatTitle(player, remainingSeconds, lastShown < 0);
-            }
+            clearSingleTitle(player, lastShown >= 0);
+            sendRetreatActionbar(player, remainingSeconds);
             runtimeState.getRetreatCountdownLastShownSecondsByPlayer().put(playerId, remainingSeconds);
         }
     }
@@ -142,19 +134,6 @@ public final class BreakthroughStageTransitionTitleService {
         player.connection.send(new ClientboundSetSubtitleTextPacket(buildSubtitle(teamId)));
     }
 
-    private void sendRetreatTitle(ServerPlayer player, int remainingSeconds, boolean firstShow) {
-        if (player == null || player.connection == null) {
-            return;
-        }
-        player.connection.send(new ClientboundSetTitlesAnimationPacket(
-            firstShow ? TITLE_FADE_IN_TICKS : TITLE_REFRESH_FADE_IN_TICKS,
-            firstShow ? TITLE_STAY_TICKS : TITLE_REFRESH_STAY_TICKS,
-            firstShow ? TITLE_FADE_OUT_TICKS : TITLE_REFRESH_FADE_OUT_TICKS
-        ));
-        player.connection.send(new ClientboundSetTitleTextPacket(buildTitle(remainingSeconds)));
-        player.connection.send(new ClientboundSetSubtitleTextPacket(buildRetreatSubtitle()));
-    }
-
     private void sendRetreatActionbar(ServerPlayer player, int remainingSeconds) {
         if (player == null) {
             return;
@@ -180,11 +159,6 @@ public final class BreakthroughStageTransitionTitleService {
         boolean attacker = teamId == RoomTeamId.CAMP_A;
         MutableComponent subtitle = Component.literal(attacker ? "准备夺取下个阶段" : "准备防守阵地");
         return subtitle.withStyle(style -> style.withColor(attacker ? SUBTITLE_ATTACKER_COLOR : SUBTITLE_DEFENDER_COLOR).withBold(true));
-    }
-
-    private Component buildRetreatSubtitle() {
-        return Component.literal("撤离至下个阶段区域")
-            .withStyle(style -> style.withColor(RETREAT_SUBTITLE_COLOR).withBold(true));
     }
 
     private int resolveCountdownColor(int remainingSeconds) {

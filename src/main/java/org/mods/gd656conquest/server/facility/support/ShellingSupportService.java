@@ -3,6 +3,7 @@ package org.mods.gd656conquest.server.facility.support;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.ItemStack;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
@@ -24,11 +25,12 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.UUID;
 
 public final class ShellingSupportService {
-    private static final List<String> SHELLING_DEPLOY_VOICE_IDS = List.of(
+    private static final List<String> SHELLING_DEPLOY_OWNER_VOICE_IDS = List.of(
         "gd656conquest:voice.shelling.artillery_friendly_1",
         "gd656conquest:voice.shelling.artillery_friendly_2",
         "gd656conquest:voice.shelling.artillery_friendly_3"
     );
+    private static final String SHELLING_DEPLOY_TEAM_SOUND_ID = "gd656conquest:voice.shelling.artillery_friendly_promotion_wave";
 
     private ShellingSupportService() {
     }
@@ -151,6 +153,7 @@ public final class ShellingSupportService {
             return;
         }
         playDeployVoice(player);
+        playDeployVoiceToTeam(player.server, context.runningState(), context.request().teamId());
         SupportHudSubtitleService.broadcastShellingStarted(
             context.runningState(),
             context.request().teamId(),
@@ -328,14 +331,33 @@ public final class ShellingSupportService {
     }
 
     private static void playDeployVoice(ServerPlayer player) {
-        if (player == null || SHELLING_DEPLOY_VOICE_IDS.isEmpty()) {
+        if (player == null || SHELLING_DEPLOY_OWNER_VOICE_IDS.isEmpty()) {
             return;
         }
-        String soundId = SHELLING_DEPLOY_VOICE_IDS.get(ThreadLocalRandom.current().nextInt(SHELLING_DEPLOY_VOICE_IDS.size()));
+        String soundId = SHELLING_DEPLOY_OWNER_VOICE_IDS.get(ThreadLocalRandom.current().nextInt(SHELLING_DEPLOY_OWNER_VOICE_IDS.size()));
         if (soundId.isBlank()) {
             return;
         }
         NetworkManager.sendToPlayer(player, ClientShortSoundPacket.oneShot(soundId, 1.0F, 1.0F));
+    }
+
+    private static void playDeployVoiceToTeam(MinecraftServer server, RunningRuntimeState runningState, RoomTeamId teamId) {
+        if (server == null || runningState == null || teamId == null || SHELLING_DEPLOY_TEAM_SOUND_ID.isBlank()) {
+            return;
+        }
+        for (UUID playerId : runningState.getRoomPlayers()) {
+            if (playerId == null) {
+                continue;
+            }
+            if (runningState.getRoomTeams().get(playerId) != teamId) {
+                continue;
+            }
+            ServerPlayer teammate = server.getPlayerList().getPlayer(playerId);
+            if (teammate == null) {
+                continue;
+            }
+            NetworkManager.sendToPlayer(teammate, ClientShortSoundPacket.oneShot(SHELLING_DEPLOY_TEAM_SOUND_ID, 1.0F, 1.0F));
+        }
     }
 
     private record RunningChecks(boolean success, ShellingDataModel.ShellingEntry entry) {

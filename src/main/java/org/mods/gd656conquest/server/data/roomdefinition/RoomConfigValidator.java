@@ -92,6 +92,7 @@ public final class RoomConfigValidator {
         validateVoicePack(result, "common.campBVoicePack", "campBVoicePack", common.campBVoicePack());
         validateGameplayPlayerState(result, definition);
         validateRoomViewPosition(result, "common.endViewPosition", "endViewPosition", resultConfig.endViewPosition());
+        validateOptionalRoomViewPosition(result, "common.matchLoadViewPosition", "matchLoadViewPosition", common.matchLoadViewPosition());
     }
 
 
@@ -149,6 +150,17 @@ public final class RoomConfigValidator {
 
     public static void validateRoomViewPosition(RoomConfigValidationResult result, String fieldName, String configId, RoomViewPosition position) {
         if (position == null) {
+            result.addMissing(fieldName, configId);
+        }
+    }
+
+    /** Validates a {@link RoomViewPosition} that is allowed to be null (null = not configured / disabled). */
+    public static void validateOptionalRoomViewPosition(RoomConfigValidationResult result, String fieldName, String configId, RoomViewPosition position) {
+        if (position == null) {
+            return; // null is valid for optional fields
+        }
+        // Basic sanity: all coordinates should be finite
+        if (!Double.isFinite(position.x()) || !Double.isFinite(position.y()) || !Double.isFinite(position.z())) {
             result.addMissing(fieldName, configId);
         }
     }

@@ -8,6 +8,8 @@ import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
+import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
+import org.mods.gd656conquest.server.social.party.domain.PartyError;
 import org.mods.gd656conquest.server.social.party.presentation.PartyUiFacade;
 import org.mods.gd656conquest.server.title.PlayerTitleService;
 
@@ -31,7 +33,14 @@ public final class ServerChatFormatService {
         }
         if (startsWithToken(input, "@t")) {
             String content = input.length() <= 2 ? "" : input.substring(2).trim();
-            PartyUiFacade.of(sender.server).sendPartyChat(sender, content);
+            try {
+                PartyUiFacade.of(sender.server).sendPartyChat(sender, content);
+            } catch (PartyError error) {
+                String message = error.getMessage() == null || error.getMessage().isBlank()
+                    ? "当前无法发送队伍聊天消息"
+                    : error.getMessage();
+                ServerMessageSender.system(sender, "组队", message, ChatFormatting.RED);
+            }
             return;
         }
         RoomCoreRuntimeManager coreManager = RoomCoreRuntimeManager.of(sender.server);

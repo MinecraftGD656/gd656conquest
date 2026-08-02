@@ -7,6 +7,7 @@ import net.minecraft.world.entity.Pose;
 import net.minecraft.world.level.GameType;
 import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
 import org.mods.gd656conquest.server.compat.tacz.TaczServerPoseCompat;
+import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.matching.MatchingRuntimeState;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
@@ -70,9 +71,16 @@ public final class RoomPlayerStateService {
         if (room == null || state == null) {
             return;
         }
+        RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(server);
         for (UUID playerId : state.getQueuePlayers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player == null) {
+                continue;
+            }
+            if (roomManager.isPlayerInMatchLoad(playerId)) {
+                if (!player.isInvulnerable()) {
+                    player.setInvulnerable(true);
+                }
                 continue;
             }
             if (shouldEnforceConfiguredGameMode(player)

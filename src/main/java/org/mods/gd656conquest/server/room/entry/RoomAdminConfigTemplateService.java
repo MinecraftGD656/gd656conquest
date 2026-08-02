@@ -141,6 +141,7 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.campAVoicePack(),
             sourceCommon.campBVoicePack(),
             sourceCommon.progressSpeed(),
+            sourceCommon.matchLoadViewPosition(),
             sourceCommon.resultConfig(),
             sourceCommon.disableHunger(),
             sourceCommon.enableAutoTeamSwitchPrompt(),

@@ -25,6 +25,7 @@ import org.mods.gd656conquest.client.hud.ClientHudDebugPreviewState;
 import org.mods.gd656conquest.client.hud.ClientHudDebugState;
 import org.mods.gd656conquest.client.hud.ClientHudRenderer;
 import org.mods.gd656conquest.client.hud.ClientHudSubtitleManager;
+import org.mods.gd656conquest.client.hud.ClientMatchLoadState;
 import org.mods.gd656conquest.client.hud.ClientMatchResultOverlayState;
 import org.mods.gd656conquest.client.loadout.ClientLoadoutUiController;
 import org.mods.gd656conquest.client.marker.ClientMarkerDebugPreviewState;
@@ -98,6 +99,7 @@ public final class ClientEventHandler {
         ClientDownedState.tick();
         ClientReviveState.tick();
         ClientMatchResultOverlayState.tick();
+        ClientMatchLoadState.tick();
         superbWarfareShellingHook.tick(minecraft);
         String roomId = ClientHudDebugState.getRoomId();
         String roomState = ClientHudDebugState.getRoomState();
@@ -197,6 +199,12 @@ public final class ClientEventHandler {
     }
 
     public void renderMainHud(net.minecraftforge.client.gui.overlay.ForgeGui gui, net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
+        // During match-loading phases 1-3: show only the loading overlay, hide all other HUD
+        if (ClientMatchLoadState.shouldHideAllHud()) {
+            ClientMatchLoadState.render(guiGraphics, partialTick);
+            return;
+        }
+
         if (org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideAllHudButKeepHand()
             || org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideAllHudAndHand()
             || org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideTopHudOnly()) {
@@ -214,6 +222,7 @@ public final class ClientEventHandler {
             ClientMarkerDebugPreviewState.renderHudOverlay(guiGraphics);
             roomSessionController.renderSessionOverlay(guiGraphics, partialTick);
             ClientMatchResultOverlayState.render(guiGraphics);
+            ClientMatchLoadState.render(guiGraphics, partialTick);
         } finally {
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             RenderSystem.disableBlend();
@@ -238,6 +247,7 @@ public final class ClientEventHandler {
         ClientParkourRuntimeState.clear();
         ClientParkourLeaderboardState.clear();
         ClientMatchResultOverlayState.clear();
+        ClientMatchLoadState.clear();
         ClientDeathFlowState.clear();
         ClientPackAuditService.clear();
         ClientBoundaryHeightReportService.clear();
@@ -256,6 +266,7 @@ public final class ClientEventHandler {
     }
 
     public void handleClientDimensionChange(ClientPlayerNetworkEvent.Clone event) {
+        ClientMatchLoadState.clear();
         String roomId = ClientHudDebugState.getRoomId();
         if (roomId != null && !roomId.isBlank() && !"-".equals(roomId)) {
             captureOverlayController.clearRenderCaches();

@@ -147,6 +147,9 @@ public final class RoomRuleRuntimeService {
         if (state.getPendingTeamChanges().containsKey(playerId) || state.getAutoTeamSwitchOfferTargetTeams().containsKey(playerId)) {
             return false;
         }
+        if (state.isInRespawnFlow(playerId)) {
+            return false;
+        }
         return true;
     }
 

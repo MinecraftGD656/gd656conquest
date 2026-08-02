@@ -88,6 +88,7 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.MATCHING, "waitAfterMinSeconds", "最低人数后最短等待", "commonConfig.matchingConfig.waitAfterMinSeconds", RoomConfigValueType.NUMBER, List.of(), "queueWaitAfterMinSeconds");
         common(descriptors, RoomConfigCategory.MATCHING, "waitAfterMaxSeconds", "最低人数后最长等待", "commonConfig.matchingConfig.waitAfterMaxSeconds", RoomConfigValueType.NUMBER, List.of(), "queueWaitAfterMaxSeconds");
         common(descriptors, RoomConfigCategory.TRANSPORT, "queueSpawn", "排队出生点", "commonConfig.queueSpawn", RoomConfigValueType.POSITION, List.of("here"));
+        common(descriptors, RoomConfigCategory.TRANSPORT, "matchLoadViewPosition", "对局加载展示位置", "commonConfig.matchLoadViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
         common(descriptors, RoomConfigCategory.TRANSPORT, "vehicleBackend", "载具后端", "commonConfig.vehicleBackend", RoomConfigValueType.STRING, RoomVehicleBackend.suggestions(), "backend");
         common(descriptors, RoomConfigCategory.PLAYER_STATE, "respawnDelaySeconds", "重生等待秒数", "commonConfig.respawnDelaySeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "progressSpeed", "占领速度", "commonConfig.progressSpeed", RoomConfigValueType.NUMBER, List.of(), "captureProgressSpeed");

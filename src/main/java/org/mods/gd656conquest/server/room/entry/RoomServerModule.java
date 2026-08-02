@@ -56,12 +56,14 @@ public final class RoomServerModule implements ServerModule {
     @Override
     public void onLivingAttack(LivingAttackEvent event) {
         cancelFriendlyPlayerDamage(event);
+        cancelFriendlyGroundSensorDamage(event);
         cancelFriendlySquadBeaconDamage(event);
     }
 
     @Override
     public void onLivingHurt(LivingHurtEvent event) {
         cancelFriendlyPlayerDamage(event);
+        cancelFriendlyGroundSensorDamage(event);
         cancelFriendlySquadBeaconDamage(event);
         markDamagingPlayerAsCombatDeployBlocked(event);
     }
@@ -72,8 +74,8 @@ public final class RoomServerModule implements ServerModule {
             return;
         }
         if (isTacticalGadgetEntity(event.getEntity())) {
-            net.minecraft.world.entity.Entity attacker = event.getSource() == null ? null : event.getSource().getEntity();
-            if (attacker instanceof ServerPlayer player) {
+            ServerPlayer player = RoomDamageSourceResolver.resolveAttackingPlayer(event.getSource(), event.getEntity());
+            if (player != null) {
                 KilliconScoreboardBridge.tryAwardConquestBonus(player, "TACTICAL_GADGET_DESTROYED", 1.0F, "");
             }
             return;
@@ -127,6 +129,33 @@ public final class RoomServerModule implements ServerModule {
             return;
         }
         if (!RoomCoreRuntimeManager.of(attacker.server).shouldCancelDamageToSquadBeacon(attacker, beacon)) {
+            return;
+        }
+        if (event instanceof LivingAttackEvent attackEvent) {
+            attackEvent.setCanceled(true);
+            return;
+        }
+        ((LivingHurtEvent) event).setCanceled(true);
+    }
+
+    private static void cancelFriendlyGroundSensorDamage(net.minecraftforge.event.entity.living.LivingEvent event) {
+        if (event == null
+            || !(event.getEntity() instanceof org.mods.gd656conquest.common.entity.GroundSensorEntity sensor)) {
+            return;
+        }
+        net.minecraft.world.damagesource.DamageSource damageSource;
+        if (event instanceof LivingAttackEvent attackEvent) {
+            damageSource = attackEvent.getSource();
+        } else if (event instanceof LivingHurtEvent hurtEvent) {
+            damageSource = hurtEvent.getSource();
+        } else {
+            return;
+        }
+        net.minecraft.world.entity.Entity sourceEntity = damageSource == null ? null : damageSource.getEntity();
+        if (!(sourceEntity instanceof ServerPlayer attacker) || attacker.server == null) {
+            return;
+        }
+        if (!RoomCoreRuntimeManager.of(attacker.server).shouldCancelDamageToGroundSensor(attacker, sensor)) {
             return;
         }
         if (event instanceof LivingAttackEvent attackEvent) {
@@ -204,6 +233,7 @@ public final class RoomServerModule implements ServerModule {
 
     private static boolean isTacticalGadgetEntity(net.minecraft.world.entity.Entity entity) {
         return entity instanceof org.mods.gd656conquest.common.entity.SquadDeployBeaconEntity
+            || entity instanceof org.mods.gd656conquest.common.entity.GroundSensorEntity
             || entity instanceof org.mods.gd656conquest.common.entity.AmmoBoxEntity
             || entity instanceof org.mods.gd656conquest.common.entity.MedicalBoxEntity;
     }

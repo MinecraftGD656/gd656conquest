@@ -110,6 +110,26 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         return value == null || value < 0.0 ? 35.0 : value;
     }
 
+    public synchronized double getGroundSensorScanRadius() {
+        Double value = get().getGroundSensorScanRadius();
+        return value == null || Double.isNaN(value) || Double.isInfinite(value) || value < 0.0D ? 10.0D : value;
+    }
+
+    public synchronized int getGroundSensorScanIntervalSeconds() {
+        Integer value = get().getGroundSensorScanIntervalSeconds();
+        return value == null || value <= 0 ? 4 : value;
+    }
+
+    public synchronized int getGroundSensorMarkDurationSeconds() {
+        Integer value = get().getGroundSensorMarkDurationSeconds();
+        return value == null || value <= 0 ? 2 : value;
+    }
+
+    public synchronized int getGroundSensorScanBonusCooldownSeconds() {
+        Integer value = get().getGroundSensorScanBonusCooldownSeconds();
+        return value == null || value <= 0 ? 10 : value;
+    }
+
     public synchronized RoomPosition getOverworldSpawnFallbackShared() {
         RoomPosition configured = get().getOverworldSpawn();
         if (configured != null) {
@@ -214,6 +234,16 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         model.setParkourBestTitleId(normalizeTitleId(model.getParkourBestTitleId()));
         if (model.getMissileKillRadius() == null || model.getMissileKillRadius() < 0.0) {
             model.setMissileKillRadius(35.0);
+        }
+        model.setGroundSensorScanRadius(sanitizeScopeLimit(model.getGroundSensorScanRadius(), 10.0D));
+        if (model.getGroundSensorScanIntervalSeconds() == null || model.getGroundSensorScanIntervalSeconds() <= 0) {
+            model.setGroundSensorScanIntervalSeconds(4);
+        }
+        if (model.getGroundSensorMarkDurationSeconds() == null || model.getGroundSensorMarkDurationSeconds() <= 0) {
+            model.setGroundSensorMarkDurationSeconds(2);
+        }
+        if (model.getGroundSensorScanBonusCooldownSeconds() == null || model.getGroundSensorScanBonusCooldownSeconds() <= 0) {
+            model.setGroundSensorScanBonusCooldownSeconds(10);
         }
     }
 

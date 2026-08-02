@@ -535,6 +535,27 @@ public final class RoomPlayerRespawnService {
         ));
     }
 
+    public void resumeDeferredInitialDeploy(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long gameTick) {
+        Objects.requireNonNull(room, "room");
+        Objects.requireNonNull(state, "state");
+        if (player == null) {
+            return;
+        }
+        UUID playerId = player.getUUID();
+        RoomTeamId teamId = state.getRoomTeams().get(playerId);
+        if (teamId != RoomTeamId.CAMP_A && teamId != RoomTeamId.CAMP_B) {
+            return;
+        }
+        if (state.isInDeployFlow(playerId) || state.getDeployViewActivePlayers().contains(playerId)) {
+            return;
+        }
+        deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
+        if (tryBeginAlignedOpeningJoinDeploy(room, state, player, gameTick, RoomGameplayDeployViewKind.MIDJOIN)) {
+            return;
+        }
+        completeImmediateOpeningDeploy(room, state, player, teamId, gameTick);
+    }
+
     public boolean handleDeploySelection(
         RoomDefinition room,
         RunningRuntimeState state,
@@ -1118,21 +1139,62 @@ public final class RoomPlayerRespawnService {
             );
             return true;
         }
+        completeImmediateOpeningDeploy(room, state, player, teamId, gameTick, spawn);
+        return true;
+    }
+
+    private void completeImmediateOpeningDeploy(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player,
+        RoomTeamId teamId,
+        long gameTick
+    ) {
+        RoomPosition spawn = deploySelectionService.resolveSelectedSpawn(
+            room,
+            state,
+            player,
+            teamId,
+            state.getDeploySelectionKinds().get(player.getUUID()),
+            state.getDeploySelectionTargetIds().get(player.getUUID()),
+            true
+        );
+        if (spawn == null) {
+            beginMidJoinDeploy(room, state, player, gameTick);
+            return;
+        }
+        completeImmediateOpeningDeploy(room, state, player, teamId, gameTick, spawn);
+    }
+
+    private void completeImmediateOpeningDeploy(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player,
+        RoomTeamId teamId,
+        long gameTick,
+        RoomPosition spawn
+    ) {
+        if (room == null || state == null || player == null || teamId == null || spawn == null) {
+            return;
+        }
+        UUID playerId = player.getUUID();
         state.getDeployReadyTicks().remove(playerId);
         state.getDeployAutoStartOnReadyPlayers().remove(playerId);
         state.getDeployAllowFallbackOnMissingSelectionPlayers().remove(playerId);
+        state.getDeployExplicitConfirmRequiredPlayers().remove(playerId);
         state.getRespawnFinalizeTicks().remove(playerId);
         state.getRespawnTargetPositions().put(playerId, spawn);
         playerLaunchService.teleportToRoomPosition(player, room, spawn);
         HeroKitSupportService.endHeroKitState(server, state, playerId, gameTick);
         state.getHeroKitLoadoutResetPendingPlayers().remove(playerId);
         applyRespawnLoadout(room, state, player);
-        markInitialMovementLocked(state, playerId);
         playerStateService.applyRespawnState(room, playerId, gameTick);
         applyPostDeploySelectedHotbarSlot(room, player, false);
+        if (state.getInitialMovementUnlockTick() > gameTick) {
+            markInitialMovementLocked(state, playerId);
+        }
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
         state.clearRespawnFlow(playerId);
-        return true;
     }
 
     private void finishDownedState(RoomDefinition room, RunningRuntimeState state, UUID playerId, long gameTick) {

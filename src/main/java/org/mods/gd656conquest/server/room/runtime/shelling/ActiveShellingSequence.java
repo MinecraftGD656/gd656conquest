@@ -34,6 +34,7 @@ public final class ActiveShellingSequence {
     public int startedEventCount;
     public int spawnedShellCount;
     public int lastCountdownAnnouncedSecond = -1;
+    public long nextOngoingHudTick;
 
     private ActiveShellingSequence(
         UUID sequenceId,
@@ -73,6 +74,7 @@ public final class ActiveShellingSequence {
         this.totalShellCount = Math.max(1, totalShellCount);
         this.nextEventTick = nextEventTick;
         this.nextShellSpawnTick = nextShellSpawnTick;
+        this.nextOngoingHudTick = Long.MAX_VALUE;
     }
 
     public static ActiveShellingSequence create(

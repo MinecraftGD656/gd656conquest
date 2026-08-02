@@ -23,6 +23,7 @@ public record RoomCommonConfig(
     String campAVoicePack,
     String campBVoicePack,
     double progressSpeed,
+    RoomViewPosition matchLoadViewPosition,
     RoomResultConfig resultConfig,
     boolean disableHunger,
     boolean enableAutoTeamSwitchPrompt,
@@ -63,6 +64,7 @@ public record RoomCommonConfig(
         matchingConfig = matchingConfig == null ? RoomMatchingConfig.defaults() : matchingConfig;
         vehicleBackend = vehicleBackend == null ? RoomVehicleBackend.defaultValue() : vehicleBackend;
         playerStateConfig = playerStateConfig == null ? RoomPlayerStateConfig.defaults() : playerStateConfig;
+        matchLoadViewPosition = matchLoadViewPosition; // null = not configured
         resultConfig = resultConfig == null ? RoomResultConfig.defaults() : resultConfig;
         dimensionId = normalizeDimensionId(dimensionId);
         respawnDelaySeconds = Math.max(0, respawnDelaySeconds);
@@ -115,6 +117,7 @@ public record RoomCommonConfig(
             "",
             "",
             40.0D,
+            null,
             RoomResultConfig.defaults(),
             false,
             false,

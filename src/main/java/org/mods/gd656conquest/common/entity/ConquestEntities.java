@@ -14,6 +14,14 @@ import org.mods.gd656conquest.Gd656conquest;
 public final class ConquestEntities {
     private static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, Gd656conquest.MODID);
 
+    public static final RegistryObject<EntityType<GroundSensorEntity>> GROUND_SENSOR = ENTITY_TYPES.register(
+            "ground_sensor",
+            () -> EntityType.Builder.of(GroundSensorEntity::new, MobCategory.MISC)
+                    .sized(0.75F, 0.75F)
+                    .clientTrackingRange(96)
+                    .updateInterval(2)
+                    .build("ground_sensor")
+    );
     public static final RegistryObject<EntityType<SquadDeployBeaconEntity>> SQUAD_DEPLOY_BEACON = ENTITY_TYPES.register(
             "squad_deploy_beacon",
             () -> EntityType.Builder.of(SquadDeployBeaconEntity::new, MobCategory.MISC)
@@ -57,6 +65,11 @@ public final class ConquestEntities {
     }
 
     private static void onEntityAttributeCreation(EntityAttributeCreationEvent event) {
+        AttributeSupplier.Builder groundSensorBuilder = GroundSensorEntity.createAttributes()
+                .add(Attributes.MAX_HEALTH, 20.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.0D)
+                .add(Attributes.KNOCKBACK_RESISTANCE, 1.0D);
+        event.put(GROUND_SENSOR.get(), groundSensorBuilder.build());
         AttributeSupplier.Builder builder = SquadDeployBeaconEntity.createAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)
                 .add(Attributes.MOVEMENT_SPEED, 0.0D)
