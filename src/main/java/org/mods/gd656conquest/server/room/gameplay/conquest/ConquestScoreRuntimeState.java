@@ -1,5 +1,6 @@
 package org.mods.gd656conquest.server.room.gameplay.conquest;
 
+import org.mods.gd656conquest.server.room.model.ConquestFullCaptureResponseMode;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
 import java.util.EnumMap;
@@ -11,6 +12,9 @@ public final class ConquestScoreRuntimeState {
     private RoomTeamId fullCaptureOwnerTeam;
     private RoomTeamId fullCaptureEnemyTeam;
     private long fullCaptureEndTick = -1L;
+    private ConquestFullCaptureResponseMode fullCaptureResponseMode = ConquestFullCaptureResponseMode.defaultValue();
+    private long fullCaptureNextAnnouncementTick = -1L;
+    private long antiBaseNukeCooldownUntilTick = -1L;
     private final Map<RoomTeamId, String> eventByTeam = new EnumMap<>(RoomTeamId.class);
     private final Map<RoomTeamId, Long> eventExpireTickByTeam = new EnumMap<>(RoomTeamId.class);
 
@@ -52,6 +56,43 @@ public final class ConquestScoreRuntimeState {
 
     public void setFullCaptureEndTick(long fullCaptureEndTick) {
         this.fullCaptureEndTick = fullCaptureEndTick;
+    }
+
+    public ConquestFullCaptureResponseMode getFullCaptureResponseMode() {
+        return fullCaptureResponseMode;
+    }
+
+    public void setFullCaptureResponseMode(ConquestFullCaptureResponseMode fullCaptureResponseMode) {
+        this.fullCaptureResponseMode = fullCaptureResponseMode == null
+            ? ConquestFullCaptureResponseMode.defaultValue()
+            : fullCaptureResponseMode;
+    }
+
+    public long getFullCaptureNextAnnouncementTick() {
+        return fullCaptureNextAnnouncementTick;
+    }
+
+    public void setFullCaptureNextAnnouncementTick(long fullCaptureNextAnnouncementTick) {
+        this.fullCaptureNextAnnouncementTick = fullCaptureNextAnnouncementTick;
+    }
+
+    public long getAntiBaseNukeCooldownUntilTick() {
+        return antiBaseNukeCooldownUntilTick;
+    }
+
+    public void setAntiBaseNukeCooldownUntilTick(long antiBaseNukeCooldownUntilTick) {
+        this.antiBaseNukeCooldownUntilTick = antiBaseNukeCooldownUntilTick;
+    }
+
+    public boolean isFullCaptureCountdownActive(long gameTick) {
+        return fullCaptureResponseMode == ConquestFullCaptureResponseMode.COUNTDOWN_END
+            && fullCaptureOwnerTeam != null
+            && fullCaptureEndTick > gameTick;
+    }
+
+    public boolean isFullCapturePressureActive(long gameTick) {
+        return fullCaptureOwnerTeam != null
+            && fullCaptureEndTick > gameTick;
     }
 
     public void setTeamEvent(RoomTeamId teamId, String eventMessage, long expireTick) {
@@ -96,5 +137,7 @@ public final class ConquestScoreRuntimeState {
         fullCaptureOwnerTeam = null;
         fullCaptureEnemyTeam = null;
         fullCaptureEndTick = -1L;
+        fullCaptureResponseMode = ConquestFullCaptureResponseMode.defaultValue();
+        fullCaptureNextAnnouncementTick = -1L;
     }
 }

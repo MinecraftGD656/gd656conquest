@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.room.config;
 
 import org.mods.gd656conquest.common.block.ConquestBlocks;
+import org.mods.gd656conquest.server.room.model.ConquestFullCaptureResponseMode;
 import org.mods.gd656conquest.server.room.model.RoomVehicleBackend;
 import org.mods.gd656conquest.server.room.model.RoomTroopBalanceReference;
 import org.mods.gd656conquest.server.room.model.RoomVoicePack;
@@ -171,6 +172,42 @@ public final class RoomConfigDescriptorRegistry {
         conquestGroup(descriptors, RoomConfigCategory.TRANSPORT, "campBSpawnGroup", "阵营B出生组", "conquestConfig.teamSpawnGroups[CAMP_B]", RoomConfigValueType.DATA_GROUP, "campBSpawns", "campBMilitia");
         conquest(descriptors, RoomConfigCategory.CAPTURE, "drawDurationMinutes", "平局持续分钟", "conquestConfig.captureConfig.drawDurationMinutes", RoomConfigValueType.NUMBER, List.of());
         conquest(descriptors, RoomConfigCategory.CAPTURE, "fullCaptureEndSeconds", "全点占领结束秒数", "conquestConfig.captureConfig.fullCaptureEndSeconds", RoomConfigValueType.NUMBER, List.of());
+        conquest(
+            descriptors,
+            RoomConfigCategory.CAPTURE,
+            "fullCaptureResponseMode",
+            "对局面对压家的处理方式",
+            "conquestConfig.captureConfig.fullCaptureResponseMode",
+            RoomConfigValueType.STRING,
+            ConquestFullCaptureResponseMode.suggestions()
+        );
+        conquest(
+            descriptors,
+            RoomConfigCategory.CAPTURE,
+            "antiBaseNukeTriggerSeconds",
+            "触发防压家核弹的所需时长",
+            "conquestConfig.captureConfig.antiBaseNukeTriggerSeconds",
+            RoomConfigValueType.NUMBER,
+            List.of()
+        );
+        conquest(
+            descriptors,
+            RoomConfigCategory.CAPTURE,
+            "antiBaseNukeRespawnDelaySeconds",
+            "玩家被防压家核弹炸死后的重新部署时长",
+            "conquestConfig.captureConfig.antiBaseNukeRespawnDelaySeconds",
+            RoomConfigValueType.NUMBER,
+            List.of()
+        );
+        conquest(
+            descriptors,
+            RoomConfigCategory.CAPTURE,
+            "antiBaseNukeTriggerCooldownSeconds",
+            "防压家核弹触发间隔CD",
+            "conquestConfig.captureConfig.antiBaseNukeTriggerCooldownSeconds",
+            RoomConfigValueType.NUMBER,
+            List.of()
+        );
         conquest(descriptors, RoomConfigCategory.CAPTURE, "targetScore", "目标分数", "conquestConfig.captureConfig.targetScore", RoomConfigValueType.NUMBER, List.of());
         conquest(descriptors, RoomConfigCategory.CAPTURE, "captureScoreIntervalSeconds", "据点计分间隔秒数", "conquestConfig.captureConfig.captureScoreIntervalSeconds", RoomConfigValueType.NUMBER, List.of());
         conquest(descriptors, RoomConfigCategory.CAPTURE, "scoreMethod", "计分方式", "conquestConfig.captureConfig.scoreMethod", RoomConfigValueType.STRING, List.of("SCORE_TARGET", "TROOP_DEPLETION"));

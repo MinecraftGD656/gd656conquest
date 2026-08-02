@@ -2,6 +2,7 @@ package org.mods.gd656conquest.server.room.config;
 
 import com.google.gson.Gson;
 import net.minecraft.server.level.ServerPlayer;
+import org.mods.gd656conquest.server.room.model.ConquestFullCaptureResponseMode;
 import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomGameplayId;
@@ -206,7 +207,8 @@ public final class RoomDefinitionScalarConfigEditor {
                 "aircraftoutsideboundarycleanupseconds", "playermaxy", "aircraftpassengermaxy",
                 "dmmatchdurationminutes", "dmtargetscore", "dmstartcountdownseconds", "dmrespawnseconds",
                 "gmmatchdurationminutes", "gmtargetscore", "gmstartcountdownseconds", "gmrespawnseconds",
-                "gmkillsperweaponswitch" -> true;
+                "gmkillsperweaponswitch", "antibasenuketriggerseconds", "antibasenukerespawndelayseconds",
+                "antibasenuketriggercooldownseconds" -> true;
             default -> false;
         };
     }
@@ -220,6 +222,7 @@ public final class RoomDefinitionScalarConfigEditor {
             case "bttroopbalancereference" -> RoomTroopBalanceReference.of(rawValue);
             case "gmplayergroupingmode" -> RoomGunmasterGroupingMode.of(rawValue);
             case "scoremethod" -> parseScoreMethod(rawValue);
+            case "fullcaptureresponsemode" -> ConquestFullCaptureResponseMode.parse(rawValue);
             case "initialcaptureownership" -> parseInitialCaptureOwnership(rawValue);
             default -> parseQuotedString(rawValue);
         };

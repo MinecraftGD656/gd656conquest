@@ -45,6 +45,7 @@ public final class RunningRuntimeState {
     private final Set<UUID> initialMovementLockedPlayers = new LinkedHashSet<>();
     private final Map<UUID, Integer> initialMovementLockLastShownSeconds = new LinkedHashMap<>();
     private final Map<UUID, Integer> respawnCountdownLastShownSeconds = new LinkedHashMap<>();
+    private final Map<UUID, Integer> respawnDelayOverrideSecondsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, String> squadLabelsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Long> combatUntilTicks = new LinkedHashMap<>();
     private final Set<UUID> doubledRespawnPending = new LinkedHashSet<>();
@@ -225,6 +226,24 @@ public final class RunningRuntimeState {
 
     public Map<UUID, Integer> getRespawnCountdownLastShownSeconds() {
         return respawnCountdownLastShownSeconds;
+    }
+
+    public void setRespawnDelayOverrideSeconds(UUID playerId, int seconds) {
+        if (playerId == null) {
+            return;
+        }
+        respawnDelayOverrideSecondsByPlayer.put(playerId, Math.max(0, seconds));
+    }
+
+    public Integer consumeRespawnDelayOverrideSeconds(UUID playerId) {
+        return playerId == null ? null : respawnDelayOverrideSecondsByPlayer.remove(playerId);
+    }
+
+    public void clearRespawnDelayOverrideSeconds(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
+        respawnDelayOverrideSecondsByPlayer.remove(playerId);
     }
 
     public long getInitialMovementUnlockTick() {
@@ -580,6 +599,7 @@ public final class RunningRuntimeState {
         roomTeams.remove(playerId);
         squadLabelsByPlayer.remove(playerId);
         combatUntilTicks.remove(playerId);
+        respawnDelayOverrideSecondsByPlayer.remove(playerId);
         doubledRespawnPending.remove(playerId);
         teammateDeployKillWindowUntilTicks.remove(playerId);
         beaconOwnerByDeployer.remove(playerId);
@@ -645,6 +665,7 @@ public final class RunningRuntimeState {
         initialMovementLockedPlayers.clear();
         initialMovementLockLastShownSeconds.clear();
         respawnCountdownLastShownSeconds.clear();
+        respawnDelayOverrideSecondsByPlayer.clear();
         squadLabelsByPlayer.clear();
         combatUntilTicks.clear();
         doubledRespawnPending.clear();

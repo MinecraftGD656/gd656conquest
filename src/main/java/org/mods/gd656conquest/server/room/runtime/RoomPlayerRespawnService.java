@@ -669,6 +669,10 @@ public final class RoomPlayerRespawnService {
             }
             UUID playerId = entry.getKey();
             int deployDelayTicks = resolveDeployDelayTicks(room, state, 1);
+            Integer overrideSeconds = state.consumeRespawnDelayOverrideSeconds(playerId);
+            if (overrideSeconds != null) {
+                deployDelayTicks = Math.max(0, overrideSeconds) * 20;
+            }
             if (state.getDoubledRespawnPending().remove(playerId)) {
                 deployDelayTicks *= 2;
             }
@@ -1269,6 +1273,10 @@ public final class RoomPlayerRespawnService {
 
     private int resolveDeployDelayTicksFromDowned(RoomDefinition room, RunningRuntimeState state, UUID playerId, long gameTick) {
         int deployDelayTicks = resolveDeployDelayTicks(room, state, 1);
+        Integer overrideSeconds = state == null ? null : state.consumeRespawnDelayOverrideSeconds(playerId);
+        if (overrideSeconds != null) {
+            return Math.max(0, overrideSeconds) * 20;
+        }
         if (room == null || state == null || playerId == null || !room.commonConfig().enableRespawnCountdownWhileDowned()) {
             return deployDelayTicks;
         }

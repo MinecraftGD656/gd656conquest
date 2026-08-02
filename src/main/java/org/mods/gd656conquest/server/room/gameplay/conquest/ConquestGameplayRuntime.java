@@ -15,6 +15,7 @@ import org.mods.gd656conquest.server.room.gameplay.RoomObjectiveEventTextService
 import org.mods.gd656conquest.server.room.gameplay.RoomObjectiveFocusPayloadService;
 import org.mods.gd656conquest.server.room.gameplay.RoomObjectivePresentationContext;
 import org.mods.gd656conquest.server.room.gameplay.RoomObjectiveStatusTextService;
+import org.mods.gd656conquest.server.room.model.ConquestFullCaptureResponseMode;
 import org.mods.gd656conquest.server.room.model.RoomCaptureConfig;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
@@ -194,7 +195,9 @@ public final class ConquestGameplayRuntime implements
         if (room == null || player == null || selfTeam == null) {
             return "-";
         }
-        if (scoreState.getFullCaptureEndTick() > 0 && scoreState.getFullCaptureOwnerTeam() != null) {
+        if (scoreState.getFullCaptureResponseMode() == ConquestFullCaptureResponseMode.COUNTDOWN_END
+            && scoreState.getFullCaptureEndTick() > 0
+            && scoreState.getFullCaptureOwnerTeam() != null) {
             return selfTeam == scoreState.getFullCaptureOwnerTeam() ? "我方控制了全部据点" : "敌方控制了全部据点";
         }
         String teamEvent = scoreState.resolveTeamEvent(selfTeam, gameTick);
@@ -235,7 +238,9 @@ public final class ConquestGameplayRuntime implements
         if (room == null) {
             return "-";
         }
-        if (scoreState.getFullCaptureEndTick() > 0 && scoreState.getFullCaptureOwnerTeam() != null) {
+        if (scoreState.getFullCaptureResponseMode() == ConquestFullCaptureResponseMode.COUNTDOWN_END
+            && scoreState.getFullCaptureEndTick() > 0
+            && scoreState.getFullCaptureOwnerTeam() != null) {
             String teamName = room.gameplayTeamDisplayName(scoreState.getFullCaptureOwnerTeam());
             return teamName + " 控制全部据点，决战剩余 " + remainSeconds + "秒";
         }
@@ -259,7 +264,7 @@ public final class ConquestGameplayRuntime implements
         if (room == null) {
             return "-";
         }
-        if (scoreState.getFullCaptureEndTick() > gameTick) {
+        if (scoreState.isFullCapturePressureActive(gameTick)) {
             return resolveFinalObjectiveAudioState(selfTeam, scoreState.getFullCaptureOwnerTeam());
         }
         if ("TROOP_DEPLETION".equalsIgnoreCase(captureConfig(room).scoreMethod()) && isTroopRatioNearEnd(room)) {
@@ -565,7 +570,8 @@ public final class ConquestGameplayRuntime implements
             && state != null && state.getResultSequenceEndTick() > 0) {
             return (int) Math.max(0L, (state.getResultSequenceEndTick() - gameTick + 19L) / 20L);
         }
-        if (scoreState.getFullCaptureEndTick() > 0) {
+        if (scoreState.getFullCaptureResponseMode() == ConquestFullCaptureResponseMode.COUNTDOWN_END
+            && scoreState.getFullCaptureEndTick() > 0) {
             return (int) Math.max(0L, (scoreState.getFullCaptureEndTick() - gameTick + 19L) / 20L);
         }
         long matchEndTick = resolveMatchEndTick(room);

@@ -7,6 +7,7 @@ import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.gameplay.RoomHudSubtitleBroadcastService;
 import org.mods.gd656conquest.server.room.gameplay.RoomObjectiveHudSubtitleRuntimeService;
 import org.mods.gd656conquest.server.room.gameplay.RoomObjectiveHudSubtitleRuntimeService.RoomObjectiveSubtitleEntry;
+import org.mods.gd656conquest.server.room.model.ConquestFullCaptureResponseMode;
 import org.mods.gd656conquest.server.room.model.RoomCaptureConfig;
 import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
@@ -230,7 +231,9 @@ public final class ConquestHudSubtitleRuntimeService {
         if (forceMatchEnded) {
             return new PersistentSubtitle("match_end", "对局已结束");
         }
-        if (scoreState.getFullCaptureEndTick() > gameTick && scoreState.getFullCaptureOwnerTeam() != null) {
+        if (scoreState.getFullCaptureResponseMode() == ConquestFullCaptureResponseMode.COUNTDOWN_END
+            && scoreState.getFullCaptureEndTick() > gameTick
+            && scoreState.getFullCaptureOwnerTeam() != null) {
             RoomTeamId ownerTeam = scoreState.getFullCaptureOwnerTeam();
             if (selfTeam == ownerTeam) {
                 return new PersistentSubtitle("full_capture_hold", "坚守所有据点");

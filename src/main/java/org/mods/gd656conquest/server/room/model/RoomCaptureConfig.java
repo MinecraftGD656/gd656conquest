@@ -13,6 +13,10 @@ public record RoomCaptureConfig(
     String campBDisplayName,
     int drawDurationMinutes,
     int fullCaptureEndSeconds,
+    ConquestFullCaptureResponseMode fullCaptureResponseMode,
+    int antiBaseNukeTriggerSeconds,
+    int antiBaseNukeRespawnDelaySeconds,
+    int antiBaseNukeTriggerCooldownSeconds,
     int targetScore,
     int captureScoreIntervalSeconds,
     String scoreMethod,
@@ -28,6 +32,10 @@ public record RoomCaptureConfig(
         campBDisplayName = normalizeDisplayName(campBDisplayName, "CampB");
         drawDurationMinutes = Math.max(0, drawDurationMinutes);
         fullCaptureEndSeconds = Math.max(-1, fullCaptureEndSeconds);
+        fullCaptureResponseMode = fullCaptureResponseMode == null ? ConquestFullCaptureResponseMode.defaultValue() : fullCaptureResponseMode;
+        antiBaseNukeTriggerSeconds = antiBaseNukeTriggerSeconds <= 0 ? 60 : antiBaseNukeTriggerSeconds;
+        antiBaseNukeRespawnDelaySeconds = antiBaseNukeRespawnDelaySeconds <= 0 ? 30 : antiBaseNukeRespawnDelaySeconds;
+        antiBaseNukeTriggerCooldownSeconds = antiBaseNukeTriggerCooldownSeconds <= 0 ? 60 : antiBaseNukeTriggerCooldownSeconds;
         targetScore = Math.max(0, targetScore);
         captureScoreIntervalSeconds = Math.max(0, captureScoreIntervalSeconds);
         scoreMethod = normalizeScoreMethod(scoreMethod);
@@ -37,7 +45,24 @@ public record RoomCaptureConfig(
     }
 
     public static RoomCaptureConfig defaults() {
-        return new RoomCaptureConfig(Map.of(), "", "CampA", "CampB", 0, -1, 0, 0, "", 0, 0, "");
+        return new RoomCaptureConfig(
+            Map.of(),
+            "",
+            "CampA",
+            "CampB",
+            0,
+            -1,
+            ConquestFullCaptureResponseMode.defaultValue(),
+            60,
+            30,
+            60,
+            0,
+            0,
+            "",
+            0,
+            0,
+            ""
+        );
     }
 
     public Optional<RoomCapturePointDefinition> findPoint(String code) {

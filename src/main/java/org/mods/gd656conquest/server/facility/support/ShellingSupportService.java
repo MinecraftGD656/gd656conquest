@@ -356,7 +356,7 @@ public final class ShellingSupportService {
             if (teammate == null) {
                 continue;
             }
-            NetworkManager.sendToPlayer(teammate, ClientShortSoundPacket.oneShot(SHELLING_DEPLOY_TEAM_SOUND_ID, 1.0F, 1.0F));
+            NetworkManager.sendToPlayer(teammate, ClientShortSoundPacket.oneShot(SHELLING_DEPLOY_TEAM_SOUND_ID, 2.0F, 1.0F));
         }
     }
 

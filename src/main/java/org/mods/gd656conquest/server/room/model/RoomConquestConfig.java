@@ -59,6 +59,18 @@ public record RoomConquestConfig(
         if (capture.fullCaptureEndSeconds() < -1) {
             result.addMissing("capture.fullCaptureEndSeconds", "fullCaptureEndSeconds");
         }
+        if (capture.fullCaptureResponseMode() == null) {
+            result.addMissing("capture.fullCaptureResponseMode", "fullCaptureResponseMode");
+        }
+        if (capture.antiBaseNukeTriggerSeconds() <= 0) {
+            result.addMissing("capture.antiBaseNukeTriggerSeconds", "antiBaseNukeTriggerSeconds");
+        }
+        if (capture.antiBaseNukeRespawnDelaySeconds() <= 0) {
+            result.addMissing("capture.antiBaseNukeRespawnDelaySeconds", "antiBaseNukeRespawnDelaySeconds");
+        }
+        if (capture.antiBaseNukeTriggerCooldownSeconds() <= 0) {
+            result.addMissing("capture.antiBaseNukeTriggerCooldownSeconds", "antiBaseNukeTriggerCooldownSeconds");
+        }
         if (capture.captureScoreIntervalSeconds() <= 0) {
             result.addMissing("capture.captureScoreIntervalSeconds", "captureScoreIntervalSeconds");
         }
