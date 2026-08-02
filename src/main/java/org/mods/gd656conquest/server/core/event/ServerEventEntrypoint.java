@@ -116,9 +116,25 @@ public final class ServerEventEntrypoint {
         lifecycleCoordinator.onChunkLoad(event);
     }
 
+    private static final java.util.Map<java.util.UUID, net.minecraft.world.InteractionHand> DRONE_PLACERS = new java.util.concurrent.ConcurrentHashMap<>();
+
     @SubscribeEvent
     public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getItemStack().getItem().getClass().getName().equals("com.atsuishio.superbwarfare.item.misc.DroneItem")) {
+            if (!event.getLevel().isClientSide()) {
+                DRONE_PLACERS.put(event.getEntity().getUUID(), event.getHand());
+            }
+        }
         lifecycleCoordinator.onRightClickBlock(event);
+    }
+
+    @SubscribeEvent
+    public void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
+        if (event.getItemStack().getItem().getClass().getName().equals("com.atsuishio.superbwarfare.item.misc.DroneItem")) {
+            if (!event.getLevel().isClientSide()) {
+                DRONE_PLACERS.put(event.getEntity().getUUID(), event.getHand());
+            }
+        }
     }
 
     @SubscribeEvent
@@ -154,5 +170,42 @@ public final class ServerEventEntrypoint {
     @SubscribeEvent
     public void onPlayerXpChange(PlayerXpEvent.XpChange event) {
         lifecycleCoordinator.onPlayerXpChange(event);
+    }
+
+    @SubscribeEvent
+    public void onEntityJoinLevel(net.minecraftforge.event.entity.EntityJoinLevelEvent event) {
+        if (event.getEntity().getClass().getName().equals("com.atsuishio.superbwarfare.entity.vehicle.DroneEntity")) {
+            if (!event.getLevel().isClientSide() && event.getLevel() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                net.minecraft.server.level.ServerPlayer placer = null;
+                double minDistance = 100.0D;
+                for (net.minecraft.server.level.ServerPlayer player : serverLevel.players()) {
+                    if (DRONE_PLACERS.containsKey(player.getUUID())) {
+                        double dist = player.distanceToSqr(event.getEntity());
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            placer = player;
+                        }
+                    }
+                }
+                
+                if (placer != null) {
+                    net.minecraft.world.InteractionHand hand = DRONE_PLACERS.remove(placer.getUUID());
+                    
+                    if (hand != null) {
+                        try {
+                            net.minecraft.world.item.ItemStack monitor = new net.minecraft.world.item.ItemStack(com.atsuishio.superbwarfare.init.ModItems.MONITOR.get());
+                            monitor.getOrCreateTag().putBoolean("Linked", true);
+                            monitor.getOrCreateTag().putString("LinkedDrone", event.getEntity().getStringUUID());
+                            event.getEntity().getEntityData().set(com.atsuishio.superbwarfare.entity.vehicle.DroneEntity.LINKED, true);
+                            event.getEntity().getEntityData().set(com.atsuishio.superbwarfare.entity.vehicle.DroneEntity.CONTROLLER, placer.getStringUUID());
+                            
+                            placer.setItemInHand(hand, monitor);
+                            monitor.use(event.getLevel(), placer, hand);
+                            org.mods.gd656conquest.network.NetworkManager.sendToPlayer(placer, new org.mods.gd656conquest.network.packet.ClientboundOpenDroneMonitorPacket());
+                        } catch (Exception e) {}
+                    }
+                }
+            }
+        }
     }
 }

@@ -579,18 +579,58 @@ public final class RoomMarkerRuntimeService {
         return hasClearSightToTarget(owner, target) ? target : null;
     }
 
+    private net.minecraft.world.phys.Vec3 getPlayerOrDroneEyePosition(ServerPlayer player) {
+        net.minecraft.world.item.ItemStack stack = player.getMainHandItem();
+        if (!stack.getItem().getClass().getName().equals("com.atsuishio.superbwarfare.item.misc.MonitorItem") || !stack.getOrCreateTag().getBoolean("Using")) {
+            stack = player.getOffhandItem();
+        }
+        if (stack.getItem().getClass().getName().equals("com.atsuishio.superbwarfare.item.misc.MonitorItem") && stack.getOrCreateTag().getBoolean("Using")) {
+            String droneId = stack.getOrCreateTag().getString("LinkedDrone");
+            if (droneId != null && !droneId.isEmpty() && !droneId.equals("none")) {
+                try {
+                    java.util.UUID uuid = java.util.UUID.fromString(droneId);
+                    net.minecraft.world.entity.Entity entity = player.level().getServer().getLevel(player.level().dimension()).getEntity(uuid);
+                    if (entity != null) {
+                        return entity.position().add(0, entity.getBbHeight() * 0.5D, 0);
+                    }
+                } catch (Exception e) {}
+            }
+        }
+        return player.getEyePosition();
+    }
+
+    private net.minecraft.world.phys.Vec3 getPlayerOrDronePosition(ServerPlayer player) {
+        net.minecraft.world.item.ItemStack stack = player.getMainHandItem();
+        if (!stack.getItem().getClass().getName().equals("com.atsuishio.superbwarfare.item.misc.MonitorItem") || !stack.getOrCreateTag().getBoolean("Using")) {
+            stack = player.getOffhandItem();
+        }
+        if (stack.getItem().getClass().getName().equals("com.atsuishio.superbwarfare.item.misc.MonitorItem") && stack.getOrCreateTag().getBoolean("Using")) {
+            String droneId = stack.getOrCreateTag().getString("LinkedDrone");
+            if (droneId != null && !droneId.isEmpty() && !droneId.equals("none")) {
+                try {
+                    java.util.UUID uuid = java.util.UUID.fromString(droneId);
+                    net.minecraft.world.entity.Entity entity = player.level().getServer().getLevel(player.level().dimension()).getEntity(uuid);
+                    if (entity != null) {
+                        return entity.position();
+                    }
+                } catch (Exception e) {}
+            }
+        }
+        return player.position();
+    }
+
     private boolean isMarkerDistanceValid(ServerPlayer player, BlockPos blockPos) {
         if (player == null || blockPos == null) {
             return false;
         }
-        return player.position().distanceToSqr(Vec3.atCenterOf(blockPos)) <= MAX_MARKER_DISTANCE_SQR;
+        return getPlayerOrDronePosition(player).distanceToSqr(Vec3.atCenterOf(blockPos)) <= MAX_MARKER_DISTANCE_SQR;
     }
 
     private boolean hasClearSightToTarget(ServerPlayer owner, ServerPlayer target) {
         if (owner == null || target == null) {
             return false;
         }
-        Vec3 start = owner.getEyePosition();
+        Vec3 start = getPlayerOrDroneEyePosition(owner);
         for (Vec3 samplePoint : resolveSightSamplePoints(target)) {
             HitResult hit = owner.level().clip(new ClipContext(
                 start,

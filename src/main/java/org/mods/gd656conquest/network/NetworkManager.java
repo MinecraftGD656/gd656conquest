@@ -48,6 +48,7 @@ import org.mods.gd656conquest.network.packet.ClientPositionalSoundPacket;
 import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.network.packet.ClientboundPackAuditRequestPacket;
 import org.mods.gd656conquest.network.packet.ClientboundScreenshotRequestPacket;
+import org.mods.gd656conquest.network.packet.ClientboundOpenDroneMonitorPacket;
 import org.mods.gd656conquest.network.packet.ServerboundScreenshotChunkPacket;
 import org.mods.gd656conquest.network.packet.ServerboundScreenshotStatusPacket;
 import org.mods.gd656conquest.network.packet.ServerboundAmmoBoxInteractPacket;
@@ -76,6 +77,13 @@ public final class NetworkManager {
     }
 
     public static void init() {
+        CHANNEL.registerMessage(
+                packetId++,
+                ClientboundOpenDroneMonitorPacket.class,
+                ClientboundOpenDroneMonitorPacket::encode,
+                ClientboundOpenDroneMonitorPacket::decode,
+                ClientboundOpenDroneMonitorPacket::handle
+        );
         CHANNEL.registerMessage(
                 packetId++,
                 RoomHudSyncPacket.class,

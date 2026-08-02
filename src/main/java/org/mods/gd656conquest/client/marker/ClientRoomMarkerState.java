@@ -1,5 +1,6 @@
 package org.mods.gd656conquest.client.marker;
 
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
@@ -171,6 +172,45 @@ public final class ClientRoomMarkerState {
         HELP_PULSE_STARTED_AT_MS.put(playerId, nowMs());
     }
 
+    private static boolean isPlayerInDroneView(Minecraft minecraft) {
+        if (minecraft.player == null) return false;
+        net.minecraft.world.item.ItemStack mainHand = minecraft.player.getMainHandItem();
+        if (mainHand.getItem().getClass().getName().equals("com.atsuishio.superbwarfare.item.misc.MonitorItem") && mainHand.getOrCreateTag().getBoolean("Using")) return true;
+        net.minecraft.world.item.ItemStack offHand = minecraft.player.getOffhandItem();
+        if (offHand.getItem().getClass().getName().equals("com.atsuishio.superbwarfare.item.misc.MonitorItem") && offHand.getOrCreateTag().getBoolean("Using")) return true;
+        return false;
+    }
+
+    private static boolean aoeDroneSpot(Minecraft minecraft) {
+        if (minecraft.player == null || minecraft.level == null) {
+            return false;
+        }
+        int guiWidth = minecraft.getWindow().getGuiScaledWidth();
+        int guiHeight = minecraft.getWindow().getGuiScaledHeight();
+        boolean spotted = false;
+
+        for (Player targetPlayer : minecraft.level.players()) {
+            if (targetPlayer == minecraft.player || !targetPlayer.isAlive() || targetPlayer.isSpectator()) {
+                continue;
+            }
+            if (org.mods.gd656conquest.client.room.ClientRoomTeamMirror.isTeammate(targetPlayer)) {
+                continue;
+            }
+            Vec3 anchor = resolveAutoMarkTriggerAnchor(targetPlayer, minecraft.getFrameTime());
+            ScreenProjection projection = projectToScreen(minecraft, anchor);
+            if (projection != null && projection.insideViewport()) {
+                double distance = resolveCrosshairDistance(guiWidth, guiHeight, projection);
+                if (distance <= 75.0D) {
+                    NetworkManager.getChannel().sendToServer(
+                        RoomMarkerActionPacket.place(targetPlayer.blockPosition(), MarkerKind.DIRECT_ENEMY.name(), targetPlayer.getUUID())
+                    );
+                    spotted = true;
+                }
+            }
+        }
+        return spotted;
+    }
+
     public static void handleKeyPress(Minecraft minecraft) {
         if (!canPlaceMarkerNow(minecraft)) {
             return;
@@ -178,11 +218,44 @@ public final class ClientRoomMarkerState {
         long nowMs = System.currentTimeMillis();
         boolean enemyGroundMode = nowMs - lastKeyPressAtMs <= DOUBLE_CLICK_WINDOW_MS;
         lastKeyPressAtMs = nowMs;
+        
+        if (isPlayerInDroneView(minecraft)) {
+            if (aoeDroneSpot(minecraft)) {
+                return;
+            }
+        }
+
         MarkerPlacement placement = resolveMarkerPlacement(minecraft, enemyGroundMode);
         if (placement == null) {
             return;
         }
         NetworkManager.getChannel().sendToServer(RoomMarkerActionPacket.place(placement.blockPos(), placement.kind().name(), placement.targetPlayerId()));
+    }
+
+    private static Vec3 resolveMarkerRayStart(Minecraft minecraft) {
+        if (minecraft == null || minecraft.player == null) {
+            return null;
+        }
+        if (isPlayerInDroneView(minecraft) && minecraft.gameRenderer != null) {
+            Camera camera = minecraft.gameRenderer.getMainCamera();
+            if (camera != null && camera.isInitialized() && camera.getPosition() != null) {
+                return camera.getPosition();
+            }
+        }
+        return minecraft.player.getEyePosition(minecraft.getFrameTime());
+    }
+
+    private static Vec3 resolveMarkerRayLook(Minecraft minecraft) {
+        if (minecraft == null || minecraft.player == null) {
+            return null;
+        }
+        if (isPlayerInDroneView(minecraft) && minecraft.gameRenderer != null) {
+            Camera camera = minecraft.gameRenderer.getMainCamera();
+            if (camera != null && camera.isInitialized()) {
+                return Vec3.directionFromRotation(camera.getXRot(), camera.getYRot()).normalize();
+            }
+        }
+        return minecraft.player.getViewVector(minecraft.getFrameTime()).normalize();
     }
 
     public static void captureProjectionState(RenderLevelStageEvent event) {
@@ -421,8 +494,11 @@ public final class ClientRoomMarkerState {
         if (minecraft == null || minecraft.player == null || minecraft.level == null) {
             return null;
         }
-        Vec3 start = minecraft.player.getEyePosition(minecraft.getFrameTime());
-        Vec3 look = minecraft.player.getViewVector(minecraft.getFrameTime()).normalize();
+        Vec3 start = resolveMarkerRayStart(minecraft);
+        Vec3 look = resolveMarkerRayLook(minecraft);
+        if (start == null || look == null) {
+            return null;
+        }
         Vec3 end = start.add(look.scale(MAX_MARKER_DISTANCE));
         BlockHitResult blockHit = minecraft.level.clip(new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, minecraft.player));
         double blockHitDistanceSqr = blockHit.getType() == HitResult.Type.BLOCK ? start.distanceToSqr(blockHit.getLocation()) : Double.MAX_VALUE;
