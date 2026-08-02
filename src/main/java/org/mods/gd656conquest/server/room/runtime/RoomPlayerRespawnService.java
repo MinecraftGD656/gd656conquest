@@ -26,6 +26,7 @@ import org.mods.gd656conquest.server.compat.frontlinevoice.FrontlineVoiceBridge;
 import org.mods.gd656conquest.server.compat.tacz.TaczServerPoseCompat;
 import org.mods.gd656conquest.server.facility.support.HeroKitSupportService;
 import org.mods.gd656conquest.network.packet.PlayerAnimatorDebugPacket;
+import org.mods.gd656conquest.network.packet.RoomConfirmedDeathMarkerPacket;
 import org.mods.gd656conquest.network.packet.RoomDownedStatePacket;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
@@ -1219,6 +1220,7 @@ public final class RoomPlayerRespawnService {
             PlayerAnimatorDebugDimensionsState.stopPreview(player);
             NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());
             FrontlineVoiceBridge.playConfirmedDeath(player);
+            broadcastConfirmedDeathMarker(state, player);
             beginDeployFromDowned(room, state, player, killerEntityId, gameTick, deployDelayTicks);
         }
         state.clearReviveState(playerId);
@@ -1245,6 +1247,7 @@ public final class RoomPlayerRespawnService {
         state.clearRespawnFlow(playerId);
         broadcastPlayerAnimatorState(state, playerId, 0, false);
         FrontlineVoiceBridge.playConfirmedDeath(player);
+        broadcastConfirmedDeathMarker(state, player);
         beginDeployFromDowned(room, state, player, killerEntityId, gameTick, deployDelayTicks);
     }
 
@@ -1896,6 +1899,32 @@ public final class RoomPlayerRespawnService {
 
     private boolean isSameSquad(String left, String right) {
         return left != null && right != null && !left.isBlank() && left.equalsIgnoreCase(right);
+    }
+
+    private void broadcastConfirmedDeathMarker(RunningRuntimeState state, ServerPlayer deadPlayer) {
+        if (state == null || deadPlayer == null) {
+            return;
+        }
+        UUID deadPlayerId = deadPlayer.getUUID();
+        RoomTeamId deadTeam = state.getRoomTeams().get(deadPlayerId);
+        if (deadTeam == null) {
+            return;
+        }
+        String deadSquadLabel = state.getSquadLabelsByPlayer().get(deadPlayerId);
+        double x = deadPlayer.getX();
+        double y = deadPlayer.getY();
+        double z = deadPlayer.getZ();
+        for (ServerPlayer viewer : server.getPlayerList().getPlayers()) {
+            if (viewer == null || viewer.getUUID().equals(deadPlayerId)) {
+                continue;
+            }
+            UUID viewerId = viewer.getUUID();
+            if (state.getRoomTeams().get(viewerId) != deadTeam) {
+                continue;
+            }
+            boolean squadMate = isSameSquad(deadSquadLabel, state.getSquadLabelsByPlayer().get(viewerId));
+            NetworkManager.sendToPlayer(viewer, new RoomConfirmedDeathMarkerPacket(deadPlayerId, x, y, z, squadMate));
+        }
     }
 
     private boolean finalizeRespawn(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long gameTick) {

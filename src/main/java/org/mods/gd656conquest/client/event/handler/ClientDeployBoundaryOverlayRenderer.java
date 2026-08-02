@@ -41,7 +41,6 @@ final class ClientDeployBoundaryOverlayRenderer {
     private TeamToken cachedGeometrySelfTeam = TeamToken.NEUTRAL;
     private int cachedGeometryScreenWidth = -1;
     private int cachedGeometryScreenHeight = -1;
-    private long cachedProjectionSignature = Long.MIN_VALUE;
     private CachedDeployOverlayGeometry cachedGeometry = CachedDeployOverlayGeometry.empty();
 
     ClientDeployBoundaryOverlayRenderer(ClientCaptureBoundaryRenderer boundaryRenderer) {
@@ -101,57 +100,80 @@ final class ClientDeployBoundaryOverlayRenderer {
         int screenHeight,
         ResolvedBoundarySegments segments
     ) {
-        long projectionSignature = ClientHudProjectionCacheKey.capture(minecraft, state.worldProjectionMatrix);
-        if (isCachedGeometryValid(state, selfTeam, screenWidth, screenHeight, projectionSignature)) {
-            return cachedGeometry;
+        if (!isCachedGeometryBaseValid(state, selfTeam, screenWidth, screenHeight)) {
+            cachedGeometry = CachedDeployOverlayGeometry.empty();
         }
+
         java.util.Map<WorldPointKey, ScreenPoint> pointProjectionCache = new java.util.HashMap<>();
         List<ProjectedBoundaryPolygon> polygons = projectPolygons(state, minecraft, selfTeam, pointProjectionCache);
+        
         if (polygons.isEmpty()) {
             cachedGeometry = CachedDeployOverlayGeometry.empty();
-            updateCachedGeometrySignature(state, selfTeam, screenWidth, screenHeight, projectionSignature);
+            updateCachedGeometryBase(state, selfTeam, screenWidth, screenHeight);
             return cachedGeometry;
         }
+
+        if (!cachedGeometry.isEmpty() && arePolygonsNear(cachedGeometry.sourcePolygons(), polygons)) {
+            return cachedGeometry;
+        }
+
         cachedGeometry = new CachedDeployOverlayGeometry(
+            polygons,
             buildMaskFills(screenWidth, screenHeight, polygons),
             projectLineSegments(minecraft, state, segments.selfSegments(), pointProjectionCache),
             projectLineSegments(minecraft, state, segments.enemySegments(), pointProjectionCache),
             projectLineSegments(minecraft, state, segments.neutralSegments(), pointProjectionCache),
             projectLineSegments(minecraft, state, segments.sharedSegments(), pointProjectionCache)
         );
-        updateCachedGeometrySignature(state, selfTeam, screenWidth, screenHeight, projectionSignature);
+        updateCachedGeometryBase(state, selfTeam, screenWidth, screenHeight);
         return cachedGeometry;
     }
 
-    private boolean isCachedGeometryValid(
+    private boolean isCachedGeometryBaseValid(
         ClientCaptureOverlayState state,
         TeamToken selfTeam,
         int screenWidth,
-        int screenHeight,
-        long projectionSignature
+        int screenHeight
     ) {
-        if (cachedGeometryBoundaryVersion != state.boundaryGeometryVersion
-            || cachedGeometrySelfTeam != selfTeam
-            || cachedGeometryScreenWidth != screenWidth
-            || cachedGeometryScreenHeight != screenHeight
-            || state.worldProjectionMatrix == null) {
-            return false;
-        }
-        return cachedProjectionSignature == projectionSignature;
+        return cachedGeometryBoundaryVersion == state.boundaryGeometryVersion
+            && cachedGeometrySelfTeam == selfTeam
+            && cachedGeometryScreenWidth == screenWidth
+            && cachedGeometryScreenHeight == screenHeight
+            && state.worldProjectionMatrix != null;
     }
 
-    private void updateCachedGeometrySignature(
+    private void updateCachedGeometryBase(
         ClientCaptureOverlayState state,
         TeamToken selfTeam,
         int screenWidth,
-        int screenHeight,
-        long projectionSignature
+        int screenHeight
     ) {
         cachedGeometryBoundaryVersion = state.boundaryGeometryVersion;
         cachedGeometrySelfTeam = selfTeam;
         cachedGeometryScreenWidth = screenWidth;
         cachedGeometryScreenHeight = screenHeight;
-        cachedProjectionSignature = projectionSignature;
+    }
+
+    private boolean arePolygonsNear(List<ProjectedBoundaryPolygon> previous, List<ProjectedBoundaryPolygon> current) {
+        if (previous == current) {
+            return true;
+        }
+        if (previous == null || current == null || previous.size() != current.size()) {
+            return false;
+        }
+        for (int index = 0; index < previous.size(); index++) {
+            List<ScreenPoint> prevPoints = previous.get(index).points();
+            List<ScreenPoint> currPoints = current.get(index).points();
+            if (prevPoints.size() != currPoints.size()) {
+                return false;
+            }
+            for (int pointIndex = 0; pointIndex < prevPoints.size(); pointIndex++) {
+                if (!prevPoints.get(pointIndex).isNear(currPoints.get(pointIndex))) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private List<ProjectedBoundaryPolygon> projectPolygons(
@@ -711,6 +733,7 @@ final class ClientDeployBoundaryOverlayRenderer {
     }
 
     private record CachedDeployOverlayGeometry(
+        List<ProjectedBoundaryPolygon> sourcePolygons,
         List<MaskFill> maskFills,
         List<ProjectedLineSegment> selfSegments,
         List<ProjectedLineSegment> enemySegments,
@@ -718,7 +741,7 @@ final class ClientDeployBoundaryOverlayRenderer {
         List<ProjectedLineSegment> sharedSegments
     ) {
         private static final CachedDeployOverlayGeometry EMPTY =
-            new CachedDeployOverlayGeometry(List.of(), List.of(), List.of(), List.of(), List.of());
+            new CachedDeployOverlayGeometry(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
 
         static CachedDeployOverlayGeometry empty() {
             return EMPTY;

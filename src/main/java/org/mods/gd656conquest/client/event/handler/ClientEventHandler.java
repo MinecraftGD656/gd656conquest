@@ -35,6 +35,7 @@ import org.mods.gd656conquest.client.parkour.ClientParkourRuntimeState;
 import org.mods.gd656conquest.client.pack.ClientPackAuditService;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.client.room.ClientBoundaryHeightReportService;
+import org.mods.gd656conquest.client.room.ClientDeployDeathMarkerState;
 import org.mods.gd656conquest.client.room.ClientDownedState;
 import org.mods.gd656conquest.client.room.ClientReviveState;
 import org.mods.gd656conquest.client.room.ClientRoomLockState;
@@ -79,11 +80,13 @@ public final class ClientEventHandler {
         AudioManager.getInstance().tickClient();
         ClientMusicTriggerService.tick();
         ClientPlayerAnimatorDebugState.tick();
+        ClientDeployDeathMarkerState.tick();
         ClientHudSubtitleManager.tick();
         if (minecraft.player == null || minecraft.level == null) {
             ClientHudSubtitleManager.reset();
             ClientParkourRuntimeState.clear();
             ClientParkourLeaderboardState.clear();
+            ClientDeployDeathMarkerState.clear();
             captureOverlayController.handleClientLogout();
             captureOutlineController.clear();
             return;
@@ -252,6 +255,7 @@ public final class ClientEventHandler {
         ClientPackAuditService.clear();
         ClientBoundaryHeightReportService.clear();
         ClientDownedState.clear();
+        ClientDeployDeathMarkerState.clear();
         ClientReviveState.reset();
         ClientRoomLockState.reset();
         ClientRoomMarkerState.reset();
@@ -269,6 +273,7 @@ public final class ClientEventHandler {
         ClientMatchLoadState.clear();
         String roomId = ClientHudDebugState.getRoomId();
         if (roomId != null && !roomId.isBlank() && !"-".equals(roomId)) {
+            ClientDeployDeathMarkerState.clear();
             captureOverlayController.clearRenderCaches();
             captureOutlineController.clear();
         }

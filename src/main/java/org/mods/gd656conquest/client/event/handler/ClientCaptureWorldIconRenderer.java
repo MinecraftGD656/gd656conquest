@@ -1,10 +1,12 @@
 package org.mods.gd656conquest.client.event.handler;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.resources.language.I18n;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
@@ -18,6 +20,7 @@ import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.Veh
 import org.mods.gd656conquest.client.render.ClientCrosshairFadeSupport;
 import org.mods.gd656conquest.client.render.ClientWorldHudProjectionSupport;
 import org.mods.gd656conquest.client.render.CaptureDiamondRenderer;
+import org.mods.gd656conquest.client.room.ClientDeployDeathMarkerState;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.lwjgl.glfw.GLFW;
 
@@ -25,6 +28,10 @@ import java.util.*;
 
 final class ClientCaptureWorldIconRenderer {
     private static final float ICON_DEDUP_RADIUS_PIXELS = 12.0F;
+    private static final ResourceLocation TEX_DEATH_TEAM = ResourceLocation.fromNamespaceAndPath("gd656conquest", "textures/gui/marker_death_team.png");
+    private static final ResourceLocation TEX_DEATH_SQUAD = ResourceLocation.fromNamespaceAndPath("gd656conquest", "textures/gui/marker_death_squad.png");
+    private static final int DEPLOY_DEATH_MARKER_SIZE = Math.max(5, Math.round(ClientCaptureOverlayModel.TEAMMATE_ICON_RADIUS));
+    private static final double DEPLOY_DEATH_MARKER_Y_OFFSET = 2.15D;
     private final ClientCaptureDebugIconSupport debugSupport = new ClientCaptureDebugIconSupport();
 
     void renderWorldAnchoredCaptureIcons(
@@ -149,6 +156,7 @@ final class ClientCaptureWorldIconRenderer {
             }
         }
         updateSelectedCrosshairState(state, selectedRenderId, selectedProjection, deltaSeconds);
+        renderDeployDeathMarkers(state, gui, minecraft, deltaSeconds);
         renderMouseDeployCrosshair(state, gui, minecraft, deltaSeconds, deployPhaseActive);
         renderSelectedDeployCrosshairs(state, gui, deltaSeconds);
         if (hoverLabel != null) {
@@ -167,6 +175,91 @@ final class ClientCaptureWorldIconRenderer {
         }
         textBufferSource.endBatch();
         state.teammateIconScreenStates.keySet().retainAll(dynamicIconSeen);
+    }
+
+    private void renderDeployDeathMarkers(ClientCaptureOverlayState state, GuiGraphics gui, Minecraft minecraft, float deltaSeconds) {
+        if (state == null || gui == null || minecraft == null || state.worldProjectionMatrix == null) {
+            return;
+        }
+        if (!ClientDeathFlowState.isDeployOpenPhase()) {
+            state.deployDeathMarkerScreenStates.clear();
+            return;
+        }
+        List<ClientDeployDeathMarkerState.MarkerSnapshot> markers = ClientDeployDeathMarkerState.snapshotForRender();
+        if (markers.isEmpty()) {
+            state.deployDeathMarkerScreenStates.clear();
+            return;
+        }
+        double edgePadding = (DEPLOY_DEATH_MARKER_SIZE / 2.0D) + 2.0D;
+        Set<UUID> seenMarkerIds = new HashSet<>();
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        for (ClientDeployDeathMarkerState.MarkerSnapshot marker : markers) {
+            Vec3 anchor = new Vec3(marker.x(), marker.y() + DEPLOY_DEATH_MARKER_Y_OFFSET, marker.z());
+            ClientWorldHudProjectionSupport.ProjectedHudPoint projected =
+                ClientWorldHudProjectionSupport.projectToHud(minecraft, state.worldProjectionMatrix, anchor, edgePadding);
+            if (projected == null || !projected.insideViewport() || marker.alpha() <= 0.01F) {
+                continue;
+            }
+            seenMarkerIds.add(marker.playerId());
+            ScreenProjection smoothedProjection = smoothDeployDeathMarkerProjection(
+                state,
+                marker.playerId(),
+                new ScreenProjection(projected.screenX(), projected.screenY()),
+                deltaSeconds
+            );
+            float centerX = (float) smoothedProjection.screenX();
+            float centerY = (float) smoothedProjection.screenY();
+            int halfSize = DEPLOY_DEATH_MARKER_SIZE / 2;
+            gui.setColor(1.0F, 1.0F, 1.0F, marker.alpha());
+            gui.pose().pushPose();
+            gui.pose().translate(centerX, centerY, 0.0F);
+            gui.blit(
+                marker.squadMate() ? TEX_DEATH_SQUAD : TEX_DEATH_TEAM,
+                -halfSize,
+                -halfSize,
+                0,
+                0,
+                DEPLOY_DEATH_MARKER_SIZE,
+                DEPLOY_DEATH_MARKER_SIZE,
+                DEPLOY_DEATH_MARKER_SIZE,
+                DEPLOY_DEATH_MARKER_SIZE
+            );
+            gui.pose().popPose();
+        }
+        gui.setColor(1.0F, 1.0F, 1.0F, 1.0F);
+        RenderSystem.disableBlend();
+        state.deployDeathMarkerScreenStates.keySet().retainAll(seenMarkerIds);
+    }
+
+    private ScreenProjection smoothDeployDeathMarkerProjection(
+        ClientCaptureOverlayState state,
+        UUID markerId,
+        ScreenProjection target,
+        float deltaSeconds
+    ) {
+        ClientCaptureOverlayModel.TeammateIconScreenState iconState = state.deployDeathMarkerScreenStates.get(markerId);
+        if (iconState == null) {
+            state.deployDeathMarkerScreenStates.put(markerId, ClientCaptureOverlayModel.TeammateIconScreenState.create(target.screenX(), target.screenY(), 0.0F));
+            return target;
+        }
+        if (Math.abs(iconState.targetX - target.screenX()) > 0.01D || Math.abs(iconState.targetY - target.screenY()) > 0.01D) {
+            iconState.startX = iconState.screenX;
+            iconState.startY = iconState.screenY;
+            iconState.targetX = target.screenX();
+            iconState.targetY = target.screenY();
+            iconState.positionElapsed = 0.0F;
+        }
+        iconState.positionElapsed = Math.min(
+            ClientCaptureOverlayModel.TEAMMATE_ICON_INTERP_SECONDS,
+            iconState.positionElapsed + Math.max(0.0F, deltaSeconds)
+        );
+        float t = ClientCaptureOverlayModel.TEAMMATE_ICON_INTERP_SECONDS <= 1.0E-6F
+            ? 1.0F
+            : Mth.clamp(iconState.positionElapsed / ClientCaptureOverlayModel.TEAMMATE_ICON_INTERP_SECONDS, 0.0F, 1.0F);
+        iconState.screenX = Mth.lerp(t, iconState.startX, iconState.targetX);
+        iconState.screenY = Mth.lerp(t, iconState.startY, iconState.targetY);
+        return new ScreenProjection(iconState.screenX, iconState.screenY);
     }
 
     void renderPersistentSelectedDeployCrosshairs(

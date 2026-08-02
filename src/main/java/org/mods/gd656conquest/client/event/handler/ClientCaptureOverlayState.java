@@ -20,6 +20,7 @@ final class ClientCaptureOverlayState {
     final Map<String, ClientCaptureOverlayModel.ProgressInterpolationState> progressInterpolation = new HashMap<>();
     final Map<String, ClientCaptureOverlayModel.HudIconLayoutState> hudIconLayoutStates = new HashMap<>();
     final Map<String, ClientCaptureOverlayModel.TeammateIconScreenState> teammateIconScreenStates = new HashMap<>();
+    final Map<java.util.UUID, ClientCaptureOverlayModel.TeammateIconScreenState> deployDeathMarkerScreenStates = new HashMap<>();
     final Map<String, ClientCaptureOverlayModel.WorldIconRenderState> worldIconRenderStates = new HashMap<>();
     ClientCaptureOverlayModel.SelectedCrosshairRenderState selectedCrosshairState;
     final List<ClientCaptureOverlayModel.RenderedIconBounds> renderedDeployIcons = new ArrayList<>();
@@ -52,6 +53,7 @@ final class ClientCaptureOverlayState {
         progressInterpolation.clear();
         hudIconLayoutStates.clear();
         teammateIconScreenStates.clear();
+        deployDeathMarkerScreenStates.clear();
         worldIconRenderStates.clear();
         selectedCrosshairState = null;
         renderedDeployIcons.clear();
@@ -79,6 +81,7 @@ final class ClientCaptureOverlayState {
     void prepareForDeployUiOpen() {
         clearDeploySelection();
         worldIconRenderStates.clear();
+        deployDeathMarkerScreenStates.clear();
         selectedCrosshairState = null;
         mouseCrossGapPixels = 0.0F;
         mouseCrossFeatherPixels = 0.0F;
@@ -87,6 +90,7 @@ final class ClientCaptureOverlayState {
     void handleDeployUiClosed() {
         clearDeploySelection();
         teammateIconScreenStates.clear();
+        deployDeathMarkerScreenStates.clear();
         worldIconRenderStates.entrySet().removeIf(entry -> {
             ClientCaptureOverlayModel.WorldIconRenderState renderState = entry.getValue();
             ClientCaptureOverlayModel.CaptureIconEntry icon = renderState == null ? null : renderState.entry;
@@ -104,6 +108,7 @@ final class ClientCaptureOverlayState {
         progressInterpolation.clear();
         hudIconLayoutStates.clear();
         teammateIconScreenStates.clear();
+        deployDeathMarkerScreenStates.clear();
         worldIconRenderStates.clear();
         renderedDeployIcons.clear();
         selectedCrosshairState = null;
@@ -115,6 +120,7 @@ final class ClientCaptureOverlayState {
         return progressInterpolation.size()
             + hudIconLayoutStates.size()
             + teammateIconScreenStates.size()
+            + deployDeathMarkerScreenStates.size()
             + worldIconRenderStates.size()
             + renderedDeployIcons.size();
     }
