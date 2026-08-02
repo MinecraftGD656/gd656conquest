@@ -185,6 +185,10 @@ public final class ClientRoomMarkerState {
         if (minecraft.player == null || minecraft.level == null) {
             return false;
         }
+        Vec3 start = resolveMarkerRayStart(minecraft);
+        if (start == null) {
+            return false;
+        }
         int guiWidth = minecraft.getWindow().getGuiScaledWidth();
         int guiHeight = minecraft.getWindow().getGuiScaledHeight();
         boolean spotted = false;
@@ -199,6 +203,14 @@ public final class ClientRoomMarkerState {
             Vec3 anchor = resolveAutoMarkTriggerAnchor(targetPlayer, minecraft.getFrameTime());
             ScreenProjection projection = projectToScreen(minecraft, anchor);
             if (projection != null && projection.insideViewport()) {
+                Vec3 toTarget = targetPlayer.getBoundingBox().getCenter().subtract(start);
+                double distanceSqr = toTarget.lengthSqr();
+                if (distanceSqr <= 1.0E-6D || distanceSqr > MAX_MARKER_DISTANCE_SQR) {
+                    continue;
+                }
+                if (!hasClearSightToPlayer(minecraft, start, targetPlayer)) {
+                    continue;
+                }
                 double distance = resolveCrosshairDistance(guiWidth, guiHeight, projection);
                 if (distance <= 75.0D) {
                     NetworkManager.getChannel().sendToServer(
