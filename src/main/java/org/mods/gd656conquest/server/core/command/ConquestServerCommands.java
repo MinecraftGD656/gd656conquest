@@ -31,7 +31,6 @@ import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.data.playerdata.LegacySurvivalDataExportService;
 import org.mods.gd656conquest.server.data.serverconfig.ServerConfigDataModel;
 import org.mods.gd656conquest.server.data.serverconfig.ServerConfigStore;
-import org.mods.gd656conquest.server.data.roomdefinition.RushBombSpawnMigration;
 import org.mods.gd656conquest.server.compat.tacz.TaczShellingTestService;
 import org.mods.gd656conquest.server.core.command.debug.VehicleDebugCommands;
 import org.mods.gd656conquest.server.facility.parkour.ParkourCommands;
@@ -191,7 +190,6 @@ public final class ConquestServerCommands {
             .then(buildDebugDataTree())
             .then(buildDebugShellingTree())
             .then(buildDebugToolsTree())
-            .then(Commands.literal("update260803").executes(ConquestServerCommands::executeDebugUpdate260803))
             .then(VehicleDebugCommands.buildTree());
     }
 
@@ -236,11 +234,6 @@ public final class ConquestServerCommands {
     private static ArgumentBuilder<CommandSourceStack, ?> buildDebugDataTree() {
         return Commands.literal("data")
             .then(Commands.literal("exportLegacySurvivalData").executes(ConquestServerCommands::executeDebugExportLegacySurvivalData));
-    }
-
-    private static int executeDebugUpdate260803(CommandContext<CommandSourceStack> context) {
-        RushBombSpawnMigration.execute(context.getSource().getServer(), context.getSource());
-        return 1;
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildDebugShellingTree() {

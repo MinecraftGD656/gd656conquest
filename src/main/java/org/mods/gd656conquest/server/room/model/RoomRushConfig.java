@@ -24,54 +24,54 @@ public record RoomRushConfig(
     List<RoomPosition> stageFBoundary,
     RoomSpawnGroupConfig campABaseSpawnGroup,
     RoomSpawnGroupConfig campBBaseSpawnGroup,
-    RoomSpawnGroupConfig bombInnerSpawnGroupA,
-    RoomSpawnGroupConfig bombInnerSpawnGroupA1,
-    RoomSpawnGroupConfig bombInnerSpawnGroupA2,
-    RoomSpawnGroupConfig bombInnerSpawnGroupA3,
-    RoomSpawnGroupConfig bombInnerSpawnGroupB,
-    RoomSpawnGroupConfig bombInnerSpawnGroupB1,
-    RoomSpawnGroupConfig bombInnerSpawnGroupB2,
-    RoomSpawnGroupConfig bombInnerSpawnGroupB3,
-    RoomSpawnGroupConfig bombInnerSpawnGroupC,
-    RoomSpawnGroupConfig bombInnerSpawnGroupC1,
-    RoomSpawnGroupConfig bombInnerSpawnGroupC2,
-    RoomSpawnGroupConfig bombInnerSpawnGroupC3,
-    RoomSpawnGroupConfig bombInnerSpawnGroupD,
-    RoomSpawnGroupConfig bombInnerSpawnGroupD1,
-    RoomSpawnGroupConfig bombInnerSpawnGroupD2,
-    RoomSpawnGroupConfig bombInnerSpawnGroupD3,
-    RoomSpawnGroupConfig bombInnerSpawnGroupE,
-    RoomSpawnGroupConfig bombInnerSpawnGroupE1,
-    RoomSpawnGroupConfig bombInnerSpawnGroupE2,
-    RoomSpawnGroupConfig bombInnerSpawnGroupE3,
-    RoomSpawnGroupConfig bombInnerSpawnGroupF,
-    RoomSpawnGroupConfig bombInnerSpawnGroupF1,
-    RoomSpawnGroupConfig bombInnerSpawnGroupF2,
-    RoomSpawnGroupConfig bombInnerSpawnGroupF3,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupA,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupA1,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupA2,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupA3,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupB,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupB1,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupB2,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupB3,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupC,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupC1,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupC2,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupC3,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupD,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupD1,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupD2,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupD3,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupE,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupE1,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupE2,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupE3,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupF,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupF1,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupF2,
-    RoomSpawnGroupConfig bombDefenderInnerSpawnGroupF3,
+    RoomSpawnGroupConfig bombCampASpawnGroupA,
+    RoomSpawnGroupConfig bombCampASpawnGroupA1,
+    RoomSpawnGroupConfig bombCampASpawnGroupA2,
+    RoomSpawnGroupConfig bombCampASpawnGroupA3,
+    RoomSpawnGroupConfig bombCampASpawnGroupB,
+    RoomSpawnGroupConfig bombCampASpawnGroupB1,
+    RoomSpawnGroupConfig bombCampASpawnGroupB2,
+    RoomSpawnGroupConfig bombCampASpawnGroupB3,
+    RoomSpawnGroupConfig bombCampASpawnGroupC,
+    RoomSpawnGroupConfig bombCampASpawnGroupC1,
+    RoomSpawnGroupConfig bombCampASpawnGroupC2,
+    RoomSpawnGroupConfig bombCampASpawnGroupC3,
+    RoomSpawnGroupConfig bombCampASpawnGroupD,
+    RoomSpawnGroupConfig bombCampASpawnGroupD1,
+    RoomSpawnGroupConfig bombCampASpawnGroupD2,
+    RoomSpawnGroupConfig bombCampASpawnGroupD3,
+    RoomSpawnGroupConfig bombCampASpawnGroupE,
+    RoomSpawnGroupConfig bombCampASpawnGroupE1,
+    RoomSpawnGroupConfig bombCampASpawnGroupE2,
+    RoomSpawnGroupConfig bombCampASpawnGroupE3,
+    RoomSpawnGroupConfig bombCampASpawnGroupF,
+    RoomSpawnGroupConfig bombCampASpawnGroupF1,
+    RoomSpawnGroupConfig bombCampASpawnGroupF2,
+    RoomSpawnGroupConfig bombCampASpawnGroupF3,
+    RoomSpawnGroupConfig bombCampBSpawnGroupA,
+    RoomSpawnGroupConfig bombCampBSpawnGroupA1,
+    RoomSpawnGroupConfig bombCampBSpawnGroupA2,
+    RoomSpawnGroupConfig bombCampBSpawnGroupA3,
+    RoomSpawnGroupConfig bombCampBSpawnGroupB,
+    RoomSpawnGroupConfig bombCampBSpawnGroupB1,
+    RoomSpawnGroupConfig bombCampBSpawnGroupB2,
+    RoomSpawnGroupConfig bombCampBSpawnGroupB3,
+    RoomSpawnGroupConfig bombCampBSpawnGroupC,
+    RoomSpawnGroupConfig bombCampBSpawnGroupC1,
+    RoomSpawnGroupConfig bombCampBSpawnGroupC2,
+    RoomSpawnGroupConfig bombCampBSpawnGroupC3,
+    RoomSpawnGroupConfig bombCampBSpawnGroupD,
+    RoomSpawnGroupConfig bombCampBSpawnGroupD1,
+    RoomSpawnGroupConfig bombCampBSpawnGroupD2,
+    RoomSpawnGroupConfig bombCampBSpawnGroupD3,
+    RoomSpawnGroupConfig bombCampBSpawnGroupE,
+    RoomSpawnGroupConfig bombCampBSpawnGroupE1,
+    RoomSpawnGroupConfig bombCampBSpawnGroupE2,
+    RoomSpawnGroupConfig bombCampBSpawnGroupE3,
+    RoomSpawnGroupConfig bombCampBSpawnGroupF,
+    RoomSpawnGroupConfig bombCampBSpawnGroupF1,
+    RoomSpawnGroupConfig bombCampBSpawnGroupF2,
+    RoomSpawnGroupConfig bombCampBSpawnGroupF3,
     RoomPosition campABaseDeployIconPosition,
     RoomPosition campBBaseDeployIconPosition,
     RoomViewPosition stageADeployViewPosition,
@@ -118,54 +118,54 @@ public record RoomRushConfig(
         stageFBoundary = copyPositions(stageFBoundary);
         campABaseSpawnGroup = normalizeSpawnGroup(campABaseSpawnGroup);
         campBBaseSpawnGroup = normalizeSpawnGroup(campBBaseSpawnGroup);
-        bombInnerSpawnGroupA = normalizeSpawnGroup(bombInnerSpawnGroupA);
-        bombInnerSpawnGroupA1 = normalizeSpawnGroup(bombInnerSpawnGroupA1);
-        bombInnerSpawnGroupA2 = normalizeSpawnGroup(bombInnerSpawnGroupA2);
-        bombInnerSpawnGroupA3 = normalizeSpawnGroup(bombInnerSpawnGroupA3);
-        bombInnerSpawnGroupB = normalizeSpawnGroup(bombInnerSpawnGroupB);
-        bombInnerSpawnGroupB1 = normalizeSpawnGroup(bombInnerSpawnGroupB1);
-        bombInnerSpawnGroupB2 = normalizeSpawnGroup(bombInnerSpawnGroupB2);
-        bombInnerSpawnGroupB3 = normalizeSpawnGroup(bombInnerSpawnGroupB3);
-        bombInnerSpawnGroupC = normalizeSpawnGroup(bombInnerSpawnGroupC);
-        bombInnerSpawnGroupC1 = normalizeSpawnGroup(bombInnerSpawnGroupC1);
-        bombInnerSpawnGroupC2 = normalizeSpawnGroup(bombInnerSpawnGroupC2);
-        bombInnerSpawnGroupC3 = normalizeSpawnGroup(bombInnerSpawnGroupC3);
-        bombInnerSpawnGroupD = normalizeSpawnGroup(bombInnerSpawnGroupD);
-        bombInnerSpawnGroupD1 = normalizeSpawnGroup(bombInnerSpawnGroupD1);
-        bombInnerSpawnGroupD2 = normalizeSpawnGroup(bombInnerSpawnGroupD2);
-        bombInnerSpawnGroupD3 = normalizeSpawnGroup(bombInnerSpawnGroupD3);
-        bombInnerSpawnGroupE = normalizeSpawnGroup(bombInnerSpawnGroupE);
-        bombInnerSpawnGroupE1 = normalizeSpawnGroup(bombInnerSpawnGroupE1);
-        bombInnerSpawnGroupE2 = normalizeSpawnGroup(bombInnerSpawnGroupE2);
-        bombInnerSpawnGroupE3 = normalizeSpawnGroup(bombInnerSpawnGroupE3);
-        bombInnerSpawnGroupF = normalizeSpawnGroup(bombInnerSpawnGroupF);
-        bombInnerSpawnGroupF1 = normalizeSpawnGroup(bombInnerSpawnGroupF1);
-        bombInnerSpawnGroupF2 = normalizeSpawnGroup(bombInnerSpawnGroupF2);
-        bombInnerSpawnGroupF3 = normalizeSpawnGroup(bombInnerSpawnGroupF3);
-        bombDefenderInnerSpawnGroupA = normalizeSpawnGroup(bombDefenderInnerSpawnGroupA);
-        bombDefenderInnerSpawnGroupA1 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupA1);
-        bombDefenderInnerSpawnGroupA2 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupA2);
-        bombDefenderInnerSpawnGroupA3 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupA3);
-        bombDefenderInnerSpawnGroupB = normalizeSpawnGroup(bombDefenderInnerSpawnGroupB);
-        bombDefenderInnerSpawnGroupB1 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupB1);
-        bombDefenderInnerSpawnGroupB2 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupB2);
-        bombDefenderInnerSpawnGroupB3 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupB3);
-        bombDefenderInnerSpawnGroupC = normalizeSpawnGroup(bombDefenderInnerSpawnGroupC);
-        bombDefenderInnerSpawnGroupC1 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupC1);
-        bombDefenderInnerSpawnGroupC2 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupC2);
-        bombDefenderInnerSpawnGroupC3 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupC3);
-        bombDefenderInnerSpawnGroupD = normalizeSpawnGroup(bombDefenderInnerSpawnGroupD);
-        bombDefenderInnerSpawnGroupD1 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupD1);
-        bombDefenderInnerSpawnGroupD2 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupD2);
-        bombDefenderInnerSpawnGroupD3 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupD3);
-        bombDefenderInnerSpawnGroupE = normalizeSpawnGroup(bombDefenderInnerSpawnGroupE);
-        bombDefenderInnerSpawnGroupE1 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupE1);
-        bombDefenderInnerSpawnGroupE2 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupE2);
-        bombDefenderInnerSpawnGroupE3 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupE3);
-        bombDefenderInnerSpawnGroupF = normalizeSpawnGroup(bombDefenderInnerSpawnGroupF);
-        bombDefenderInnerSpawnGroupF1 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupF1);
-        bombDefenderInnerSpawnGroupF2 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupF2);
-        bombDefenderInnerSpawnGroupF3 = normalizeSpawnGroup(bombDefenderInnerSpawnGroupF3);
+        bombCampASpawnGroupA = normalizeSpawnGroup(bombCampASpawnGroupA);
+        bombCampASpawnGroupA1 = normalizeSpawnGroup(bombCampASpawnGroupA1);
+        bombCampASpawnGroupA2 = normalizeSpawnGroup(bombCampASpawnGroupA2);
+        bombCampASpawnGroupA3 = normalizeSpawnGroup(bombCampASpawnGroupA3);
+        bombCampASpawnGroupB = normalizeSpawnGroup(bombCampASpawnGroupB);
+        bombCampASpawnGroupB1 = normalizeSpawnGroup(bombCampASpawnGroupB1);
+        bombCampASpawnGroupB2 = normalizeSpawnGroup(bombCampASpawnGroupB2);
+        bombCampASpawnGroupB3 = normalizeSpawnGroup(bombCampASpawnGroupB3);
+        bombCampASpawnGroupC = normalizeSpawnGroup(bombCampASpawnGroupC);
+        bombCampASpawnGroupC1 = normalizeSpawnGroup(bombCampASpawnGroupC1);
+        bombCampASpawnGroupC2 = normalizeSpawnGroup(bombCampASpawnGroupC2);
+        bombCampASpawnGroupC3 = normalizeSpawnGroup(bombCampASpawnGroupC3);
+        bombCampASpawnGroupD = normalizeSpawnGroup(bombCampASpawnGroupD);
+        bombCampASpawnGroupD1 = normalizeSpawnGroup(bombCampASpawnGroupD1);
+        bombCampASpawnGroupD2 = normalizeSpawnGroup(bombCampASpawnGroupD2);
+        bombCampASpawnGroupD3 = normalizeSpawnGroup(bombCampASpawnGroupD3);
+        bombCampASpawnGroupE = normalizeSpawnGroup(bombCampASpawnGroupE);
+        bombCampASpawnGroupE1 = normalizeSpawnGroup(bombCampASpawnGroupE1);
+        bombCampASpawnGroupE2 = normalizeSpawnGroup(bombCampASpawnGroupE2);
+        bombCampASpawnGroupE3 = normalizeSpawnGroup(bombCampASpawnGroupE3);
+        bombCampASpawnGroupF = normalizeSpawnGroup(bombCampASpawnGroupF);
+        bombCampASpawnGroupF1 = normalizeSpawnGroup(bombCampASpawnGroupF1);
+        bombCampASpawnGroupF2 = normalizeSpawnGroup(bombCampASpawnGroupF2);
+        bombCampASpawnGroupF3 = normalizeSpawnGroup(bombCampASpawnGroupF3);
+        bombCampBSpawnGroupA = normalizeSpawnGroup(bombCampBSpawnGroupA);
+        bombCampBSpawnGroupA1 = normalizeSpawnGroup(bombCampBSpawnGroupA1);
+        bombCampBSpawnGroupA2 = normalizeSpawnGroup(bombCampBSpawnGroupA2);
+        bombCampBSpawnGroupA3 = normalizeSpawnGroup(bombCampBSpawnGroupA3);
+        bombCampBSpawnGroupB = normalizeSpawnGroup(bombCampBSpawnGroupB);
+        bombCampBSpawnGroupB1 = normalizeSpawnGroup(bombCampBSpawnGroupB1);
+        bombCampBSpawnGroupB2 = normalizeSpawnGroup(bombCampBSpawnGroupB2);
+        bombCampBSpawnGroupB3 = normalizeSpawnGroup(bombCampBSpawnGroupB3);
+        bombCampBSpawnGroupC = normalizeSpawnGroup(bombCampBSpawnGroupC);
+        bombCampBSpawnGroupC1 = normalizeSpawnGroup(bombCampBSpawnGroupC1);
+        bombCampBSpawnGroupC2 = normalizeSpawnGroup(bombCampBSpawnGroupC2);
+        bombCampBSpawnGroupC3 = normalizeSpawnGroup(bombCampBSpawnGroupC3);
+        bombCampBSpawnGroupD = normalizeSpawnGroup(bombCampBSpawnGroupD);
+        bombCampBSpawnGroupD1 = normalizeSpawnGroup(bombCampBSpawnGroupD1);
+        bombCampBSpawnGroupD2 = normalizeSpawnGroup(bombCampBSpawnGroupD2);
+        bombCampBSpawnGroupD3 = normalizeSpawnGroup(bombCampBSpawnGroupD3);
+        bombCampBSpawnGroupE = normalizeSpawnGroup(bombCampBSpawnGroupE);
+        bombCampBSpawnGroupE1 = normalizeSpawnGroup(bombCampBSpawnGroupE1);
+        bombCampBSpawnGroupE2 = normalizeSpawnGroup(bombCampBSpawnGroupE2);
+        bombCampBSpawnGroupE3 = normalizeSpawnGroup(bombCampBSpawnGroupE3);
+        bombCampBSpawnGroupF = normalizeSpawnGroup(bombCampBSpawnGroupF);
+        bombCampBSpawnGroupF1 = normalizeSpawnGroup(bombCampBSpawnGroupF1);
+        bombCampBSpawnGroupF2 = normalizeSpawnGroup(bombCampBSpawnGroupF2);
+        bombCampBSpawnGroupF3 = normalizeSpawnGroup(bombCampBSpawnGroupF3);
         campABaseDeployIconPosition = copyPosition(campABaseDeployIconPosition);
         campBBaseDeployIconPosition = copyPosition(campBBaseDeployIconPosition);
         stageDurationMinutes = Math.max(0, stageDurationMinutes);
@@ -367,7 +367,7 @@ public record RoomRushConfig(
         };
     }
 
-    public RoomSpawnGroupConfig bombInnerSpawnGroup(int stageIndex, RoomTeamId teamId) {
+    public RoomSpawnGroupConfig bombCampASpawnGroup(int stageIndex, RoomTeamId teamId) {
         return bombSpawnGroup(stageCode(stageIndex), teamId);
     }
 
@@ -375,58 +375,58 @@ public record RoomRushConfig(
         String code = normalizeObjectiveCode(objectiveCode);
         if (teamId == RoomTeamId.CAMP_B) {
             return switch (code) {
-                case "A" -> bombDefenderInnerSpawnGroupA;
-                case "A1" -> bombDefenderInnerSpawnGroupA1;
-                case "A2" -> bombDefenderInnerSpawnGroupA2;
-                case "A3" -> bombDefenderInnerSpawnGroupA3;
-                case "B" -> bombDefenderInnerSpawnGroupB;
-                case "B1" -> bombDefenderInnerSpawnGroupB1;
-                case "B2" -> bombDefenderInnerSpawnGroupB2;
-                case "B3" -> bombDefenderInnerSpawnGroupB3;
-                case "C" -> bombDefenderInnerSpawnGroupC;
-                case "C1" -> bombDefenderInnerSpawnGroupC1;
-                case "C2" -> bombDefenderInnerSpawnGroupC2;
-                case "C3" -> bombDefenderInnerSpawnGroupC3;
-                case "D" -> bombDefenderInnerSpawnGroupD;
-                case "D1" -> bombDefenderInnerSpawnGroupD1;
-                case "D2" -> bombDefenderInnerSpawnGroupD2;
-                case "D3" -> bombDefenderInnerSpawnGroupD3;
-                case "E" -> bombDefenderInnerSpawnGroupE;
-                case "E1" -> bombDefenderInnerSpawnGroupE1;
-                case "E2" -> bombDefenderInnerSpawnGroupE2;
-                case "E3" -> bombDefenderInnerSpawnGroupE3;
-                case "F" -> bombDefenderInnerSpawnGroupF;
-                case "F1" -> bombDefenderInnerSpawnGroupF1;
-                case "F2" -> bombDefenderInnerSpawnGroupF2;
-                case "F3" -> bombDefenderInnerSpawnGroupF3;
+                case "A" -> bombCampBSpawnGroupA;
+                case "A1" -> bombCampBSpawnGroupA1;
+                case "A2" -> bombCampBSpawnGroupA2;
+                case "A3" -> bombCampBSpawnGroupA3;
+                case "B" -> bombCampBSpawnGroupB;
+                case "B1" -> bombCampBSpawnGroupB1;
+                case "B2" -> bombCampBSpawnGroupB2;
+                case "B3" -> bombCampBSpawnGroupB3;
+                case "C" -> bombCampBSpawnGroupC;
+                case "C1" -> bombCampBSpawnGroupC1;
+                case "C2" -> bombCampBSpawnGroupC2;
+                case "C3" -> bombCampBSpawnGroupC3;
+                case "D" -> bombCampBSpawnGroupD;
+                case "D1" -> bombCampBSpawnGroupD1;
+                case "D2" -> bombCampBSpawnGroupD2;
+                case "D3" -> bombCampBSpawnGroupD3;
+                case "E" -> bombCampBSpawnGroupE;
+                case "E1" -> bombCampBSpawnGroupE1;
+                case "E2" -> bombCampBSpawnGroupE2;
+                case "E3" -> bombCampBSpawnGroupE3;
+                case "F" -> bombCampBSpawnGroupF;
+                case "F1" -> bombCampBSpawnGroupF1;
+                case "F2" -> bombCampBSpawnGroupF2;
+                case "F3" -> bombCampBSpawnGroupF3;
                 default -> RoomSpawnGroupConfig.defaults();
             };
         }
         return switch (code) {
-            case "A" -> bombInnerSpawnGroupA;
-            case "A1" -> bombInnerSpawnGroupA1;
-            case "A2" -> bombInnerSpawnGroupA2;
-            case "A3" -> bombInnerSpawnGroupA3;
-            case "B" -> bombInnerSpawnGroupB;
-            case "B1" -> bombInnerSpawnGroupB1;
-            case "B2" -> bombInnerSpawnGroupB2;
-            case "B3" -> bombInnerSpawnGroupB3;
-            case "C" -> bombInnerSpawnGroupC;
-            case "C1" -> bombInnerSpawnGroupC1;
-            case "C2" -> bombInnerSpawnGroupC2;
-            case "C3" -> bombInnerSpawnGroupC3;
-            case "D" -> bombInnerSpawnGroupD;
-            case "D1" -> bombInnerSpawnGroupD1;
-            case "D2" -> bombInnerSpawnGroupD2;
-            case "D3" -> bombInnerSpawnGroupD3;
-            case "E" -> bombInnerSpawnGroupE;
-            case "E1" -> bombInnerSpawnGroupE1;
-            case "E2" -> bombInnerSpawnGroupE2;
-            case "E3" -> bombInnerSpawnGroupE3;
-            case "F" -> bombInnerSpawnGroupF;
-            case "F1" -> bombInnerSpawnGroupF1;
-            case "F2" -> bombInnerSpawnGroupF2;
-            case "F3" -> bombInnerSpawnGroupF3;
+            case "A" -> bombCampASpawnGroupA;
+            case "A1" -> bombCampASpawnGroupA1;
+            case "A2" -> bombCampASpawnGroupA2;
+            case "A3" -> bombCampASpawnGroupA3;
+            case "B" -> bombCampASpawnGroupB;
+            case "B1" -> bombCampASpawnGroupB1;
+            case "B2" -> bombCampASpawnGroupB2;
+            case "B3" -> bombCampASpawnGroupB3;
+            case "C" -> bombCampASpawnGroupC;
+            case "C1" -> bombCampASpawnGroupC1;
+            case "C2" -> bombCampASpawnGroupC2;
+            case "C3" -> bombCampASpawnGroupC3;
+            case "D" -> bombCampASpawnGroupD;
+            case "D1" -> bombCampASpawnGroupD1;
+            case "D2" -> bombCampASpawnGroupD2;
+            case "D3" -> bombCampASpawnGroupD3;
+            case "E" -> bombCampASpawnGroupE;
+            case "E1" -> bombCampASpawnGroupE1;
+            case "E2" -> bombCampASpawnGroupE2;
+            case "E3" -> bombCampASpawnGroupE3;
+            case "F" -> bombCampASpawnGroupF;
+            case "F1" -> bombCampASpawnGroupF1;
+            case "F2" -> bombCampASpawnGroupF2;
+            case "F3" -> bombCampASpawnGroupF3;
             default -> RoomSpawnGroupConfig.defaults();
         };
     }
@@ -448,54 +448,54 @@ public record RoomRushConfig(
             stageFBoundary,
             campABaseSpawnGroup,
             campBBaseSpawnGroup,
-            bombInnerSpawnGroupA,
-            bombInnerSpawnGroupA1,
-            bombInnerSpawnGroupA2,
-            bombInnerSpawnGroupA3,
-            bombInnerSpawnGroupB,
-            bombInnerSpawnGroupB1,
-            bombInnerSpawnGroupB2,
-            bombInnerSpawnGroupB3,
-            bombInnerSpawnGroupC,
-            bombInnerSpawnGroupC1,
-            bombInnerSpawnGroupC2,
-            bombInnerSpawnGroupC3,
-            bombInnerSpawnGroupD,
-            bombInnerSpawnGroupD1,
-            bombInnerSpawnGroupD2,
-            bombInnerSpawnGroupD3,
-            bombInnerSpawnGroupE,
-            bombInnerSpawnGroupE1,
-            bombInnerSpawnGroupE2,
-            bombInnerSpawnGroupE3,
-            bombInnerSpawnGroupF,
-            bombInnerSpawnGroupF1,
-            bombInnerSpawnGroupF2,
-            bombInnerSpawnGroupF3,
-            bombDefenderInnerSpawnGroupA,
-            bombDefenderInnerSpawnGroupA1,
-            bombDefenderInnerSpawnGroupA2,
-            bombDefenderInnerSpawnGroupA3,
-            bombDefenderInnerSpawnGroupB,
-            bombDefenderInnerSpawnGroupB1,
-            bombDefenderInnerSpawnGroupB2,
-            bombDefenderInnerSpawnGroupB3,
-            bombDefenderInnerSpawnGroupC,
-            bombDefenderInnerSpawnGroupC1,
-            bombDefenderInnerSpawnGroupC2,
-            bombDefenderInnerSpawnGroupC3,
-            bombDefenderInnerSpawnGroupD,
-            bombDefenderInnerSpawnGroupD1,
-            bombDefenderInnerSpawnGroupD2,
-            bombDefenderInnerSpawnGroupD3,
-            bombDefenderInnerSpawnGroupE,
-            bombDefenderInnerSpawnGroupE1,
-            bombDefenderInnerSpawnGroupE2,
-            bombDefenderInnerSpawnGroupE3,
-            bombDefenderInnerSpawnGroupF,
-            bombDefenderInnerSpawnGroupF1,
-            bombDefenderInnerSpawnGroupF2,
-            bombDefenderInnerSpawnGroupF3,
+            bombCampASpawnGroupA,
+            bombCampASpawnGroupA1,
+            bombCampASpawnGroupA2,
+            bombCampASpawnGroupA3,
+            bombCampASpawnGroupB,
+            bombCampASpawnGroupB1,
+            bombCampASpawnGroupB2,
+            bombCampASpawnGroupB3,
+            bombCampASpawnGroupC,
+            bombCampASpawnGroupC1,
+            bombCampASpawnGroupC2,
+            bombCampASpawnGroupC3,
+            bombCampASpawnGroupD,
+            bombCampASpawnGroupD1,
+            bombCampASpawnGroupD2,
+            bombCampASpawnGroupD3,
+            bombCampASpawnGroupE,
+            bombCampASpawnGroupE1,
+            bombCampASpawnGroupE2,
+            bombCampASpawnGroupE3,
+            bombCampASpawnGroupF,
+            bombCampASpawnGroupF1,
+            bombCampASpawnGroupF2,
+            bombCampASpawnGroupF3,
+            bombCampBSpawnGroupA,
+            bombCampBSpawnGroupA1,
+            bombCampBSpawnGroupA2,
+            bombCampBSpawnGroupA3,
+            bombCampBSpawnGroupB,
+            bombCampBSpawnGroupB1,
+            bombCampBSpawnGroupB2,
+            bombCampBSpawnGroupB3,
+            bombCampBSpawnGroupC,
+            bombCampBSpawnGroupC1,
+            bombCampBSpawnGroupC2,
+            bombCampBSpawnGroupC3,
+            bombCampBSpawnGroupD,
+            bombCampBSpawnGroupD1,
+            bombCampBSpawnGroupD2,
+            bombCampBSpawnGroupD3,
+            bombCampBSpawnGroupE,
+            bombCampBSpawnGroupE1,
+            bombCampBSpawnGroupE2,
+            bombCampBSpawnGroupE3,
+            bombCampBSpawnGroupF,
+            bombCampBSpawnGroupF1,
+            bombCampBSpawnGroupF2,
+            bombCampBSpawnGroupF3,
             campABaseDeployIconPosition,
             campBBaseDeployIconPosition,
             stageADeployViewPosition,
@@ -613,14 +613,14 @@ public record RoomRushConfig(
                 );
                 org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(
                     result,
-                    "rush.bombInnerSpawnGroup." + code,
+                    "rush.bombCampASpawnGroup." + code,
                     "rsBombCampASpawnGroup_" + code,
                     rush.bombSpawnGroup(code, RoomTeamId.CAMP_A),
                     true
                 );
                 org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(
                     result,
-                    "rush.bombDefenderInnerSpawnGroup." + code,
+                    "rush.bombCampBSpawnGroup." + code,
                     "rsBombCampBSpawnGroup_" + code,
                     rush.bombSpawnGroup(code, RoomTeamId.CAMP_B),
                     true
