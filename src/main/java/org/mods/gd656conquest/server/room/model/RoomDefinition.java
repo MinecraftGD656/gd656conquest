@@ -112,6 +112,10 @@ public record RoomDefinition(
         return gameplayConfig instanceof RoomGunmasterConfig gm ? gm : RoomGunmasterConfig.defaults();
     }
 
+    public RoomRushConfig rushConfig() {
+        return gameplayConfig instanceof RoomRushConfig rs ? rs : RoomRushConfig.defaults();
+    }
+
     public RoomDeathmatchConfig arenaConfig() {
         if (gameplayConfig instanceof RoomDeathmatchConfig dm) {
             return dm;
@@ -135,6 +139,9 @@ public record RoomDefinition(
         }
         if (RoomGameplayId.GUNMASTER.equals(gameplayId)) {
             return RoomGunmasterConfig.defaults();
+        }
+        if (RoomGameplayId.RUSH.equals(gameplayId)) {
+            return RoomRushConfig.defaults();
         }
         return RoomConquestConfig.defaults();
     }

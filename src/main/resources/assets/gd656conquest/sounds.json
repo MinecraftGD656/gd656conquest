@@ -772,5 +772,104 @@
         "name": "gd656conquest:voice/shelling/artillery_friendly_promotion_wave"
       }
     ]
+  },
+  "sfx.rush.charge_beep": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/rush/charge_beep"
+      }
+    ]
+  },
+  "sfx.rush.charge_plant_intro_01": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/rush/charge_plant_intro_01"
+      }
+    ]
+  },
+  "sfx.rush.charge_plant_finish_01": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/rush/charge_plant_finish_01"
+      }
+    ]
+  },
+  "sfx.rush.charge_disarm_leadout_01": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/rush/charge_disarm_leadout_01"
+      }
+    ]
+  },
+  "sfx.rush.alarm_01": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/rush/alarm_01"
+      }
+    ]
+  },
+  "sfx.rush.alarm_leadout_01": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/rush/alarm_leadout_01"
+      }
+    ]
+  },
+  "sfx.rush.alarm_leadout_loop": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/rush/alarm_leadout_loop",
+        "stream": true
+      }
+    ]
+  },
+  "sfx.rush.brick_destruction_l": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/rush/brick_destruction_l"
+      }
+    ]
+  },
+  "voice.rush.plant_set_a": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/rush/plant_set_a"
+      }
+    ]
+  },
+  "voice.rush.plant_set_b": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/rush/plant_set_b"
+      }
+    ]
+  },
+  "voice.rush.attack_defuse_a": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/rush/attack_defuse_a"
+      }
+    ]
+  },
+  "voice.rush.attack_defuse_b": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/rush/attack_defuse_b"
+      }
+    ]
+  },
+  "voice.rush.defend_defuse_a": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/rush/defend_defuse_a"
+      }
+    ]
+  },
+  "voice.rush.defend_defuse_b": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/rush/defend_defuse_b"
+      }
+    ]
   }
 }

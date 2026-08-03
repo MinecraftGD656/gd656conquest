@@ -31,7 +31,8 @@ public class RoomSelectionTabContent implements ConfigScreenHeader.TabContent {
         new GameplayGroup("conquest", "征服-Conquest"),
         new GameplayGroup("breakthrough", "突破-Breakthrough"),
         new GameplayGroup("gunmaster", "枪神-Gunmaster"),
-        new GameplayGroup("deathmatch", "团队死斗-TDM")
+        new GameplayGroup("deathmatch", "团队死斗-TDM"),
+        new GameplayGroup("rush", "突袭-Rush")
     );
 
     record GameplayGroup(String gameplayId, String displayName) {}

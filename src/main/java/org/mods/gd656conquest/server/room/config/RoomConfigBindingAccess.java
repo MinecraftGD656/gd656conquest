@@ -116,7 +116,8 @@ final class RoomConfigBindingAccess {
         return "conquestConfig".equals(name)
             || "breakthroughConfig".equals(name)
             || "deathmatchConfig".equals(name)
-            || "gunmasterConfig".equals(name);
+            || "gunmasterConfig".equals(name)
+            || "rushConfig".equals(name);
     }
 
     private static Object rebuildRoomDefinitionGameplayConfig(RoomDefinition definition, String alias, Object replacement) {
@@ -125,6 +126,9 @@ final class RoomConfigBindingAccess {
         }
         if ("breakthroughConfig".equals(alias) && !RoomGameplayId.BREAKTHROUGH.equals(definition.gameplayId())) {
             throw new IllegalArgumentException("当前房间玩法不是 breakthrough，无法写入突破配置");
+        }
+        if ("rushConfig".equals(alias) && !RoomGameplayId.RUSH.equals(definition.gameplayId())) {
+            throw new IllegalArgumentException("当前房间玩法不是 rush，无法写入突袭配置");
         }
         if (isArenaGameplayAlias(alias) && !definition.isArenaGameplay()) {
             throw new IllegalArgumentException("当前房间玩法不是竞技场模式，无法写入该配置");

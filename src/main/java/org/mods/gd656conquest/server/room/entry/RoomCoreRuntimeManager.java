@@ -548,6 +548,20 @@ public final class RoomCoreRuntimeManager {
         return coreService.tryUseNearbyAmmoBox(player, gameTick);
     }
 
+    public boolean handleCommonUseStart(ServerPlayer player, long gameTick) {
+        if (coreService == null) {
+            return false;
+        }
+        return coreService.handleCommonUseStart(player, gameTick);
+    }
+
+    public void handleCommonUseStop(ServerPlayer player, long gameTick) {
+        if (coreService == null) {
+            return;
+        }
+        coreService.handleCommonUseStop(player, gameTick);
+    }
+
     public boolean emitPlayerThirdPersonAudioCue(UUID playerId, String cueId) {
         if (coreService == null) {
             return false;

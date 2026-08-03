@@ -213,7 +213,8 @@ public final class ConquestServerCommands {
                         .executes(ConquestServerCommands::executeDebugBreakthroughBackToWallAttackHud)
                         .then(Commands.literal("attack").executes(ConquestServerCommands::executeDebugBreakthroughBackToWallAttackHud))
                         .then(Commands.literal("defend").executes(ConquestServerCommands::executeDebugBreakthroughBackToWallDefendHud)))
-                    .then(Commands.literal("burnboats").executes(ConquestServerCommands::executeDebugBreakthroughBurnBoatsHud))))
+                    .then(Commands.literal("burnboats").executes(ConquestServerCommands::executeDebugBreakthroughBurnBoatsHud)))
+                .then(Commands.literal("rush").executes(ConquestServerCommands::executeDebugRushHud)))
             .then(Commands.literal("playeranimator").executes(ConquestServerCommands::executeDebugPlayerAnimator));
     }
 
@@ -398,6 +399,12 @@ public final class ConquestServerCommands {
         ServerPlayer player = context.getSource().getPlayerOrException();
         NetworkManager.sendToPlayer(player, new HudDebugPreviewPacket("GUNMASTER_ENEMY_PUSH", HUDTEST_PREVIEW_DURATION_MS));
         return CommandFeedbacks.info(context.getSource(), "Gunmaster 顶部 HUD 敌方推进预览已开启，持续 10 秒");
+    }
+
+    private static int executeDebugRushHud(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        NetworkManager.sendToPlayer(player, new HudDebugPreviewPacket("RUSH", HUDTEST_PREVIEW_DURATION_MS));
+        return CommandFeedbacks.info(context.getSource(), "Rush 顶部 HUD 调试预览已开启，持续 10 秒");
     }
 
     private static int executeDebugBreakthroughBackToWallAttackHud(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

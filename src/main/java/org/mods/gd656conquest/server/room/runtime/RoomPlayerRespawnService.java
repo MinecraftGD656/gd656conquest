@@ -411,9 +411,9 @@ public final class RoomPlayerRespawnService {
             return;
         }
         UUID playerId = player.getUUID();
+        ensureInitialDeployTimelineInitialized(room, state, gameTick);
         if (isArenaGameplay(room)) {
             int deployDelayTicks = INITIAL_DEPLOY_DELAY_SECONDS * 20;
-            state.setInitialMovementUnlockTick(gameTick + initialCombatUnlockDelayTicks(room));
             state.clearRespawnFlow(playerId);
             state.getDeployReadyTicks().put(playerId, gameTick + deployDelayTicks);
             state.getDeployAutoStartOnReadyPlayers().add(playerId);
@@ -432,7 +432,6 @@ public final class RoomPlayerRespawnService {
             return;
         }
         int deployDelayTicks = INITIAL_DEPLOY_DELAY_SECONDS * 20;
-        state.setInitialMovementUnlockTick(gameTick + deployDelayTicks + RESPAWN_TRAVEL_TICKS + INITIAL_MOVEMENT_LOCK_SECONDS * 20L);
         state.clearRespawnFlow(playerId);
         state.getDeployReadyTicks().put(playerId, gameTick + deployDelayTicks);
         state.getDeployAutoStartOnReadyPlayers().add(playerId);
@@ -536,6 +535,13 @@ public final class RoomPlayerRespawnService {
         ));
     }
 
+    public void ensureInitialDeployTimelineInitialized(RoomDefinition room, RunningRuntimeState state, long gameTick) {
+        if (room == null || state == null || state.getInitialMovementUnlockTick() > 0L) {
+            return;
+        }
+        state.setInitialMovementUnlockTick(gameTick + initialCombatUnlockDelayTicks(room));
+    }
+
     public void resumeDeferredInitialDeploy(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long gameTick) {
         Objects.requireNonNull(room, "room");
         Objects.requireNonNull(state, "state");
@@ -550,6 +556,7 @@ public final class RoomPlayerRespawnService {
         if (state.isInDeployFlow(playerId) || state.getDeployViewActivePlayers().contains(playerId)) {
             return;
         }
+        ensureInitialDeployTimelineInitialized(room, state, gameTick);
         deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
         if (tryBeginAlignedOpeningJoinDeploy(room, state, player, gameTick, RoomGameplayDeployViewKind.MIDJOIN)) {
             return;
@@ -2281,6 +2288,11 @@ public final class RoomPlayerRespawnService {
     private Component buildInitialCombatCountdownSubtitle(RoomDefinition room, RoomTeamId teamId) {
         if (room != null && RoomGameplayId.GUNMASTER.equals(room.gameplayId())) {
             return Component.literal("击杀敌军升级枪械")
+                .withStyle(style -> style.withColor(INITIAL_SUBTITLE_COLOR).withBold(true));
+        }
+        if (room != null && RoomGameplayId.RUSH.equals(room.gameplayId())) {
+            boolean attacker = teamId == RoomTeamId.CAMP_A;
+            return Component.literal(attacker ? "炸毁区域内的全部通讯设施" : "防守区域内的全部通讯设施")
                 .withStyle(style -> style.withColor(INITIAL_SUBTITLE_COLOR).withBold(true));
         }
         if (isArenaGameplay(room)) {

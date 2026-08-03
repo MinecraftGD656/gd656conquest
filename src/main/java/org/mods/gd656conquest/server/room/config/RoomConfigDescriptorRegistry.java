@@ -1,6 +1,5 @@
 package org.mods.gd656conquest.server.room.config;
 
-import org.mods.gd656conquest.common.block.ConquestBlocks;
 import org.mods.gd656conquest.server.room.model.ConquestFullCaptureResponseMode;
 import org.mods.gd656conquest.server.room.model.RoomVehicleBackend;
 import org.mods.gd656conquest.server.room.model.RoomTroopBalanceReference;
@@ -15,6 +14,14 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 public final class RoomConfigDescriptorRegistry {
+    private static final List<String> CAPTURE_CODES = List.of(
+        "A", "A1", "A2", "A3",
+        "B", "B1", "B2", "B3",
+        "C", "C1", "C2", "C3",
+        "D", "D1", "D2", "D3",
+        "E", "E1", "E2", "E3",
+        "F", "F1", "F2", "F3"
+    );
     private static final List<RoomConfigDescriptor> DESCRIPTORS = buildDescriptors();
     private static final Map<String, RoomConfigDescriptor> BY_ID = indexDescriptors(DESCRIPTORS);
 
@@ -45,8 +52,12 @@ public final class RoomConfigDescriptorRegistry {
         return legacyCommandIds(RoomConfigScope.GUNMASTER);
     }
 
+    public static List<String> legacyRushCommandIds() {
+        return legacyCommandIds(RoomConfigScope.RUSH);
+    }
+
     public static List<RoomConfigScope> guiScopes() {
-        return List.of(RoomConfigScope.COMMON, RoomConfigScope.CONQUEST, RoomConfigScope.BREAKTHROUGH, RoomConfigScope.DEATHMATCH, RoomConfigScope.GUNMASTER);
+        return List.of(RoomConfigScope.COMMON, RoomConfigScope.CONQUEST, RoomConfigScope.BREAKTHROUGH, RoomConfigScope.DEATHMATCH, RoomConfigScope.GUNMASTER, RoomConfigScope.RUSH);
     }
 
     public static RoomConfigScope scopeOf(RoomConfigDescriptor descriptor) {
@@ -79,7 +90,7 @@ public final class RoomConfigDescriptorRegistry {
     private static List<RoomConfigDescriptor> buildDescriptors() {
         List<RoomConfigDescriptor> descriptors = new ArrayList<>();
 
-        common(descriptors, RoomConfigCategory.ROOM, "gameplayId", "玩法类型", "gameplayId", RoomConfigValueType.STRING, List.of("CONQUEST", "BREAKTHROUGH", "DEATHMATCH", "GUNMASTER"), "gameplayType");
+        common(descriptors, RoomConfigCategory.ROOM, "gameplayId", "玩法类型", "gameplayId", RoomConfigValueType.STRING, List.of("CONQUEST", "BREAKTHROUGH", "DEATHMATCH", "GUNMASTER", "RUSH"), "gameplayType");
         common(descriptors, RoomConfigCategory.ROOM, "displayName", "房间名称", "displayName", RoomConfigValueType.STRING, List.of());
         common(descriptors, RoomConfigCategory.ROOM, "dimensionId", "房间维度ID", "commonConfig.dimensionId", RoomConfigValueType.STRING, List.of());
         common(descriptors, RoomConfigCategory.ROOM, "mapName", "地图名称", "commonConfig.mapName", RoomConfigValueType.STRING, List.of());
@@ -278,6 +289,40 @@ public final class RoomConfigDescriptorRegistry {
         gunmasterGroup(descriptors, RoomConfigCategory.TRANSPORT, "gmCampASpawnGroup", "枪王模式团队A出生组", "gunmasterConfig.campASpawnGroup", RoomConfigValueType.DATA_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.TRANSPORT, "gmCampBSpawnGroup", "枪王模式团队B出生组", "gunmasterConfig.campBSpawnGroup", RoomConfigValueType.DATA_GROUP);
 
+        rush(descriptors, RoomConfigCategory.CAPTURE, "rsMapID", "突袭模式地图ID", "rushConfig.mapId", RoomConfigValueType.STRING, List.of());
+        rush(descriptors, RoomConfigCategory.CAPTURE, "rsCampADisplayName", "进攻方名称", "rushConfig.campADisplayName", RoomConfigValueType.STRING, List.of());
+        rush(descriptors, RoomConfigCategory.CAPTURE, "rsCampBDisplayName", "防守方名称", "rushConfig.campBDisplayName", RoomConfigValueType.STRING, List.of());
+        rush(descriptors, RoomConfigCategory.ROOM, "rsStageCount", "阶段数量", "rushConfig.stageCount", RoomConfigValueType.NUMBER, List.of());
+        rushGroup(descriptors, RoomConfigCategory.RULES, "rsCampABaseBoundary", "进攻方大本营边界", "rushConfig.campABaseBoundary", RoomConfigValueType.POSITION_GROUP);
+        rushGroup(descriptors, RoomConfigCategory.RULES, "rsCampBBaseBoundary", "防守方大本营边界", "rushConfig.campBBaseBoundary", RoomConfigValueType.POSITION_GROUP);
+        rushGroup(descriptors, RoomConfigCategory.RULES, "rsStageABoundary", "A阶段边界", "rushConfig.stageABoundary", RoomConfigValueType.POSITION_GROUP);
+        rushGroup(descriptors, RoomConfigCategory.RULES, "rsStageBBoundary", "B阶段边界", "rushConfig.stageBBoundary", RoomConfigValueType.POSITION_GROUP);
+        rushGroup(descriptors, RoomConfigCategory.RULES, "rsStageCBoundary", "C阶段边界", "rushConfig.stageCBoundary", RoomConfigValueType.POSITION_GROUP);
+        rushGroup(descriptors, RoomConfigCategory.RULES, "rsStageDBoundary", "D阶段边界", "rushConfig.stageDBoundary", RoomConfigValueType.POSITION_GROUP);
+        rushGroup(descriptors, RoomConfigCategory.RULES, "rsStageEBoundary", "E阶段边界", "rushConfig.stageEBoundary", RoomConfigValueType.POSITION_GROUP);
+        rushGroup(descriptors, RoomConfigCategory.RULES, "rsStageFBoundary", "F阶段边界", "rushConfig.stageFBoundary", RoomConfigValueType.POSITION_GROUP);
+        rushGroup(descriptors, RoomConfigCategory.TRANSPORT, "rsCampABaseSpawnGroup", "进攻方大本营出生组", "rushConfig.campABaseSpawnGroup", RoomConfigValueType.DATA_GROUP);
+        rushGroup(descriptors, RoomConfigCategory.TRANSPORT, "rsCampBBaseSpawnGroup", "防守方大本营出生组", "rushConfig.campBBaseSpawnGroup", RoomConfigValueType.DATA_GROUP);
+        rush(descriptors, RoomConfigCategory.TRANSPORT, "rsCampABaseDeployIconPosition", "进攻方大本营图标点", "rushConfig.campABaseDeployIconPosition", RoomConfigValueType.POSITION, List.of("here"));
+        rush(descriptors, RoomConfigCategory.TRANSPORT, "rsCampBBaseDeployIconPosition", "防守方大本营图标点", "rushConfig.campBBaseDeployIconPosition", RoomConfigValueType.POSITION, List.of("here"));
+        rush(descriptors, RoomConfigCategory.TRANSPORT, "rsStageDeployViewA", "A阶段部署视角", "rushConfig.stageADeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
+        rush(descriptors, RoomConfigCategory.TRANSPORT, "rsStageDeployViewB", "B阶段部署视角", "rushConfig.stageBDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
+        rush(descriptors, RoomConfigCategory.TRANSPORT, "rsStageDeployViewC", "C阶段部署视角", "rushConfig.stageCDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
+        rush(descriptors, RoomConfigCategory.TRANSPORT, "rsStageDeployViewD", "D阶段部署视角", "rushConfig.stageDDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
+        rush(descriptors, RoomConfigCategory.TRANSPORT, "rsStageDeployViewE", "E阶段部署视角", "rushConfig.stageEDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
+        rush(descriptors, RoomConfigCategory.TRANSPORT, "rsStageDeployViewF", "F阶段部署视角", "rushConfig.stageFDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
+        rushGroup(descriptors, RoomConfigCategory.TRANSPORT, "rsAmmoBoxPositions", "突袭对局弹药箱数据组", "rushConfig.ammoBoxPositions", RoomConfigValueType.POSITION_GROUP);
+        rushGroup(descriptors, RoomConfigCategory.TRANSPORT, "rsMedicalBoxPositions", "突袭对局医疗箱数据组", "rushConfig.medicalBoxPositions", RoomConfigValueType.POSITION_GROUP);
+        rush(descriptors, RoomConfigCategory.RULES, "rsStageDurationMinutes", "阶段持续分钟", "rushConfig.stageDurationMinutes", RoomConfigValueType.NUMBER, List.of());
+        rush(descriptors, RoomConfigCategory.RULES, "rsDefenderRetreatSeconds", "防守方撤退秒数", "rushConfig.defenderRetreatSeconds", RoomConfigValueType.NUMBER, List.of());
+        rush(descriptors, RoomConfigCategory.RULES, "rsTroopGainPerDefenderKill", "守方击杀补充兵力", "rushConfig.troopGainPerDefenderKill", RoomConfigValueType.NUMBER, List.of());
+        rush(descriptors, RoomConfigCategory.RULES, "rsMaxAttackTroopsAt12Players", "12人进攻方最大兵力", "rushConfig.maxAttackTroopsAt12Players", RoomConfigValueType.NUMBER, List.of());
+        rush(descriptors, RoomConfigCategory.RULES, "rsTroopBalanceReference", "突袭兵力计算基准", "rushConfig.troopBalanceReference", RoomConfigValueType.STRING, RoomTroopBalanceReference.suggestions());
+        rush(descriptors, RoomConfigCategory.RULES, "rsBombPlantTimeSeconds", "炸弹安装时间(秒)", "rushConfig.bombPlantTimeSeconds", RoomConfigValueType.NUMBER, List.of());
+        rush(descriptors, RoomConfigCategory.RULES, "rsBombDefuseTimeSeconds", "炸弹拆除时间(秒)", "rushConfig.bombDefuseTimeSeconds", RoomConfigValueType.NUMBER, List.of());
+        rush(descriptors, RoomConfigCategory.RULES, "rsBombFuseTimeSeconds", "炸弹引信时长(秒)", "rushConfig.bombFuseTimeSeconds", RoomConfigValueType.NUMBER, List.of());
+        rush(descriptors, RoomConfigCategory.RULES, "rsBombExplosionRadius", "炸弹爆炸半径", "rushConfig.bombExplosionRadius", RoomConfigValueType.NUMBER, List.of());
+
         return List.copyOf(descriptors);
     }
 
@@ -319,6 +364,14 @@ public final class RoomConfigDescriptorRegistry {
 
     private static void gunmasterGroup(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, String... aliases) {
         out.add(descriptor(RoomConfigScope.GUNMASTER, category, id, name, path, type, List.of(), true, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, aliases));
+    }
+
+    private static void rush(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, List<String> suggestions, String... aliases) {
+        out.add(descriptor(RoomConfigScope.RUSH, category, id, name, path, type, suggestions, true, RoomConfigGroupOperationMode.NONE, null, aliases));
+    }
+
+    private static void rushGroup(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, String... aliases) {
+        out.add(descriptor(RoomConfigScope.RUSH, category, id, name, path, type, List.of(), true, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, aliases));
     }
 
     private static void conquestSpecial(List<RoomConfigDescriptor> out, RoomConfigCategory category, String id, String name, String path, RoomConfigValueType type, List<String> suggestions, String handlerId, String... aliases) {
@@ -390,12 +443,23 @@ public final class RoomConfigDescriptorRegistry {
             merged.addAll(dynamicLegacyIds(RoomConfigScope.BREAKTHROUGH));
             return List.copyOf(merged);
         }
+        if (scope == RoomConfigScope.RUSH) {
+            List<String> merged = new ArrayList<>(values);
+            merged.addAll(dynamicLegacyIds(RoomConfigScope.RUSH));
+            return List.copyOf(merged);
+        }
         return List.copyOf(values);
     }
 
     private static List<String> dynamicLegacyIds(RoomConfigScope scope) {
         List<String> values = new ArrayList<>();
-        for (String code : captureCodes()) {
+        for (String code : captureCodes(scope)) {
+            if (scope == RoomConfigScope.RUSH) {
+                values.add(dynamicDescriptor(scope, code, "bomb").preferredLegacyId());
+                values.add(dynamicDescriptor(scope, code, "spawnA").preferredLegacyId());
+                values.add(dynamicDescriptor(scope, code, "spawnB").preferredLegacyId());
+                continue;
+            }
             RoomConfigDescriptor display = dynamicDescriptor(scope, code, "display");
             RoomConfigDescriptor center = dynamicDescriptor(scope, code, "center");
             RoomConfigDescriptor inner = dynamicDescriptor(scope, code, "inner");
@@ -414,15 +478,25 @@ public final class RoomConfigDescriptorRegistry {
     }
 
     private static Optional<RoomConfigDescriptor> findDynamicDescriptor(String normalizedId) {
-        for (String code : captureCodes()) {
+        for (String code : captureCodes(RoomConfigScope.CONQUEST)) {
             for (String kind : dynamicKinds(RoomConfigScope.CONQUEST)) {
                 RoomConfigDescriptor descriptor = dynamicDescriptor(RoomConfigScope.CONQUEST, code, kind);
                 if (descriptor.matches(normalizedId)) {
                     return Optional.of(descriptor);
                 }
             }
+        }
+        for (String code : captureCodes(RoomConfigScope.BREAKTHROUGH)) {
             for (String kind : dynamicKinds(RoomConfigScope.BREAKTHROUGH)) {
                 RoomConfigDescriptor descriptor = dynamicDescriptor(RoomConfigScope.BREAKTHROUGH, code, kind);
+                if (descriptor.matches(normalizedId)) {
+                    return Optional.of(descriptor);
+                }
+            }
+        }
+        for (String code : captureCodes(RoomConfigScope.RUSH)) {
+            for (String kind : dynamicKinds(RoomConfigScope.RUSH)) {
+                RoomConfigDescriptor descriptor = dynamicDescriptor(RoomConfigScope.RUSH, code, kind);
                 if (descriptor.matches(normalizedId)) {
                     return Optional.of(descriptor);
                 }
@@ -432,9 +506,14 @@ public final class RoomConfigDescriptorRegistry {
     }
 
     private static List<String> dynamicKinds(RoomConfigScope scope) {
-        return scope == RoomConfigScope.CONQUEST
-            ? List.of("display", "center", "inner", "outer")
-            : List.of("display", "center", "inner", "stage", "outerA", "outerB");
+        if (scope == RoomConfigScope.CONQUEST) {
+            return List.of("display", "center", "inner", "outer");
+        } else if (scope == RoomConfigScope.BREAKTHROUGH) {
+            return List.of("display", "center", "inner", "stage", "outerA", "outerB");
+        } else if (scope == RoomConfigScope.RUSH) {
+            return List.of("bomb", "spawnA", "spawnB");
+        }
+        return List.of();
     }
 
     private static RoomConfigDescriptor dynamicDescriptor(RoomConfigScope scope, String captureCode, String kind) {
@@ -448,6 +527,14 @@ public final class RoomConfigDescriptorRegistry {
                 default -> throw new IllegalArgumentException("未知动态征服配置类型: " + kind);
             };
         }
+        if (scope == RoomConfigScope.RUSH) {
+            return switch (kind) {
+                case "bomb" -> descriptor(scope, RoomConfigCategory.CAPTURE, "rsBombPosition_" + code, "突袭炸弹 " + code + " 坐标", "rushConfig.bombPositions[" + code + "]", RoomConfigValueType.POSITION, List.of("here"), false, RoomConfigGroupOperationMode.NONE, null, "rsBombCenter_" + code);
+                case "spawnA" -> descriptor(scope, RoomConfigCategory.TRANSPORT, "rsBombCampASpawnGroup_" + code, "突袭炸弹 " + code + " 攻方出生组", "rushConfig.bombCampASpawnGroup" + code, RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "rsBombCampASpawns_" + code);
+                case "spawnB" -> descriptor(scope, RoomConfigCategory.TRANSPORT, "rsBombCampBSpawnGroup_" + code, "突袭炸弹 " + code + " 守方出生组", "rushConfig.bombCampBSpawnGroup" + code, RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "rsBombCampBSpawns_" + code);
+                default -> throw new IllegalArgumentException("未知动态突袭配置类型: " + kind);
+            };
+        }
         return switch (kind) {
             case "display" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureDisplayName_" + code, "突破据点 " + code + " 名称", "breakthroughConfig.points[" + code + "].displayName", RoomConfigValueType.STRING, List.of("ALPHA", "BRAVO", "CHARLIE"), false, RoomConfigGroupOperationMode.NONE, null, "btCaptureName_" + code);
             case "center" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureCenterPosition_" + code, "突破据点 " + code + " 中心点", "breakthroughConfig.points[" + code + "].centerPosition", RoomConfigValueType.POSITION, List.of("here"), false, RoomConfigGroupOperationMode.NONE, null, "btCaptureCenter_" + code);
@@ -459,7 +546,7 @@ public final class RoomConfigDescriptorRegistry {
         };
     }
 
-    private static Collection<String> captureCodes() {
-        return ConquestBlocks.captureCodes();
+    private static Collection<String> captureCodes(RoomConfigScope scope) {
+        return CAPTURE_CODES;
     }
 }

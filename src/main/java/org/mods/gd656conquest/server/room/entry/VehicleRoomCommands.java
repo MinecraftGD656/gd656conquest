@@ -48,7 +48,8 @@ public final class VehicleRoomCommands {
                 .then(buildAddConquestTree())
                 .then(buildAddBreakthroughTree())
                 .then(buildAddDeathmatchTree())
-                .then(buildAddGunmasterTree()))
+                .then(buildAddGunmasterTree())
+                .then(buildAddRushTree()))
             .then(Commands.literal("remove")
                 .then(Commands.argument("gameplay", StringArgumentType.string())
                     .suggests(VehicleRoomCommands::suggestGameplayIds)
@@ -269,6 +270,57 @@ public final class VehicleRoomCommands {
         entryId.then(respawnSeconds);
 
         return Commands.literal("gunmaster").then(entryId);
+    }
+
+    private static ArgumentBuilder<CommandSourceStack, ?> buildAddRushTree() {
+        RequiredArgumentBuilder<CommandSourceStack, Integer> teamWideDeployEnabled = Commands.argument(
+            "teamWideDeployEnabled",
+            IntegerArgumentType.integer(0, 1)
+        );
+        teamWideDeployEnabled.executes(context -> executeAdd(
+            context,
+            RoomGameplayId.RUSH,
+            null,
+            IntegerArgumentType.getInteger(context, "requiredTeamSize"),
+            IntegerArgumentType.getInteger(context, "teamWideDeployEnabled") == 1,
+            null
+        ));
+        teamWideDeployEnabled.then(Commands.argument("displayId", StringArgumentType.string())
+            .executes(context -> executeAdd(
+                context,
+                RoomGameplayId.RUSH,
+                null,
+                IntegerArgumentType.getInteger(context, "requiredTeamSize"),
+                IntegerArgumentType.getInteger(context, "teamWideDeployEnabled") == 1,
+                StringArgumentType.getString(context, "displayId")
+            )));
+
+        RequiredArgumentBuilder<CommandSourceStack, Integer> requiredTeamSize = Commands.argument(
+            "requiredTeamSize",
+            IntegerArgumentType.integer(0)
+        );
+        requiredTeamSize.then(teamWideDeployEnabled);
+
+        RequiredArgumentBuilder<CommandSourceStack, String> team = Commands.argument("team", StringArgumentType.string())
+            .suggests(VehicleRoomCommands::suggestTeamIds);
+        team.then(requiredTeamSize);
+
+        RequiredArgumentBuilder<CommandSourceStack, ResourceLocation> vehicleId = Commands.argument(
+            "vehicleId",
+            ResourceLocationArgument.id()
+        ).suggests(VehicleRoomCommands::suggestVehicleIds);
+        vehicleId.then(team);
+
+        RequiredArgumentBuilder<CommandSourceStack, Integer> respawnSeconds = Commands.argument(
+            "respawnSeconds",
+            IntegerArgumentType.integer(-1)
+        );
+        respawnSeconds.then(vehicleId);
+
+        RequiredArgumentBuilder<CommandSourceStack, String> entryId = Commands.argument("entryId", StringArgumentType.string());
+        entryId.then(respawnSeconds);
+
+        return Commands.literal("rush").then(entryId);
     }
 
     private static int executeAdd(
@@ -512,7 +564,7 @@ public final class VehicleRoomCommands {
 
     private static CompletableFuture<Suggestions> suggestGameplayIds(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         return SharedSuggestionProvider.suggest(
-            List.of(RoomGameplayId.CONQUEST.value(), RoomGameplayId.BREAKTHROUGH.value(), RoomGameplayId.DEATHMATCH.value(), RoomGameplayId.GUNMASTER.value()),
+            List.of(RoomGameplayId.CONQUEST.value(), RoomGameplayId.BREAKTHROUGH.value(), RoomGameplayId.DEATHMATCH.value(), RoomGameplayId.GUNMASTER.value(), RoomGameplayId.RUSH.value()),
             builder
         );
     }

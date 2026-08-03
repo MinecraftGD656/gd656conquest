@@ -19,6 +19,7 @@ import org.mods.gd656conquest.server.room.model.RoomDeathmatchConfig;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import org.mods.gd656conquest.server.room.model.RoomGunmasterConfig;
+import org.mods.gd656conquest.server.room.model.RoomRushConfig;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomMatchingConfig;
 import org.mods.gd656conquest.server.room.model.RoomPlayerStateConfig;
@@ -336,6 +337,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 gunmaster.enabledMiddleWeaponCount(),
                 gunmaster.killsPerWeaponSwitch()
             );
+        } else if (base.gameplayConfig() instanceof RoomRushConfig rush) {
+            gameplayConfig = rush.copy();
         } else {
             gameplayConfig = base.gameplayConfig();
         }

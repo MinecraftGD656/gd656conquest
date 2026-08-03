@@ -97,6 +97,8 @@ public final class ClientHudRenderer {
         int y = 8;
         if (ClientHudDebugPreviewState.mode().startsWith("BREAKTHROUGH")) {
             drawBreakthroughPreview(gui, font, centerX, y, ClientHudDebugPreviewState.mode());
+        } else if (ClientHudDebugPreviewState.mode().startsWith("RUSH")) {
+            drawBreakthroughPreview(gui, font, centerX, y, ClientHudDebugPreviewState.mode());
         } else if (ClientHudDebugPreviewState.mode().startsWith("GUNMASTER")) {
             drawGunmasterPreview(gui, font, centerX, y, ClientHudDebugPreviewState.mode());
         } else {
@@ -127,7 +129,7 @@ public final class ClientHudRenderer {
             drawGunmasterTopLine(gui, font, centerX, y, parseGunmasterHudPayload(ClientHudDebugState.getExtraPayload()));
             return;
         }
-        if ("BREAKTHROUGH".equalsIgnoreCase(scoreMethod)) {
+        if ("BREAKTHROUGH".equalsIgnoreCase(scoreMethod) || "RUSH".equalsIgnoreCase(scoreMethod)) {
             drawBreakthroughTopLine(gui, font, centerX, y);
             return;
         }

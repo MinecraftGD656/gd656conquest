@@ -48,6 +48,9 @@ public final class RoomDefinitionScalarConfigEditor {
         if (isDynamicBreakthroughPoint(configId)) {
             return applyDynamicBreakthroughPoint(definition, configId, rawValue, editor);
         }
+        if (isDynamicRushPoint(configId)) {
+            return applyDynamicRushPoint(definition, configId, rawValue, editor);
+        }
 
         Object parsedValue = parseValue(descriptor, rawValue, editor);
         return RoomConfigBindingAccess.write(definition, descriptor.newPath(), parsedValue);
@@ -66,6 +69,9 @@ public final class RoomDefinitionScalarConfigEditor {
         }
         if (isDynamicBreakthroughPoint(configId)) {
             return clearDynamicBreakthroughPoint(definition, configId);
+        }
+        if (isDynamicRushPoint(configId)) {
+            return clearDynamicRushPoint(definition, configId);
         }
 
         Object defaultValue = RoomConfigBindingAccess.resolve(defaultDefinition(definition), descriptor.newPath());
@@ -114,6 +120,14 @@ public final class RoomDefinitionScalarConfigEditor {
         throw new IllegalArgumentException("不支持的动态突破配置项: " + configId);
     }
 
+    private static RoomDefinition applyDynamicRushPoint(RoomDefinition definition, String configId, String rawValue, ServerPlayer editor) {
+        String bombCode = extractCode(configId, "rsbombposition_");
+        if (bombCode != null) {
+            return updateRushPoint(definition, bombCode, parsePosition(rawValue, editor));
+        }
+        throw new IllegalArgumentException("不支持的动态突袭配置项: " + configId);
+    }
+
     private static RoomDefinition clearDynamicBreakthroughPoint(RoomDefinition definition, String configId) {
         String displayCode = extractCode(configId, "btcapturedisplayname_");
         if (displayCode != null) {
@@ -133,6 +147,14 @@ public final class RoomDefinitionScalarConfigEditor {
         throw new IllegalArgumentException("不支持的动态突破配置项: " + configId);
     }
 
+    private static RoomDefinition clearDynamicRushPoint(RoomDefinition definition, String configId) {
+        String bombCode = extractCode(configId, "rsbombposition_");
+        if (bombCode != null) {
+            return updateRushPoint(definition, bombCode, null);
+        }
+        throw new IllegalArgumentException("不支持的动态突袭配置项: " + configId);
+    }
+
     private static RoomDefinition updateConquestPoint(
         RoomDefinition definition,
         String code,
@@ -149,6 +171,24 @@ public final class RoomDefinitionScalarConfigEditor {
     ) {
         RoomCapturePointDefinition updated = updater.apply(resolveBreakthroughPoint(definition, code));
         return RoomConfigBindingAccess.write(definition, "breakthroughConfig.points[" + code + "]", updated);
+    }
+
+    private static RoomDefinition updateRushPoint(RoomDefinition room, String code, RoomPosition position) {
+        java.util.LinkedHashMap<String, RoomPosition> points = new java.util.LinkedHashMap<>(room.rushConfig().bombPositions());
+        if (position == null) {
+            points.remove(code);
+        } else {
+            points.put(code, position);
+        }
+        org.mods.gd656conquest.server.room.model.RoomRushConfig updatedConfig = room.rushConfig().withBombPositions(points);
+        return new RoomDefinition(
+            room.roomId(),
+            room.displayName(),
+            room.gameplayId(),
+            room.lifecycleState(),
+            room.commonConfig(),
+            updatedConfig
+        );
     }
 
     private static RoomCapturePointDefinition resolveConquestPoint(RoomDefinition definition, String code) {
@@ -208,7 +248,7 @@ public final class RoomDefinitionScalarConfigEditor {
                 "dmmatchdurationminutes", "dmtargetscore", "dmstartcountdownseconds", "dmrespawnseconds",
                 "gmmatchdurationminutes", "gmtargetscore", "gmstartcountdownseconds", "gmrespawnseconds",
                 "gmkillsperweaponswitch", "antibasenuketriggerseconds", "antibasenukerespawndelayseconds",
-                "antibasenuketriggercooldownseconds" -> true;
+                "antibasenuketriggercooldownseconds", "rsbombplanttimeseconds", "rsbombdefusetimeseconds", "rsbombfusetimeseconds" -> true;
             default -> false;
         };
     }
@@ -220,6 +260,7 @@ public final class RoomDefinitionScalarConfigEditor {
             case "vehiclebackend" -> RoomVehicleBackend.of(rawValue);
             case "campavoicepack", "campbvoicepack" -> RoomVoicePack.normalizeOrThrow(rawValue);
             case "bttroopbalancereference" -> RoomTroopBalanceReference.of(rawValue);
+            case "rstroopbalancereference" -> RoomTroopBalanceReference.of(rawValue);
             case "gmplayergroupingmode" -> RoomGunmasterGroupingMode.of(rawValue);
             case "scoremethod" -> parseScoreMethod(rawValue);
             case "fullcaptureresponsemode" -> ConquestFullCaptureResponseMode.parse(rawValue);
@@ -240,6 +281,10 @@ public final class RoomDefinitionScalarConfigEditor {
         return configId.startsWith("btcapturedisplayname_")
             || configId.startsWith("btcapturecenterposition_")
             || configId.startsWith("btcapturestageindex_");
+    }
+
+    private static boolean isDynamicRushPoint(String configId) {
+        return configId.startsWith("rsbombposition_");
     }
 
     private static String extractCode(String configId, String prefix) {
@@ -285,7 +330,8 @@ public final class RoomDefinitionScalarConfigEditor {
             case "breakthrough" -> RoomGameplayId.BREAKTHROUGH;
             case "deathmatch" -> RoomGameplayId.DEATHMATCH;
             case "gunmaster" -> RoomGameplayId.GUNMASTER;
-            default -> throw new IllegalArgumentException("当前仅支持 CONQUEST / BREAKTHROUGH / DEATHMATCH / GUNMASTER");
+            case "rush" -> RoomGameplayId.RUSH;
+            default -> throw new IllegalArgumentException("当前仅支持 CONQUEST / BREAKTHROUGH / DEATHMATCH / GUNMASTER / RUSH");
         };
     }
 

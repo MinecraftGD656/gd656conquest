@@ -392,6 +392,21 @@ public final class RoomMatchLoadService {
                 };
             return lines[lineIndex];
         }
+        if (RoomGameplayId.RUSH.equals(room.gameplayId())) {
+            boolean attacker = RoomTeamId.CAMP_A.equals(teamId);
+            String[] lines = attacker
+                ? new String[] {
+                    "依次摧毁各个区域的通信基站",
+                    "每次死亡会扣除我方的兵力",
+                    "在兵力耗尽前摧毁所有基站"
+                }
+                : new String[] {
+                    "死守各个区域的通信基站",
+                    "每次击杀敌军可降低敌军的兵力",
+                    "耗尽敌方兵力夺得胜利"
+                };
+            return lines[lineIndex];
+        }
         if (RoomGameplayId.DEATHMATCH.equals(room.gameplayId())) {
             return switch (lineIndex) {
                 case 0 -> "获得枪械击杀敌军";

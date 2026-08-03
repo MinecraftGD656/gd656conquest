@@ -9,6 +9,7 @@ import org.mods.gd656conquest.server.room.gameplay.breakthrough.BreakthroughGame
 import org.mods.gd656conquest.server.room.gameplay.conquest.ConquestGameplayEntry;
 import org.mods.gd656conquest.server.room.gameplay.deathmatch.DeathmatchGameplayEntry;
 import org.mods.gd656conquest.server.room.gameplay.gunmaster.GunmasterGameplayEntry;
+import org.mods.gd656conquest.server.room.gameplay.rush.RushGameplayEntry;
 
 import java.util.List;
 import java.util.Objects;
@@ -26,7 +27,8 @@ public final class DefaultRoomCoreBootstrap {
                 new ConquestGameplayEntry(server),
                 new BreakthroughGameplayEntry(server),
                 new DeathmatchGameplayEntry(server),
-                new GunmasterGameplayEntry(server)
+                new GunmasterGameplayEntry(server),
+                new RushGameplayEntry(server)
             )
         );
     }

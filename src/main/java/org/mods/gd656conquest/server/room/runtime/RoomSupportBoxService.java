@@ -857,6 +857,9 @@ public final class RoomSupportBoxService {
             RoomBreakthroughConfig breakthrough = room.breakthroughConfig();
             return breakthrough == null ? List.of() : breakthrough.ammoBoxPositions();
         }
+        if (RoomGameplayId.RUSH.equals(room.gameplayId())) {
+            return List.of();
+        }
         RoomConquestConfig conquest = room.conquestConfig();
         return conquest == null ? List.of() : conquest.ammoBoxPositions();
     }
@@ -871,6 +874,9 @@ public final class RoomSupportBoxService {
         if (RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
             RoomBreakthroughConfig breakthrough = room.breakthroughConfig();
             return breakthrough == null ? List.of() : breakthrough.medicalBoxPositions();
+        }
+        if (RoomGameplayId.RUSH.equals(room.gameplayId())) {
+            return List.of();
         }
         RoomConquestConfig conquest = room.conquestConfig();
         return conquest == null ? List.of() : conquest.medicalBoxPositions();

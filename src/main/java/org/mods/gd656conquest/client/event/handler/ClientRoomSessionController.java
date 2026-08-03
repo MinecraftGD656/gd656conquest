@@ -76,6 +76,7 @@ final class ClientRoomSessionController {
     private long lastUploadedMainHandTick = -1L;
     private boolean wasVehiclePerspectiveAllowed;
     private boolean mountedVehicleControlSuppressed;
+    private boolean commonUseHeld;
 
     ClientRoomSessionController(ClientLoadoutUiController loadoutUiController) {
         this.loadoutUiController = loadoutUiController;
@@ -95,9 +96,7 @@ final class ClientRoomSessionController {
         while (org.mods.gd656conquest.client.input.ClientKeyMappings.OPEN_LOADOUT_SCREEN.consumeClick()) {
             loadoutUiController.toggleConfigScreen();
         }
-        while (org.mods.gd656conquest.client.input.ClientKeyMappings.COMMON_USE.consumeClick()) {
-            handleCommonUsePress(minecraft);
-        }
+        tickCommonUseState(minecraft);
         boolean deployUiOpen = ClientRoomLockState.isDeployUiActive();
         if (deployUiOpen && !wasDeployUiOpen) {
             overlayController.onDeployUiOpened();
@@ -376,6 +375,7 @@ final class ClientRoomSessionController {
         lastUploadedMainHandItemId = "";
         lastUploadedMainHandDisplayName = "";
         lastUploadedMainHandTick = -1L;
+        commonUseHeld = false;
         org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedVisible(false);
         org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedHudOnly(false);
         loadoutUiController.onClientLogout();
@@ -462,20 +462,30 @@ final class ClientRoomSessionController {
         lastUploadedMainHandTick = gameTick;
     }
 
-    private void handleCommonUsePress(Minecraft minecraft) {
+    private void tickCommonUseState(Minecraft minecraft) {
         if (minecraft == null || minecraft.player == null || minecraft.level == null) {
+            stopCommonUseHold();
             return;
         }
-        if (minecraft.screen != null) {
+        boolean shouldHold = minecraft.screen == null
+            && !ClientRoomLockState.shouldLockMovement()
+            && !ClientReviveState.isCommonUseReserved(minecraft)
+            && org.mods.gd656conquest.client.input.ClientKeyMappings.COMMON_USE.isDown();
+        if (shouldHold) {
+            if (!commonUseHeld) {
+                NetworkManager.getChannel().sendToServer(new ServerboundAmmoBoxInteractPacket(ServerboundAmmoBoxInteractPacket.Action.START));
+                commonUseHeld = true;
+            }
             return;
         }
-        if (ClientRoomLockState.shouldLockMovement()) {
-            return;
+        if (commonUseHeld) {
+            NetworkManager.getChannel().sendToServer(new ServerboundAmmoBoxInteractPacket(ServerboundAmmoBoxInteractPacket.Action.STOP));
         }
-        if (ClientReviveState.isCommonUseReserved(minecraft)) {
-            return;
-        }
-        NetworkManager.getChannel().sendToServer(new ServerboundAmmoBoxInteractPacket());
+        stopCommonUseHold();
+    }
+
+    private void stopCommonUseHold() {
+        commonUseHeld = false;
     }
 
     private String normalizeText(String value) {

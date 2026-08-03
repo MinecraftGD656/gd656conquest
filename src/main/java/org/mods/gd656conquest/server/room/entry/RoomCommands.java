@@ -147,7 +147,8 @@ public final class RoomCommands {
             .then(buildConfigConquestBranch("conquest"))
             .then(buildConfigBreakthroughBranch("breakthrough"))
             .then(buildConfigDeathmatchBranch("deathmatch"))
-            .then(buildConfigGunmasterBranch("gunmaster"));
+            .then(buildConfigGunmasterBranch("gunmaster"))
+            .then(buildConfigRushBranch("rush"));
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildConfigCommonBranch() {
@@ -223,6 +224,21 @@ public final class RoomCommands {
                 .then(Commands.argument("actionOrValue", StringArgumentType.greedyString())
                     .suggests(RoomCommands::suggestGunmasterActionOrValue)
                     .executes(RoomCommands::executeConfigGunmasterActionOrValue)));
+    }
+
+    private static ArgumentBuilder<CommandSourceStack, ?> buildConfigRushBranch(String literalName) {
+        return Commands.literal(literalName)
+            .then(Commands.argument("configId", StringArgumentType.string())
+                .suggests(RoomCommands::suggestRushConfigIds)
+                .then(Commands.argument("actionOrValue", StringArgumentType.string())
+                    .suggests(RoomCommands::suggestRushActionOrValue)
+                    .then(Commands.argument("value", StringArgumentType.greedyString())
+                        .suggests(RoomCommands::suggestRushActionValue)
+                        .executes(RoomCommands::executeConfigRushActionWithValue))
+                    .executes(RoomCommands::executeConfigRushActionOrValue))
+                .then(Commands.argument("actionOrValue", StringArgumentType.greedyString())
+                    .suggests(RoomCommands::suggestRushActionOrValue)
+                    .executes(RoomCommands::executeConfigRushActionOrValue)));
     }
 
     private static int executeList(CommandContext<CommandSourceStack> context) {
@@ -719,6 +735,35 @@ public final class RoomCommands {
         };
     }
 
+    private static int executeConfigRushActionOrValue(CommandContext<CommandSourceStack> context) {
+        String configId = StringArgumentType.getString(context, "configId");
+        String actionOrValue = StringArgumentType.getString(context, "actionOrValue");
+        RoomConfigDescriptor descriptor = resolveDescriptor(configId);
+        if (descriptor == null) {
+            return replyFailure(context.getSource(), "未找到配置项: " + configId);
+        }
+        if (descriptor.supportsGroupOperations()) {
+            String action = actionOrValue == null ? "" : actionOrValue.trim().toLowerCase(Locale.ROOT);
+            if ("list".equals(action)) {
+                return executeConfigGroupListById(context, configId, RoomConfigScope.RUSH);
+            }
+            return replyFailure(context.getSource(), "组配置仅支持 list / add / del");
+        }
+        return executeConfigSetById(context, configId, actionOrValue, RoomConfigScope.RUSH);
+    }
+
+    private static int executeConfigRushActionWithValue(CommandContext<CommandSourceStack> context) {
+        String configId = StringArgumentType.getString(context, "configId");
+        String action = StringArgumentType.getString(context, "actionOrValue");
+        String value = StringArgumentType.getString(context, "value");
+        String normalized = action == null ? "" : action.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "add" -> executeConfigGroupMutation(context, configId, value, true, RoomConfigScope.RUSH);
+            case "del" -> executeConfigGroupMutation(context, configId, value, false, RoomConfigScope.RUSH);
+            default -> executeConfigSetById(context, configId, value, RoomConfigScope.RUSH);
+        };
+    }
+
     private static int executeConfigGroupListById(CommandContext<CommandSourceStack> context, String configId, RoomConfigScope expectedScope) {
         String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
@@ -966,6 +1011,10 @@ public final class RoomCommands {
         return SharedSuggestionProvider.suggest(RoomConfigDescriptorRegistry.legacyGunmasterCommandIds(), builder);
     }
 
+    private static CompletableFuture<Suggestions> suggestRushConfigIds(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return SharedSuggestionProvider.suggest(RoomConfigDescriptorRegistry.legacyRushCommandIds(), builder);
+    }
+
     private static CompletableFuture<Suggestions> suggestPrivateActionOrValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         RoomConfigDescriptor descriptor = resolveDescriptor(StringArgumentType.getString(context, "configId"));
         if (descriptor == null) {
@@ -986,6 +1035,10 @@ public final class RoomCommands {
     }
 
     private static CompletableFuture<Suggestions> suggestGunmasterActionOrValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return suggestPrivateActionOrValue(context, builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestRushActionOrValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         return suggestPrivateActionOrValue(context, builder);
     }
 
@@ -1017,6 +1070,10 @@ public final class RoomCommands {
     }
 
     private static CompletableFuture<Suggestions> suggestGunmasterActionValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        return suggestPrivateActionValue(context, builder);
+    }
+
+    private static CompletableFuture<Suggestions> suggestRushActionValue(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         return suggestPrivateActionValue(context, builder);
     }
 

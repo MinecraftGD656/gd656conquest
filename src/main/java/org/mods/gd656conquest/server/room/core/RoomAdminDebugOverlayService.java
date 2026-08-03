@@ -2,9 +2,13 @@ package org.mods.gd656conquest.server.room.core;
 
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.data.roomdefinition.RoomDefinitionRepository;
+import org.mods.gd656conquest.server.room.config.RoomConfigDescriptor;
+import org.mods.gd656conquest.server.room.config.RoomConfigDescriptorRegistry;
+import org.mods.gd656conquest.server.room.config.RoomConfigValueResolver;
 import org.mods.gd656conquest.server.room.gameplay.IRoomGameplayRuntime;
 import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomResultConfig;
 import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
@@ -16,6 +20,7 @@ import org.mods.gd656conquest.server.room.runtime.RoomHudPayloadCodec;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -61,28 +66,7 @@ public final class RoomAdminDebugOverlayService {
         StringBuilder builder = new StringBuilder();
         RoomObjectiveRuntimeView captureState = resolveCaptureState(runtimeState);
         appendCaptureCenters(builder, room, captureState);
-        appendNamedPosition(builder, roomId, "QS", "N", room.commonConfig().queueSpawn(), "匹配队列重生点");
-        appendEndViewPosition(builder, roomId, room.commonConfig().resultConfig());
-        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
-            appendTeamSpawnPoints(builder, roomId, room.breakthroughConfig().campABaseSpawnGroup(), "T", "BTA", "进攻方大本营重生");
-            appendTeamSpawnPoints(builder, roomId, room.breakthroughConfig().campBBaseSpawnGroup(), "S", "BTB", "防守方大本营重生");
-            appendBreakthroughViewPositions(builder, roomId, room);
-            appendCaptureSpawnGroups(builder, roomId, room.configuredObjectivePoints(), captureState, true, null);
-            appendCaptureSpawnGroups(builder, roomId, room.configuredObjectivePoints(), captureState, false, RoomTeamId.CAMP_A);
-            appendCaptureSpawnGroups(builder, roomId, room.configuredObjectivePoints(), captureState, false, RoomTeamId.CAMP_B);
-        } else if (room.isArenaGameplay()) {
-            appendTeamSpawnPoints(builder, roomId, room.arenaConfig().campASpawnGroup(), "T", "DMA", "竞技模式阵营A重生");
-            appendTeamSpawnPoints(builder, roomId, room.arenaConfig().campBSpawnGroup(), "S", "DMB", "竞技模式阵营B重生");
-            appendViewPosition(builder, roomId, "DP", "N", room.arenaConfig().deployViewPosition(), "竞技模式部署视角");
-        } else {
-            appendTeamSpawnPoints(builder, roomId, room.conquestConfig().teamSpawnGroups().get(RoomTeamId.CAMP_A), "T", "TS", "阵营A重生");
-            appendTeamSpawnPoints(builder, roomId, room.conquestConfig().teamSpawnGroups().get(RoomTeamId.CAMP_B), "S", "SS", "阵营B重生");
-            appendNamedPosition(builder, roomId, "AT", "T", room.conquestConfig().teamDeployIcons().get(RoomTeamId.CAMP_A), "阵营A图标点");
-            appendNamedPosition(builder, roomId, "BT", "S", room.conquestConfig().teamDeployIcons().get(RoomTeamId.CAMP_B), "阵营B图标点");
-            appendViewPosition(builder, roomId, "DP", "N", room.conquestConfig().deployViewPosition(), "匹配展示位");
-            appendCaptureSpawnGroups(builder, roomId, room.configuredObjectivePoints(), captureState, true, null);
-            appendCaptureSpawnGroups(builder, roomId, room.configuredObjectivePoints(), captureState, false, null);
-        }
+        appendConfiguredCoordinateMarkers(builder, roomId, room);
         appendBoundaryPoints(builder, room);
         String payload = builder.length() == 0 ? "-" : builder.toString();
         if (!"-".equals(payload) && payload.length() > MAX_PAYLOAD_BYTES) {
@@ -105,6 +89,177 @@ public final class RoomAdminDebugOverlayService {
             return objectiveRuntimeProvider.objectiveRuntimeView();
         }
         return null;
+    }
+
+    private void appendConfiguredCoordinateMarkers(StringBuilder builder, String roomId, RoomDefinition room) {
+        if (builder == null || roomId == null || roomId.isBlank() || room == null) {
+            return;
+        }
+        Map<String, RoomConfigDescriptor> descriptorsByPath = new LinkedHashMap<>();
+        collectDescriptors(descriptorsByPath, RoomConfigDescriptorRegistry.legacyCommonCommandIds());
+        collectDescriptors(descriptorsByPath, gameplayDescriptorIds(room.gameplayId()));
+        for (RoomConfigDescriptor descriptor : descriptorsByPath.values()) {
+            if (!supportsCoordinateOverlay(descriptor) || shouldSkipAutoOverlay(descriptor)) {
+                continue;
+            }
+            Object resolved;
+            try {
+                resolved = RoomConfigValueResolver.resolve(room, descriptor);
+            } catch (IllegalArgumentException exception) {
+                continue;
+            }
+            appendResolvedCoordinateValue(builder, roomId, descriptor, resolved);
+        }
+    }
+
+    private void collectDescriptors(Map<String, RoomConfigDescriptor> descriptorsByPath, List<String> descriptorIds) {
+        if (descriptorsByPath == null || descriptorIds == null || descriptorIds.isEmpty()) {
+            return;
+        }
+        for (String descriptorId : descriptorIds) {
+            RoomConfigDescriptorRegistry.find(descriptorId)
+                .ifPresent(descriptor -> descriptorsByPath.putIfAbsent(descriptor.newPath(), descriptor));
+        }
+    }
+
+    private List<String> gameplayDescriptorIds(RoomGameplayId gameplayId) {
+        if (RoomGameplayId.BREAKTHROUGH.equals(gameplayId)) {
+            return RoomConfigDescriptorRegistry.legacyBreakthroughCommandIds();
+        }
+        if (RoomGameplayId.RUSH.equals(gameplayId)) {
+            return RoomConfigDescriptorRegistry.legacyRushCommandIds();
+        }
+        if (RoomGameplayId.DEATHMATCH.equals(gameplayId)) {
+            return RoomConfigDescriptorRegistry.legacyDeathmatchCommandIds();
+        }
+        if (RoomGameplayId.GUNMASTER.equals(gameplayId)) {
+            return RoomConfigDescriptorRegistry.legacyGunmasterCommandIds();
+        }
+        return RoomConfigDescriptorRegistry.legacyConquestCommandIds();
+    }
+
+    private boolean supportsCoordinateOverlay(RoomConfigDescriptor descriptor) {
+        if (descriptor == null) {
+            return false;
+        }
+        return switch (descriptor.valueType()) {
+            case POSITION, VIEW_POSITION, POSITION_GROUP, DATA_GROUP -> true;
+            default -> false;
+        };
+    }
+
+    private boolean shouldSkipAutoOverlay(RoomConfigDescriptor descriptor) {
+        if (descriptor == null) {
+            return true;
+        }
+        String path = descriptor.newPath().toLowerCase(Locale.ROOT);
+        if (path.contains("boundary")) {
+            return true;
+        }
+        if (path.contains("captureconfig.points[") && path.endsWith("].centerposition")) {
+            return true;
+        }
+        if (path.contains("breakthroughconfig.points[") && path.endsWith("].centerposition")) {
+            return true;
+        }
+        return path.contains("rushconfig.bombpositions[");
+    }
+
+    private void appendResolvedCoordinateValue(StringBuilder builder, String roomId, RoomConfigDescriptor descriptor, Object resolved) {
+        if (resolved == null || descriptor == null) {
+            return;
+        }
+        if (resolved instanceof RoomPosition position) {
+            appendDebugPoint(
+                builder,
+                "D",
+                autoCode(roomId, descriptor.configId(), 0),
+                position.x(),
+                position.y(),
+                position.z(),
+                debugTeamTokenForDescriptor(descriptor),
+                "N",
+                100.0F,
+                descriptor.displayName()
+            );
+            return;
+        }
+        if (resolved instanceof RoomViewPosition viewPosition) {
+            appendDebugPoint(
+                builder,
+                "D",
+                autoCode(roomId, descriptor.configId(), 0),
+                viewPosition.x(),
+                viewPosition.y(),
+                viewPosition.z(),
+                debugTeamTokenForDescriptor(descriptor),
+                "N",
+                100.0F,
+                descriptor.displayName() + String.format(Locale.ROOT, " yaw=%.1f pitch=%.1f", viewPosition.yaw(), viewPosition.pitch())
+            );
+            return;
+        }
+        if (resolved instanceof RoomSpawnGroupConfig spawnGroupConfig) {
+            appendSpawnGroupMarkers(builder, roomId, descriptor, spawnGroupConfig);
+            return;
+        }
+        if (resolved instanceof List<?> list) {
+            appendPositionListMarkers(builder, roomId, descriptor, list);
+        }
+    }
+
+    private void appendSpawnGroupMarkers(StringBuilder builder, String roomId, RoomConfigDescriptor descriptor, RoomSpawnGroupConfig spawnGroupConfig) {
+        if (spawnGroupConfig == null || !spawnGroupConfig.enabled()) {
+            return;
+        }
+        appendPositionListMarkers(builder, roomId, descriptor, spawnGroupConfig.spawns());
+    }
+
+    private void appendPositionListMarkers(StringBuilder builder, String roomId, RoomConfigDescriptor descriptor, List<?> values) {
+        if (values == null || values.isEmpty() || descriptor == null) {
+            return;
+        }
+        int index = 1;
+        for (Object value : values) {
+            if (!(value instanceof RoomPosition position)) {
+                continue;
+            }
+            appendDebugPoint(
+                builder,
+                "D",
+                autoCode(roomId, descriptor.configId(), index),
+                position.x(),
+                position.y(),
+                position.z(),
+                debugTeamTokenForDescriptor(descriptor),
+                "N",
+                100.0F,
+                descriptor.displayName() + "#" + index
+            );
+            index++;
+        }
+    }
+
+    private String debugTeamTokenForDescriptor(RoomConfigDescriptor descriptor) {
+        if (descriptor == null) {
+            return "N";
+        }
+        String key = (descriptor.configId() + "|" + descriptor.newPath()).toLowerCase(Locale.ROOT);
+        if (key.contains("campa") || key.contains("[camp_a]")) {
+            return "T";
+        }
+        if (key.contains("campb") || key.contains("[camp_b]")) {
+            return "S";
+        }
+        return "N";
+    }
+
+    private String autoCode(String roomId, String configId, int index) {
+        String normalizedRoomId = roomId == null ? "ROOM" : roomId.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9_]", "_");
+        String normalizedConfigId = configId == null ? "CONFIG" : configId.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9_]", "_");
+        return index <= 0
+            ? "CFG_" + normalizedRoomId + "_" + normalizedConfigId
+            : "CFG_" + normalizedRoomId + "_" + normalizedConfigId + "_" + index;
     }
 
     private void appendCaptureCenters(StringBuilder builder, RoomDefinition room, RoomObjectiveRuntimeView captureState) {
@@ -209,6 +364,41 @@ public final class RoomAdminDebugOverlayService {
         }
     }
 
+    private void appendRushViewPositions(StringBuilder builder, String roomId, RoomDefinition room) {
+        if (room == null) {
+            return;
+        }
+        for (int stageIndex = 1; stageIndex <= room.rushConfig().stageCount(); stageIndex++) {
+            RoomViewPosition position = room.rushConfig().stageDeployViewPosition(stageIndex);
+            if (position == null) {
+                continue;
+            }
+            appendViewPosition(builder, roomId, "RV" + stageIndex, "N", position, "阶段" + stageLabel(stageIndex) + "部署视角");
+        }
+    }
+
+    private void appendRushBombPositions(StringBuilder builder, String roomId, RoomDefinition room) {
+        if (room == null || room.rushConfig().bombPositions().isEmpty()) {
+            return;
+        }
+        room.rushConfig().bombPositions().entrySet().stream()
+            .filter(entry -> entry.getKey() != null && !entry.getKey().isBlank())
+            .filter(entry -> entry.getValue() != null)
+            .sorted(Map.Entry.comparingByKey(String.CASE_INSENSITIVE_ORDER))
+            .forEach(entry -> appendDebugPoint(
+                builder,
+                "D",
+                "RSB_" + roomId + "_" + entry.getKey().trim().toUpperCase(Locale.ROOT),
+                entry.getValue().x(),
+                entry.getValue().y(),
+                entry.getValue().z(),
+                "N",
+                "N",
+                100.0F,
+                "突袭炸弹 " + entry.getKey().trim().toUpperCase(Locale.ROOT)
+            ));
+    }
+
     private void appendNamedPosition(StringBuilder builder, String roomId, String codePrefix, String teamToken, RoomPosition position, String label) {
         if (position == null) {
             return;
@@ -257,6 +447,14 @@ public final class RoomAdminDebugOverlayService {
             appendBoundaryRows(builder, room.breakthroughConfig().campBBaseBoundary(), "S", "bt_debug_camp_b_base");
             for (int stageIndex = 1; stageIndex <= 6; stageIndex++) {
                 appendBoundaryRows(builder, room.breakthroughConfig().stageBoundary(stageIndex), "N", "bt_debug_stage_" + stageIndex);
+            }
+            return;
+        }
+        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.RUSH.equals(room.gameplayId())) {
+            appendBoundaryRows(builder, room.rushConfig().campABaseBoundary(), "T", "rs_debug_camp_a_base");
+            appendBoundaryRows(builder, room.rushConfig().campBBaseBoundary(), "S", "rs_debug_camp_b_base");
+            for (int stageIndex = 1; stageIndex <= room.rushConfig().stageCount(); stageIndex++) {
+                appendBoundaryRows(builder, room.rushConfig().stageBoundary(stageIndex), "N", "rs_debug_stage_" + stageIndex);
             }
             return;
         }

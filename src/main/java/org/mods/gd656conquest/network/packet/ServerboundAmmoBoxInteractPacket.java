@@ -9,11 +9,26 @@ import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import java.util.function.Supplier;
 
 public final class ServerboundAmmoBoxInteractPacket {
+    private final Action action;
+
+    public ServerboundAmmoBoxInteractPacket() {
+        this(Action.START);
+    }
+
+    public ServerboundAmmoBoxInteractPacket(Action action) {
+        this.action = action == null ? Action.START : action;
+    }
+
+    public Action action() {
+        return action;
+    }
+
     public static void encode(ServerboundAmmoBoxInteractPacket message, FriendlyByteBuf buffer) {
+        buffer.writeEnum(message == null ? Action.START : message.action());
     }
 
     public static ServerboundAmmoBoxInteractPacket decode(FriendlyByteBuf buffer) {
-        return new ServerboundAmmoBoxInteractPacket();
+        return new ServerboundAmmoBoxInteractPacket(buffer.readEnum(Action.class));
     }
 
     public static void handle(ServerboundAmmoBoxInteractPacket message, Supplier<NetworkEvent.Context> contextSupplier) {
@@ -26,8 +41,21 @@ public final class ServerboundAmmoBoxInteractPacket {
             if (ParkourRuntimeManager.of(sender.server).tryHandleCommonUse(sender)) {
                 return;
             }
-            RoomCoreRuntimeManager.of(sender.server).tryUseNearbyAmmoBox(sender, sender.server.getTickCount());
+            long gameTick = sender.server.getTickCount();
+            if (message != null && message.action() == Action.STOP) {
+                RoomCoreRuntimeManager.of(sender.server).handleCommonUseStop(sender, gameTick);
+                return;
+            }
+            if (RoomCoreRuntimeManager.of(sender.server).handleCommonUseStart(sender, gameTick)) {
+                return;
+            }
+            RoomCoreRuntimeManager.of(sender.server).tryUseNearbyAmmoBox(sender, gameTick);
         });
         context.setPacketHandled(true);
+    }
+
+    public enum Action {
+        START,
+        STOP
     }
 }

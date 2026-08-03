@@ -171,7 +171,8 @@ final class ClientCaptureBoundaryRenderer {
     }
 
     private BoundaryRenderMode resolveBoundaryRenderMode() {
-        return "BREAKTHROUGH".equalsIgnoreCase(ClientHudDebugState.getScoreMethod())
+        String scoreMethod = ClientHudDebugState.getScoreMethod();
+        return "BREAKTHROUGH".equalsIgnoreCase(scoreMethod) || "RUSH".equalsIgnoreCase(scoreMethod)
             ? BoundaryRenderMode.BREAKTHROUGH
             : BoundaryRenderMode.CONQUEST;
     }

@@ -149,7 +149,7 @@ public final class ConquestBlocks {
     }
 
     public static Collection<String> captureCodes() {
-        return Collections.unmodifiableSet(CAPTURE_BLOCKS.keySet());
+        return java.util.List.of(CAPTURE_CODES);
     }
 
     public static Collection<RegistryObject<Item>> capturePointItems() {

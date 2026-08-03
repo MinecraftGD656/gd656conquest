@@ -24,6 +24,7 @@ import org.mods.gd656conquest.server.room.entry.RoomAdminLifecycleService;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.gameplay.IRoomGameplayEntry;
 import org.mods.gd656conquest.server.room.gameplay.IRoomGameplayRuntime;
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayCommonUseHandler;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayObjectiveSnapshotProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayEntryManager;
@@ -33,6 +34,7 @@ import org.mods.gd656conquest.server.room.matching.MatchingRuntimeState;
 import org.mods.gd656conquest.server.room.matching.RoomMatchingCoordinator;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
+import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
@@ -1126,6 +1128,33 @@ public final class RoomCoreService {
         return supportBoxService.tryUseNearbyAmmoBox(player, gameTick);
     }
 
+    public boolean handleCommonUseStart(ServerPlayer player, long gameTick) {
+        if (player == null) {
+            return false;
+        }
+        return findRunningSlotByPlayer(player.getUUID())
+            .filter(slot -> slot.room().lifecycleState() == RoomLifecycleState.RUNNING)
+            .map(slot -> slot.runtime().getRunningState().getGameplayRuntime()
+                .filter(RoomGameplayCommonUseHandler.class::isInstance)
+                .map(RoomGameplayCommonUseHandler.class::cast)
+                .map(handler -> handler.handleCommonUseStart(slot.room(), player, gameTick))
+                .orElse(false))
+            .orElse(false);
+    }
+
+    public void handleCommonUseStop(ServerPlayer player, long gameTick) {
+        if (player == null) {
+            return;
+        }
+        findRunningSlotByPlayer(player.getUUID())
+            .filter(slot -> slot.room().lifecycleState() == RoomLifecycleState.RUNNING)
+            .flatMap(slot -> slot.runtime().getRunningState().getGameplayRuntime()
+                .filter(RoomGameplayCommonUseHandler.class::isInstance)
+                .map(RoomGameplayCommonUseHandler.class::cast)
+                .map(handler -> java.util.Map.entry(slot.room(), handler)))
+            .ifPresent(entry -> entry.getValue().handleCommonUseStop(entry.getKey(), player, gameTick));
+    }
+
     public boolean emitPlayerThirdPersonAudioCue(UUID playerId, String cueId) {
         if (playerId == null || cueId == null || cueId.isBlank()) {
             return false;
@@ -1305,6 +1334,7 @@ public final class RoomCoreService {
             }
         }
         runtime.onEnterMainPhase(slot.room(), gameTick);
+        playerRespawnService.ensureInitialDeployTimelineInitialized(slot.room(), slot.runtime().getRunningState(), gameTick);
         supportBoxService.spawnPermanentSupportBoxes(slot.room());
         slot.runtime().getRunningState().setGameplayRuntime(runtime);
         for (UUID playerId : slot.runtime().getMatchingState().getQueuePlayers()) {
@@ -1456,6 +1486,17 @@ public final class RoomCoreService {
     }
 
     public Map<String, Object> buildKilliconConquestSnapshot(String roomId) {
+        if (roomId == null || roomId.isBlank()) {
+            return Map.of();
+        }
+        Optional<RoomRuntimeSlot<RoomRuntimeState>> slotOptional = runtimeRepository.find(roomId);
+        if (slotOptional.isEmpty()) {
+            return Map.of();
+        }
+        RoomDefinition room = slotOptional.get().room();
+        if (room == null || RoomGameplayId.RUSH.equals(room.gameplayId())) {
+            return Map.of();
+        }
         return buildKilliconObjectiveSnapshot(roomId);
     }
 

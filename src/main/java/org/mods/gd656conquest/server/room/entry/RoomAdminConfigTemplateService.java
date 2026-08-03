@@ -21,7 +21,8 @@ public final class RoomAdminConfigTemplateService {
         RoomGameplayId.CONQUEST,
         RoomGameplayId.BREAKTHROUGH,
         RoomGameplayId.DEATHMATCH,
-        RoomGameplayId.GUNMASTER
+        RoomGameplayId.GUNMASTER,
+        RoomGameplayId.RUSH
     );
 
     private final MinecraftServer server;

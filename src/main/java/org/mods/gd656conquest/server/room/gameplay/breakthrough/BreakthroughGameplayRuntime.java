@@ -23,6 +23,7 @@ import org.mods.gd656conquest.server.room.gameplay.RoomObjectivePresentationCont
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayObjectiveSnapshotProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayVehicleDeployRuleProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomAttackTroopBalanceSupport;
 import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.gameplay.RoomObjectiveHudSubtitleRuntimeService;
 import org.mods.gd656conquest.server.room.gameplay.RoomObjectiveHudSubtitleRuntimeState;
@@ -65,8 +66,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     RoomGameplayBoundaryHudProvider,
     RoomGameplayVehicleDeployRuleProvider {
     private static final int STAGE_ADVANCE_COUNTDOWN_SECONDS = 5;
-    private static final int ATTACK_TROOP_REFERENCE_PLAYERS = 12;
-    private static final int STAGE_REWARD_DIVISOR = 2;
     private static final long STAGE_REWARD_EVENT_TICKS = 5L * 20L;
     private static final int BACK_TO_WALL_DURATION_SECONDS = 180;
     private static final int BURN_BOATS_DURATION_SECONDS = 60;
@@ -801,50 +800,19 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private int applyStageReward(RoomDefinition room) {
-        AttackTroopBalanceSnapshot balance = resolveAttackTroopBalance(room);
+        RoomAttackTroopBalanceSupport.AttackTroopBalanceSnapshot balance = resolveAttackTroopBalance(room);
         return runtimeState.refillAttackTroops(balance.troopCap(), balance.stageReward());
     }
 
-    private AttackTroopBalanceSnapshot resolveAttackTroopBalance(RoomDefinition room) {
-        int referencePlayerCount = resolveTroopBalanceReferencePlayerCount(room);
+    private RoomAttackTroopBalanceSupport.AttackTroopBalanceSnapshot resolveAttackTroopBalance(RoomDefinition room) {
         if (room == null) {
-            return new AttackTroopBalanceSnapshot(referencePlayerCount, 0, 0);
+            return RoomAttackTroopBalanceSupport.resolve(runningState, RoomTroopBalanceReference.ATTACKER, 0);
         }
-        int configuredTroopCap = room.breakthroughConfig().maxAttackTroopsAt12Players();
-        int troopCap = resolveCeilScaledValue(configuredTroopCap, referencePlayerCount, ATTACK_TROOP_REFERENCE_PLAYERS);
-        int stageReward = resolveCeilScaledValue(configuredTroopCap, referencePlayerCount, ATTACK_TROOP_REFERENCE_PLAYERS * STAGE_REWARD_DIVISOR);
-        return new AttackTroopBalanceSnapshot(referencePlayerCount, troopCap, stageReward);
-    }
-
-    private int resolveTroopBalanceReferencePlayerCount(RoomDefinition room) {
-        if (room == null) {
-            return 0;
-        }
-        RoomTroopBalanceReference reference = room.breakthroughConfig().troopBalanceReference();
-        if (reference == RoomTroopBalanceReference.DEFENDER) {
-            return countPlayersInTeam(RoomTeamId.CAMP_B);
-        }
-        return countPlayersInTeam(RoomTeamId.CAMP_A);
-    }
-
-    private int countPlayersInTeam(RoomTeamId teamId) {
-        if (teamId == null) {
-            return 0;
-        }
-        int count = 0;
-        for (java.util.UUID playerId : runningState.getRoomPlayers()) {
-            if (runningState.getRoomTeams().get(playerId) == teamId) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    private int resolveCeilScaledValue(int baseValue, int playerCount, int divisor) {
-        if (baseValue <= 0 || playerCount <= 0 || divisor <= 0) {
-            return 0;
-        }
-        return (int) Math.ceil(baseValue * playerCount / (double) divisor);
+        return RoomAttackTroopBalanceSupport.resolve(
+            runningState,
+            room.breakthroughConfig().troopBalanceReference(),
+            room.breakthroughConfig().maxAttackTroopsAt12Players()
+        );
     }
 
     private void tickObjectiveSubtitles(RoomDefinition room) {
@@ -1138,7 +1106,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private int previewStageTroopDelta(RoomDefinition room) {
-        AttackTroopBalanceSnapshot balance = resolveAttackTroopBalance(room);
+        RoomAttackTroopBalanceSupport.AttackTroopBalanceSnapshot balance = resolveAttackTroopBalance(room);
         int currentTroops = runtimeState.getAttackTroops();
         int targetTroops = Math.min(balance.troopCap(), currentTroops + balance.stageReward());
         return targetTroops - currentTroops;
@@ -1444,6 +1412,4 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         return "<hud:" + style + ">" + text;
     }
 
-    private record AttackTroopBalanceSnapshot(int attackerCount, int troopCap, int stageReward) {
-    }
 }

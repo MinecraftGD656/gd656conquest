@@ -42,6 +42,10 @@ public final class RoomDefinitionGroupConfigEditor {
             RoomPosition point = parseBoundaryPosition(rawValue, editor);
             return replaceBreakthroughBoundary(definition, canonical, point, false, false);
         }
+        if (isRushBoundaryGroup(canonical)) {
+            RoomPosition point = parseBoundaryPosition(rawValue, editor);
+            return replaceRushBoundary(definition, canonical, point, false, false);
+        }
         if (isArenaBoundaryGroup(canonical)) {
             RoomPosition point = parseBoundaryPosition(rawValue, editor);
             return replaceArenaBoundary(definition, canonical, point, false, false);
@@ -79,6 +83,11 @@ public final class RoomDefinitionGroupConfigEditor {
             return clearAll
                 ? replaceBreakthroughBoundary(definition, canonical, null, true, false)
                 : replaceBreakthroughBoundary(definition, canonical, parseBoundaryPosition(rawValue, editor), false, true);
+        }
+        if (isRushBoundaryGroup(canonical)) {
+            return clearAll
+                ? replaceRushBoundary(definition, canonical, null, true, false)
+                : replaceRushBoundary(definition, canonical, parseBoundaryPosition(rawValue, editor), false, true);
         }
         if (isArenaBoundaryGroup(canonical)) {
             return clearAll
@@ -122,6 +131,13 @@ public final class RoomDefinitionGroupConfigEditor {
             List<RoomPosition> boundary = resolveBreakthroughBoundary(definition.breakthroughConfig(), canonical);
             List<String> lines = new ArrayList<>();
             for (RoomPosition position : boundary) {
+                lines.add(formatPosition(position));
+            }
+            return lines;
+        }
+        if (isRushBoundaryGroup(canonical)) {
+            List<String> lines = new ArrayList<>();
+            for (RoomPosition position : resolveRushBoundary(definition, canonical)) {
                 lines.add(formatPosition(position));
             }
             return lines;
@@ -500,6 +516,9 @@ public final class RoomDefinitionGroupConfigEditor {
             String code = canonical.substring("btcapturecampbouterspawngroup_".length()).toUpperCase(Locale.ROOT);
             return replaceBreakthroughCapturePointSpawnGroup(definition, code, RoomTeamId.CAMP_B, updatedGroup);
         }
+        if (isRushSpawnGroup(canonical)) {
+            return RoomConfigBindingAccess.write(definition, rushSpawnGroupPath(canonical), updatedGroup);
+        }
         if (isArenaSpawnGroup(canonical)) {
             return RoomConfigBindingAccess.write(definition, arenaSpawnGroupPath(canonical), updatedGroup);
         }
@@ -647,6 +666,10 @@ public final class RoomDefinitionGroupConfigEditor {
                 code,
                 new RoomCapturePointDefinition(code, code, null, RoomSpawnGroupConfig.defaults(), RoomSpawnGroupConfig.defaults(), Map.of(), 0)
             ).outerSpawnGroup(RoomTeamId.CAMP_B);
+        }
+        if (isRushSpawnGroup(canonical)) {
+            Object current = RoomConfigBindingAccess.resolve(definition, rushSpawnGroupPath(canonical));
+            return current instanceof RoomSpawnGroupConfig group ? group : RoomSpawnGroupConfig.defaults();
         }
         if (isArenaSpawnGroup(canonical)) {
             Object current = RoomConfigBindingAccess.resolve(definition, arenaSpawnGroupPath(canonical));
@@ -812,10 +835,28 @@ public final class RoomDefinitionGroupConfigEditor {
             || "btstagefboundary".equals(canonical);
     }
 
+    private static boolean isRushBoundaryGroup(String canonical) {
+        return "rscampabaseboundary".equals(canonical)
+            || "rscampbbaseboundary".equals(canonical)
+            || "rsstageaboundary".equals(canonical)
+            || "rsstagebboundary".equals(canonical)
+            || "rsstagecboundary".equals(canonical)
+            || "rsstagedboundary".equals(canonical)
+            || "rsstageeboundary".equals(canonical)
+            || "rsstagefboundary".equals(canonical);
+    }
+
     private static boolean isArenaBoundaryGroup(String canonical) {
         return canonical.startsWith("dmcamp") && canonical.endsWith("boundary")
             || canonical.startsWith("gmcamp") && canonical.endsWith("boundary")
             || "gmsoloboundary".equals(canonical);
+    }
+
+    private static boolean isRushSpawnGroup(String canonical) {
+        return "rscampabasespawngroup".equals(canonical)
+            || "rscampbbasespawngroup".equals(canonical)
+            || canonical.startsWith("rsbombcampaspawngroup_")
+            || canonical.startsWith("rsbombcampbspawngroup_");
     }
 
     private static boolean isArenaSpawnGroup(String canonical) {
@@ -830,6 +871,8 @@ public final class RoomDefinitionGroupConfigEditor {
             || "conquestmedicalboxpositions".equals(canonical)
             || "btammoboxpositions".equals(canonical)
             || "btmedicalboxpositions".equals(canonical)
+            || "rsammoboxpositions".equals(canonical)
+            || "rsmedicalboxpositions".equals(canonical)
             || "dmammoboxpositions".equals(canonical)
             || "dmmedicalboxpositions".equals(canonical)
             || "gmsolospawnpositions".equals(canonical)
@@ -875,8 +918,32 @@ public final class RoomDefinitionGroupConfigEditor {
         return RoomConfigBindingAccess.write(definition, path, List.copyOf(target));
     }
 
+    private static RoomDefinition replaceRushBoundary(
+        RoomDefinition definition,
+        String canonical,
+        RoomPosition point,
+        boolean clearAll,
+        boolean remove
+    ) {
+        String path = rushBoundaryPath(canonical);
+        List<RoomPosition> target = new ArrayList<>(resolveRushBoundary(definition, canonical));
+        if (clearAll) {
+            target.clear();
+        } else if (remove) {
+            target.removeIf(existing -> sameBoundaryPoint(existing, point));
+        } else if (target.stream().noneMatch(existing -> sameBoundaryPoint(existing, point))) {
+            target.add(point);
+        }
+        return RoomConfigBindingAccess.write(definition, path, List.copyOf(target));
+    }
+
     private static List<RoomPosition> resolveArenaBoundary(RoomDefinition definition, String canonical) {
         Object current = RoomConfigBindingAccess.resolve(definition, arenaBoundaryPath(canonical));
+        return current instanceof List<?> list ? castBoundaryList(list) : List.of();
+    }
+
+    private static List<RoomPosition> resolveRushBoundary(RoomDefinition definition, String canonical) {
+        Object current = RoomConfigBindingAccess.resolve(definition, rushBoundaryPath(canonical));
         return current instanceof List<?> list ? castBoundaryList(list) : List.of();
     }
 
@@ -906,6 +973,20 @@ public final class RoomDefinitionGroupConfigEditor {
         };
     }
 
+    private static String rushBoundaryPath(String canonical) {
+        return switch (canonical) {
+            case "rscampabaseboundary" -> "rushConfig.campABaseBoundary";
+            case "rscampbbaseboundary" -> "rushConfig.campBBaseBoundary";
+            case "rsstageaboundary" -> "rushConfig.stageABoundary";
+            case "rsstagebboundary" -> "rushConfig.stageBBoundary";
+            case "rsstagecboundary" -> "rushConfig.stageCBoundary";
+            case "rsstagedboundary" -> "rushConfig.stageDBoundary";
+            case "rsstageeboundary" -> "rushConfig.stageEBoundary";
+            case "rsstagefboundary" -> "rushConfig.stageFBoundary";
+            default -> throw new IllegalArgumentException("未知突袭边界: " + canonical);
+        };
+    }
+
     private static String arenaSpawnGroupPath(String canonical) {
         return switch (canonical) {
             case "dmcampaspawngroup" -> "deathmatchConfig.campASpawnGroup";
@@ -916,6 +997,24 @@ public final class RoomDefinitionGroupConfigEditor {
         };
     }
 
+    private static String rushSpawnGroupPath(String canonical) {
+        if ("rscampabasespawngroup".equals(canonical)) {
+            return "rushConfig.campABaseSpawnGroup";
+        }
+        if ("rscampbbasespawngroup".equals(canonical)) {
+            return "rushConfig.campBBaseSpawnGroup";
+        }
+        if (canonical.startsWith("rsbombcampaspawngroup_")) {
+            String stageCode = canonical.substring("rsbombcampaspawngroup_".length()).toUpperCase(Locale.ROOT);
+            return "rushConfig.bombCampASpawnGroup" + stageCode;
+        }
+        if (canonical.startsWith("rsbombcampbspawngroup_")) {
+            String stageCode = canonical.substring("rsbombcampbspawngroup_".length()).toUpperCase(Locale.ROOT);
+            return "rushConfig.bombCampBSpawnGroup" + stageCode;
+        }
+        throw new IllegalArgumentException("未知突袭出生组: " + canonical);
+    }
+
     private static String supportPositionGroupPath(String canonical) {
         return switch (canonical) {
             case "ammoboxpositions" -> "conquestConfig.ammoBoxPositions";
@@ -924,6 +1023,8 @@ public final class RoomDefinitionGroupConfigEditor {
             case "conquestmedicalboxpositions" -> "conquestConfig.medicalBoxPositions";
             case "btammoboxpositions" -> "breakthroughConfig.ammoBoxPositions";
             case "btmedicalboxpositions" -> "breakthroughConfig.medicalBoxPositions";
+            case "rsammoboxpositions" -> "rushConfig.ammoBoxPositions";
+            case "rsmedicalboxpositions" -> "rushConfig.medicalBoxPositions";
             case "dmammoboxpositions" -> "deathmatchConfig.ammoBoxPositions";
             case "dmmedicalboxpositions" -> "deathmatchConfig.medicalBoxPositions";
             case "gmsolospawnpositions" -> "gunmasterConfig.soloSpawnPositions";

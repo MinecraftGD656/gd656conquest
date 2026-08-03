@@ -10,6 +10,7 @@ import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
@@ -19,13 +20,17 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class KilliconScoreboardBridge {
     private static final String KILLICON_BONUS_TYPE_CLASS = "org.mods.gd656killicon.common.BonusType";
+    private static final String KILLICON_KILL_TYPE_CLASS = "org.mods.gd656killicon.common.KillType";
     private static final String KILLICON_SERVER_CORE_CLASS = "org.mods.gd656killicon.server.ServerCore";
     private static final String KILLICON_SERVER_DATA_CLASS = "org.mods.gd656killicon.server.data.ServerData";
+    private static final String KILLICON_NETWORK_HANDLER_CLASS = "org.mods.gd656killicon.network.NetworkHandler";
+    private static final String KILLICON_KILL_ICON_PACKET_CLASS = "org.mods.gd656killicon.network.packet.KillIconPacket";
     private static final String PLAYER_DATA_MANAGER_CLASS = "org.mods.gd656killicon.server.data.PlayerDataManager";
     private static final String PLAYER_DATA_CLASS = "org.mods.gd656killicon.server.data.PlayerData";
     private static final Map<String, Integer> BONUS_TYPE_CACHE = new ConcurrentHashMap<>();
     private static final Set<String> MISSING_BONUS_TYPE_WARNED = ConcurrentHashMap.newKeySet();
     private static final Set<String> BONUS_INVOKE_FAILURE_WARNED = ConcurrentHashMap.newKeySet();
+    private static final Set<String> KILL_PACKET_FAILURE_WARNED = ConcurrentHashMap.newKeySet();
     private static volatile Object bonusEngineInstance;
     private static volatile Method bonusAddMethod;
     private static volatile int bonusAddInvokeMode;
@@ -43,6 +48,12 @@ public final class KilliconScoreboardBridge {
     private static volatile boolean gdkiServerDataResolved;
     private static volatile Object gdkiServerDataInstance;
     private static volatile Method gdkiServerDataAddReviveMethod;
+    private static volatile Method gdkiServerDataGetComboWindowMethod;
+    private static volatile boolean gdkiKillPacketResolved;
+    private static volatile boolean gdkiKillPacketMissingLogged;
+    private static volatile Method gdkiNetworkSendToPlayerMethod;
+    private static volatile Constructor<?> gdkiKillIconPacketConstructor;
+    private static volatile int gdkiCaptureKillType = 6;
 
     private KilliconScoreboardBridge() {
     }
@@ -89,6 +100,47 @@ public final class KilliconScoreboardBridge {
         } catch (Exception exception) {
             if (BONUS_INVOKE_FAILURE_WARNED.add(bonusTypeName)) {
                 ServerLogger.failure("GD656Killicon bonus 调用失败: %s | %s", bonusTypeName, exception.getMessage());
+            }
+        }
+    }
+
+    public static void trySendCaptureNotification(ServerPlayer player, int victimId, String payload) {
+        if (player == null) {
+            return;
+        }
+        if (shouldBlockGlobalStatDelta(player.server, player.getUUID())) {
+            return;
+        }
+        try {
+            if (!ensureKillPacketResolved()) {
+                return;
+            }
+            double comboWindowSeconds = resolveComboWindowSeconds();
+            Object scrollingPacket = gdkiKillIconPacketConstructor.newInstance(
+                "kill_icon",
+                "scrolling",
+                gdkiCaptureKillType,
+                0,
+                -1,
+                comboWindowSeconds,
+                false,
+                ""
+            );
+            Object subtitlePacket = gdkiKillIconPacketConstructor.newInstance(
+                "subtitle",
+                "kill_feed",
+                gdkiCaptureKillType,
+                0,
+                victimId,
+                comboWindowSeconds,
+                false,
+                payload == null ? "" : payload
+            );
+            gdkiNetworkSendToPlayerMethod.invoke(null, scrollingPacket, player);
+            gdkiNetworkSendToPlayerMethod.invoke(null, subtitlePacket, player);
+        } catch (Exception exception) {
+            if (KILL_PACKET_FAILURE_WARNED.add("CAPTURE")) {
+                ServerLogger.failure("GD656Killicon 提示发包失败: %s", exception.getMessage());
             }
         }
     }
@@ -266,11 +318,70 @@ public final class KilliconScoreboardBridge {
                 Class<?> serverDataClass = Class.forName(KILLICON_SERVER_DATA_CLASS);
                 gdkiServerDataInstance = serverDataClass.getMethod("get").invoke(null);
                 gdkiServerDataAddReviveMethod = serverDataClass.getMethod("addRevive", ServerPlayer.class, int.class);
+                gdkiServerDataGetComboWindowMethod = serverDataClass.getMethod("getComboWindowSeconds");
             } catch (Exception ignored) {
                 gdkiServerDataInstance = null;
                 gdkiServerDataAddReviveMethod = null;
+                gdkiServerDataGetComboWindowMethod = null;
             }
         }
+    }
+
+    private static boolean ensureKillPacketResolved() {
+        if (gdkiKillPacketResolved) {
+            return gdkiNetworkSendToPlayerMethod != null && gdkiKillIconPacketConstructor != null;
+        }
+        synchronized (KilliconScoreboardBridge.class) {
+            if (gdkiKillPacketResolved) {
+                return gdkiNetworkSendToPlayerMethod != null && gdkiKillIconPacketConstructor != null;
+            }
+            try {
+                Class<?> networkHandlerClass = Class.forName(KILLICON_NETWORK_HANDLER_CLASS);
+                gdkiNetworkSendToPlayerMethod = networkHandlerClass.getMethod("sendToPlayer", Object.class, ServerPlayer.class);
+                Class<?> packetClass = Class.forName(KILLICON_KILL_ICON_PACKET_CLASS);
+                gdkiKillIconPacketConstructor = packetClass.getConstructor(
+                    String.class,
+                    String.class,
+                    int.class,
+                    int.class,
+                    int.class,
+                    double.class,
+                    boolean.class,
+                    String.class
+                );
+                try {
+                    Class<?> killTypeClass = Class.forName(KILLICON_KILL_TYPE_CLASS);
+                    gdkiCaptureKillType = killTypeClass.getField("CAPTURE").getInt(null);
+                } catch (Exception ignored) {
+                    gdkiCaptureKillType = 6;
+                }
+                gdkiKillPacketMissingLogged = false;
+            } catch (Exception ignored) {
+                gdkiNetworkSendToPlayerMethod = null;
+                gdkiKillIconPacketConstructor = null;
+                if (!gdkiKillPacketMissingLogged) {
+                    gdkiKillPacketMissingLogged = true;
+                    ServerLogger.failure("未找到可用的 GD656Killicon kill packet 链路，相关提示将不会触发");
+                }
+            }
+            gdkiKillPacketResolved = true;
+        }
+        return gdkiNetworkSendToPlayerMethod != null && gdkiKillIconPacketConstructor != null;
+    }
+
+    private static double resolveComboWindowSeconds() {
+        resolveGdkiServerDataMethods();
+        if (gdkiServerDataInstance == null || gdkiServerDataGetComboWindowMethod == null) {
+            return 3.0D;
+        }
+        try {
+            Object value = gdkiServerDataGetComboWindowMethod.invoke(gdkiServerDataInstance);
+            if (value instanceof Number number) {
+                return number.doubleValue();
+            }
+        } catch (Exception ignored) {
+        }
+        return 3.0D;
     }
 
     private static int resolveBonusTypeId(String bonusTypeName) {
