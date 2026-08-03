@@ -1006,11 +1006,11 @@ public final class RoomDefinitionGroupConfigEditor {
         }
         if (canonical.startsWith("rsbombcampaspawngroup_")) {
             String stageCode = canonical.substring("rsbombcampaspawngroup_".length()).toUpperCase(Locale.ROOT);
-            return "rushConfig.bombCampASpawnGroup" + stageCode;
+            return "rushConfig.bombInnerSpawnGroup" + stageCode;
         }
         if (canonical.startsWith("rsbombcampbspawngroup_")) {
             String stageCode = canonical.substring("rsbombcampbspawngroup_".length()).toUpperCase(Locale.ROOT);
-            return "rushConfig.bombCampBSpawnGroup" + stageCode;
+            return "rushConfig.bombDefenderInnerSpawnGroup" + stageCode;
         }
         throw new IllegalArgumentException("未知突袭出生组: " + canonical);
     }

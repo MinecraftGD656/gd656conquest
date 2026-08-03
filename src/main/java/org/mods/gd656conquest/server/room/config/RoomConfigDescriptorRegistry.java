@@ -311,13 +311,13 @@ public final class RoomConfigDescriptorRegistry {
         rush(descriptors, RoomConfigCategory.TRANSPORT, "rsStageDeployViewD", "D阶段部署视角", "rushConfig.stageDDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
         rush(descriptors, RoomConfigCategory.TRANSPORT, "rsStageDeployViewE", "E阶段部署视角", "rushConfig.stageEDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
         rush(descriptors, RoomConfigCategory.TRANSPORT, "rsStageDeployViewF", "F阶段部署视角", "rushConfig.stageFDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
-        rushGroup(descriptors, RoomConfigCategory.TRANSPORT, "rsAmmoBoxPositions", "突袭对局弹药箱数据组", "rushConfig.ammoBoxPositions", RoomConfigValueType.POSITION_GROUP);
-        rushGroup(descriptors, RoomConfigCategory.TRANSPORT, "rsMedicalBoxPositions", "突袭对局医疗箱数据组", "rushConfig.medicalBoxPositions", RoomConfigValueType.POSITION_GROUP);
+        rushGroup(descriptors, RoomConfigCategory.TRANSPORT, "rsAmmoBoxPositions", "突袭模式弹药箱数据组", "rushConfig.ammoBoxPositions", RoomConfigValueType.POSITION_GROUP);
+        rushGroup(descriptors, RoomConfigCategory.TRANSPORT, "rsMedicalBoxPositions", "突袭模式医疗箱数据组", "rushConfig.medicalBoxPositions", RoomConfigValueType.POSITION_GROUP);
         rush(descriptors, RoomConfigCategory.RULES, "rsStageDurationMinutes", "阶段持续分钟", "rushConfig.stageDurationMinutes", RoomConfigValueType.NUMBER, List.of());
         rush(descriptors, RoomConfigCategory.RULES, "rsDefenderRetreatSeconds", "防守方撤退秒数", "rushConfig.defenderRetreatSeconds", RoomConfigValueType.NUMBER, List.of());
-        rush(descriptors, RoomConfigCategory.RULES, "rsTroopGainPerDefenderKill", "守方击杀补充兵力", "rushConfig.troopGainPerDefenderKill", RoomConfigValueType.NUMBER, List.of());
+        rush(descriptors, RoomConfigCategory.RULES, "rsTroopGainPerDefenderKill", "撤退阶段进攻方击杀回兵", "rushConfig.troopGainPerDefenderKill", RoomConfigValueType.NUMBER, List.of());
         rush(descriptors, RoomConfigCategory.RULES, "rsMaxAttackTroopsAt12Players", "12人进攻方最大兵力", "rushConfig.maxAttackTroopsAt12Players", RoomConfigValueType.NUMBER, List.of());
-        rush(descriptors, RoomConfigCategory.RULES, "rsTroopBalanceReference", "突袭兵力计算基准", "rushConfig.troopBalanceReference", RoomConfigValueType.STRING, RoomTroopBalanceReference.suggestions());
+        rush(descriptors, RoomConfigCategory.RULES, "rsTroopBalanceReference", "突袭模式兵力计算基准", "rushConfig.troopBalanceReference", RoomConfigValueType.STRING, RoomTroopBalanceReference.suggestions());
         rush(descriptors, RoomConfigCategory.RULES, "rsBombPlantTimeSeconds", "炸弹安装时间(秒)", "rushConfig.bombPlantTimeSeconds", RoomConfigValueType.NUMBER, List.of());
         rush(descriptors, RoomConfigCategory.RULES, "rsBombDefuseTimeSeconds", "炸弹拆除时间(秒)", "rushConfig.bombDefuseTimeSeconds", RoomConfigValueType.NUMBER, List.of());
         rush(descriptors, RoomConfigCategory.RULES, "rsBombFuseTimeSeconds", "炸弹引信时长(秒)", "rushConfig.bombFuseTimeSeconds", RoomConfigValueType.NUMBER, List.of());
@@ -529,9 +529,11 @@ public final class RoomConfigDescriptorRegistry {
         }
         if (scope == RoomConfigScope.RUSH) {
             return switch (kind) {
-                case "bomb" -> descriptor(scope, RoomConfigCategory.CAPTURE, "rsBombPosition_" + code, "突袭炸弹 " + code + " 坐标", "rushConfig.bombPositions[" + code + "]", RoomConfigValueType.POSITION, List.of("here"), false, RoomConfigGroupOperationMode.NONE, null, "rsBombCenter_" + code);
-                case "spawnA" -> descriptor(scope, RoomConfigCategory.TRANSPORT, "rsBombCampASpawnGroup_" + code, "突袭炸弹 " + code + " 攻方出生组", "rushConfig.bombCampASpawnGroup" + code, RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "rsBombCampASpawns_" + code);
-                case "spawnB" -> descriptor(scope, RoomConfigCategory.TRANSPORT, "rsBombCampBSpawnGroup_" + code, "突袭炸弹 " + code + " 守方出生组", "rushConfig.bombCampBSpawnGroup" + code, RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "rsBombCampBSpawns_" + code);
+                case "bomb" -> descriptor(scope, RoomConfigCategory.CAPTURE, "rsBombPosition_" + code, "炸弹点 " + code + " 坐标", "rushConfig.bombPositions[" + code + "]", RoomConfigValueType.POSITION, List.of("here"), false, RoomConfigGroupOperationMode.NONE, null, "rsBombCenter_" + code);
+                // 注意：spawnA 对应内部字段 bombInnerSpawnGroup（用作所有阵营的内部重生点），显示名为"内部出生点数据组"
+                case "spawnA" -> descriptor(scope, RoomConfigCategory.TRANSPORT, "rsBombInnerSpawnGroup_" + code, "炸弹点 " + code + " 内部出生点数据组", "rushConfig.bombInnerSpawnGroup" + code, RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "rsBombInnerSpawns_" + code);
+                // 注意：spawnB 对应内部字段 bombDefenderInnerSpawnGroup（用作防守方靠内侧的重生点），显示名为"靠防守方内部出生点组"
+                case "spawnB" -> descriptor(scope, RoomConfigCategory.TRANSPORT, "rsBombDefenderInnerSpawnGroup_" + code, "炸弹点 " + code + " 靠防守方内部出生点组", "rushConfig.bombDefenderInnerSpawnGroup" + code, RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "rsBombDefenderInnerSpawns_" + code);
                 default -> throw new IllegalArgumentException("未知动态突袭配置类型: " + kind);
             };
         }

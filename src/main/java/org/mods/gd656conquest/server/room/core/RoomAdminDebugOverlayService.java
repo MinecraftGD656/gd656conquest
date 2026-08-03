@@ -162,7 +162,7 @@ public final class RoomAdminDebugOverlayService {
         if (path.contains("breakthroughconfig.points[") && path.endsWith("].centerposition")) {
             return true;
         }
-        return path.contains("rushconfig.bombpositions[");
+        return false;
     }
 
     private void appendResolvedCoordinateValue(StringBuilder builder, String roomId, RoomConfigDescriptor descriptor, Object resolved) {

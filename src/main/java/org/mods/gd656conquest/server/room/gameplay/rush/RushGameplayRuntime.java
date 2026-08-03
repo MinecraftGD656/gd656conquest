@@ -51,13 +51,17 @@ import org.mods.gd656conquest.server.social.chat.ServerActionBarService;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.UUID;
+
+import org.mods.gd656conquest.network.packet.RoomHudSubtitlePacket;
 
 public final class RushGameplayRuntime implements IRoomGameplayRuntime,
     RoomGameplayPresentationProvider,
@@ -69,8 +73,8 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
     RoomGameplayBoundaryHudProvider,
     RoomGameplayCommonUseHandler {
     private static final int STAGE_ADVANCE_COUNTDOWN_SECONDS = 5;
-    private static final double OBJECTIVE_FOCUS_RADIUS_SQ = 1.5D * 1.5D;
-    private static final double BOMB_INTERACT_RADIUS_SQ = 1.5D * 1.5D;
+    private static final double OBJECTIVE_FOCUS_RADIUS_SQ = 2.5D * 2.5D;
+    private static final double BOMB_INTERACT_RADIUS_SQ = 2.5D * 2.5D;
     private static final String ACTIONBAR_SOURCE_BOMB_USE = "rush_bomb_use";
     private static final String SOUND_RUSH_CHARGE_BEEP = "gd656conquest:sfx.rush.charge_beep";
     private static final String SOUND_RUSH_CHARGE_PLANT_INTRO = "gd656conquest:sfx.rush.charge_plant_intro_01";
@@ -114,6 +118,8 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
     private final Map<UUID, BombHoldAudioState> holdAudioStates = new LinkedHashMap<>();
     private final Map<String, BombArmedAudioState> armedBombAudioStates = new LinkedHashMap<>();
     private final List<PendingBombExplosion> pendingSecondaryExplosions = new ArrayList<>();
+    private static final String RETREAT_PERSISTENT_SOURCE = "rush_retreat";
+    private final Map<UUID, String> retreatSubtitleByPlayer = new LinkedHashMap<>();
 
     private long enteredTick = -1L;
     private long stageDeadlineTick = -1L;
@@ -152,6 +158,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         armedBombAudioStates.clear();
         pendingSecondaryExplosions.clear();
         subtitleService.reset();
+        clearRetreatPersistentSubtitles();
         initializeBombStates(room);
         syncObjectivePresence(room);
         syncObjectiveSnapshots(room, enteredTick);
@@ -185,6 +192,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             return;
         }
         if (phase == Phase.RETREAT) {
+            syncRetreatPersistentSubtitles(room);
             if (countDefendersInStageBoundary(room, retreatStageIndex) <= 0 || gameTick >= retreatDeadlineTick) {
                 startAdvanceCountdown(room, gameTick);
             }
@@ -220,7 +228,9 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             return;
         }
         if (reason == RoomPlayerInvalidationReason.DEATH && teamId == RoomTeamId.CAMP_A) {
-            consumeAttackTroop(1);
+            if (phase != Phase.RETREAT) {
+                consumeAttackTroop(1);
+            }
             if (attackTroops <= 0) {
                 subtitleService.onAttackTroopsChanged(attackTroops, attackTroopCap, gameTick);
                 pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, "进攻方兵力耗尽");
@@ -229,11 +239,15 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             }
             return;
         }
-        if (reason == RoomPlayerInvalidationReason.REDEPLOY || teamId != RoomTeamId.CAMP_B) {
+        if (reason == RoomPlayerInvalidationReason.REDEPLOY || teamId != RoomTeamId.CAMP_B || phase != Phase.RETREAT) {
             return;
         }
         ServerPlayer deadPlayer = findOnlinePlayer(playerId);
         if (deadPlayer == null) {
+            return;
+        }
+        if (!RoomBoundaryPolygonSupport.isPointInsideBoundary(deadPlayer.getX(), deadPlayer.getZ(),
+            room.rushConfig().stageBoundary(retreatStageIndex))) {
             return;
         }
         ServerPlayer killerPlayer = resolveKillerPlayer(deadPlayer, killerEntityId);
@@ -270,6 +284,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         phase = Phase.COMBAT;
         pendingEndRequest = null;
         subtitleService.reset();
+        clearRetreatPersistentSubtitles();
     }
 
     @Override
@@ -450,11 +465,18 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
 
     @Override
     public List<RoomDeployHudIcon> resolveAdditionalDeployIcons(RoomDefinition room, RunningRuntimeState state, RoomTeamId selfTeam) {
-        if (room == null || selfTeam != RoomTeamId.CAMP_A) {
+        if (room == null) {
             return List.of();
         }
         ArrayList<RoomDeployHudIcon> icons = new ArrayList<>();
-        appendPreviousStageSpawnIcons(icons, room, currentStageIndex - 1, selfTeam);
+        if (selfTeam == RoomTeamId.CAMP_A) {
+            appendPreviousStageSpawnIcons(icons, room, currentStageIndex - 1, selfTeam);
+        } else if (selfTeam == RoomTeamId.CAMP_B) {
+            int nextStage = currentStageIndex + 1;
+            if (nextStage <= room.rushConfig().stageCount()) {
+                appendStageObjectiveIcons(icons, room, nextStage, selfTeam);
+            }
+        }
         return icons;
     }
 
@@ -593,7 +615,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         }
         bombStates.put(code, new BombSiteState(currentStageIndex, BombPhase.ARMED, gameTick, planterId));
         armedBombAudioStates.put(code, new BombArmedAudioState(gameTick, gameTick, gameTick, false, 0));
-        playRushVoiceToTeam(RoomTeamId.CAMP_A, chooseRushPlantVoice());
+        playRushVoiceToTeam(RoomTeamId.CAMP_A, resolveRushPlantVoice(code));
         notifyRushKilliconEvent(planterId, "RUSH_BOMB_PLANTED", RUSH_BOMB_PLANTED_SCORE_VICTIM_ID, false, RUSH_CAPTURE_PAYLOAD_PLANTED, code);
         subtitleService.onBombPlanted(code, gameTick);
     }
@@ -605,8 +627,8 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         }
         armedBombAudioStates.remove(code);
         bombStates.put(code, new BombSiteState(currentStageIndex, BombPhase.SAFE, -1L, null));
-        playRushVoiceToTeam(RoomTeamId.CAMP_A, chooseRushAttackDefuseVoice());
-        playRushVoiceToTeam(RoomTeamId.CAMP_B, chooseRushDefendDefuseVoice());
+        playRushVoiceToTeam(RoomTeamId.CAMP_A, resolveRushAttackDefuseVoice(code));
+        playRushVoiceToTeam(RoomTeamId.CAMP_B, resolveRushDefendDefuseVoice(code));
         notifyRushKilliconEvent(defuserId, "RUSH_BOMB_DEFUSED", RUSH_BOMB_DEFUSED_SCORE_VICTIM_ID, false, RUSH_CAPTURE_PAYLOAD_DEFUSED, code);
         subtitleService.onBombDefused(code, gameTick);
     }
@@ -693,14 +715,14 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             long remainTicks = Math.max(0L, fuseTicks - (gameTick - state.armedAtTick()));
             if (remainTicks > LEADOUT_WINDOW_TICKS) {
                 if (gameTick >= audioState.nextRegularAlarmTick) {
-                    playBombWorldSound(room, code, SOUND_RUSH_ALARM_01, 1.0F, 1.0F);
+                    playBombAlarmSound(room, code, SOUND_RUSH_ALARM_01, 1.0F, 1.0F);
                     audioState.nextRegularAlarmTick = gameTick + REGULAR_ALARM_INTERVAL_TICKS;
                 }
                 continue;
             }
             if (remainTicks > FINAL_LEADOUT_TICKS) {
                 if (audioState.leadoutLoopCount < 2 && gameTick >= audioState.nextLeadoutLoopTick) {
-                    playBombWorldSound(room, code, SOUND_RUSH_ALARM_LEADOUT_LOOP, 1.0F, 1.0F);
+                    playBombAlarmSound(room, code, SOUND_RUSH_ALARM_LEADOUT_LOOP, 1.0F, 1.0F);
                     audioState.leadoutLoopCount++;
                     audioState.nextLeadoutLoopTick = gameTick + LEADOUT_LOOP_INTERVAL_TICKS;
                 }
@@ -708,7 +730,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             }
             if (remainTicks > 0L && !audioState.finalLeadoutPlayed) {
                 subtitleService.onBombFinalCountdown(code, gameTick);
-                playBombWorldSound(room, code, SOUND_RUSH_ALARM_LEADOUT_FINAL, 1.0F, 1.0F);
+                playBombAlarmSound(room, code, SOUND_RUSH_ALARM_LEADOUT_FINAL, 1.0F, 1.0F);
                 audioState.finalLeadoutPlayed = true;
             }
         }
@@ -761,6 +783,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private void startAdvanceCountdown(RoomDefinition room, long gameTick) {
+        clearRetreatPersistentSubtitles();
         phase = Phase.ADVANCE_COUNTDOWN;
         retreatDeadlineTick = -1L;
         advanceCountdownEndTick = gameTick + STAGE_ADVANCE_COUNTDOWN_SECONDS * 20L;
@@ -1405,6 +1428,28 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         }
     }
 
+    private void appendStageObjectiveIcons(List<RoomDeployHudIcon> icons, RoomDefinition room, int stageIndex, RoomTeamId ownerTeam) {
+        if (icons == null || room == null || ownerTeam == null) {
+            return;
+        }
+        int maxStage = room.rushConfig().stageCount();
+        if (stageIndex <= 0 || stageIndex > maxStage) {
+            return;
+        }
+        for (RoomCapturePointDefinition point : room.rushConfig().stageObjectivePoints(stageIndex)) {
+            if (point == null || point.centerPosition() == null) {
+                continue;
+            }
+            icons.add(new RoomDeployHudIcon(
+                "CAPTURE:" + point.code().toUpperCase(Locale.ROOT),
+                point.centerPosition(),
+                ownerTeam,
+                point.displayName(),
+                true
+            ));
+        }
+    }
+
     private int defenderBoundaryStartStage(RoomDefinition room) {
         if (room == null) {
             return currentStageIndex;
@@ -1578,16 +1623,103 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         }
     }
 
-    private String chooseRushPlantVoice() {
-        return ThreadLocalRandom.current().nextBoolean() ? VOICE_RUSH_PLANT_SET_A : VOICE_RUSH_PLANT_SET_B;
+    private String resolveRushPlantVoice(String objectiveCode) {
+        return isRushVoiceGroupA(objectiveCode) ? VOICE_RUSH_PLANT_SET_A : VOICE_RUSH_PLANT_SET_B;
     }
 
-    private String chooseRushAttackDefuseVoice() {
-        return ThreadLocalRandom.current().nextBoolean() ? VOICE_RUSH_ATTACK_DEFUSE_A : VOICE_RUSH_ATTACK_DEFUSE_B;
+    private String resolveRushAttackDefuseVoice(String objectiveCode) {
+        return isRushVoiceGroupA(objectiveCode) ? VOICE_RUSH_ATTACK_DEFUSE_A : VOICE_RUSH_ATTACK_DEFUSE_B;
     }
 
-    private String chooseRushDefendDefuseVoice() {
-        return ThreadLocalRandom.current().nextBoolean() ? VOICE_RUSH_DEFEND_DEFUSE_A : VOICE_RUSH_DEFEND_DEFUSE_B;
+    private String resolveRushDefendDefuseVoice(String objectiveCode) {
+        return isRushVoiceGroupA(objectiveCode) ? VOICE_RUSH_DEFEND_DEFUSE_A : VOICE_RUSH_DEFEND_DEFUSE_B;
+    }
+
+    private boolean isRushVoiceGroupA(String objectiveCode) {
+        String normalizedCode = normalizeCode(objectiveCode);
+        return normalizedCode.endsWith("1") || !normalizedCode.endsWith("2") && !normalizedCode.endsWith("3");
+    }
+
+    private void syncRetreatPersistentSubtitles(RoomDefinition room) {
+        if (room == null || phase != Phase.RETREAT) {
+            clearRetreatPersistentSubtitles();
+            return;
+        }
+        int defenders = countDefendersInStageBoundary(room, retreatStageIndex);
+        for (UUID playerId : runningState.getRoomPlayers()) {
+            ServerPlayer player = findOnlinePlayer(playerId);
+            if (player == null) {
+                retreatSubtitleByPlayer.remove(playerId);
+                continue;
+            }
+            RoomTeamId selfTeam = runningState.getRoomTeams().get(playerId);
+            String desired;
+            if (selfTeam == RoomTeamId.CAMP_B) {
+                desired = "我方还有 " + defenders + " 名未撤退的士兵";
+            } else if (selfTeam == RoomTeamId.CAMP_A) {
+                desired = "清理残余的 " + defenders + " 名敌方士兵";
+            } else {
+                desired = "";
+            }
+            String previous = retreatSubtitleByPlayer.getOrDefault(playerId, "");
+            if (desired.isBlank()) {
+                if (!previous.isBlank()) {
+                    NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.clearPersistent(RETREAT_PERSISTENT_SOURCE));
+                    retreatSubtitleByPlayer.remove(playerId);
+                }
+                continue;
+            }
+            if (desired.equals(previous)) {
+                continue;
+            }
+            NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.setPersistent(RETREAT_PERSISTENT_SOURCE, desired));
+            retreatSubtitleByPlayer.put(playerId, desired);
+        }
+    }
+
+    private void clearRetreatPersistentSubtitles() {
+        for (UUID playerId : new LinkedHashSet<>(retreatSubtitleByPlayer.keySet())) {
+            ServerPlayer player = findOnlinePlayer(playerId);
+            if (player != null) {
+                NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.clearPersistent(RETREAT_PERSISTENT_SOURCE));
+            }
+        }
+        retreatSubtitleByPlayer.clear();
+    }
+
+    private void playBombAlarmSound(RoomDefinition room, String objectiveCode, ResourceLocation soundId, float volume, float pitch) {
+        if (room == null || objectiveCode == null || objectiveCode.isBlank() || soundId == null) {
+            return;
+        }
+        RoomCapturePointDefinition point = findObjectivePoint(room, objectiveCode);
+        if (point == null || point.centerPosition() == null) {
+            return;
+        }
+        ServerLevel level = resolveExplosionLevel();
+        if (level == null) {
+            return;
+        }
+        RoomPosition center = point.centerPosition();
+        double maxDistance = 50.0D;
+        double maxDistanceSq = maxDistance * maxDistance;
+        String soundIdStr = soundId.toString();
+        for (ServerPlayer player : level.players()) {
+            if (player == null || !player.isAlive()) {
+                continue;
+            }
+            double dx = player.getX() - center.x();
+            double dz = player.getZ() - center.z();
+            double distSq = dx * dx + dz * dz;
+            if (distSq > maxDistanceSq) {
+                continue;
+            }
+            double dist = Math.sqrt(distSq);
+            float scaledVolume = (float) (volume * Math.max(0.0D, 1.0D - dist / maxDistance));
+            if (scaledVolume <= 0.0F) {
+                continue;
+            }
+            NetworkManager.sendToPlayer(player, ClientShortSoundPacket.oneShot(soundIdStr, scaledVolume, pitch));
+        }
     }
 
     private void playBombWorldSound(RoomDefinition room, String objectiveCode, ResourceLocation soundId, float volume, float pitch) {
@@ -1849,7 +1981,13 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
                 }
                 return runtimeView.ownerOf(objectiveCode) == RoomTeamId.CAMP_A;
             }
-            return pointStage == currentStage && runtimeView.ownerOf(objectiveCode) == RoomTeamId.CAMP_B;
+            if (pointStage == currentStage && runtimeView.ownerOf(objectiveCode) == RoomTeamId.CAMP_B) {
+                return true;
+            }
+            if (pointStage == currentStage + 1) {
+                return true;
+            }
+            return false;
         }
 
         @Override
@@ -1864,6 +2002,9 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
                 return List.of();
             }
             if (teamId == RoomTeamId.CAMP_A) {
+                return point.innerSpawns();
+            }
+            if (runtimeView instanceof RushObjectiveRuntimeView rushView && point.stageIndex() == rushView.currentStageIndex() + 1) {
                 return point.innerSpawns();
             }
             return point.outerSpawns(teamId);
