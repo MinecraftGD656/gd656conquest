@@ -1,5 +1,6 @@
 package org.mods.gd656conquest.server.room.gameplay.breakthrough;
 
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import org.mods.gd656conquest.network.NetworkManager;
@@ -79,6 +80,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private final BreakthroughCaptureRuntimeService captureRuntimeService;
     private final BreakthroughStageTransitionTitleService titleService;
     private final RoomMarkerRuntimeService markerRuntimeService;
+    private final MinecraftServer server;
     private final BreakthroughRuntimeState runtimeState = new BreakthroughRuntimeState();
     private final BreakthroughObjectiveRuntimeView objectiveRuntimeView = new BreakthroughObjectiveRuntimeView(runtimeState);
     private final BreakthroughObjectiveSpawnPolicy objectiveSpawnPolicy = new BreakthroughObjectiveSpawnPolicy();
@@ -98,13 +100,17 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private boolean initialCombatSubtitleDispatched;
     private boolean attackTroopHalfSubtitleDispatched;
     private boolean attackTroopCriticalSubtitleDispatched;
+    /** 地面控制/突破者: 本阶段每玩家击杀数(击杀敌方玩家/载具的击杀者), 阶段推进时结算并清空。 */
+    private final Map<java.util.UUID, Integer> stageKills = new java.util.concurrent.ConcurrentHashMap<>();
 
     public BreakthroughGameplayRuntime(
+        MinecraftServer server,
         RunningRuntimeState runningState,
         BreakthroughCaptureRuntimeService captureRuntimeService,
         BreakthroughStageTransitionTitleService titleService,
         RoomMarkerRuntimeService markerRuntimeService
     ) {
+        this.server = server;
         this.runningState = runningState;
         this.captureRuntimeService = captureRuntimeService;
         this.titleService = titleService;
@@ -118,6 +124,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         initialCombatSubtitleDispatched = false;
         attackTroopHalfSubtitleDispatched = false;
         attackTroopCriticalSubtitleDispatched = false;
+        stageKills.clear();
         runtimeState.initialize(room == null ? null : room.breakthroughConfig(), enteredTick);
         initializeAttackTroopCapForOpeningStage(room);
         applyStageReward(room);
@@ -148,6 +155,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             captureRuntimeService.tick(room, runningState, runtimeState, gameTick);
             tickObjectiveSubtitles(room);
             if (runtimeState.areAllActiveObjectivesFullyCapturedByAttackers(room.breakthroughConfig())) {
+                // 地面控制/突破者: 上一阶段结束(所有据点被进攻方占领)立即结算, 结算后清空本阶段统计
+                triggerStageEndSettlement(room);
                 if (runtimeState.getCurrentStageIndex() >= runtimeState.getMaxStageCount()) {
                     broadcastOutcomeSubtitle(
                         "bt_match_end_capture_" + gameTick,
@@ -235,6 +244,18 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if ((reason != RoomPlayerInvalidationReason.DEATH && reason != RoomPlayerInvalidationReason.REDEPLOY) || pendingEndRequest != null) {
             return;
         }
+        // 地面控制/突破者: 阶段内击杀统计(击杀者击杀敌方玩家; 忽略自我击杀/环境击杀)
+        if (reason == RoomPlayerInvalidationReason.DEATH && killerEntityId >= 0) {
+            ServerPlayer deadPlayer = captureRuntimeService.findOnlinePlayer(playerId);
+            if (deadPlayer != null) {
+                ServerPlayer killerPlayer = captureRuntimeService.resolveKillerPlayer(deadPlayer, killerEntityId);
+                if (killerPlayer != null
+                        && !killerPlayer.getUUID().equals(playerId)
+                        && isEnemyTeam(teamId, runningState.getRoomTeams().get(killerPlayer.getUUID()))) {
+                    stageKills.merge(killerPlayer.getUUID(), 1, Integer::sum);
+                }
+            }
+        }
         if (reason == RoomPlayerInvalidationReason.DEATH && teamId == RoomTeamId.CAMP_A && runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT) {
             if (runtimeState.isDesperateModeActive()) {
                 return;
@@ -270,6 +291,25 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (runningState.getRoomTeams().get(killerPlayer.getUUID()) == RoomTeamId.CAMP_A) {
             runtimeState.addAttackTroops(room.breakthroughConfig().troopGainPerDefenderKill());
         }
+    }
+
+    /** 击杀判定: 击杀者与受害者是否敌对(不同阵营; 任一无阵营视为非敌方)。 */
+    private static boolean isEnemyTeam(RoomTeamId victimTeam, RoomTeamId killerTeam) {
+        return victimTeam != null && killerTeam != null && victimTeam != killerTeam;
+    }
+
+    /** 地面控制/突破者: 阶段结束结算(突袭模式 → 用占领据点加分项分数), 结算后清空本阶段统计。 */
+    private void triggerStageEndSettlement(RoomDefinition room) {
+        if (room == null) {
+            return;
+        }
+        org.mods.gd656conquest.server.integration.KilliconHonorBridge.triggerStageEnd(
+            server,
+            stageKills,
+            runningState.getRoomTeams(),
+            false
+        );
+        stageKills.clear();
     }
 
     @Override

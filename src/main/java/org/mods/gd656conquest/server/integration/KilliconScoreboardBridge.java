@@ -70,6 +70,14 @@ public final class KilliconScoreboardBridge {
         return coreManager.buildKilliconScoreboardPayload(requester);
     }
 
+    /** 查询请求者所在对局内每 honor 的本局最佳(次数最多玩家+次数)。非对局返回空列表。由 killicon 侧反射调用(后续最佳图标消费)。 */
+    public static List<MatchHonorBest> queryMatchHonorBest(MinecraftServer server, UUID requester) {
+        if (server == null || requester == null) {
+            return List.of();
+        }
+        return RoomCoreRuntimeManager.of(server).buildKilliconMatchHonorBest(requester);
+    }
+
     public static void tryAwardConquestBonus(ServerPlayer player, String bonusTypeName, float scale, String extra) {
         tryAwardConquestBonus(player, bonusTypeName, scale, extra, -1, null);
     }
@@ -202,6 +210,20 @@ public final class KilliconScoreboardBridge {
             gdkiServerDataAddReviveMethod.invoke(gdkiServerDataInstance, player, amount);
         } catch (Exception ignored) {
         }
+    }
+
+    /**
+     * 记录一次局内 honor 触发(由 killicon 侧 HonorEngine.deliver 反射通知)。仅统计对局房间内玩家, 非对局/靶场/受限维度忽略。
+     * @return 0 = 未记录(非对局/参数无效); 1 = 已记录, 非本局最高; 2 = 已记录, 且该玩家当前为该 honor 本局最高(并列也算)。
+     */
+    public static int recordMatchHonor(ServerPlayer player, String honorId) {
+        if (player == null || honorId == null || honorId.isBlank()) {
+            return 0;
+        }
+        if (shouldBlockGlobalStatDelta(player.server, player.getUUID())) {
+            return 0;
+        }
+        return RoomCoreRuntimeManager.of(player.server).recordKilliconMatchHonor(player.getUUID(), honorId);
     }
 
     public static boolean shouldBlockGlobalStatDelta(MinecraftServer server, UUID playerId) {
@@ -515,6 +537,10 @@ public final class KilliconScoreboardBridge {
         public int revive() {
             return revive;
         }
+    }
+
+    /** 局内 honor 最佳(供查询): 某 honor 在本局内获得次数最多的玩家与次数。 */
+    public record MatchHonorBest(String honorId, UUID playerId, int count) {
     }
 
     public record Entry(

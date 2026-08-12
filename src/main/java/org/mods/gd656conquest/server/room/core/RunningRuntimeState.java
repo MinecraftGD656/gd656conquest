@@ -57,6 +57,8 @@ public final class RunningRuntimeState {
     private final Map<UUID, RoomTeamId> autoTeamSwitchOfferTargetTeams = new LinkedHashMap<>();
     private final Map<UUID, Long> autoTeamSwitchOfferExpireTicks = new LinkedHashMap<>();
     private final Map<UUID, KilliconMatchStats> killiconMatchStatsByPlayer = new LinkedHashMap<>();
+    /** 局内临时 honor 统计: honorId → (playerId → 本局获得次数)。新对局开始时清空, 与 killiconMatchStatsByPlayer 同生命周期。 */
+    private final Map<String, Map<UUID, Integer>> killiconMatchHonorByHonor = new LinkedHashMap<>();
     private final Map<UUID, Integer> supportSpentScoreByPlayer = new LinkedHashMap<>();
     private final Map<UUID, String> activeHeroKitIdsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, String> activeHeroKitTypesByPlayer = new LinkedHashMap<>();
@@ -326,6 +328,10 @@ public final class RunningRuntimeState {
         return killiconMatchStatsByPlayer;
     }
 
+    public Map<String, Map<UUID, Integer>> getKilliconMatchHonorByHonor() {
+        return killiconMatchHonorByHonor;
+    }
+
     public Map<UUID, Integer> getSupportSpentScoreByPlayer() {
         return supportSpentScoreByPlayer;
     }
@@ -537,6 +543,7 @@ public final class RunningRuntimeState {
         }
         activeMatchInstanceId = candidate;
         killiconMatchStatsByPlayer.clear();
+        killiconMatchHonorByHonor.clear();
         supportSpentScoreByPlayer.clear();
         activeHeroKitIdsByPlayer.clear();
         activeHeroKitTypesByPlayer.clear();
@@ -677,6 +684,7 @@ public final class RunningRuntimeState {
         autoTeamSwitchOfferTargetTeams.clear();
         autoTeamSwitchOfferExpireTicks.clear();
         killiconMatchStatsByPlayer.clear();
+        killiconMatchHonorByHonor.clear();
         supportSpentScoreByPlayer.clear();
         activeHeroKitIdsByPlayer.clear();
         activeHeroKitTypesByPlayer.clear();

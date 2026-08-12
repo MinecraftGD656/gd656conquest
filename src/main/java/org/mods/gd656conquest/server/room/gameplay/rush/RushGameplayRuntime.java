@@ -1,6 +1,12 @@
 package org.mods.gd656conquest.server.room.gameplay.rush;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.protocol.game.ClientboundClearTitlesPacket;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -14,8 +20,7 @@ import org.mods.gd656conquest.network.packet.ClientLoopSoundPacket;
 import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.network.packet.RoomDeathFlowPacket;
 import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
-import org.mods.gd656conquest.server.room.core.RoomPlayerInvalidationReason;
-import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
+import org.mods.gd656conquest.server.room.core.RoomPlayerInvalidationReason;import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.gameplay.IRoomGameplayRuntime;
 import org.mods.gd656conquest.server.room.gameplay.RoomAttackTroopBalanceSupport;
 import org.mods.gd656conquest.server.room.gameplay.RoomDeployHudIcon;
@@ -120,6 +125,22 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
     private final List<PendingBombExplosion> pendingSecondaryExplosions = new ArrayList<>();
     private static final String RETREAT_PERSISTENT_SOURCE = "rush_retreat";
     private final Map<UUID, String> retreatSubtitleByPlayer = new LinkedHashMap<>();
+    private static final String ACTIONBAR_SOURCE_RETREAT = "rush_retreat";
+    private static final int TITLE_FADE_IN_TICKS = 5;
+    private static final int TITLE_STAY_TICKS = 20;
+    private static final int TITLE_FADE_OUT_TICKS = 10;
+    private static final int TITLE_REFRESH_FADE_IN_TICKS = 0;
+    private static final int TITLE_REFRESH_STAY_TICKS = 22;
+    private static final int TITLE_REFRESH_FADE_OUT_TICKS = 4;
+    private static final int COUNTDOWN_COLOR_NORMAL = 0x55FFFF;
+    private static final int COUNTDOWN_COLOR_GREEN = 0x55FF55;
+    private static final int COUNTDOWN_COLOR_YELLOW = 0xFFFF55;
+    private static final int COUNTDOWN_COLOR_ORANGE = 0xFF9900;
+    private static final int COUNTDOWN_COLOR_RED = 0xFF5555;
+    private static final int SUBTITLE_COLOR_ATTACKER = 0x55FFFF;
+    private static final int SUBTITLE_COLOR_DEFENDER = 0xFF5555;
+    private final Map<UUID, Integer> retreatCountdownLastShownSecondsByPlayer = new LinkedHashMap<>();
+    private final Map<UUID, Integer> advanceCountdownLastShownSecondsByPlayer = new LinkedHashMap<>();
 
     private long enteredTick = -1L;
     private long stageDeadlineTick = -1L;
@@ -132,6 +153,8 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
     private int attackTroopCap;
     private Phase phase = Phase.COMBAT;
     private RoomMatchEndRequest pendingEndRequest;
+    /** 地面控制/突破者: 本阶段每玩家击杀数(击杀敌方玩家/载具的击杀者), 阶段推进时结算并清空。 */
+    private final java.util.Map<UUID, Integer> stageKills = new java.util.concurrent.ConcurrentHashMap<>();
 
     public RushGameplayRuntime(MinecraftServer server, RunningRuntimeState runningState) {
         this.server = Objects.requireNonNull(server, "server");
@@ -153,12 +176,15 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         attackTroopCap = troopBalance.troopCap();
         attackTroops = attackTroopCap;
         pendingEndRequest = null;
+        stageKills.clear();
         activeHolds.clear();
         holdAudioStates.clear();
         armedBombAudioStates.clear();
         pendingSecondaryExplosions.clear();
         subtitleService.reset();
         clearRetreatPersistentSubtitles();
+        clearRetreatTitles();
+        clearCountdownTitles();
         initializeBombStates(room);
         syncObjectivePresence(room);
         syncObjectiveSnapshots(room, enteredTick);
@@ -193,24 +219,31 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         }
         if (phase == Phase.RETREAT) {
             syncRetreatPersistentSubtitles(room);
+            syncRetreatActionbar(room, gameTick);
             if (countDefendersInStageBoundary(room, retreatStageIndex) <= 0 || gameTick >= retreatDeadlineTick) {
                 startAdvanceCountdown(room, gameTick);
             }
             return;
         }
-        if (phase == Phase.ADVANCE_COUNTDOWN && gameTick >= advanceCountdownEndTick) {
-            int previousStageIndex = currentStageIndex;
-            currentStageIndex = Math.min(Math.max(1, room.rushConfig().stageCount()), currentStageIndex + 1);
-            configuredStageCount = Math.max(1, room.rushConfig().stageCount());
-            phase = Phase.COMBAT;
-            retreatStageIndex = 0;
-            retreatDeadlineTick = -1L;
-            advanceCountdownEndTick = -1L;
-            stageDeadlineTick = resolveStageDeadlineTick(room, gameTick);
-            clearAllHolds(room, gameTick, false);
-            syncObjectivePresence(room);
-            syncObjectiveSnapshots(room, gameTick);
-            refreshDeployViewForRespawnPlayers(room, gameTick, previousStageIndex, currentStageIndex);
+        if (phase == Phase.ADVANCE_COUNTDOWN) {
+            syncCountdownTitles(room, gameTick);
+            if (gameTick >= advanceCountdownEndTick) {
+                clearCountdownTitles();
+                refreshAttackTroopCapForNextStage(room);
+                int rewardTroops = applyStageReward(room);
+                int previousStageIndex = currentStageIndex;
+                currentStageIndex = Math.min(Math.max(1, room.rushConfig().stageCount()), currentStageIndex + 1);
+                configuredStageCount = Math.max(1, room.rushConfig().stageCount());
+                phase = Phase.COMBAT;
+                retreatStageIndex = 0;
+                retreatDeadlineTick = -1L;
+                advanceCountdownEndTick = -1L;
+                stageDeadlineTick = resolveStageDeadlineTick(room, gameTick);
+                clearAllHolds(room, gameTick, false);
+                syncObjectivePresence(room);
+                syncObjectiveSnapshots(room, gameTick);
+                refreshDeployViewForRespawnPlayers(room, gameTick, previousStageIndex, currentStageIndex);
+            }
         }
     }
 
@@ -224,6 +257,18 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         long gameTick
     ) {
         clearPlayerHold(room, playerId, gameTick);
+        // 地面控制/突破者: 阶段内击杀统计(击杀者击杀敌方玩家; 忽略自我击杀/环境击杀)
+        if (reason == RoomPlayerInvalidationReason.DEATH && killerEntityId >= 0) {
+            ServerPlayer deadPlayer = findOnlinePlayer(playerId);
+            if (deadPlayer != null) {
+                ServerPlayer killerPlayer = resolveKillerPlayer(deadPlayer, killerEntityId);
+                if (killerPlayer != null
+                        && !killerPlayer.getUUID().equals(playerId)
+                        && isEnemyTeam(teamId, runningState.getRoomTeams().get(killerPlayer.getUUID()))) {
+                    stageKills.merge(killerPlayer.getUUID(), 1, Integer::sum);
+                }
+            }
+        }
         if (room == null || pendingEndRequest != null) {
             return;
         }
@@ -285,6 +330,8 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         pendingEndRequest = null;
         subtitleService.reset();
         clearRetreatPersistentSubtitles();
+        clearRetreatTitles();
+        clearCountdownTitles();
     }
 
     @Override
@@ -658,6 +705,8 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         if (!areAllCurrentStageBombsExploded(room)) {
             return;
         }
+        // 地面控制/突破者: 上一阶段结束(所有通讯设备被炸毁)立即结算, 结算后清空本阶段统计
+        triggerStageEndSettlement(room);
         subtitleService.onStageDestroyed(currentStageIndex, gameTick);
         if (currentStageIndex >= Math.max(1, room.rushConfig().stageCount())) {
             pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, "进攻方爆破全部阶段");
@@ -784,6 +833,8 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
 
     private void startAdvanceCountdown(RoomDefinition room, long gameTick) {
         clearRetreatPersistentSubtitles();
+        clearRetreatTitles();
+        clearCountdownTitles();
         phase = Phase.ADVANCE_COUNTDOWN;
         retreatDeadlineTick = -1L;
         advanceCountdownEndTick = gameTick + STAGE_ADVANCE_COUNTDOWN_SECONDS * 20L;
@@ -1107,6 +1158,9 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private String buildAudioState(RoomDefinition room, RoomTeamId selfTeam, long gameTick) {
+        if (phase == Phase.RETREAT) {
+            return "BT_RETREAT";
+        }
         if (phase == Phase.ADVANCE_COUNTDOWN) {
             return "BT_STAGE_ADVANCE";
         }
@@ -1114,6 +1168,9 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             if (room != null && currentStageIndex >= Math.max(1, room.rushConfig().stageCount())) {
                 return "BT_LAST_SEGMENT";
             }
+            return resolveFinalObjectiveAudioState(selfTeam);
+        }
+        if (attackTroopCap > 0 && attackTroops <= Math.max(1, attackTroopCap / 5)) {
             return resolveFinalObjectiveAudioState(selfTeam);
         }
         return isAnyCurrentStageBombArmed(room) ? "RUSH_BOMB_PLANTED" : "RUNNING";
@@ -1467,6 +1524,31 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         return String.valueOf((char) ('A' + stageIndex - 1));
     }
 
+    private void setAttackTroopCap(int cap, boolean clampCurrentTroops) {
+        attackTroopCap = Math.max(0, cap);
+        if (clampCurrentTroops && attackTroops > attackTroopCap) {
+            attackTroops = attackTroopCap;
+        }
+    }
+
+    private void refreshAttackTroopCapForNextStage(RoomDefinition room) {
+        setAttackTroopCap(resolveAttackTroopBalance(room).troopCap(), true);
+    }
+
+    private int applyStageReward(RoomDefinition room) {
+        if (room == null) {
+            return 0;
+        }
+        RoomAttackTroopBalanceSupport.AttackTroopBalanceSnapshot balance = resolveAttackTroopBalance(room);
+        setAttackTroopCap(balance.troopCap(), true);
+        if (balance.stageReward() <= 0 || attackTroops >= attackTroopCap) {
+            return 0;
+        }
+        int actualAdd = Math.min(balance.stageReward(), Math.max(0, attackTroopCap - attackTroops));
+        attackTroops += actualAdd;
+        return actualAdd;
+    }
+
     private void consumeAttackTroop(int amount) {
         attackTroops = Math.max(0, attackTroops - Math.max(0, amount));
     }
@@ -1687,6 +1769,132 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         retreatSubtitleByPlayer.clear();
     }
 
+    private void syncRetreatActionbar(RoomDefinition room, long gameTick) {
+        if (room == null || retreatDeadlineTick <= 0L || retreatStageIndex <= 0) {
+            return;
+        }
+        int remainingSeconds = (int) Math.max(1L, (retreatDeadlineTick - gameTick + 19L) / 20L);
+        for (UUID playerId : runningState.getRoomPlayers()) {
+            ServerPlayer player = findOnlinePlayer(playerId);
+            if (player == null) {
+                retreatCountdownLastShownSecondsByPlayer.remove(playerId);
+                continue;
+            }
+            boolean inRetreatZone = runningState.getRoomTeams().get(playerId) == RoomTeamId.CAMP_B
+                && !runningState.isInRespawnFlow(playerId)
+                && player.isAlive()
+                && !player.isSpectator()
+                && RoomBoundaryPolygonSupport.isPointInsideBoundary(
+                    player.getX(), player.getZ(), room.rushConfig().stageBoundary(retreatStageIndex));
+            if (!inRetreatZone) {
+                if (retreatCountdownLastShownSecondsByPlayer.remove(playerId) != null && player.connection != null) {
+                    player.connection.send(new ClientboundClearTitlesPacket(true));
+                }
+                ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_RETREAT);
+                continue;
+            }
+            int lastShown = retreatCountdownLastShownSecondsByPlayer.getOrDefault(playerId, -1);
+            if (lastShown == remainingSeconds) {
+                continue;
+            }
+            if (lastShown >= 0 && player.connection != null) {
+                player.connection.send(new ClientboundClearTitlesPacket(true));
+            }
+            sendRetreatActionbar(player, remainingSeconds);
+            retreatCountdownLastShownSecondsByPlayer.put(playerId, remainingSeconds);
+        }
+    }
+
+    private void sendRetreatActionbar(ServerPlayer player, int remainingSeconds) {
+        if (player == null) {
+            return;
+        }
+        ServerActionBarService.showBuilder(
+            player,
+            ACTIONBAR_SOURCE_RETREAT,
+            ServerActionBarService.builder()
+                .text("请在 ", ChatFormatting.GRAY)
+                .append(Component.literal(String.valueOf(remainingSeconds))
+                    .withStyle(style -> style.withColor(resolveCountdownColor(remainingSeconds)).withBold(true)))
+                .text(" 秒内撤离至下一阶段", ChatFormatting.GRAY),
+            30
+        );
+    }
+
+    private void clearRetreatTitles() {
+        for (UUID playerId : new LinkedHashSet<>(retreatCountdownLastShownSecondsByPlayer.keySet())) {
+            ServerPlayer player = findOnlinePlayer(playerId);
+            if (player != null) {
+                ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_RETREAT);
+            }
+        }
+        retreatCountdownLastShownSecondsByPlayer.clear();
+    }
+
+    private void syncCountdownTitles(RoomDefinition room, long gameTick) {
+        if (room == null || advanceCountdownEndTick <= 0L) {
+            return;
+        }
+        int remainingSeconds = (int) Math.max(1L, (advanceCountdownEndTick - gameTick + 19L) / 20L);
+        for (UUID playerId : runningState.getRoomPlayers()) {
+            ServerPlayer player = findOnlinePlayer(playerId);
+            if (player == null) {
+                continue;
+            }
+            int lastShown = advanceCountdownLastShownSecondsByPlayer.getOrDefault(playerId, -1);
+            if (lastShown == remainingSeconds) {
+                continue;
+            }
+            sendCountdownTitle(player, runningState.getRoomTeams().get(playerId), remainingSeconds, lastShown < 0);
+            advanceCountdownLastShownSecondsByPlayer.put(playerId, remainingSeconds);
+        }
+    }
+
+    private void sendCountdownTitle(ServerPlayer player, RoomTeamId teamId, int remainingSeconds, boolean firstShow) {
+        if (player == null || player.connection == null) {
+            return;
+        }
+        player.connection.send(new ClientboundSetTitlesAnimationPacket(
+            firstShow ? TITLE_FADE_IN_TICKS : TITLE_REFRESH_FADE_IN_TICKS,
+            firstShow ? TITLE_STAY_TICKS : TITLE_REFRESH_STAY_TICKS,
+            firstShow ? TITLE_FADE_OUT_TICKS : TITLE_REFRESH_FADE_OUT_TICKS
+        ));
+        player.connection.send(new ClientboundSetTitleTextPacket(
+            Component.literal(String.valueOf(remainingSeconds))
+                .withStyle(style -> style.withBold(true).withColor(resolveCountdownColor(remainingSeconds)))
+        ));
+        boolean attacker = teamId == RoomTeamId.CAMP_A;
+        MutableComponent subtitle = Component.literal(attacker ? "准备炸毁下个阶段的通讯设施" : "准备死守通讯设施");
+        subtitle.withStyle(style -> style.withColor(attacker ? SUBTITLE_COLOR_ATTACKER : SUBTITLE_COLOR_DEFENDER).withBold(true));
+        player.connection.send(new ClientboundSetSubtitleTextPacket(subtitle));
+    }
+
+    private void clearCountdownTitles() {
+        for (UUID playerId : new LinkedHashSet<>(advanceCountdownLastShownSecondsByPlayer.keySet())) {
+            ServerPlayer player = findOnlinePlayer(playerId);
+            if (player != null && player.connection != null) {
+                player.connection.send(new ClientboundClearTitlesPacket(true));
+            }
+        }
+        advanceCountdownLastShownSecondsByPlayer.clear();
+    }
+
+    private int resolveCountdownColor(int remainingSeconds) {
+        if (remainingSeconds <= 1) {
+            return COUNTDOWN_COLOR_RED;
+        }
+        if (remainingSeconds == 2) {
+            return COUNTDOWN_COLOR_ORANGE;
+        }
+        if (remainingSeconds == 3) {
+            return COUNTDOWN_COLOR_YELLOW;
+        }
+        if (remainingSeconds <= 5) {
+            return COUNTDOWN_COLOR_GREEN;
+        }
+        return COUNTDOWN_COLOR_NORMAL;
+    }
+
     private void playBombAlarmSound(RoomDefinition room, String objectiveCode, ResourceLocation soundId, float volume, float pitch) {
         if (room == null || objectiveCode == null || objectiveCode.isBlank() || soundId == null) {
             return;
@@ -1753,6 +1961,25 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         }
         net.minecraft.world.entity.Entity entity = deadPlayer.serverLevel().getEntity(killerEntityId);
         return entity instanceof ServerPlayer killerPlayer && killerPlayer.isAlive() ? killerPlayer : null;
+    }
+
+    /** 击杀判定: 击杀者与受害者是否敌对(不同阵营; 任一无阵营视为非敌方)。 */
+    private static boolean isEnemyTeam(RoomTeamId victimTeam, RoomTeamId killerTeam) {
+        return victimTeam != null && killerTeam != null && victimTeam != killerTeam;
+    }
+
+    /** 地面控制/突破者: 阶段结束结算(突破模式), 结算后清空本阶段统计。 */
+    private void triggerStageEndSettlement(RoomDefinition room) {
+        if (room == null) {
+            return;
+        }
+        org.mods.gd656conquest.server.integration.KilliconHonorBridge.triggerStageEnd(
+            server,
+            stageKills,
+            runningState.getRoomTeams(),
+            true
+        );
+        stageKills.clear();
     }
 
     private static double clampPercentage(double value) {

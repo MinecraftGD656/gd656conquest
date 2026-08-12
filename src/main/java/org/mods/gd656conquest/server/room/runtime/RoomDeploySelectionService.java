@@ -238,6 +238,9 @@ public final class RoomDeploySelectionService {
         if (applyBreakthroughDefenderInitialSelection(room, state, player, teamId)) {
             return;
         }
+        if (applyRushDefenderInitialSelection(room, state, player, teamId)) {
+            return;
+        }
         replaceSelectionWithTeamFallback(state, player.getUUID(), teamId);
     }
 
@@ -328,6 +331,49 @@ public final class RoomDeploySelectionService {
             return false;
         }
         List<RoomCapturePointDefinition> candidates = new ArrayList<>(room.breakthroughConfig().stageActivePoints(currentStageIndex));
+        if (candidates.isEmpty()) {
+            return false;
+        }
+        int startIndex = Math.floorMod(server.getTickCount(), candidates.size());
+        for (int offset = 0; offset < candidates.size(); offset++) {
+            RoomCapturePointDefinition point = candidates.get((startIndex + offset) % candidates.size());
+            if (point == null || point.centerPosition() == null) {
+                continue;
+            }
+            RoomPosition spawn = objectiveSpawnSelectionService.resolveObjectiveSpawn(room, state, player, teamId, point.code());
+            if (spawn != null) {
+                rememberSelection(state, player.getUUID(), "capture", point.code().toUpperCase(Locale.ROOT));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean applyRushDefenderInitialSelection(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player,
+        RoomTeamId teamId
+    ) {
+        if (room == null || state == null || player == null || teamId != RoomTeamId.CAMP_B) {
+            return false;
+        }
+        if (!RoomGameplayId.RUSH.equals(room.gameplayId())) {
+            return false;
+        }
+        RoomObjectiveRuntimeProvider runtimeProvider = state.getGameplayRuntime()
+            .filter(RoomObjectiveRuntimeProvider.class::isInstance)
+            .map(RoomObjectiveRuntimeProvider.class::cast)
+            .orElse(null);
+        if (runtimeProvider == null || runtimeProvider.objectiveRuntimeView() == null) {
+            return false;
+        }
+        var runtimeView = runtimeProvider.objectiveRuntimeView();
+        int currentStageIndex = runtimeView.currentStageIndex();
+        if (currentStageIndex <= 0 || currentStageIndex > runtimeView.maxStageCount()) {
+            return false;
+        }
+        List<RoomCapturePointDefinition> candidates = new ArrayList<>(room.rushConfig().stageObjectivePoints(currentStageIndex));
         if (candidates.isEmpty()) {
             return false;
         }

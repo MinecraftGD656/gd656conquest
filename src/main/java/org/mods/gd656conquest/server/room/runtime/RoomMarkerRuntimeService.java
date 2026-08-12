@@ -123,6 +123,12 @@ public final class RoomMarkerRuntimeService {
             playMarkerFeedbackSound(player, MARKER_SPOT_SUCCESS_SOUND_ID);
             tryAwardSpottingBonus(player);
             FrontlineVoiceBridge.playCue(player, resolveSpottedEnemyCue(targetPlayerId));
+            // 广播索敌事件, 供外部模组(如 GD656Killicon 标示助攻)监听
+            ServerPlayer spottedTarget = resolveDirectEnemyTarget(state, player, targetPlayerId);
+            if (spottedTarget != null) {
+                net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(
+                    new org.mods.gd656conquest.server.room.runtime.event.ConquestMarkerSpotPlacedEvent(player, spottedTarget));
+            }
         } else if (resolvedKind != RunningRuntimeState.MarkerKind.AUTO_ENEMY) {
             playMarkerFeedbackSound(player, MARKER_SPOT_FAIL_SOUND_ID);
         }

@@ -32,6 +32,7 @@ import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.network.packet.RoomDeathFlowPacket;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
+import org.mods.gd656conquest.server.integration.KilliconHonorBridge;
 import org.mods.gd656conquest.server.loadout.LoadoutUiService;
 import org.mods.gd656conquest.server.loadout.TaczDisplayNameResolver;
 import org.mods.gd656conquest.server.loadout.application.CustomLoadoutService;
@@ -1856,8 +1857,10 @@ public final class RoomPlayerRespawnService {
         }
         broadcastPlayerAnimatorState(state, targetId, 0, false);
         KilliconScoreboardBridge.tryAddReviveStat(reviver, 1);
-        KilliconScoreboardBridge.tryAwardConquestBonus(reviver, "REVIVE", 1.0F, "");
-    }
+        // 救援加分带被救援者 victimId, 客户端据此关联 kill_feed 的 +<score> 占位符
+        KilliconScoreboardBridge.tryAwardConquestBonus(reviver, "REVIVE", 1.0F, "", target.getId(), target.getScoreboardName());
+        // 急救事件荣誉(急救使者): 与加分项触发完全平行, 直接编译期调用 Killicon 荣誉引擎
+        KilliconHonorBridge.triggerRevive(reviver);    }
 
     private void applyReviveBlindEffect(ServerPlayer target) {
         if (target == null) {

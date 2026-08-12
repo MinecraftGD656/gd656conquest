@@ -604,6 +604,20 @@ public final class RoomCoreRuntimeManager {
         return coreService.recordKilliconMatchDelta(playerId, scoreDelta, killDelta, deathDelta, assistDelta, reviveDelta);
     }
 
+    public int recordKilliconMatchHonor(UUID playerId, String honorId) {
+        if (coreService == null) {
+            return 0;
+        }
+        return coreService.recordKilliconMatchHonor(playerId, honorId);
+    }
+
+    public java.util.List<KilliconScoreboardBridge.MatchHonorBest> buildKilliconMatchHonorBest(UUID requester) {
+        if (coreService == null) {
+            return java.util.List.of();
+        }
+        return coreService.buildKilliconMatchHonorBest(requester);
+    }
+
     public int getPlayerSupportSpentScore(UUID playerId) {
         if (coreService == null) {
             return 0;

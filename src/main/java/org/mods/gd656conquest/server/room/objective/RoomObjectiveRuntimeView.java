@@ -12,4 +12,12 @@ public interface RoomObjectiveRuntimeView {
     int teamCount(String objectiveCode, RoomTeamId teamId);
 
     boolean isFullyControlledBy(String objectiveCode, RoomTeamId teamId);
+
+    default int currentStageIndex() {
+        return 0;
+    }
+
+    default int maxStageCount() {
+        return 0;
+    }
 }

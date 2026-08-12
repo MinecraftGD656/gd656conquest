@@ -1524,6 +1524,64 @@ public final class RoomCoreService {
         return true;
     }
 
+    /**
+     * 记录一次局内 honor 触发(由 killicon 侧经 KilliconScoreboardBridge.recordMatchHonor 通知)。仅统计 RUNNING/ENDING 对局内玩家。
+     * @return 0 = 未记录(非对局/参数无效); 1 = 已记录, 非本局最高; 2 = 已记录, 且该玩家当前为该 honor 本局最高(并列也算)。
+     */
+    public int recordKilliconMatchHonor(UUID playerId, String honorId) {
+        if (playerId == null || honorId == null || honorId.isBlank()) {
+            return 0;
+        }
+        Optional<RoomRuntimeSlot<RoomRuntimeState>> slotOptional = findRunningSlotByPlayer(playerId);
+        if (slotOptional.isEmpty()) {
+            return 0;
+        }
+        RunningRuntimeState runningState = slotOptional.get().runtime().getRunningState();
+        Map<UUID, Integer> perPlayer = runningState.getKilliconMatchHonorByHonor()
+            .computeIfAbsent(honorId, k -> new java.util.HashMap<>());
+        int newCount = perPlayer.merge(playerId, 1, Integer::sum);
+        int matchBestCount = 0;
+        for (Integer count : perPlayer.values()) {
+            if (count != null && count > matchBestCount) {
+                matchBestCount = count;
+            }
+        }
+        return newCount >= matchBestCount ? 2 : 1;
+    }
+
+    /** 构建局内 honor 最佳查询结果: 请求者所在对局内, 每 honor 取本局获得次数最多的玩家与次数。非对局返回空列表。 */
+    public List<KilliconScoreboardBridge.MatchHonorBest> buildKilliconMatchHonorBest(UUID requester) {
+        if (requester == null) {
+            return List.of();
+        }
+        Optional<RoomRuntimeSlot<RoomRuntimeState>> slotOptional = findRunningSlotByPlayer(requester);
+        if (slotOptional.isEmpty()) {
+            return List.of();
+        }
+        RunningRuntimeState runningState = slotOptional.get().runtime().getRunningState();
+        Map<String, Map<UUID, Integer>> honorByHonor = runningState.getKilliconMatchHonorByHonor();
+        if (honorByHonor.isEmpty()) {
+            return List.of();
+        }
+        List<KilliconScoreboardBridge.MatchHonorBest> result = new java.util.ArrayList<>(honorByHonor.size());
+        for (Map.Entry<String, Map<UUID, Integer>> honorEntry : honorByHonor.entrySet()) {
+            String honorId = honorEntry.getKey();
+            UUID bestPlayer = null;
+            int bestCount = 0;
+            for (Map.Entry<UUID, Integer> playerEntry : honorEntry.getValue().entrySet()) {
+                int count = playerEntry.getValue() == null ? 0 : playerEntry.getValue();
+                if (count > bestCount) {
+                    bestCount = count;
+                    bestPlayer = playerEntry.getKey();
+                }
+            }
+            if (bestPlayer != null && bestCount > 0) {
+                result.add(new KilliconScoreboardBridge.MatchHonorBest(honorId, bestPlayer, bestCount));
+            }
+        }
+        return result;
+    }
+
     public int getPlayerSupportSpentScore(UUID playerId) {
         if (playerId == null) {
             return 0;
@@ -1944,6 +2002,8 @@ public final class RoomCoreService {
         }
         runningState.getGameplayRuntime().ifPresent(runtime -> runtime.onLeaveMainPhase(slot.room(), gameTick));
         runningState.clearGameplayRuntime();
+        // 对局结束: 清空 Killicon 对局级荣誉状态(爆破专家等, 玩家离开再回来累计仍在直到对局结束)
+        org.mods.gd656conquest.server.integration.KilliconHonorBridge.triggerRoundEnd();
         runningState.clearRoomPlayers();
         runningState.clearResultState();
         nametagVisibilityService.clearRoom(slot.room());
