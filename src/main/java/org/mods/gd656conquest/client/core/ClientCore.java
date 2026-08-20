@@ -13,6 +13,7 @@ import net.minecraft.resources.ResourceLocation;
 import org.mods.gd656conquest.Gd656conquest;
 import org.mods.gd656conquest.client.animation.ClientPlayerAnimatorDebugState;
 import org.mods.gd656conquest.client.command.ClientCommandRegistrar;
+import org.mods.gd656conquest.client.config.ClientScreenHudConfig;
 import org.mods.gd656conquest.client.render.entity.AmmoBoxEntityRenderer;
 import org.mods.gd656conquest.client.render.entity.GroundSensorEntityRenderer;
 import org.mods.gd656conquest.client.render.entity.MedicalBoxEntityRenderer;
@@ -37,6 +38,7 @@ public final class ClientCore {
             return;
         }
         initialized = true;
+        ClientScreenHudConfig.register();
         modEventBus.addListener(ClientCore::onClientSetup);
         modEventBus.addListener(ClientCore::onRegisterRenderers);
         modEventBus.addListener(ClientCore::onRegisterKeyMappings);

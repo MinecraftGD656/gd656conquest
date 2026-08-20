@@ -994,6 +994,12 @@ public final class RoomPlayerRespawnService {
         if (room == null || state == null || reviver == null || !reviver.isAlive() || reviver.isSpectator() || state.isPlayerDowned(reviver.getUUID()) || state.isInRespawnFlow(reviver.getUUID())) {
             return false;
         }
+        // GD656Mods: 拆弹/装弹(Rush)优先于救援 —— 正在执行优先操作(如拆弹/装弹)的玩家不接受救援开始请求
+        if (state.getGameplayRuntime()
+            .filter(runtime -> runtime.isPerformingPriorityAction(reviver.getUUID()))
+            .isPresent()) {
+            return false;
+        }
         DownedRescueHint hint = resolveNearestDownedRescueHint(state, reviver);
         if (hint == null || !hint.canRevive()) {
             return false;

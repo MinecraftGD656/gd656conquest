@@ -202,6 +202,12 @@ public final class ClientEventHandler {
     }
 
     public void renderMainHud(net.minecraftforge.client.gui.overlay.ForgeGui gui, net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
+        // 客户端配置禁用屏幕HUD时,非部署阶段不再渲染本模组的任何顶部HUD、据点HUD与3D空间据点图标;
+        // 死亡后的部署阶段(部署点选择)视为部署界面,所有元素照常渲染。
+        if (!org.mods.gd656conquest.client.config.ClientScreenHudConfig.isScreenHudEnabled()
+            && !ClientDeathFlowState.shouldRenderDeployBoundaries()) {
+            return;
+        }
         // During match-loading phases 1-3: show only the loading overlay, hide all other HUD
         if (ClientMatchLoadState.shouldHideAllHud()) {
             ClientMatchLoadState.render(guiGraphics, partialTick);

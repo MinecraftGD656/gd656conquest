@@ -372,8 +372,28 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             buildEventText(room, player, selfTeam),
             buildFocusPayload(room, player, selfTeam),
             audioState,
-            "-"
+            resolveBombActionPayload(room, player, selfTeam)
         );
+    }
+
+    @Override
+    public boolean isPerformingPriorityAction(UUID playerId) {
+        return playerId != null && activeHolds.containsKey(playerId);
+    }
+
+    /**
+     * 本玩家当前是否处于可拆弹/可装弹位置(Rush 炸弹交互半径内且阵营/炸弹状态匹配)。
+     * 编码进 HUD extraPayload 供客户端判定"拆弹/装弹优先于救援"。
+     */
+    private String resolveBombActionPayload(RoomDefinition room, ServerPlayer player, RoomTeamId selfTeam) {
+        if (phase != Phase.COMBAT || room == null || player == null || selfTeam == null) {
+            return "-";
+        }
+        RoomCapturePointDefinition point = nearestStageObjectivePoint(room, player, BOMB_INTERACT_RADIUS_SQ, true);
+        if (point == null || resolveBombAction(room, player, selfTeam, point) == null) {
+            return "-";
+        }
+        return "RUSH_BOMB_ACTION|1";
     }
 
     @Override

@@ -188,9 +188,7 @@ public final class RoomRuleRuntimeService {
                 continue;
             }
             RoomTeamId teamId = state.getRoomTeams().get(playerId);
-            boolean outsideAllowedBoundary = boundaryPolicyProvider == null
-                ? RoomBoundaryRuleEvaluator.isOutsideAllBoundaries(player, resolveConquestAllowedBoundaries(room, teamId))
-                : boundaryPolicyProvider.isOutsideAllowedBoundary(room, state, player, teamId);
+            boolean outsideAllowedBoundary = RoomBoundaryRuleEvaluator.isOutsideAllowedBoundary(room, state, teamId, player);
             boolean aircraftVehicle = VehicleCompatFacade.isManagedVehicleEntity(player.getVehicle())
                 && VehicleCompatFacade.isAircraftEntity(player.getVehicle());
             boolean insideOutOfBoundsBlock = objectiveBlockAreaResolver.isPlayerInsideOutOfBoundsBlock(player);
@@ -244,13 +242,6 @@ public final class RoomRuleRuntimeService {
             }
         }
         vehicleBoundaryPenaltyService.processAircraftBoundaryTimeouts(room, state, gameTick);
-    }
-
-    private List<List<org.mods.gd656conquest.server.room.model.RoomPosition>> resolveConquestAllowedBoundaries(RoomDefinition room, RoomTeamId teamId) {
-        if (room == null) {
-            return List.of();
-        }
-        return room.conquestConfig().allowedBoundariesForTeam(teamId);
     }
 
     private int countPlayersInTeam(RunningRuntimeState state, RoomTeamId teamId) {

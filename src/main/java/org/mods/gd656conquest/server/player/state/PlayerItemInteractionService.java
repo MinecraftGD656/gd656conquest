@@ -12,6 +12,7 @@ import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
 import org.mods.gd656conquest.common.item.ConquestItems;
 import org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService;
+import org.mods.gd656conquest.server.player.lock.ServerPlayerLockService;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerLoadoutService;
 import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
@@ -87,11 +88,21 @@ public final class PlayerItemInteractionService {
 
     private static void handleAmmoBagPickup(EntityItemPickupEvent event, ServerPlayer player, ItemEntity itemEntity, ItemStack stack) {
         if (!isCoreRoomPlayer(player)) {
+            // GD656Mods: 玩家未加入房间但房间禁用背包锁已生效(如站在房间定义维度)时,
+            // 不允许弹药包落进背包, 取消拾取让其留在原地。
+            if (ServerPlayerLockService.of(player.server).shouldBlockInventoryOperation(player)) {
+                event.setCanceled(true);
+            }
             return;
         }
         RoomPlayerLoadoutService.AmmoSupplyResult result =
             RoomCoreRuntimeManager.of(player.server).trySupplyAmmoByBag(player, PICKUP_USE_AMMO_AMOUNT);
         if (result.totalAdded() <= 0) {
+            // GD656Mods: 弹药已满无需补给时, 房间禁用背包下不允许物品落进背包,
+            // 直接取消拾取让弹药包留在原地; 未禁用背包时维持原行为(进背包)。
+            if (ServerPlayerLockService.of(player.server).shouldBlockInventoryOperation(player)) {
+                event.setCanceled(true);
+            }
             return;
         }
         stack.shrink(1);

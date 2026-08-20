@@ -28,4 +28,12 @@ public interface IRoomGameplayRuntime {
     default Optional<RoomMatchEndRequest> pollMatchEndRequest() {
         return Optional.empty();
     }
+
+    /**
+     * 玩家当前是否正在执行"优先操作"(如 Rush 拆弹/装弹)。
+     * 优先操作会抢占同键位(通用使用键 F)的其他交互, 如救援倒地队友。
+     */
+    default boolean isPerformingPriorityAction(UUID playerId) {
+        return false;
+    }
 }

@@ -87,6 +87,7 @@ public final class RoomServerModule implements ServerModule {
         RoomCoreRuntimeManager.of(player.server).handleMarkedPlayerDeath(player, killer, player.server.getTickCount());
         if (killer != null && killer != player) {
             RoomCoreRuntimeManager.of(player.server).handlePlayerKillSupportDrop(player, killer);
+            triggerFirstKillIfNeeded(RoomCoreRuntimeManager.of(player.server), killer);
         }
         boolean downedHandled = RoomCoreRuntimeManager.of(player.server).handlePlayerDeathEvent(
             player,
@@ -96,6 +97,38 @@ public final class RoomServerModule implements ServerModule {
         );
         if (!isTaczBulletDamage(event.getSource()) && !downedHandled && killer != null && killer != player) {
             RoomCoreRuntimeManager.of(player.server).emitPlayerThirdPersonAudioCue(killer.getUUID(), RoomThirdPersonAudioCueRegistry.PLAYER_KILL_ENEMY);
+        }
+    }
+
+    /**
+     * 急先锋: 击杀者在本局本小队是否为第一个击杀。由 Conquest 解析房间/小队后经
+     * {@link org.mods.gd656conquest.server.integration.KilliconHonorBridge} 触发 Killicon 荣誉;
+     * 去重由 Killicon 侧 roundFirstKillTeams(roomId:squadLabel)负责。
+     */
+    private static void triggerFirstKillIfNeeded(RoomCoreRuntimeManager manager, ServerPlayer killer) {
+        if (manager == null || killer == null || killer.server == null) {
+            return;
+        }
+        try {
+            org.mods.gd656conquest.server.room.core.RoomCoreService coreService = manager.coreService();
+            if (coreService == null) {
+                return;
+            }
+            java.util.Optional<String> roomIdOpt = coreService.findPlayerRoomId(killer.getUUID());
+            if (roomIdOpt.isEmpty()) {
+                return;
+            }
+            java.util.Optional<org.mods.gd656conquest.server.room.core.RunningRuntimeState> runningOpt =
+                    coreService.findRunningState(roomIdOpt.get());
+            if (runningOpt.isEmpty()) {
+                return;
+            }
+            String squadLabel = runningOpt.get().getSquadLabelsByPlayer().get(killer.getUUID());
+            if (squadLabel == null || squadLabel.isBlank()) {
+                return;
+            }
+            org.mods.gd656conquest.server.integration.KilliconHonorBridge.triggerFirstKill(killer, roomIdOpt.get(), squadLabel);
+        } catch (Exception ignored) {
         }
     }
 

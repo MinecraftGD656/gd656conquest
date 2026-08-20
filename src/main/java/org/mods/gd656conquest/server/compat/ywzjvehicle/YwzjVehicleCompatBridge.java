@@ -102,6 +102,21 @@ public final class YwzjVehicleCompatBridge {
         return entity != null && resolveReflection() && abstractVehicleClass != null && abstractVehicleClass.isInstance(entity);
     }
 
+    /**
+     * 判断 YWZJ 载具是否已被摧毁。已摧毁载具无法上车, 右键只会打开载具容器,
+     * 房间禁用背包时需据此拦截容器打开而不影响正常上车。
+     */
+    public static boolean isDestroyedVehicle(Entity entity) {
+        if (!isVehicleEntity(entity) || isDestroyedMethod == null) {
+            return false;
+        }
+        try {
+            return Boolean.TRUE.equals(isDestroyedMethod.invoke(entity));
+        } catch (ReflectiveOperationException ignored) {
+            return false;
+        }
+    }
+
     public static boolean isManagedVehicleEntity(Entity entity) {
         return isVehicleEntity(entity)
             && entity.getPersistentData().getBoolean(MANAGED_VEHICLE_PERSISTENT_KEY);

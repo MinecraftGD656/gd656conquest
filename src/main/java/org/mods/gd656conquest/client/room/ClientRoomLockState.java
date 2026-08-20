@@ -1,5 +1,6 @@
 package org.mods.gd656conquest.client.room;
 
+import net.minecraft.client.Minecraft;
 import org.mods.gd656conquest.common.player.lock.PlayerLockSnapshot;
 
 public final class ClientRoomLockState {
@@ -22,6 +23,17 @@ public final class ClientRoomLockState {
 
     public static boolean shouldLockInventory() {
         return snapshot.lockInventory();
+    }
+
+    /**
+     * 管理员(权限>=2)是否应绕过全部禁用背包限制。
+     * 调试锁(debug_)例外: 调试锁对管理员同样生效, 用于开发调试验证。
+     */
+    public static boolean shouldBypassForAdmin(Minecraft minecraft) {
+        return minecraft != null
+            && minecraft.player != null
+            && minecraft.player.hasPermissions(2)
+            && !isDebugInventoryLockActive();
     }
 
     public static boolean isDebugInventoryLockActive() {

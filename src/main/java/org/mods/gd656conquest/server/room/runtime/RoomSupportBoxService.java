@@ -481,6 +481,8 @@ public final class RoomSupportBoxService {
         int remainingUse = ammoBox.consumeOneAndGetRemaining();
         ServerActionBarService.showComponent(player, ACTIONBAR_SOURCE_AMMO_BOX_INTERACT, buildAmmoBoxInfoActionbar(ammoBox), AMMO_BOX_INFO_PRIORITY_TICKS);
         playersWithAmmoBoxActionbar.add(playerId);
+        // 队友获得弹药箱补给: 给放下者加弹药补给分(63 AMMO_SUPPLY)
+        rewardBoxOwner(ammoBox.getOwnerUuid(), player, "AMMO_SUPPLY");
         if (remainingUse <= 0) {
             ammoBox.discard();
             removeTrackedAmmoBox(boxId, false);
@@ -555,7 +557,27 @@ public final class RoomSupportBoxService {
         lastNotifyTick.put(playerId, gameTick);
         medicalBox.consumeOneAndGetRemaining();
         ServerMessageSender.rawActionBar(player, buildMedicalBoxInfoActionbar(medicalBox));
+        // 队友获得医疗箱补给: 给放下者加医疗补给分(64 HEALING)
+        rewardBoxOwner(medicalBox.getOwnerUuid(), player, "HEALING");
         return true;
+    }
+
+    /**
+     * 箱子补给分: 队友(非放下者本人)从箱子获得补给时, 给放下者加对应加分项。
+     * 永久箱子(owner=null)、放下者离线、自己拿自己箱子均不加分。
+     */
+    private void rewardBoxOwner(UUID ownerId, ServerPlayer receiver, String bonusTypeName) {
+        if (ownerId == null || receiver == null || ownerId.equals(receiver.getUUID())) {
+            return;
+        }
+        ServerPlayer owner = server.getPlayerList().getPlayer(ownerId);
+        if (owner == null) {
+            return;
+        }
+        if (!org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager.of(server).isSameCampPlayer(owner, receiver)) {
+            return;
+        }
+        org.mods.gd656conquest.server.integration.KilliconScoreboardBridge.tryAwardConquestBonus(owner, bonusTypeName, 1.0F, "");
     }
 
     private MutableComponent buildAmmoBoxInfoActionbar(AmmoBoxEntity ammoBox) {

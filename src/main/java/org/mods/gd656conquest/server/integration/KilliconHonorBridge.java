@@ -28,6 +28,20 @@ public final class KilliconHonorBridge {
     }
 
     /**
+     * 急先锋(本局本小队第一个击杀): 对局内玩家击杀玩家时调用。
+     *
+     * @param killer     击杀者
+     * @param roomId     击杀者所在对局房间 id
+     * @param squadLabel 击杀者小队标签(A/B/C..., 无小队不触发)
+     */
+    public static void triggerFirstKill(ServerPlayer killer, String roomId, String squadLabel) {
+        if (killer == null || roomId == null || roomId.isBlank() || squadLabel == null || squadLabel.isBlank()) {
+            return;
+        }
+        org.mods.gd656killicon.server.ServerCore.HONOR.onFirstKill(killer, roomId + ":" + squadLabel);
+    }
+
+    /**
      * 对局结束(爆破专家等对局级荣誉): 房间对局结束时调用, 清空 Killicon 对局级荣誉状态。
      */
     public static void triggerRoundEnd() {

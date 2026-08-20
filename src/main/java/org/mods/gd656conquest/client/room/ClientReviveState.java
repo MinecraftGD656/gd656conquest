@@ -30,10 +30,13 @@ public final class ClientReviveState {
         }
         RescueCandidate candidate = resolveCandidateTarget(minecraft, self);
         UUID candidateId = candidate == null ? null : candidate.targetId();
+        // GD656Mods: 拆弹/装弹(Rush)优先于救援 —— 附近有可拆/可装炸弹时按 F 不发起救援
+        boolean bombPriority = hasBombPriority();
         boolean shouldHold = minecraft.screen == null
             && !ClientDownedState.isActive()
             && ClientKeyMappings.COMMON_USE.isDown()
-            && candidateId != null;
+            && candidateId != null
+            && !bombPriority;
         if (shouldHold) {
             if (!reviveHeld || !candidateId.equals(activeTargetId)) {
                 NetworkManager.getChannel().sendToServer(RoomDownedActionPacket.reviveStart());
@@ -71,7 +74,17 @@ public final class ClientReviveState {
         if (self == null || minecraft.level == null) {
             return false;
         }
-        return reviveHeld || resolveCandidateTarget(minecraft, self) != null;
+        // GD656Mods: 拆弹/装弹(Rush)优先于救援 —— 附近有可拆/可装炸弹时不把通用使用键保留给救援
+        return reviveHeld || (resolveCandidateTarget(minecraft, self) != null && !hasBombPriority());
+    }
+
+    /**
+     * 服务端 Rush 运行时通过 HUD extraPayload 告知本玩家当前处于可拆弹/可装弹位置,
+     * 此时通用使用键(F)优先执行拆弹/装弹, 不再发起救援。
+     */
+    private static boolean hasBombPriority() {
+        String payload = ClientHudDebugState.getExtraPayload();
+        return payload != null && payload.contains("RUSH_BOMB_ACTION|1");
     }
 
     private static RescueCandidate resolveCandidateTarget(Minecraft minecraft, LocalPlayer self) {

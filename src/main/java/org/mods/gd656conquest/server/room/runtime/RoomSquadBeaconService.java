@@ -100,7 +100,12 @@ public final class RoomSquadBeaconService {
         }
         Vec3 spawnPos = resolveValidBeaconSpawnPosition(level, player.position());
         if (spawnPos == null) {
-            ServerActionBarService.showText(player, ACTIONBAR_SOURCE_BEACON_INVALID, "当前信标放置位置不合法", 40);
+            showInvalidBeaconPlacement(player);
+            return true;
+        }
+        // 非战斗区域(允许边界外, 即触发"请返回战斗区域"惩罚的区域)禁止放置信标
+        if (RoomBoundaryRuleEvaluator.isOutsideAllowedBoundary(room, runtime.getRunningState(), teamId, player)) {
+            showInvalidBeaconPlacement(player);
             return true;
         }
         if (!player.getAbilities().instabuild) {
@@ -372,6 +377,13 @@ public final class RoomSquadBeaconService {
             1.0F
         );
         squadBeaconIdsByRoom.computeIfAbsent(roomId, key -> new HashSet<>()).add(beacon.getUUID());
+    }
+
+    private void showInvalidBeaconPlacement(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        ServerActionBarService.showText(player, ACTIONBAR_SOURCE_BEACON_INVALID, "当前信标放置位置不合法", 40);
     }
 
     private Vec3 resolveValidBeaconSpawnPosition(ServerLevel level, Vec3 desired) {

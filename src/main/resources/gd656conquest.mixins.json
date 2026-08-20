@@ -11,7 +11,9 @@
     "server.EntityMixin",
     "server.MinecraftServerMixin",
     "server.PlayerListMixin",
-    "server.ServerGamePacketListenerImplMixin"
+    "server.ServerGamePacketListenerImplMixin",
+    "server.ItemEntityMixin",
+    "server.compat.curios.CPacketOpenCuriosMixin"
   ],
   "client": [
     "client.forge.ModMismatchDisconnectedScreenMixin",
@@ -25,7 +27,8 @@
     "client.PlayerTeamColorMixin",
     "client.compat.explosionoverhaul.ExplosionOverhaulAmbientCaveDustDisableMixin",
     "client.compat.explosionoverhaul.ExplosionOverhaulBlockParticleGuardMixin",
-    "client.compat.lrtactical.AttackKeysMixin"
+    "client.compat.lrtactical.AttackKeysMixin",
+    "client.compat.curios.CuriosClientEventHandlerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

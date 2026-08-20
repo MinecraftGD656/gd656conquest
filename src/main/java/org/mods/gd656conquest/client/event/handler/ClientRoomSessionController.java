@@ -222,6 +222,13 @@ final class ClientRoomSessionController {
                 minecraft.player.displayClientMessage(Component.literal("当前房间已禁用背包").withStyle(ChatFormatting.RED), true);
             }
         }
+        // GD656Mods: 房间禁用背包时同样阻止按 Q 丢弃物品 —— 物品必须留在背包。
+        // 服务端 handlePlayerAction 会 cancel 丢弃包并强制全量同步背包回滚, 双保险。
+        if (minecraft.options.keyDrop.matches(event.getKey(), event.getScanCode()) && shouldLockInventoryClient()) {
+            if (event.isCancelable()) {
+                event.setCanceled(true);
+            }
+        }
     }
 
     boolean handleMouseButton(InputEvent.MouseButton event) {
@@ -231,6 +238,17 @@ final class ClientRoomSessionController {
         }
         if (minecraft.screen != null) {
             return false;
+        }
+        // GD656Mods: 房间禁用背包时, 即使玩家把"打开物品栏/丢弃物品"重绑定到鼠标键也一并拦截,
+        // 避免绕过 InputEvent.Key 的键盘拦截; 物品必须留在背包, 丢弃被完全禁止。
+        if (event.getAction() != GLFW.GLFW_RELEASE
+            && shouldLockInventoryClient()
+            && (minecraft.options.keyInventory.matchesMouse(event.getButton())
+                || minecraft.options.keyDrop.matchesMouse(event.getButton()))) {
+            if (event.isCancelable()) {
+                event.setCanceled(true);
+            }
+            return true;
         }
         double mouseX = minecraft.mouseHandler.xpos() * minecraft.getWindow().getGuiScaledWidth() / Math.max(1, minecraft.getWindow().getScreenWidth());
         double mouseY = minecraft.mouseHandler.ypos() * minecraft.getWindow().getGuiScaledHeight() / Math.max(1, minecraft.getWindow().getScreenHeight());
@@ -641,7 +659,7 @@ final class ClientRoomSessionController {
         if (minecraft == null || minecraft.player == null || minecraft.level == null) {
             return false;
         }
-        if (minecraft.player.hasPermissions(2) && !ClientRoomLockState.isDebugInventoryLockActive()) {
+        if (ClientRoomLockState.shouldBypassForAdmin(minecraft)) {
             return false;
         }
         return ClientRoomLockState.shouldLockInventory();
