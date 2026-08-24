@@ -9,7 +9,7 @@ import java.util.Objects;
 
 final class RushSubtitleService {
     private final RunningRuntimeState runningState;
-    private final RoomHudSubtitleBroadcastService broadcastService = new RoomHudSubtitleBroadcastService();
+    private final RoomHudSubtitleBroadcastService subtitleBroadcastService = new RoomHudSubtitleBroadcastService();
 
     private int lastTrackedStageIndex = -1;
     private String lastRemainingCode = "";
@@ -197,12 +197,61 @@ final class RushSubtitleService {
         );
     }
 
+    void onBackToWallStart(long gameTick) {
+        // 同时请求两条独立字幕(与 Gunmaster 开局字幕一致): 客户端按 2 秒队列间隔依次显示
+        broadcastPerspective(
+            "rush_back_to_wall_1_" + gameTick,
+            RoomTeamId.CAMP_A,
+            "支援抵达，掌握机会，摧毁全部通讯设施！",
+            "我们受到了敌军大规模还击，必须死守全部通讯设施！"
+        );
+        broadcastPerspective(
+            "rush_back_to_wall_2_" + gameTick,
+            RoomTeamId.CAMP_A,
+            "我们的支援兵力只够维持两分钟，务必全力推进！",
+            "在最后两分钟内保证炸弹安全"
+        );
+    }
+
+    void onBurnBoatsStart(long gameTick) {
+        broadcastPerspective(
+            "rush_burn_boats_1_" + gameTick,
+            RoomTeamId.CAMP_A,
+            "我军已没有退路，与炸弹同归于尽！",
+            "敌军的进攻仍然猛烈！全力拆除炸弹！"
+        );
+        broadcastPerspective(
+            "rush_burn_boats_2_" + gameTick,
+            RoomTeamId.CAMP_A,
+            "坚守全部炸弹，我们已无力再次安放！",
+            "拆毁任意一个炸弹，粉碎敌军攻势！"
+        );
+    }
+
+    void onBurnBoatsSucceed(long gameTick) {
+        broadcastPerspective(
+            "rush_burn_boats_success_" + gameTick,
+            RoomTeamId.CAMP_B,
+            "敌军破釜沉舟成功",
+            "破釜沉舟成功！进攻方获胜"
+        );
+    }
+
+    void onDesperateFail(long gameTick) {
+        broadcastPerspective(
+            "rush_desperate_fail_" + gameTick,
+            RoomTeamId.CAMP_B,
+            "成功守住防线！",
+            "背水一战失败"
+        );
+    }
+
     private void broadcastPerspective(String key, RoomTeamId alliedTeam, String alliedText, String enemyText) {
-        broadcastService.broadcastPerspectiveOnce(runningState, key, alliedTeam, alliedText, enemyText);
+        subtitleBroadcastService.broadcastPerspectiveOnce(runningState, key, alliedTeam, alliedText, enemyText);
     }
 
     private void broadcastGlobal(String key, String text) {
-        broadcastService.broadcastGlobalOnce(runningState, key, text);
+        subtitleBroadcastService.broadcastGlobalOnce(runningState, key, text);
     }
 
     private static String normalize(String code) {

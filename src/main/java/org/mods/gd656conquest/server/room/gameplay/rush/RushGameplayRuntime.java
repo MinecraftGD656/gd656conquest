@@ -78,6 +78,8 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
     RoomGameplayBoundaryHudProvider,
     RoomGameplayCommonUseHandler {
     private static final int STAGE_ADVANCE_COUNTDOWN_SECONDS = 5;
+    // GD656Mods: Rush 背水一战时长 2 分钟(短于突破模式的 180 秒)
+    private static final int RUSH_BACK_TO_WALL_SECONDS = 120;
     private static final double OBJECTIVE_FOCUS_RADIUS_SQ = 2.5D * 2.5D;
     private static final double BOMB_INTERACT_RADIUS_SQ = 2.5D * 2.5D;
     private static final String ACTIONBAR_SOURCE_BOMB_USE = "rush_bomb_use";
@@ -152,6 +154,9 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
     private int attackTroops;
     private int attackTroopCap;
     private Phase phase = Phase.COMBAT;
+    // GD656Mods: Rush 背水一战/破釜沉舟(进攻方兵力耗尽且已有炸弹安放时触发)
+    private DesperateMode desperateMode = DesperateMode.NONE;
+    private long desperateDeadlineTick = -1L;
     private RoomMatchEndRequest pendingEndRequest;
     /** 地面控制/突破者: 本阶段每玩家击杀数(击杀敌方玩家/载具的击杀者), 阶段推进时结算并清空。 */
     private final java.util.Map<UUID, Integer> stageKills = new java.util.concurrent.ConcurrentHashMap<>();
@@ -176,6 +181,8 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         attackTroopCap = troopBalance.troopCap();
         attackTroops = attackTroopCap;
         pendingEndRequest = null;
+        desperateMode = DesperateMode.NONE;
+        desperateDeadlineTick = -1L;
         stageKills.clear();
         activeHolds.clear();
         holdAudioStates.clear();
@@ -209,6 +216,10 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             String fusedBombCode = findFusedBombCode(room, gameTick);
             if (fusedBombCode != null) {
                 handleBombExploded(room, fusedBombCode, gameTick);
+                return;
+            }
+            // GD656Mods: 背水一战/破釜沉舟状态机
+            if (tickDesperateMode(room, gameTick)) {
                 return;
             }
             if (stageDeadlineTick > 0L && gameTick >= stageDeadlineTick) {
@@ -273,11 +284,19 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             return;
         }
         if (reason == RoomPlayerInvalidationReason.DEATH && teamId == RoomTeamId.CAMP_A) {
+            // GD656Mods: 背水一战/破釜沉舟期间进攻方兵力无限
+            if (desperateMode != DesperateMode.NONE) {
+                return;
+            }
             if (phase != Phase.RETREAT) {
                 consumeAttackTroop(1);
             }
             if (attackTroops <= 0) {
                 subtitleService.onAttackTroopsChanged(attackTroops, attackTroopCap, gameTick);
+                // GD656Mods: 兵力耗尽且已有炸弹安放等待爆炸 -> 触发背水一战(2分钟)
+                if (tryActivateBackToWall(room, gameTick)) {
+                    return;
+                }
                 pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, "进攻方兵力耗尽");
             } else {
                 subtitleService.onAttackTroopsChanged(attackTroops, attackTroopCap, gameTick);
@@ -312,6 +331,8 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         armedBombAudioStates.clear();
         pendingSecondaryExplosions.clear();
         bombStates.clear();
+        desperateMode = DesperateMode.NONE;
+        desperateDeadlineTick = -1L;
         objectiveProgressByCode.clear();
         objectiveOwnerByCode.clear();
         objectiveDrivingByCode.clear();
@@ -361,7 +382,8 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             ? "ENDING"
             : initialLockActive ? "INITIAL_STAGE_BEGIN" : buildAudioState(room, selfTeam, gameTick);
         return new RoomGameplayHudState(
-            attackTroops,
+            // GD656Mods: 背水一战/破釜沉舟期间进攻方兵力无限(客户端显示 ∞)
+            desperateMode != DesperateMode.NONE ? -1 : attackTroops,
             currentStageIndex,
             elapsedSeconds,
             "RUSH",
@@ -394,6 +416,14 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             return "-";
         }
         return "RUSH_BOMB_ACTION|1";
+    }
+
+    /** 顶部状态样式文本(客户端 ClientHudStyledText 解析, 样式复用突破模式) */
+    private String hudStyledText(String style, String text) {
+        if (style == null || style.isBlank() || text == null || text.isBlank()) {
+            return text == null ? "" : text;
+        }
+        return "<hud:" + style + ">" + text;
     }
 
     @Override
@@ -692,6 +722,11 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         if (code.isBlank()) {
             return;
         }
+        // GD656Mods: 破釜沉舟阶段任一炸弹被拆除 -> 直接判定进攻失败
+        if (desperateMode == DesperateMode.BURN_BOATS) {
+            failDesperateMode(gameTick, "破釜沉舟失败，炸弹被拆除");
+            return;
+        }
         armedBombAudioStates.remove(code);
         bombStates.put(code, new BombSiteState(currentStageIndex, BombPhase.SAFE, -1L, null));
         playRushVoiceToTeam(RoomTeamId.CAMP_A, resolveRushAttackDefuseVoice(code));
@@ -703,6 +738,14 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
     private void handleBombExploded(RoomDefinition room, String objectiveCode, long gameTick) {
         String code = normalizeCode(objectiveCode);
         if (code.isBlank()) {
+            return;
+        }
+        // GD656Mods: 破釜沉舟阶段炸弹爆炸(最长引信到点) -> 进攻胜利
+        if (desperateMode == DesperateMode.BURN_BOATS) {
+            desperateMode = DesperateMode.NONE;
+            desperateDeadlineTick = -1L;
+            subtitleService.onBurnBoatsSucceed(gameTick);
+            pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, "破釜沉舟成功");
             return;
         }
         BombSiteState previousState = bombStates.get(code);
@@ -1042,6 +1085,17 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         if (room == null || player == null || selfTeam == null) {
             return "-";
         }
+        // GD656Mods: 背水一战/破釜沉舟事件字幕(用户指定文案)
+        if (desperateMode == DesperateMode.BACK_TO_WALL) {
+            return selfTeam == RoomTeamId.CAMP_A
+                ? "支援抵达，掌握机会，摧毁全部通讯设施！"
+                : "我们受到了敌军大规模还击，必须死守全部通讯设施！";
+        }
+        if (desperateMode == DesperateMode.BURN_BOATS) {
+            return selfTeam == RoomTeamId.CAMP_A
+                ? "我军已没有退路，与炸弹同归于尽！"
+                : "敌军的进攻仍然猛烈！全力拆除炸弹！";
+        }
         if (phase == Phase.RETREAT) {
             int defenders = countDefendersInStageBoundary(room, retreatStageIndex);
             return selfTeam == RoomTeamId.CAMP_A
@@ -1102,6 +1156,13 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             return "等待阶段初始化";
         }
         String code = normalizeCode(point.code());
+        // GD656Mods: 背水一战/破釜沉舟顶部状态(样式复用突破模式, 客户端已支持蓝/红)
+        if (desperateMode == DesperateMode.BACK_TO_WALL) {
+            return hudStyledText("BT_LAST_STAND_STATUS", "背水一战");
+        }
+        if (desperateMode == DesperateMode.BURN_BOATS) {
+            return hudStyledText("BT_BURN_BOATS_STATUS", "破釜沉舟");
+        }
         if (phase == Phase.RETREAT) {
             return "清理阶段" + stageLabel(retreatStageIndex) + "区域守军中";
         }
@@ -1156,6 +1217,12 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private int resolveRemainSeconds(long gameTick) {
+        // GD656Mods: 背水一战/破釜沉舟显示对应倒计时
+        if (desperateMode != DesperateMode.NONE) {
+            return desperateDeadlineTick <= 0L || gameTick >= desperateDeadlineTick
+                ? 0
+                : (int) Math.max(0L, (desperateDeadlineTick - gameTick + 19L) / 20L);
+        }
         if (phase == Phase.RETREAT) {
             return retreatDeadlineTick <= 0L || gameTick >= retreatDeadlineTick ? 0 : (int) Math.max(0L, (retreatDeadlineTick - gameTick + 19L) / 20L);
         }
@@ -1571,6 +1638,111 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
 
     private void consumeAttackTroop(int amount) {
         attackTroops = Math.max(0, attackTroops - Math.max(0, amount));
+    }
+
+    // ===== GD656Mods: Rush 背水一战 / 破釜沉舟 =====
+
+    private boolean isBackToWallEnabled(RoomDefinition room) {
+        return room != null && room.commonConfig().enableBackAgainstWall();
+    }
+
+    /**
+     * 触发背水一战: 进攻方兵力耗尽 且 当前阶段至少一个炸弹点已安放炸弹等待爆炸。
+     * 背水一战持续 2 分钟(短于突破), 期间进攻方兵力无限、游戏正常运行。
+     */
+    private boolean tryActivateBackToWall(RoomDefinition room, long gameTick) {
+        if (!isBackToWallEnabled(room) || desperateMode != DesperateMode.NONE || phase != Phase.COMBAT) {
+            return false;
+        }
+        if (!isAnyCurrentStageBombArmed(room)) {
+            return false;
+        }
+        desperateMode = DesperateMode.BACK_TO_WALL;
+        desperateDeadlineTick = gameTick + RUSH_BACK_TO_WALL_SECONDS * 20L;
+        subtitleService.onBackToWallStart(gameTick);
+        playRushDesperateVoice(true);
+        return true;
+    }
+
+    /**
+     * 背水一战/破釜沉舟状态机。返回 true 表示已处理(转换/结束), 上层停止本 tick 其他判定。
+     */
+    private boolean tickDesperateMode(RoomDefinition room, long gameTick) {
+        if (desperateMode == DesperateMode.NONE) {
+            return false;
+        }
+        if (desperateMode == DesperateMode.BACK_TO_WALL) {
+            if (desperateDeadlineTick > 0L && gameTick < desperateDeadlineTick) {
+                return false;
+            }
+            // 2 分钟到: 所有当前阶段炸弹点均已安放炸弹等待爆炸 -> 进入破釜沉舟; 否则进攻失败
+            if (areAllCurrentStageBombsArmed(room)) {
+                activateBurnBoats(room, gameTick);
+            } else {
+                failDesperateMode(gameTick, "背水一战结束，进攻方未能安装全部炸弹");
+            }
+            return true;
+        }
+        // BURN_BOATS: 倒计时结束(最长引信炸弹爆炸, 正常由 handleBombExploded 触发胜利, 此处兜底)
+        if (desperateDeadlineTick > 0L && gameTick >= desperateDeadlineTick) {
+            desperateMode = DesperateMode.NONE;
+            desperateDeadlineTick = -1L;
+            subtitleService.onBurnBoatsSucceed(gameTick);
+            pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, "破釜沉舟成功");
+            return true;
+        }
+        return false;
+    }
+
+    private boolean areAllCurrentStageBombsArmed(RoomDefinition room) {
+        if (room == null) {
+            return false;
+        }
+        List<RoomCapturePointDefinition> points = currentStageObjectivePoints(room, true);
+        if (points.isEmpty()) {
+            return false;
+        }
+        for (RoomCapturePointDefinition point : points) {
+            if (point == null) {
+                continue;
+            }
+            BombSiteState state = bombStates.get(normalizeCode(point.code()));
+            if (state == null || state.phase() != BombPhase.ARMED) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** 进入破釜沉舟: 时长 = 所有已安放炸弹中引信剩余最长者 */
+    private void activateBurnBoats(RoomDefinition room, long gameTick) {
+        desperateMode = DesperateMode.BURN_BOATS;
+        long maxRemainTicks = 0L;
+        for (BombSiteState state : bombStates.values()) {
+            if (state == null || state.stageIndex() != currentStageIndex || state.phase() != BombPhase.ARMED || state.armedAtTick() < 0L) {
+                continue;
+            }
+            long fuseTicks = room == null ? 0L : Math.max(1L, room.rushConfig().bombFuseTimeSeconds() * 20L);
+            long remain = Math.max(0L, fuseTicks - (gameTick - state.armedAtTick()));
+            maxRemainTicks = Math.max(maxRemainTicks, remain);
+        }
+        desperateDeadlineTick = maxRemainTicks > 0L ? gameTick + maxRemainTicks : gameTick + 20L;
+        subtitleService.onBurnBoatsStart(gameTick);
+        playRushDesperateVoice(false);
+    }
+
+    private void failDesperateMode(long gameTick, String reason) {
+        desperateMode = DesperateMode.NONE;
+        desperateDeadlineTick = -1L;
+        subtitleService.onDesperateFail(gameTick);
+        pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, reason);
+    }
+
+    /** 背水一战/破釜沉舟触发音效: 无专属语音, 复用炸弹警报音表达紧张感 */
+    private void playRushDesperateVoice(boolean backToWall) {
+        String alarm = SOUND_RUSH_ALARM_01.toString();
+        playRushVoiceToTeam(RoomTeamId.CAMP_A, alarm);
+        playRushVoiceToTeam(RoomTeamId.CAMP_B, alarm);
     }
 
     private int addAttackTroops(int amount) {
@@ -2085,6 +2257,13 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         SAFE,
         ARMED,
         EXPLODED
+    }
+
+    /** GD656Mods: Rush 背水一战/破釜沉舟 */
+    private enum DesperateMode {
+        NONE,
+        BACK_TO_WALL,
+        BURN_BOATS
     }
 
     private enum BombHoldAction {

@@ -1111,7 +1111,9 @@ public final class RunningRuntimeState {
         ALLY_PERSISTENT,
         SQUAD_PERSISTENT,
         DOWNED_ALLY,
-        DOWNED_SQUAD
+        DOWNED_SQUAD,
+        RESCUE_ALLY,
+        RESCUE_SQUAD
     }
 
     public static final class SquadWipeProgress {

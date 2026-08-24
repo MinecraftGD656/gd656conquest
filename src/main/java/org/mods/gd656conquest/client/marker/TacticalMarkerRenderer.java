@@ -319,6 +319,8 @@ public final class TacticalMarkerRenderer {
         SQUAD_PERSISTENT,
         DOWNED_ALLY,
         DOWNED_SQUAD,
+        RESCUE_ALLY,
+        RESCUE_SQUAD,
         NEED_AMMO_ALLY,
         NEED_AMMO_SQUAD,
         AMMO_BOX,
@@ -369,6 +371,9 @@ public final class TacticalMarkerRenderer {
                 case SQUAD_PERSISTENT -> new MarkerVisual(MarkerShape.CIRCLE, SQUAD_GREEN_RED, SQUAD_GREEN_GREEN, SQUAD_GREEN_BLUE, 0.50F, ALLY_DOT_RADIUS, null, false, true, true);
                 case DOWNED_ALLY -> new MarkerVisual(MarkerShape.CIRCLE, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.85F, DOWNED_RADIUS, TEX_DOWNED_MEDICAL, true, true, false);
                 case DOWNED_SQUAD -> new MarkerVisual(MarkerShape.CIRCLE, SQUAD_GREEN_RED, SQUAD_GREEN_GREEN, SQUAD_GREEN_BLUE, 0.85F, DOWNED_RADIUS, TEX_DOWNED_MEDICAL, true, true, true);
+                // GD656Mods: 救援提醒标记 —— 形状/动画同敌军标记(菱形), 颜色为友军蓝/小队绿
+                case RESCUE_ALLY -> new MarkerVisual(MarkerShape.DIAMOND, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.90F, DIAMOND_HALF_DIAGONAL, null, false, false, false);
+                case RESCUE_SQUAD -> new MarkerVisual(MarkerShape.DIAMOND, SQUAD_GREEN_RED, SQUAD_GREEN_GREEN, SQUAD_GREEN_BLUE, 0.90F, DIAMOND_HALF_DIAGONAL, null, false, false, false);
                 case NEED_AMMO_ALLY -> new MarkerVisual(MarkerShape.CIRCLE, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.85F, DOWNED_RADIUS, TEX_NEED_AMMO, false, true, false);
                 case NEED_AMMO_SQUAD -> new MarkerVisual(MarkerShape.CIRCLE, SQUAD_GREEN_RED, SQUAD_GREEN_GREEN, SQUAD_GREEN_BLUE, 0.85F, DOWNED_RADIUS, TEX_NEED_AMMO, false, true, true);
                 case AMMO_BOX -> new MarkerVisual(MarkerShape.AMMO_BOX, 1.0F, 1.0F, 1.0F, 0.85F, ALLY_DOT_RADIUS, null, false, false, false);

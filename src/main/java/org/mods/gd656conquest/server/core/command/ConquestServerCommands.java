@@ -97,7 +97,23 @@ public final class ConquestServerCommands {
         "groundSensorMarkDurationSeconds",
         "groundSensorScanBonusCooldownSeconds",
         "boolEnableExperimentalPlayerBalance",
-        "boolMaintenanceMode"
+        "boolMaintenanceMode",
+        "ammoBagTaczPistol",
+        "ammoBagTaczSmg",
+        "ammoBagTaczRifle",
+        "ammoBagTaczSniper",
+        "ammoBagTaczShotgun",
+        "ammoBagTaczMg",
+        "ammoBagTaczRpg",
+        "ammoBagSbw",
+        "supportAmmoBagTaczPistol",
+        "supportAmmoBagTaczSmg",
+        "supportAmmoBagTaczRifle",
+        "supportAmmoBagTaczSniper",
+        "supportAmmoBagTaczShotgun",
+        "supportAmmoBagTaczMg",
+        "supportAmmoBagTaczRpg",
+        "supportAmmoBagSbw"
     );
 
     private ConquestServerCommands() {
@@ -537,6 +553,22 @@ public final class ConquestServerCommands {
         CommandFeedbacks.line(context.getSource(), ServerText.colored("groundSensorScanBonusCooldownSeconds=" + store.getGroundSensorScanBonusCooldownSeconds(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("boolEnableExperimentalPlayerBalance=" + store.isExperimentalPlayerBalanceEnabled(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("boolMaintenanceMode=" + store.isMaintenanceModeEnabled(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("ammoBagTaczPistol=" + store.getAmmoBagTaczPistol(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("ammoBagTaczSmg=" + store.getAmmoBagTaczSmg(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("ammoBagTaczRifle=" + store.getAmmoBagTaczRifle(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("ammoBagTaczSniper=" + store.getAmmoBagTaczSniper(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("ammoBagTaczShotgun=" + store.getAmmoBagTaczShotgun(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("ammoBagTaczMg=" + store.getAmmoBagTaczMg(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("ammoBagTaczRpg=" + store.getAmmoBagTaczRpg(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("ammoBagSbw=" + store.getAmmoBagSbw(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("supportAmmoBagTaczPistol=" + store.getSupportAmmoBagTaczPistol(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("supportAmmoBagTaczSmg=" + store.getSupportAmmoBagTaczSmg(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("supportAmmoBagTaczRifle=" + store.getSupportAmmoBagTaczRifle(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("supportAmmoBagTaczSniper=" + store.getSupportAmmoBagTaczSniper(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("supportAmmoBagTaczShotgun=" + store.getSupportAmmoBagTaczShotgun(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("supportAmmoBagTaczMg=" + store.getSupportAmmoBagTaczMg(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("supportAmmoBagTaczRpg=" + store.getSupportAmmoBagTaczRpg(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("supportAmmoBagSbw=" + store.getSupportAmmoBagSbw(), net.minecraft.ChatFormatting.AQUA));
         return 1;
     }
 
@@ -580,6 +612,22 @@ public final class ConquestServerCommands {
             case "groundSensorScanBonusCooldownSeconds" -> config.setGroundSensorScanBonusCooldownSeconds(parsePositiveInt(rawValue));
             case "boolEnableExperimentalPlayerBalance" -> config.setBoolEnableExperimentalPlayerBalance(parseBooleanStrict(rawValue));
             case "boolMaintenanceMode" -> config.setBoolMaintenanceMode(parseBooleanStrict(rawValue));
+            case "ammoBagTaczPistol" -> config.setAmmoBagTaczPistol(parseNonNegativeInt(rawValue));
+            case "ammoBagTaczSmg" -> config.setAmmoBagTaczSmg(parseNonNegativeInt(rawValue));
+            case "ammoBagTaczRifle" -> config.setAmmoBagTaczRifle(parseNonNegativeInt(rawValue));
+            case "ammoBagTaczSniper" -> config.setAmmoBagTaczSniper(parseNonNegativeInt(rawValue));
+            case "ammoBagTaczShotgun" -> config.setAmmoBagTaczShotgun(parseNonNegativeInt(rawValue));
+            case "ammoBagTaczMg" -> config.setAmmoBagTaczMg(parseNonNegativeInt(rawValue));
+            case "ammoBagTaczRpg" -> config.setAmmoBagTaczRpg(parseNonNegativeInt(rawValue));
+            case "ammoBagSbw" -> config.setAmmoBagSbw(parseNonNegativeInt(rawValue));
+            case "supportAmmoBagTaczPistol" -> config.setSupportAmmoBagTaczPistol(parseNonNegativeInt(rawValue));
+            case "supportAmmoBagTaczSmg" -> config.setSupportAmmoBagTaczSmg(parseNonNegativeInt(rawValue));
+            case "supportAmmoBagTaczRifle" -> config.setSupportAmmoBagTaczRifle(parseNonNegativeInt(rawValue));
+            case "supportAmmoBagTaczSniper" -> config.setSupportAmmoBagTaczSniper(parseNonNegativeInt(rawValue));
+            case "supportAmmoBagTaczShotgun" -> config.setSupportAmmoBagTaczShotgun(parseNonNegativeInt(rawValue));
+            case "supportAmmoBagTaczMg" -> config.setSupportAmmoBagTaczMg(parseNonNegativeInt(rawValue));
+            case "supportAmmoBagTaczRpg" -> config.setSupportAmmoBagTaczRpg(parseNonNegativeInt(rawValue));
+            case "supportAmmoBagSbw" -> config.setSupportAmmoBagSbw(parseNonNegativeInt(rawValue));
             default -> throw new SimpleCommandExceptionType(Component.literal("未知配置项: " + configId)).create();
         }
         store.save(config);
@@ -642,6 +690,22 @@ public final class ConquestServerCommands {
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
             case "boolMaintenanceMode" ->
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
+            case "ammoBagTaczPistol", "supportAmmoBagTaczPistol" ->
+                SharedSuggestionProvider.suggest(List.of("0", "6", "12"), builder);
+            case "ammoBagTaczSmg", "supportAmmoBagTaczSmg" ->
+                SharedSuggestionProvider.suggest(List.of("0", "15", "30"), builder);
+            case "ammoBagTaczRifle", "supportAmmoBagTaczRifle" ->
+                SharedSuggestionProvider.suggest(List.of("0", "10", "20"), builder);
+            case "ammoBagTaczSniper", "supportAmmoBagTaczSniper" ->
+                SharedSuggestionProvider.suggest(List.of("0", "3", "6"), builder);
+            case "ammoBagTaczShotgun", "supportAmmoBagTaczShotgun" ->
+                SharedSuggestionProvider.suggest(List.of("0", "4", "8"), builder);
+            case "ammoBagTaczMg", "supportAmmoBagTaczMg" ->
+                SharedSuggestionProvider.suggest(List.of("0", "20", "40"), builder);
+            case "ammoBagTaczRpg", "supportAmmoBagTaczRpg" ->
+                SharedSuggestionProvider.suggest(List.of("0", "1", "2"), builder);
+            case "ammoBagSbw", "supportAmmoBagSbw" ->
+                SharedSuggestionProvider.suggest(List.of("0", "1", "2"), builder);
             default -> builder.buildFuture();
         };
     }
@@ -687,6 +751,22 @@ public final class ConquestServerCommands {
             case "groundsensorscanbonuscooldownseconds", "groundsensorbonuscooldown", "sensorbonuscooldown" -> "groundSensorScanBonusCooldownSeconds";
             case "boolenableexperimentalplayerbalance", "experimentalplayerbalance", "playerbalance", "teambalance" -> "boolEnableExperimentalPlayerBalance";
             case "boolmaintenancemode", "maintenancemode", "maintenance" -> "boolMaintenanceMode";
+            case "ammobagtaczpistol", "taczpistolammo", "taczpistolammobag" -> "ammoBagTaczPistol";
+            case "ammobagtaczsmg", "taczsmgammo", "taczsmgammobag" -> "ammoBagTaczSmg";
+            case "ammobagtaczrifle", "taczrifleammo", "taczrifleammobag" -> "ammoBagTaczRifle";
+            case "ammobagtaczsniper", "taczsniperammo", "taczsniperammobag" -> "ammoBagTaczSniper";
+            case "ammobagtaczshotgun", "taczshotgunammo", "taczshotgunammobag" -> "ammoBagTaczShotgun";
+            case "ammobagtaczmg", "taczmgammo", "taczmgammobag" -> "ammoBagTaczMg";
+            case "ammobagtaczrpg", "taczrpgammo", "taczheavyammo", "taczheavyammobag" -> "ammoBagTaczRpg";
+            case "ammobagsbw", "sbwammo", "sbwammobag" -> "ammoBagSbw";
+            case "supportammobagtaczpistol", "supporttaczpistolammo" -> "supportAmmoBagTaczPistol";
+            case "supportammobagtaczsmg", "supporttaczsmgammo" -> "supportAmmoBagTaczSmg";
+            case "supportammobagtaczrifle", "supporttaczrifleammo" -> "supportAmmoBagTaczRifle";
+            case "supportammobagtaczsniper", "supporttaczsniperammo" -> "supportAmmoBagTaczSniper";
+            case "supportammobagtaczshotgun", "supporttaczshotgunammo" -> "supportAmmoBagTaczShotgun";
+            case "supportammobagtaczmg", "supporttaczmgammo" -> "supportAmmoBagTaczMg";
+            case "supportammobagtaczrpg", "supporttaczrpgammo", "supporttaczheavyammo" -> "supportAmmoBagTaczRpg";
+            case "supportammobagsbw", "supportsbwammo" -> "supportAmmoBagSbw";
             default -> null;
         };
     }
@@ -722,6 +802,22 @@ public final class ConquestServerCommands {
             case "groundSensorScanBonusCooldownSeconds" -> String.valueOf(store.getGroundSensorScanBonusCooldownSeconds());
             case "boolEnableExperimentalPlayerBalance" -> String.valueOf(store.isExperimentalPlayerBalanceEnabled());
             case "boolMaintenanceMode" -> String.valueOf(store.isMaintenanceModeEnabled());
+            case "ammoBagTaczPistol" -> String.valueOf(store.getAmmoBagTaczPistol());
+            case "ammoBagTaczSmg" -> String.valueOf(store.getAmmoBagTaczSmg());
+            case "ammoBagTaczRifle" -> String.valueOf(store.getAmmoBagTaczRifle());
+            case "ammoBagTaczSniper" -> String.valueOf(store.getAmmoBagTaczSniper());
+            case "ammoBagTaczShotgun" -> String.valueOf(store.getAmmoBagTaczShotgun());
+            case "ammoBagTaczMg" -> String.valueOf(store.getAmmoBagTaczMg());
+            case "ammoBagTaczRpg" -> String.valueOf(store.getAmmoBagTaczRpg());
+            case "ammoBagSbw" -> String.valueOf(store.getAmmoBagSbw());
+            case "supportAmmoBagTaczPistol" -> String.valueOf(store.getSupportAmmoBagTaczPistol());
+            case "supportAmmoBagTaczSmg" -> String.valueOf(store.getSupportAmmoBagTaczSmg());
+            case "supportAmmoBagTaczRifle" -> String.valueOf(store.getSupportAmmoBagTaczRifle());
+            case "supportAmmoBagTaczSniper" -> String.valueOf(store.getSupportAmmoBagTaczSniper());
+            case "supportAmmoBagTaczShotgun" -> String.valueOf(store.getSupportAmmoBagTaczShotgun());
+            case "supportAmmoBagTaczMg" -> String.valueOf(store.getSupportAmmoBagTaczMg());
+            case "supportAmmoBagTaczRpg" -> String.valueOf(store.getSupportAmmoBagTaczRpg());
+            case "supportAmmoBagSbw" -> String.valueOf(store.getSupportAmmoBagSbw());
             default -> "-";
         };
     }

@@ -42,6 +42,9 @@ public final class RoomMarkerRuntimeService {
     private static final int OBSERVE_GROUND_LIFETIME_TICKS = 2 * 20;
     private static final int DIRECT_SPOT_LIFETIME_TICKS = 5 * 20;
     private static final int AUTO_SPOT_LIFETIME_TICKS = 2 * 20;
+    // GD656Mods: 救援提醒标记/actionbar 持续 5 秒
+    private static final int RESCUE_REQUEST_LIFETIME_TICKS = 5 * 20;
+    private static final int RESCUE_ACTIONBAR_TICKS = 5 * 20;
     private static final int MARKER_SYNC_INTERVAL_TICKS = 5;
     private static final double MAX_MARKER_DISTANCE_SQR = 256.0D * 256.0D;
     private static final String ACTIONBAR_SOURCE_MARKER = "room_marker";
@@ -90,6 +93,7 @@ public final class RoomMarkerRuntimeService {
         UUID ownerId = player.getUUID();
         UUID resolvedTargetPlayerId = null;
         BlockPos normalizedPos = blockPos.immutable();
+        ServerPlayer rescueTarget = null;
         if (resolvedKind == RunningRuntimeState.MarkerKind.DIRECT_ENEMY || resolvedKind == RunningRuntimeState.MarkerKind.AUTO_ENEMY) {
             ServerPlayer targetPlayer = resolveDirectEnemyTarget(state, player, targetPlayerId);
             if (targetPlayer == null) {
@@ -97,13 +101,23 @@ public final class RoomMarkerRuntimeService {
             }
             normalizedPos = targetPlayer.blockPosition().immutable();
             resolvedTargetPlayerId = targetPlayer.getUUID();
+        } else if (isRescueRequestKind(resolvedKind)) {
+            // GD656Mods: 救援提醒 —— 标记键指向倒地友军/小队队友图标时, 标记生成在倒地玩家处
+            rescueTarget = resolveDownedFriendlyTarget(state, player, targetPlayerId);
+            if (rescueTarget == null) {
+                return false;
+            }
+            normalizedPos = rescueTarget.blockPosition().immutable();
+            resolvedTargetPlayerId = rescueTarget.getUUID();
         } else if (!isMarkerDistanceValid(player, normalizedPos)) {
             return false;
         }
         Map<UUID, RunningRuntimeState.TacticalMarker> markerMap = resolvedKind == RunningRuntimeState.MarkerKind.AUTO_ENEMY
             ? state.getAutoTacticalMarkersByOwner()
             : state.getTacticalMarkersByOwner();
-        long expireTick = gameTick + resolveLifetimeTicks(resolvedKind);
+        long expireTick = gameTick + (isRescueRequestKind(resolvedKind)
+            ? RESCUE_REQUEST_LIFETIME_TICKS
+            : resolveLifetimeTicks(resolvedKind));
         long directSpotExpireTick = resolvedKind == RunningRuntimeState.MarkerKind.DIRECT_ENEMY ? gameTick + DIRECT_SPOT_LIFETIME_TICKS : -1L;
         markerMap.put(
             ownerId,
@@ -116,7 +130,7 @@ public final class RoomMarkerRuntimeService {
                 directSpotExpireTick
             )
         );
-        if (resolvedKind != RunningRuntimeState.MarkerKind.AUTO_ENEMY) {
+        if (resolvedKind != RunningRuntimeState.MarkerKind.AUTO_ENEMY && !isRescueRequestKind(resolvedKind)) {
             showMarkerSuccessActionbar(player, normalizedPos, resolvedKind, resolvedTargetPlayerId);
         }
         if (resolvedKind == RunningRuntimeState.MarkerKind.DIRECT_ENEMY) {
@@ -129,11 +143,57 @@ public final class RoomMarkerRuntimeService {
                 net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(
                     new org.mods.gd656conquest.server.room.runtime.event.ConquestMarkerSpotPlacedEvent(player, spottedTarget));
             }
+        } else if (isRescueRequestKind(resolvedKind)) {
+            // GD656Mods: 救援提醒 actionbar: 标记者 + 倒地玩家
+            showRescueRequestActionbars(player, rescueTarget, normalizedPos);
+            playMarkerFeedbackSound(player, MARKER_SPOT_SUCCESS_SOUND_ID);
         } else if (resolvedKind != RunningRuntimeState.MarkerKind.AUTO_ENEMY) {
             playMarkerFeedbackSound(player, MARKER_SPOT_FAIL_SOUND_ID);
         }
         syncRunningRoom(room, state, gameTick);
         return true;
+    }
+
+    private static boolean isRescueRequestKind(RunningRuntimeState.MarkerKind kind) {
+        return kind == RunningRuntimeState.MarkerKind.RESCUE_ALLY
+            || kind == RunningRuntimeState.MarkerKind.RESCUE_SQUAD;
+    }
+
+    /** GD656Mods: 校验标记目标为"同阵营且处于倒地/倒地待确认"的玩家 */
+    private ServerPlayer resolveDownedFriendlyTarget(RunningRuntimeState state, ServerPlayer marker, UUID targetPlayerId) {
+        if (state == null || marker == null || targetPlayerId == null) {
+            return null;
+        }
+        ServerPlayer target = server.getPlayerList().getPlayer(targetPlayerId);
+        if (target == null || !target.isAlive() || target.isSpectator()) {
+            return null;
+        }
+        if (!state.isPlayerDowned(targetPlayerId) && !state.isPlayerPendingDowned(targetPlayerId)) {
+            return null;
+        }
+        RoomTeamId markerTeam = state.getRoomTeams().get(marker.getUUID());
+        RoomTeamId targetTeam = state.getRoomTeams().get(targetPlayerId);
+        if (markerTeam == null || markerTeam != targetTeam) {
+            return null;
+        }
+        return target;
+    }
+
+    /** GD656Mods: 救援提醒 actionbar —— 标记者:"已提醒救援 X，请尽快前往"; 倒地玩家:"X(<m>米) 即将前来救援" */
+    private void showRescueRequestActionbars(ServerPlayer marker, ServerPlayer rescueTarget, BlockPos markerPos) {
+        if (marker == null || rescueTarget == null) {
+            return;
+        }
+        String targetName = rescueTarget.getScoreboardName();
+        ServerActionBarService.showBuilder(marker, ACTIONBAR_SOURCE_MARKER, ServerActionBarService.builder()
+            .text("已提醒救援 ", net.minecraft.ChatFormatting.AQUA)
+            .text(targetName, net.minecraft.ChatFormatting.GOLD)
+            .text("，请尽快前往", net.minecraft.ChatFormatting.WHITE), RESCUE_ACTIONBAR_TICKS);
+        double distance = marker.position().distanceTo(rescueTarget.position());
+        ServerActionBarService.showBuilder(rescueTarget, ACTIONBAR_SOURCE_MARKER, ServerActionBarService.builder()
+            .text(marker.getScoreboardName() + "(", net.minecraft.ChatFormatting.GOLD)
+            .text(Math.round(distance) + "米) ", net.minecraft.ChatFormatting.WHITE)
+            .text("即将前来救援", net.minecraft.ChatFormatting.GREEN), RESCUE_ACTIONBAR_TICKS);
     }
 
     public boolean cancelMarker(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long gameTick) {

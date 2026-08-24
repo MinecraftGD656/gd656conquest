@@ -57,6 +57,15 @@ public final class VehicleCompatFacade {
         return SuperbWarfareVehicleCompatBridge.hasOperableWeapon(vehicle, passenger);
     }
 
+    /**
+     * GD656Mods: 该座位是否应锁定"物品栏选中槽位"(selected 不能改变)。
+     * 仅 1 号驾驶位(驾驶员)启用物品栏锁定, 其他座位(2号炮手/车长/三号位/副驾驶等)一律不锁定。
+     * 注意: 仅锁定选中槽位, 绝不拦截滚轮事件本身。
+     */
+    public static boolean shouldLockHotbarForSeat(Entity vehicle, Entity passenger) {
+        return isDriver(vehicle, passenger);
+    }
+
     public static boolean isManagedVehicleEntity(Entity entity) {
         return YwzjVehicleCompatBridge.isManagedVehicleEntity(entity)
             || SuperbWarfareVehicleCompatBridge.isManagedVehicleEntity(entity);

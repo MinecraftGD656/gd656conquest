@@ -32,7 +32,8 @@ public final class RoomSelectionRequestPacket {
         context.enqueueWork(() -> {
             RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(player.server);
             List<ClientRoomSelectionState.Entry> entries = new ArrayList<>();
-            for (int i = 1; i <= 24; i++) {
+            // GD656Mods: 房间数量上限(与服务端 RoomDefinitionRepository.DEFAULT_ROOM_COUNT 保持一致)
+            for (int i = 1; i <= 32; i++) {
                 String roomId = "room_" + String.format("%02d", i);
                 Optional<RoomDefinition> opt = manager.findRoom(roomId);
                 if (opt.isEmpty()) continue;

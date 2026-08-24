@@ -48,6 +48,9 @@ public final class SuperbWarfareVehicleCompatBridge {
     private static Method changeSeatMethod;
     private static Method getNthEntityMethod;
     private static Method getSeatMethod;
+    private static Method getSeatIndexMethod;
+    private static Method getGunDataMethod;
+    private static Method banHandMethod;
     private static Method isWreckMethod;
     private static Method getVehicleFromMenuMethod;
     private static Method getMenuRowsMethod;
@@ -112,24 +115,51 @@ public final class SuperbWarfareVehicleCompatBridge {
         if (!isVehicleEntity(vehicle) || passenger == null) {
             return false;
         }
+        // GD656Mods: 驾驶位判定按"乘客座位号 == 0"(1号驾驶位)。
+        // getSeatIndex = orderedPassengers.indexOf(entity): orderedPassengers 是按座位号索引的数组
+        // (空位为 null), indexOf 返回真实座位号, 且客户端本地同样维护该数组, 判定可靠。
+        // 不使用 getTagSeatIndex(乘客 NBT 座位号): 客户端本地 NBT 可能未同步, 恒返回 0 导致所有座位误判为驾驶位。
+        if (getSeatIndexMethod != null) {
+            try {
+                Object indexValue = getSeatIndexMethod.invoke(vehicle, passenger);
+                if (indexValue instanceof Number number) {
+                    return number.intValue() == 0;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
         return passenger == resolveDriver(vehicle);
     }
 
     /**
-     * GD656Mods: 玩家当前座位是否有可操作的武器(座位 SeatInfo.weapons() 非空)。
+     * GD656Mods: 玩家当前座位是否有可操作的武器。
+     * 以该座位"当前选中的武器数据(getGunData(passenger))"为准:
+     * 配置了武器但不可操作/未选中的座位(如坦克车长位)返回 false。
      */
     public static boolean hasOperableWeapon(Entity vehicle, Entity passenger) {
-        if (!isVehicleEntity(vehicle) || passenger == null || getSeatMethod == null) {
+        if (!isVehicleEntity(vehicle) || passenger == null || getGunDataMethod == null) {
             return false;
         }
         try {
-            Object seatInfo = getSeatMethod.invoke(vehicle, passenger);
-            if (seatInfo == null) {
-                return false;
-            }
-            Method getWeapons = seatInfo.getClass().getMethod("weapons");
-            Object weapons = getWeapons.invoke(seatInfo);
-            return weapons instanceof List<?> list && !list.isEmpty();
+            Object gunData = getGunDataMethod.invoke(vehicle, passenger);
+            return gunData != null;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * GD656Mods: 复用 sbw 模组权威判定 banHand(player):
+     * 该座位是否有武器(getGunData)或 seat.banHand 配置 -> 禁用物品栏/快捷栏。
+     * 无武器座位(如坦克车长/三号位)返回 false, 可自由切换物品栏。
+     */
+    public static boolean isBanHand(Entity vehicle, Entity passenger) {
+        if (!isVehicleEntity(vehicle) || passenger == null || banHandMethod == null) {
+            return false;
+        }
+        try {
+            Object result = banHandMethod.invoke(vehicle, passenger);
+            return Boolean.TRUE.equals(result);
         } catch (Throwable ignored) {
             return false;
         }
@@ -427,6 +457,9 @@ public final class SuperbWarfareVehicleCompatBridge {
             changeSeatMethod = vehicleEntityClass.getMethod("changeSeat", Entity.class, int.class);
             getNthEntityMethod = vehicleEntityClass.getMethod("getNthEntity", int.class);
             getSeatMethod = resolveSeatMethod(vehicleEntityClass);
+            getSeatIndexMethod = resolveSeatIndexMethod(vehicleEntityClass);
+            getGunDataMethod = resolveGunDataMethod(vehicleEntityClass);
+            banHandMethod = resolveBanHandMethod(vehicleEntityClass);
             isWreckMethod = resolveMethod(vehicleEntityClass, "isWreck", "getIsWreck");
             resolveMenuReflection();
             available = true;
@@ -472,6 +505,42 @@ public final class SuperbWarfareVehicleCompatBridge {
         }
         try {
             return vehicleClass.getMethod("getSeat", Entity.class);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /** GD656Mods: 解析 getSeatIndex(Entity) 重载(乘客在按座位号索引的有序乘客数组中的位置, 即真实座位号) */
+    private static Method resolveSeatIndexMethod(Class<?> vehicleClass) {
+        if (vehicleClass == null) {
+            return null;
+        }
+        try {
+            return vehicleClass.getMethod("getSeatIndex", Entity.class);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /** GD656Mods: 解析 getGunData(Entity) 重载(按乘客实体取该座位当前选中的武器数据) */
+    private static Method resolveGunDataMethod(Class<?> vehicleClass) {
+        if (vehicleClass == null) {
+            return null;
+        }
+        try {
+            return vehicleClass.getMethod("getGunData", Entity.class);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /** GD656Mods: 解析 banHand(LivingEntity)(载具座位是否禁用物品栏/快捷栏, sbw 权威判定) */
+    private static Method resolveBanHandMethod(Class<?> vehicleClass) {
+        if (vehicleClass == null) {
+            return null;
+        }
+        try {
+            return vehicleClass.getMethod("banHand", net.minecraft.world.entity.LivingEntity.class);
         } catch (Throwable ignored) {
             return null;
         }

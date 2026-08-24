@@ -36,7 +36,7 @@ import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
-import org.mods.gd656conquest.server.room.model.RoomCommonConfig;
+import org.mods.gd656conquest.server.data.serverconfig.ServerConfigStore;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
@@ -413,14 +413,15 @@ public final class RoomPlayerLoadoutService {
      * @param supportGroup true=支援组配置(自己使用/给予他人), false=自己用组配置(拾取弹药包掉落物)
      */
     public AmmoSupplyResult trySupplyAmmoByBag(ServerPlayer player, boolean supportGroup) {
-        if (player == null) {
+        if (player == null || player.server == null) {
+            return AmmoSupplyResult.EMPTY;
+        }
+        // GD656Mods: 弹药包单次补给数量为全局服务端配置(/gdc config set)
+        ServerConfigStore configStore = ConquestDataManager.of(player.server).serverConfig();
+        if (configStore == null) {
             return AmmoSupplyResult.EMPTY;
         }
         RoomRuntimeContext roomContext = resolveRoomRuntimeContext(player);
-        RoomCommonConfig config = roomContext == null || roomContext.room() == null ? null : roomContext.room().commonConfig();
-        if (config == null) {
-            return AmmoSupplyResult.EMPTY;
-        }
         ConquestDataManager dataManager = ConquestDataManager.of(server);
         EquipmentDataStore equipmentDataHandler = dataManager.equipmentData();
         PlayerDataStore playerDataHandler = dataManager.playerData();
@@ -467,11 +468,11 @@ public final class RoomPlayerLoadoutService {
         if (weapons.isEmpty()) {
             return AmmoSupplyResult.EMPTY;
         }
-        HotbarWeapon target = resolveAmmoBagTarget(weapons, config, supportGroup);
+        HotbarWeapon target = resolveAmmoBagTarget(weapons, configStore, supportGroup);
         if (target == null) {
             return AmmoSupplyResult.EMPTY;
         }
-        int supply = resolveAmmoBagSupplyAmount(config, supportGroup, target.kind(), target.type());
+        int supply = resolveAmmoBagSupplyAmount(configStore, supportGroup, target.kind(), target.type());
         if (supply <= 0) {
             return AmmoSupplyResult.EMPTY;
         }
@@ -504,27 +505,27 @@ public final class RoomPlayerLoadoutService {
      * 每个候选武器仅当"该武器类型的补给数量配置 > 0"时才会被选中,
      * 配置为 0(不补给该类型)的武器直接跳过, 继续寻找下一个可补武器。
      */
-    private HotbarWeapon resolveAmmoBagTarget(List<HotbarWeapon> weapons, RoomCommonConfig config, boolean supportGroup) {
+    private HotbarWeapon resolveAmmoBagTarget(List<HotbarWeapon> weapons, ServerConfigStore configStore, boolean supportGroup) {
         if (weapons == null || weapons.isEmpty()) {
             return null;
         }
         for (HotbarWeapon weapon : weapons) {
-            if (weapon.currentAmmo() <= 0 && resolveAmmoBagSupplyAmount(config, supportGroup, weapon.kind(), weapon.type()) > 0) {
+            if (weapon.currentAmmo() <= 0 && resolveAmmoBagSupplyAmount(configStore, supportGroup, weapon.kind(), weapon.type()) > 0) {
                 return weapon;
             }
         }
         for (HotbarWeapon weapon : weapons) {
-            if (weapon.currentAmmo() < weapon.targetAmmo() && resolveAmmoBagSupplyAmount(config, supportGroup, weapon.kind(), weapon.type()) > 0) {
+            if (weapon.currentAmmo() < weapon.targetAmmo() && resolveAmmoBagSupplyAmount(configStore, supportGroup, weapon.kind(), weapon.type()) > 0) {
                 return weapon;
             }
         }
         for (HotbarWeapon weapon : weapons) {
-            if (weapon.hotbarSlot() == 0 && resolveAmmoBagSupplyAmount(config, supportGroup, weapon.kind(), weapon.type()) > 0) {
+            if (weapon.hotbarSlot() == 0 && resolveAmmoBagSupplyAmount(configStore, supportGroup, weapon.kind(), weapon.type()) > 0) {
                 return weapon;
             }
         }
         for (HotbarWeapon weapon : weapons) {
-            if (resolveAmmoBagSupplyAmount(config, supportGroup, weapon.kind(), weapon.type()) > 0) {
+            if (resolveAmmoBagSupplyAmount(configStore, supportGroup, weapon.kind(), weapon.type()) > 0) {
                 return weapon;
             }
         }
@@ -568,23 +569,23 @@ public final class RoomPlayerLoadoutService {
         return new int[]{mapped};
     }
 
-    /** 按武器类型取弹药包单次补给数量(自己用组/支援组) */
-    private int resolveAmmoBagSupplyAmount(RoomCommonConfig config, boolean supportGroup, String kind, String type) {
-        if (config == null) {
+    /** 按武器类型取弹药包单次补给数量(全局服务端配置, 自己用组/支援组) */
+    private int resolveAmmoBagSupplyAmount(ServerConfigStore configStore, boolean supportGroup, String kind, String type) {
+        if (configStore == null) {
             return 0;
         }
         if ("sbw".equals(kind)) {
-            return supportGroup ? config.supportAmmoBagSbw() : config.ammoBagSbw();
+            return supportGroup ? configStore.getSupportAmmoBagSbw() : configStore.getAmmoBagSbw();
         }
         String t = type == null ? "" : type.toLowerCase(Locale.ROOT);
         return switch (t) {
-            case "pistol" -> supportGroup ? config.supportAmmoBagTaczPistol() : config.ammoBagTaczPistol();
-            case "smg" -> supportGroup ? config.supportAmmoBagTaczSmg() : config.ammoBagTaczSmg();
-            case "rifle" -> supportGroup ? config.supportAmmoBagTaczRifle() : config.ammoBagTaczRifle();
-            case "sniper" -> supportGroup ? config.supportAmmoBagTaczSniper() : config.ammoBagTaczSniper();
-            case "shotgun" -> supportGroup ? config.supportAmmoBagTaczShotgun() : config.ammoBagTaczShotgun();
-            case "mg" -> supportGroup ? config.supportAmmoBagTaczMg() : config.ammoBagTaczMg();
-            case "rpg" -> supportGroup ? config.supportAmmoBagTaczRpg() : config.ammoBagTaczRpg();
+            case "pistol" -> supportGroup ? configStore.getSupportAmmoBagTaczPistol() : configStore.getAmmoBagTaczPistol();
+            case "smg" -> supportGroup ? configStore.getSupportAmmoBagTaczSmg() : configStore.getAmmoBagTaczSmg();
+            case "rifle" -> supportGroup ? configStore.getSupportAmmoBagTaczRifle() : configStore.getAmmoBagTaczRifle();
+            case "sniper" -> supportGroup ? configStore.getSupportAmmoBagTaczSniper() : configStore.getAmmoBagTaczSniper();
+            case "shotgun" -> supportGroup ? configStore.getSupportAmmoBagTaczShotgun() : configStore.getAmmoBagTaczShotgun();
+            case "mg" -> supportGroup ? configStore.getSupportAmmoBagTaczMg() : configStore.getAmmoBagTaczMg();
+            case "rpg" -> supportGroup ? configStore.getSupportAmmoBagTaczRpg() : configStore.getAmmoBagTaczRpg();
             default -> 0;
         };
     }

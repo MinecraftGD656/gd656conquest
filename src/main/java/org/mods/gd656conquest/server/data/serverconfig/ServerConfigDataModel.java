@@ -32,6 +32,24 @@ public final class ServerConfigDataModel {
     private Integer groundSensorScanBonusCooldownSeconds = 10;
     private Boolean boolEnableExperimentalPlayerBalance = false;
     private Boolean boolMaintenanceMode = false;
+    // GD656Mods: 弹药包单次补给数量(自己用组: 拾取弹药包掉落物)
+    private Integer ammoBagTaczPistol = 6;
+    private Integer ammoBagTaczSmg = 15;
+    private Integer ammoBagTaczRifle = 10;
+    private Integer ammoBagTaczSniper = 3;
+    private Integer ammoBagTaczShotgun = 4;
+    private Integer ammoBagTaczMg = 20;
+    private Integer ammoBagTaczRpg = 1;
+    private Integer ammoBagSbw = 1;
+    // GD656Mods: 弹药包单次补给数量(支援组: 自己使用/给予他人弹药包)
+    private Integer supportAmmoBagTaczPistol = 6;
+    private Integer supportAmmoBagTaczSmg = 15;
+    private Integer supportAmmoBagTaczRifle = 10;
+    private Integer supportAmmoBagTaczSniper = 3;
+    private Integer supportAmmoBagTaczShotgun = 4;
+    private Integer supportAmmoBagTaczMg = 20;
+    private Integer supportAmmoBagTaczRpg = 1;
+    private Integer supportAmmoBagSbw = 1;
 
     public Boolean getBoolOverworldInvulnerable() {
         return boolOverworldInvulnerable;
@@ -255,5 +273,133 @@ public final class ServerConfigDataModel {
 
     public void setBoolMaintenanceMode(Boolean boolMaintenanceMode) {
         this.boolMaintenanceMode = boolMaintenanceMode;
+    }
+
+    public Integer getAmmoBagTaczPistol() {
+        return ammoBagTaczPistol;
+    }
+
+    public void setAmmoBagTaczPistol(Integer ammoBagTaczPistol) {
+        this.ammoBagTaczPistol = ammoBagTaczPistol;
+    }
+
+    public Integer getAmmoBagTaczSmg() {
+        return ammoBagTaczSmg;
+    }
+
+    public void setAmmoBagTaczSmg(Integer ammoBagTaczSmg) {
+        this.ammoBagTaczSmg = ammoBagTaczSmg;
+    }
+
+    public Integer getAmmoBagTaczRifle() {
+        return ammoBagTaczRifle;
+    }
+
+    public void setAmmoBagTaczRifle(Integer ammoBagTaczRifle) {
+        this.ammoBagTaczRifle = ammoBagTaczRifle;
+    }
+
+    public Integer getAmmoBagTaczSniper() {
+        return ammoBagTaczSniper;
+    }
+
+    public void setAmmoBagTaczSniper(Integer ammoBagTaczSniper) {
+        this.ammoBagTaczSniper = ammoBagTaczSniper;
+    }
+
+    public Integer getAmmoBagTaczShotgun() {
+        return ammoBagTaczShotgun;
+    }
+
+    public void setAmmoBagTaczShotgun(Integer ammoBagTaczShotgun) {
+        this.ammoBagTaczShotgun = ammoBagTaczShotgun;
+    }
+
+    public Integer getAmmoBagTaczMg() {
+        return ammoBagTaczMg;
+    }
+
+    public void setAmmoBagTaczMg(Integer ammoBagTaczMg) {
+        this.ammoBagTaczMg = ammoBagTaczMg;
+    }
+
+    public Integer getAmmoBagTaczRpg() {
+        return ammoBagTaczRpg;
+    }
+
+    public void setAmmoBagTaczRpg(Integer ammoBagTaczRpg) {
+        this.ammoBagTaczRpg = ammoBagTaczRpg;
+    }
+
+    public Integer getAmmoBagSbw() {
+        return ammoBagSbw;
+    }
+
+    public void setAmmoBagSbw(Integer ammoBagSbw) {
+        this.ammoBagSbw = ammoBagSbw;
+    }
+
+    public Integer getSupportAmmoBagTaczPistol() {
+        return supportAmmoBagTaczPistol;
+    }
+
+    public void setSupportAmmoBagTaczPistol(Integer supportAmmoBagTaczPistol) {
+        this.supportAmmoBagTaczPistol = supportAmmoBagTaczPistol;
+    }
+
+    public Integer getSupportAmmoBagTaczSmg() {
+        return supportAmmoBagTaczSmg;
+    }
+
+    public void setSupportAmmoBagTaczSmg(Integer supportAmmoBagTaczSmg) {
+        this.supportAmmoBagTaczSmg = supportAmmoBagTaczSmg;
+    }
+
+    public Integer getSupportAmmoBagTaczRifle() {
+        return supportAmmoBagTaczRifle;
+    }
+
+    public void setSupportAmmoBagTaczRifle(Integer supportAmmoBagTaczRifle) {
+        this.supportAmmoBagTaczRifle = supportAmmoBagTaczRifle;
+    }
+
+    public Integer getSupportAmmoBagTaczSniper() {
+        return supportAmmoBagTaczSniper;
+    }
+
+    public void setSupportAmmoBagTaczSniper(Integer supportAmmoBagTaczSniper) {
+        this.supportAmmoBagTaczSniper = supportAmmoBagTaczSniper;
+    }
+
+    public Integer getSupportAmmoBagTaczShotgun() {
+        return supportAmmoBagTaczShotgun;
+    }
+
+    public void setSupportAmmoBagTaczShotgun(Integer supportAmmoBagTaczShotgun) {
+        this.supportAmmoBagTaczShotgun = supportAmmoBagTaczShotgun;
+    }
+
+    public Integer getSupportAmmoBagTaczMg() {
+        return supportAmmoBagTaczMg;
+    }
+
+    public void setSupportAmmoBagTaczMg(Integer supportAmmoBagTaczMg) {
+        this.supportAmmoBagTaczMg = supportAmmoBagTaczMg;
+    }
+
+    public Integer getSupportAmmoBagTaczRpg() {
+        return supportAmmoBagTaczRpg;
+    }
+
+    public void setSupportAmmoBagTaczRpg(Integer supportAmmoBagTaczRpg) {
+        this.supportAmmoBagTaczRpg = supportAmmoBagTaczRpg;
+    }
+
+    public Integer getSupportAmmoBagSbw() {
+        return supportAmmoBagSbw;
+    }
+
+    public void setSupportAmmoBagSbw(Integer supportAmmoBagSbw) {
+        this.supportAmmoBagSbw = supportAmmoBagSbw;
     }
 }

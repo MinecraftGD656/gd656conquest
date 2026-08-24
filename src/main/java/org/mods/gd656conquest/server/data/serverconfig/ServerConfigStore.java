@@ -105,6 +105,86 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         return Boolean.TRUE.equals(get().getBoolMaintenanceMode());
     }
 
+    public synchronized int getAmmoBagTaczPistol() {
+        Integer value = get().getAmmoBagTaczPistol();
+        return value == null ? 6 : Math.max(0, value);
+    }
+
+    public synchronized int getAmmoBagTaczSmg() {
+        Integer value = get().getAmmoBagTaczSmg();
+        return value == null ? 15 : Math.max(0, value);
+    }
+
+    public synchronized int getAmmoBagTaczRifle() {
+        Integer value = get().getAmmoBagTaczRifle();
+        return value == null ? 10 : Math.max(0, value);
+    }
+
+    public synchronized int getAmmoBagTaczSniper() {
+        Integer value = get().getAmmoBagTaczSniper();
+        return value == null ? 3 : Math.max(0, value);
+    }
+
+    public synchronized int getAmmoBagTaczShotgun() {
+        Integer value = get().getAmmoBagTaczShotgun();
+        return value == null ? 4 : Math.max(0, value);
+    }
+
+    public synchronized int getAmmoBagTaczMg() {
+        Integer value = get().getAmmoBagTaczMg();
+        return value == null ? 20 : Math.max(0, value);
+    }
+
+    public synchronized int getAmmoBagTaczRpg() {
+        Integer value = get().getAmmoBagTaczRpg();
+        return value == null ? 1 : Math.max(0, value);
+    }
+
+    public synchronized int getAmmoBagSbw() {
+        Integer value = get().getAmmoBagSbw();
+        return value == null ? 1 : Math.max(0, value);
+    }
+
+    public synchronized int getSupportAmmoBagTaczPistol() {
+        Integer value = get().getSupportAmmoBagTaczPistol();
+        return value == null ? 6 : Math.max(0, value);
+    }
+
+    public synchronized int getSupportAmmoBagTaczSmg() {
+        Integer value = get().getSupportAmmoBagTaczSmg();
+        return value == null ? 15 : Math.max(0, value);
+    }
+
+    public synchronized int getSupportAmmoBagTaczRifle() {
+        Integer value = get().getSupportAmmoBagTaczRifle();
+        return value == null ? 10 : Math.max(0, value);
+    }
+
+    public synchronized int getSupportAmmoBagTaczSniper() {
+        Integer value = get().getSupportAmmoBagTaczSniper();
+        return value == null ? 3 : Math.max(0, value);
+    }
+
+    public synchronized int getSupportAmmoBagTaczShotgun() {
+        Integer value = get().getSupportAmmoBagTaczShotgun();
+        return value == null ? 4 : Math.max(0, value);
+    }
+
+    public synchronized int getSupportAmmoBagTaczMg() {
+        Integer value = get().getSupportAmmoBagTaczMg();
+        return value == null ? 20 : Math.max(0, value);
+    }
+
+    public synchronized int getSupportAmmoBagTaczRpg() {
+        Integer value = get().getSupportAmmoBagTaczRpg();
+        return value == null ? 1 : Math.max(0, value);
+    }
+
+    public synchronized int getSupportAmmoBagSbw() {
+        Integer value = get().getSupportAmmoBagSbw();
+        return value == null ? 1 : Math.max(0, value);
+    }
+
     public synchronized double getMissileKillRadius() {
         Double value = get().getMissileKillRadius();
         return value == null || value < 0.0 ? 35.0 : value;
@@ -245,6 +325,30 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         if (model.getGroundSensorScanBonusCooldownSeconds() == null || model.getGroundSensorScanBonusCooldownSeconds() <= 0) {
             model.setGroundSensorScanBonusCooldownSeconds(10);
         }
+        // GD656Mods: 弹药包单次补给数量, 负数钳为 0(不补给该类型)
+        model.setAmmoBagTaczPistol(sanitizeAmmoBagSupply(model.getAmmoBagTaczPistol(), 6));
+        model.setAmmoBagTaczSmg(sanitizeAmmoBagSupply(model.getAmmoBagTaczSmg(), 15));
+        model.setAmmoBagTaczRifle(sanitizeAmmoBagSupply(model.getAmmoBagTaczRifle(), 10));
+        model.setAmmoBagTaczSniper(sanitizeAmmoBagSupply(model.getAmmoBagTaczSniper(), 3));
+        model.setAmmoBagTaczShotgun(sanitizeAmmoBagSupply(model.getAmmoBagTaczShotgun(), 4));
+        model.setAmmoBagTaczMg(sanitizeAmmoBagSupply(model.getAmmoBagTaczMg(), 20));
+        model.setAmmoBagTaczRpg(sanitizeAmmoBagSupply(model.getAmmoBagTaczRpg(), 1));
+        model.setAmmoBagSbw(sanitizeAmmoBagSupply(model.getAmmoBagSbw(), 1));
+        model.setSupportAmmoBagTaczPistol(sanitizeAmmoBagSupply(model.getSupportAmmoBagTaczPistol(), 6));
+        model.setSupportAmmoBagTaczSmg(sanitizeAmmoBagSupply(model.getSupportAmmoBagTaczSmg(), 15));
+        model.setSupportAmmoBagTaczRifle(sanitizeAmmoBagSupply(model.getSupportAmmoBagTaczRifle(), 10));
+        model.setSupportAmmoBagTaczSniper(sanitizeAmmoBagSupply(model.getSupportAmmoBagTaczSniper(), 3));
+        model.setSupportAmmoBagTaczShotgun(sanitizeAmmoBagSupply(model.getSupportAmmoBagTaczShotgun(), 4));
+        model.setSupportAmmoBagTaczMg(sanitizeAmmoBagSupply(model.getSupportAmmoBagTaczMg(), 20));
+        model.setSupportAmmoBagTaczRpg(sanitizeAmmoBagSupply(model.getSupportAmmoBagTaczRpg(), 1));
+        model.setSupportAmmoBagSbw(sanitizeAmmoBagSupply(model.getSupportAmmoBagSbw(), 1));
+    }
+
+    private static int sanitizeAmmoBagSupply(Integer value, int fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        return Math.max(0, value);
     }
 
     private static double sanitizeScopeLimit(Double value, double fallback) {

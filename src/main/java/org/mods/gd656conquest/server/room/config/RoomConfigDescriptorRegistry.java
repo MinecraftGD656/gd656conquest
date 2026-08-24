@@ -170,24 +170,6 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "aircraftOutsideBoundaryCleanupSeconds", "载具出界清理秒数", "commonConfig.aircraftOutsideBoundaryCleanupSeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "playerMaxY", "玩家最大Y轴", "commonConfig.playerMaxY", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "aircraftPassengerMaxY", "空中载具乘员最大Y轴", "commonConfig.aircraftPassengerMaxY", RoomConfigValueType.NUMBER, List.of());
-        // GD656Mods: 弹药包单次补给数量(自己用组: 拾取弹药包掉落物)
-        common(descriptors, RoomConfigCategory.RULES, "ammoBagTaczPistol", "弹药包-TACZ手枪单次补给数量", "commonConfig.ammoBagTaczPistol", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "ammoBagTaczSmg", "弹药包-TACZ冲锋枪单次补给数量", "commonConfig.ammoBagTaczSmg", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "ammoBagTaczRifle", "弹药包-TACZ步枪单次补给数量", "commonConfig.ammoBagTaczRifle", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "ammoBagTaczSniper", "弹药包-TACZ狙击枪单次补给数量", "commonConfig.ammoBagTaczSniper", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "ammoBagTaczShotgun", "弹药包-TACZ霰弹枪单次补给数量", "commonConfig.ammoBagTaczShotgun", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "ammoBagTaczMg", "弹药包-TACZ机枪单次补给数量", "commonConfig.ammoBagTaczMg", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "ammoBagTaczRpg", "弹药包-TACZ重型武器单次补给数量", "commonConfig.ammoBagTaczRpg", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "ammoBagSbw", "弹药包-SBW武器单次补给数量", "commonConfig.ammoBagSbw", RoomConfigValueType.NUMBER, List.of());
-        // GD656Mods: 弹药包单次补给数量(支援组: 自己使用/给予他人弹药包)
-        common(descriptors, RoomConfigCategory.RULES, "supportAmmoBagTaczPistol", "支援弹药包-TACZ手枪单次补给数量", "commonConfig.supportAmmoBagTaczPistol", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "supportAmmoBagTaczSmg", "支援弹药包-TACZ冲锋枪单次补给数量", "commonConfig.supportAmmoBagTaczSmg", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "supportAmmoBagTaczRifle", "支援弹药包-TACZ步枪单次补给数量", "commonConfig.supportAmmoBagTaczRifle", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "supportAmmoBagTaczSniper", "支援弹药包-TACZ狙击枪单次补给数量", "commonConfig.supportAmmoBagTaczSniper", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "supportAmmoBagTaczShotgun", "支援弹药包-TACZ霰弹枪单次补给数量", "commonConfig.supportAmmoBagTaczShotgun", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "supportAmmoBagTaczMg", "支援弹药包-TACZ机枪单次补给数量", "commonConfig.supportAmmoBagTaczMg", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "supportAmmoBagTaczRpg", "支援弹药包-TACZ重型武器单次补给数量", "commonConfig.supportAmmoBagTaczRpg", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "supportAmmoBagSbw", "支援弹药包-SBW武器单次补给数量", "commonConfig.supportAmmoBagSbw", RoomConfigValueType.NUMBER, List.of());
         conquest(descriptors, RoomConfigCategory.TRANSPORT, "teamDeployIconCampA", "阵营A部署图标", "conquestConfig.teamDeployIcons[CAMP_A]", RoomConfigValueType.POSITION, List.of("here"), "campADeployIconPosition");
         conquest(descriptors, RoomConfigCategory.TRANSPORT, "teamDeployIconCampB", "阵营B部署图标", "conquestConfig.teamDeployIcons[CAMP_B]", RoomConfigValueType.POSITION, List.of("here"), "campBDeployIconPosition");
         conquest(descriptors, RoomConfigCategory.TRANSPORT, "deployViewPosition", "部署界面视角", "conquestConfig.deployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"), "deployPagePosition");

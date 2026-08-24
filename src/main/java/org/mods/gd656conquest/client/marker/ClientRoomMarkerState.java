@@ -237,11 +237,32 @@ public final class ClientRoomMarkerState {
             }
         }
 
+        // GD656Mods: 标记键指向倒地友军/小队队友图标 -> 在倒地玩家处生成救援提醒标记(蓝/绿, 5秒)
+        HoveredMarker hovered = resolveHoveredMarker(minecraft);
+        if (hovered != null && isDownedFriendlyMarker(hovered.marker().kind())) {
+            ClientMarker downedMarker = hovered.marker();
+            MarkerKind rescueKind = downedMarker.kind() == MarkerKind.DOWNED_SQUAD ? MarkerKind.RESCUE_SQUAD : MarkerKind.RESCUE_ALLY;
+            NetworkManager.getChannel().sendToServer(RoomMarkerActionPacket.place(
+                new net.minecraft.core.BlockPos(
+                    (int) Math.floor(downedMarker.x()),
+                    (int) Math.floor(downedMarker.y()),
+                    (int) Math.floor(downedMarker.z())
+                ),
+                rescueKind.name(),
+                downedMarker.targetPlayerId()
+            ));
+            return;
+        }
+
         MarkerPlacement placement = resolveMarkerPlacement(minecraft, enemyGroundMode);
         if (placement == null) {
             return;
         }
         NetworkManager.getChannel().sendToServer(RoomMarkerActionPacket.place(placement.blockPos(), placement.kind().name(), placement.targetPlayerId()));
+    }
+
+    private static boolean isDownedFriendlyMarker(MarkerKind kind) {
+        return kind == MarkerKind.DOWNED_ALLY || kind == MarkerKind.DOWNED_SQUAD;
     }
 
     private static Vec3 resolveMarkerRayStart(Minecraft minecraft) {
@@ -1223,6 +1244,8 @@ public final class ClientRoomMarkerState {
             case SQUAD_PERSISTENT -> " 小队队友";
             case DOWNED_ALLY -> " 倒地友军";
             case DOWNED_SQUAD -> " 倒地小队队友";
+            case RESCUE_ALLY -> " 救援提醒";
+            case RESCUE_SQUAD -> " 小队救援提醒";
             case NEED_AMMO_ALLY -> " 需要弹药";
             case NEED_AMMO_SQUAD -> " 小队队友需要弹药";
             case AMMO_BOX -> " 弹药箱";
@@ -1243,8 +1266,8 @@ public final class ClientRoomMarkerState {
         return switch (kind) {
             case OBSERVE_GROUND, REQUEST_STRIKE -> 0x00F28A1A;
             case ENEMY, DIRECT_ENEMY, AUTO_ENEMY, GRENADE_SELF, GRENADE_HOSTILE, BEACON_HOSTILE -> 0x00A61E1E;
-            case ALLY_PERSISTENT, DOWNED_ALLY, NEED_AMMO_ALLY, AMMO_BOX, MEDICAL_BOX, AMMO_BAG, MEDICAL_BAG, BEACON_FRIENDLY -> 0x002ADFFF;
-            case SQUAD_PERSISTENT, DOWNED_SQUAD, NEED_AMMO_SQUAD, GRENADE_FRIENDLY, CLAYMORE_FRIENDLY -> 0x0061FF94;
+            case ALLY_PERSISTENT, DOWNED_ALLY, RESCUE_ALLY, NEED_AMMO_ALLY, AMMO_BOX, MEDICAL_BOX, AMMO_BAG, MEDICAL_BAG, BEACON_FRIENDLY -> 0x002ADFFF;
+            case SQUAD_PERSISTENT, DOWNED_SQUAD, RESCUE_SQUAD, NEED_AMMO_SQUAD, GRENADE_FRIENDLY, CLAYMORE_FRIENDLY -> 0x0061FF94;
             default -> 0x00E7C75A;
         };
     }
@@ -1410,7 +1433,11 @@ public final class ClientRoomMarkerState {
                 Player targetPlayer = resolveTrackedPlayer(minecraft);
                 if (targetPlayer != null) {
                     Vec3 pos = targetPlayer.getPosition(partialTick);
-                    double heightOffset = kind.isDownedMarker() ? Math.max(0.35D, targetPlayer.getBbHeight() * 0.55D) : targetPlayer.getBbHeight() + 0.55D;
+                    double heightOffset = kind.isDownedMarker()
+                        ? Math.max(0.35D, targetPlayer.getBbHeight() * 0.55D)
+                        : kind == MarkerKind.RESCUE_ALLY || kind == MarkerKind.RESCUE_SQUAD
+                            ? Math.max(0.1D, targetPlayer.getBbHeight() * 0.2D)
+                            : targetPlayer.getBbHeight() + 0.55D;
                     return pos.add(0.0D, heightOffset, 0.0D);
                 }
             }
@@ -1461,6 +1488,8 @@ public final class ClientRoomMarkerState {
         SQUAD_PERSISTENT,
         DOWNED_ALLY,
         DOWNED_SQUAD,
+        RESCUE_ALLY,
+        RESCUE_SQUAD,
         NEED_AMMO_ALLY,
         NEED_AMMO_SQUAD,
         AMMO_BOX,
@@ -1500,6 +1529,8 @@ public final class ClientRoomMarkerState {
                 || this == SQUAD_PERSISTENT
                 || this == DOWNED_ALLY
                 || this == DOWNED_SQUAD
+                || this == RESCUE_ALLY
+                || this == RESCUE_SQUAD
                 || this == NEED_AMMO_ALLY
                 || this == NEED_AMMO_SQUAD;
         }
@@ -1513,6 +1544,8 @@ public final class ClientRoomMarkerState {
                 || this == SQUAD_PERSISTENT
                 || this == DOWNED_ALLY
                 || this == DOWNED_SQUAD
+                || this == RESCUE_ALLY
+                || this == RESCUE_SQUAD
                 || this == NEED_AMMO_ALLY
                 || this == NEED_AMMO_SQUAD;
         }
@@ -1529,6 +1562,8 @@ public final class ClientRoomMarkerState {
                 case SQUAD_PERSISTENT -> TacticalMarkerRenderer.MarkerVisualType.SQUAD_PERSISTENT;
                 case DOWNED_ALLY -> TacticalMarkerRenderer.MarkerVisualType.DOWNED_ALLY;
                 case DOWNED_SQUAD -> TacticalMarkerRenderer.MarkerVisualType.DOWNED_SQUAD;
+                case RESCUE_ALLY -> TacticalMarkerRenderer.MarkerVisualType.RESCUE_ALLY;
+                case RESCUE_SQUAD -> TacticalMarkerRenderer.MarkerVisualType.RESCUE_SQUAD;
                 case NEED_AMMO_ALLY -> TacticalMarkerRenderer.MarkerVisualType.NEED_AMMO_ALLY;
                 case NEED_AMMO_SQUAD -> TacticalMarkerRenderer.MarkerVisualType.NEED_AMMO_SQUAD;
                 case AMMO_BOX -> TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX;

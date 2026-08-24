@@ -10,6 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
+import org.mods.gd656conquest.client.compat.ClientWeaponAimCompat;
 import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.CaptureIconEntry;
 import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.HoverLabel;
 import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.RenderedIconBounds;
@@ -42,6 +43,8 @@ final class ClientCaptureWorldIconRenderer {
         float partialTick,
         float deltaSeconds
     ) {
+        // GD656Mods: 每帧按武器开镜状态更新图标淡化(0.1s 渐入/渐隐)
+        ClientWeaponAimCompat.tickFade(minecraft, deltaSeconds);
         boolean deployPhaseActive = ClientDeathFlowState.shouldRenderDeployBoundaries();
         boolean deployWorldIconsVisible = !deployPhaseActive || ClientDeathFlowState.isDeployOpenPhase();
         double bestHoverDistance = Double.MAX_VALUE;
@@ -86,7 +89,9 @@ final class ClientCaptureWorldIconRenderer {
             renderState.screenY = projection.screenY();
             renderState.seenThisFrame = true;
             float crosshairWeightedAlpha = deployPhaseActive ? 1.0F : resolveCrosshairWeightedIconAlpha(gui, projection);
-            float weightedAlpha = crosshairWeightedAlpha * deployIconAlpha;
+            // GD656Mods: 武器开镜(TACZ/SBW)时世界据点图标淡出隐藏(0.1s 渐隐), 取消开镜渐入恢复; 顶部固定 HUD 不受影响
+            float aimFade = ClientWeaponAimCompat.fadeAlpha();
+            float weightedAlpha = crosshairWeightedAlpha * deployIconAlpha * aimFade;
             renderState.alpha = approachAlpha(renderState.alpha, weightedAlpha, deltaSeconds);
             if (renderState.alpha <= 0.01F) {
                 continue;

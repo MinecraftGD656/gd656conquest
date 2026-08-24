@@ -62,6 +62,8 @@ public final class ClientMarkerDebugPreviewState {
             new PreviewEntry("小队永久", TacticalMarkerRenderer.MarkerVisualType.SQUAD_PERSISTENT, false, 1.0F, -1.0F, false, "engineer"),
             new PreviewEntry("倒地友军", TacticalMarkerRenderer.MarkerVisualType.DOWNED_ALLY, false, 1.0F, helpPulse, false, "recon"),
             new PreviewEntry("倒地小队", TacticalMarkerRenderer.MarkerVisualType.DOWNED_SQUAD, false, 1.0F, helpPulse, false, "support"),
+            new PreviewEntry("救援提醒友军", TacticalMarkerRenderer.MarkerVisualType.RESCUE_ALLY, false, 0.90F, -1.0F, false, ""),
+            new PreviewEntry("救援提醒小队", TacticalMarkerRenderer.MarkerVisualType.RESCUE_SQUAD, false, 0.90F, -1.0F, false, ""),
             new PreviewEntry("需弹药友军", TacticalMarkerRenderer.MarkerVisualType.NEED_AMMO_ALLY, false, 1.0F, needAmmoPulse, false, "support"),
             new PreviewEntry("需弹药小队", TacticalMarkerRenderer.MarkerVisualType.NEED_AMMO_SQUAD, false, 1.0F, needAmmoPulse, false, "support"),
             new PreviewEntry("弹药箱", TacticalMarkerRenderer.MarkerVisualType.AMMO_BOX, false, 1.0F, -1.0F, true, ""),
@@ -99,8 +101,8 @@ public final class ClientMarkerDebugPreviewState {
             int textRgb = switch (entry.visualType()) {
                 case ENEMY_GROUND, ENEMY_TRACKED, AUTO_ENEMY, GRENADE_SELF, GRENADE_HOSTILE, BEACON_HOSTILE -> 0x00F1C1C1;
                 case OBSERVE_GROUND -> 0x00F2C28D;
-                case ALLY_PERSISTENT, DOWNED_ALLY, NEED_AMMO_ALLY, AMMO_BOX, MEDICAL_BOX, AMMO_BAG, MEDICAL_BAG, BEACON_FRIENDLY -> 0x0057F2FF;
-                case SQUAD_PERSISTENT, DOWNED_SQUAD, NEED_AMMO_SQUAD, GRENADE_FRIENDLY, CLAYMORE_FRIENDLY -> 0x0079FFAF;
+                case ALLY_PERSISTENT, DOWNED_ALLY, RESCUE_ALLY, NEED_AMMO_ALLY, AMMO_BOX, MEDICAL_BOX, AMMO_BAG, MEDICAL_BAG, BEACON_FRIENDLY -> 0x0057F2FF;
+                case SQUAD_PERSISTENT, DOWNED_SQUAD, RESCUE_SQUAD, NEED_AMMO_SQUAD, GRENADE_FRIENDLY, CLAYMORE_FRIENDLY -> 0x0079FFAF;
                 default -> 0x00E6EEF8;
             };
             CaptureDiamondRenderer.drawCenteredHudText(gui, minecraft.font, entry.label(), centerX, centerY + 24.0F, textRgb, 0.46F, false, 0.62F);

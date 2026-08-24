@@ -58,25 +58,7 @@ public record RoomCommonConfig(
     String campAEquipmentSetId,
     String campBEquipmentSetId,
     String mapName,
-    String roomDescription,
-    // GD656Mods: 弹药包单次补给数量(按武器类型) —— 自己用组: 拾取弹药包掉落物时使用
-    int ammoBagTaczPistol,
-    int ammoBagTaczSmg,
-    int ammoBagTaczRifle,
-    int ammoBagTaczSniper,
-    int ammoBagTaczShotgun,
-    int ammoBagTaczMg,
-    int ammoBagTaczRpg,
-    int ammoBagSbw,
-    // GD656Mods: 弹药包单次补给数量(支援组) —— 支援兵自己使用/给予他人弹药包时使用
-    int supportAmmoBagTaczPistol,
-    int supportAmmoBagTaczSmg,
-    int supportAmmoBagTaczRifle,
-    int supportAmmoBagTaczSniper,
-    int supportAmmoBagTaczShotgun,
-    int supportAmmoBagTaczMg,
-    int supportAmmoBagTaczRpg,
-    int supportAmmoBagSbw
+    String roomDescription
 ) {
     public RoomCommonConfig {
         matchingConfig = matchingConfig == null ? RoomMatchingConfig.defaults() : matchingConfig;
@@ -118,23 +100,6 @@ public record RoomCommonConfig(
         campBEquipmentSetId = normalizeEquipmentSetId(campBEquipmentSetId);
         mapName = normalizeMapName(mapName);
         roomDescription = normalizeRoomDescription(roomDescription);
-        // GD656Mods: 弹药包单次补给数量, 负数视为不补给(0)
-        ammoBagTaczPistol = Math.max(0, ammoBagTaczPistol);
-        ammoBagTaczSmg = Math.max(0, ammoBagTaczSmg);
-        ammoBagTaczRifle = Math.max(0, ammoBagTaczRifle);
-        ammoBagTaczSniper = Math.max(0, ammoBagTaczSniper);
-        ammoBagTaczShotgun = Math.max(0, ammoBagTaczShotgun);
-        ammoBagTaczMg = Math.max(0, ammoBagTaczMg);
-        ammoBagTaczRpg = Math.max(0, ammoBagTaczRpg);
-        ammoBagSbw = Math.max(0, ammoBagSbw);
-        supportAmmoBagTaczPistol = Math.max(0, supportAmmoBagTaczPistol);
-        supportAmmoBagTaczSmg = Math.max(0, supportAmmoBagTaczSmg);
-        supportAmmoBagTaczRifle = Math.max(0, supportAmmoBagTaczRifle);
-        supportAmmoBagTaczSniper = Math.max(0, supportAmmoBagTaczSniper);
-        supportAmmoBagTaczShotgun = Math.max(0, supportAmmoBagTaczShotgun);
-        supportAmmoBagTaczMg = Math.max(0, supportAmmoBagTaczMg);
-        supportAmmoBagTaczRpg = Math.max(0, supportAmmoBagTaczRpg);
-        supportAmmoBagSbw = Math.max(0, supportAmmoBagSbw);
     }
 
     public static RoomCommonConfig defaults() {
@@ -189,25 +154,7 @@ public record RoomCommonConfig(
             "",
             "",
             "",
-            "",
-            // GD656Mods: 弹药包单次补给数量默认值(自己用组: 拾取掉落物)
-            6,
-            15,
-            10,
-            3,
-            4,
-            20,
-            1,
-            1,
-            // GD656Mods: 弹药包单次补给数量默认值(支援组: 自己使用/给予他人)
-            6,
-            15,
-            10,
-            3,
-            4,
-            20,
-            1,
-            1
+            ""
         );
     }
 
