@@ -47,6 +47,7 @@ public final class SuperbWarfareVehicleCompatBridge {
     private static Method getVehicleTypeMethod;
     private static Method changeSeatMethod;
     private static Method getNthEntityMethod;
+    private static Method getSeatMethod;
     private static Method isWreckMethod;
     private static Method getVehicleFromMenuMethod;
     private static Method getMenuRowsMethod;
@@ -102,6 +103,36 @@ public final class SuperbWarfareVehicleCompatBridge {
 
     public static boolean isVehicleEntity(Entity entity) {
         return entity != null && resolveReflection() && vehicleEntityClass != null && vehicleEntityClass.isInstance(entity);
+    }
+
+    /**
+     * GD656Mods: 玩家是否为载具驾驶员(第一个座位/0号实体)。
+     */
+    public static boolean isDriver(Entity vehicle, Entity passenger) {
+        if (!isVehicleEntity(vehicle) || passenger == null) {
+            return false;
+        }
+        return passenger == resolveDriver(vehicle);
+    }
+
+    /**
+     * GD656Mods: 玩家当前座位是否有可操作的武器(座位 SeatInfo.weapons() 非空)。
+     */
+    public static boolean hasOperableWeapon(Entity vehicle, Entity passenger) {
+        if (!isVehicleEntity(vehicle) || passenger == null || getSeatMethod == null) {
+            return false;
+        }
+        try {
+            Object seatInfo = getSeatMethod.invoke(vehicle, passenger);
+            if (seatInfo == null) {
+                return false;
+            }
+            Method getWeapons = seatInfo.getClass().getMethod("weapons");
+            Object weapons = getWeapons.invoke(seatInfo);
+            return weapons instanceof List<?> list && !list.isEmpty();
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     public static boolean isManagedVehicleEntity(Entity entity) {
@@ -395,6 +426,7 @@ public final class SuperbWarfareVehicleCompatBridge {
             getVehicleTypeMethod = vehicleEntityClass.getMethod("getVehicleType");
             changeSeatMethod = vehicleEntityClass.getMethod("changeSeat", Entity.class, int.class);
             getNthEntityMethod = vehicleEntityClass.getMethod("getNthEntity", int.class);
+            getSeatMethod = resolveSeatMethod(vehicleEntityClass);
             isWreckMethod = resolveMethod(vehicleEntityClass, "isWreck", "getIsWreck");
             resolveMenuReflection();
             available = true;
@@ -431,6 +463,18 @@ public final class SuperbWarfareVehicleCompatBridge {
             }
         }
         return null;
+    }
+
+    /** GD656Mods: 解析 getSeat(Entity) 重载(按乘客实体取座位信息), 用于判断座位是否有可操作武器 */
+    private static Method resolveSeatMethod(Class<?> vehicleClass) {
+        if (vehicleClass == null) {
+            return null;
+        }
+        try {
+            return vehicleClass.getMethod("getSeat", Entity.class);
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     private static float toFloat(Object value) {

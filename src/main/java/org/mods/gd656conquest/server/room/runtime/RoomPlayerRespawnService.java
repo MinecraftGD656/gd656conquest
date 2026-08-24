@@ -170,6 +170,8 @@ public final class RoomPlayerRespawnService {
         notifyNearbyTeammatesManDown(state, playerId, deathPosition, killerEntityId, false);
         ServerPlayer player = server.getPlayerList().getPlayer(playerId);
         if (player != null) {
+            // GD656Mods: 玩家确认死亡时实现对局内暂存的配装修改
+            org.mods.gd656conquest.server.loadout.LoadoutUiService.applyPendingLoadoutEdits(player);
             prepareRespawnAnchor(room, state, player);
             if (deathmatch) {
                 ServerPlayer killerPlayer = findPlayerByEntityId(killerEntityId);
@@ -1229,6 +1231,8 @@ public final class RoomPlayerRespawnService {
         releaseForcedReviveCrouch(reviver);
         state.clearRespawnFlow(playerId);
         if (player != null) {
+            // GD656Mods: 玩家确认死亡时实现对局内暂存的配装修改
+            org.mods.gd656conquest.server.loadout.LoadoutUiService.applyPendingLoadoutEdits(player);
             ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DOWNED);
             ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DOWNED_BEING_RESCUED);
             PlayerAnimatorDebugDimensionsState.stopPreview(player);

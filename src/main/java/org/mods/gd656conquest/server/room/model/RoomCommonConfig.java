@@ -58,7 +58,25 @@ public record RoomCommonConfig(
     String campAEquipmentSetId,
     String campBEquipmentSetId,
     String mapName,
-    String roomDescription
+    String roomDescription,
+    // GD656Mods: 弹药包单次补给数量(按武器类型) —— 自己用组: 拾取弹药包掉落物时使用
+    int ammoBagTaczPistol,
+    int ammoBagTaczSmg,
+    int ammoBagTaczRifle,
+    int ammoBagTaczSniper,
+    int ammoBagTaczShotgun,
+    int ammoBagTaczMg,
+    int ammoBagTaczRpg,
+    int ammoBagSbw,
+    // GD656Mods: 弹药包单次补给数量(支援组) —— 支援兵自己使用/给予他人弹药包时使用
+    int supportAmmoBagTaczPistol,
+    int supportAmmoBagTaczSmg,
+    int supportAmmoBagTaczRifle,
+    int supportAmmoBagTaczSniper,
+    int supportAmmoBagTaczShotgun,
+    int supportAmmoBagTaczMg,
+    int supportAmmoBagTaczRpg,
+    int supportAmmoBagSbw
 ) {
     public RoomCommonConfig {
         matchingConfig = matchingConfig == null ? RoomMatchingConfig.defaults() : matchingConfig;
@@ -70,7 +88,9 @@ public record RoomCommonConfig(
         respawnDelaySeconds = Math.max(0, respawnDelaySeconds);
         outsideBoundaryDeathSeconds = Math.max(0, outsideBoundaryDeathSeconds);
         aircraftOutsideBoundaryCleanupSeconds = Math.max(0, aircraftOutsideBoundaryCleanupSeconds);
-        playerMaxY = Math.max(0, playerMaxY);
+        // GD656Mods: 玩家最大Y轴支持负数 —— 1.17 起世界最低 Y 为 -64, 地下房间可配置负数上限;
+        // 0 仍表示未配置(不检查高度)。
+        playerMaxY = Math.max(-64, playerMaxY);
         aircraftPassengerMaxY = Math.max(0, aircraftPassengerMaxY);
         campADisplayName = normalizeDisplayName(campADisplayName, "CampA");
         campBDisplayName = normalizeDisplayName(campBDisplayName, "CampB");
@@ -98,6 +118,23 @@ public record RoomCommonConfig(
         campBEquipmentSetId = normalizeEquipmentSetId(campBEquipmentSetId);
         mapName = normalizeMapName(mapName);
         roomDescription = normalizeRoomDescription(roomDescription);
+        // GD656Mods: 弹药包单次补给数量, 负数视为不补给(0)
+        ammoBagTaczPistol = Math.max(0, ammoBagTaczPistol);
+        ammoBagTaczSmg = Math.max(0, ammoBagTaczSmg);
+        ammoBagTaczRifle = Math.max(0, ammoBagTaczRifle);
+        ammoBagTaczSniper = Math.max(0, ammoBagTaczSniper);
+        ammoBagTaczShotgun = Math.max(0, ammoBagTaczShotgun);
+        ammoBagTaczMg = Math.max(0, ammoBagTaczMg);
+        ammoBagTaczRpg = Math.max(0, ammoBagTaczRpg);
+        ammoBagSbw = Math.max(0, ammoBagSbw);
+        supportAmmoBagTaczPistol = Math.max(0, supportAmmoBagTaczPistol);
+        supportAmmoBagTaczSmg = Math.max(0, supportAmmoBagTaczSmg);
+        supportAmmoBagTaczRifle = Math.max(0, supportAmmoBagTaczRifle);
+        supportAmmoBagTaczSniper = Math.max(0, supportAmmoBagTaczSniper);
+        supportAmmoBagTaczShotgun = Math.max(0, supportAmmoBagTaczShotgun);
+        supportAmmoBagTaczMg = Math.max(0, supportAmmoBagTaczMg);
+        supportAmmoBagTaczRpg = Math.max(0, supportAmmoBagTaczRpg);
+        supportAmmoBagSbw = Math.max(0, supportAmmoBagSbw);
     }
 
     public static RoomCommonConfig defaults() {
@@ -121,7 +158,7 @@ public record RoomCommonConfig(
             RoomResultConfig.defaults(),
             false,
             false,
-            false,
+            true,  // disableInventoryChange: 默认禁用玩家背包
             false,
             false,
             false,
@@ -152,7 +189,25 @@ public record RoomCommonConfig(
             "",
             "",
             "",
-            ""
+            "",
+            // GD656Mods: 弹药包单次补给数量默认值(自己用组: 拾取掉落物)
+            6,
+            15,
+            10,
+            3,
+            4,
+            20,
+            1,
+            1,
+            // GD656Mods: 弹药包单次补给数量默认值(支援组: 自己使用/给予他人)
+            6,
+            15,
+            10,
+            3,
+            4,
+            20,
+            1,
+            1
         );
     }
 

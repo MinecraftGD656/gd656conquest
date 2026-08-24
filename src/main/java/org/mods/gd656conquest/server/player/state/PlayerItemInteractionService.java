@@ -20,7 +20,6 @@ import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
 public final class PlayerItemInteractionService {
     private static final int PICKUP_USE_MEDICAL_DURATION_TICKS = 3 * 20;
     private static final int PICKUP_USE_MEDICAL_AMPLIFIER = 2;
-    private static final int PICKUP_USE_AMMO_AMOUNT = 40;
 
     private PlayerItemInteractionService() {
     }
@@ -95,10 +94,11 @@ public final class PlayerItemInteractionService {
             }
             return;
         }
+        // GD656Mods: 拾取弹药包掉落物走"自己用组"补给量配置, 单个弹药包只补一个槽位
         RoomPlayerLoadoutService.AmmoSupplyResult result =
-            RoomCoreRuntimeManager.of(player.server).trySupplyAmmoByBag(player, PICKUP_USE_AMMO_AMOUNT);
+            RoomCoreRuntimeManager.of(player.server).trySupplyAmmoByBag(player, false);
         if (result.totalAdded() <= 0) {
-            // GD656Mods: 弹药已满无需补给时, 房间禁用背包下不允许物品落进背包,
+            // GD656Mods: 无可补给弹药时, 房间禁用背包下不允许物品落进背包,
             // 直接取消拾取让弹药包留在原地; 未禁用背包时维持原行为(进背包)。
             if (ServerPlayerLockService.of(player.server).shouldBlockInventoryOperation(player)) {
                 event.setCanceled(true);
@@ -106,7 +106,8 @@ public final class PlayerItemInteractionService {
             return;
         }
         stack.shrink(1);
-        ServerMessageSender.actionBar(player, "房间", Component.literal("拾取并直接使用了弹药包").withStyle(ChatFormatting.GREEN));
+        String slotText = result.slotIndex() >= 0 ? (result.slotIndex() + 1) + "槽位" : "";
+        ServerMessageSender.actionBar(player, "房间", Component.literal("成功拾取并补给了" + slotText + "武器的弹药").withStyle(ChatFormatting.GREEN));
         cleanupPickedItemEntity(itemEntity);
         event.setCanceled(true);
     }

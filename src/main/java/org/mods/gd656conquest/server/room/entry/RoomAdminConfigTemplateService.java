@@ -177,7 +177,23 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.campAEquipmentSetId(),
             sourceCommon.campBEquipmentSetId(),
             sourceCommon.mapName(),
-            sourceCommon.roomDescription()
+            sourceCommon.roomDescription(),
+            sourceCommon.ammoBagTaczPistol(),
+            sourceCommon.ammoBagTaczSmg(),
+            sourceCommon.ammoBagTaczRifle(),
+            sourceCommon.ammoBagTaczSniper(),
+            sourceCommon.ammoBagTaczShotgun(),
+            sourceCommon.ammoBagTaczMg(),
+            sourceCommon.ammoBagTaczRpg(),
+            sourceCommon.ammoBagSbw(),
+            sourceCommon.supportAmmoBagTaczPistol(),
+            sourceCommon.supportAmmoBagTaczSmg(),
+            sourceCommon.supportAmmoBagTaczRifle(),
+            sourceCommon.supportAmmoBagTaczSniper(),
+            sourceCommon.supportAmmoBagTaczShotgun(),
+            sourceCommon.supportAmmoBagTaczMg(),
+            sourceCommon.supportAmmoBagTaczRpg(),
+            sourceCommon.supportAmmoBagSbw()
         );
         return new RoomDefinition(
             target.roomId(),

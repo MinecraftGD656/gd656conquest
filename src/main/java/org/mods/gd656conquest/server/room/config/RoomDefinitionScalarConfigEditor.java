@@ -235,6 +235,10 @@ public final class RoomDefinitionScalarConfigEditor {
         if ("fullcaptureendseconds".equals(configId)) {
             return parseNonNegativeOrDisable(rawValue);
         }
+        // GD656Mods: 玩家最大Y轴支持负数(1.17 起世界最低 Y 为 -64)
+        if ("playermaxy".equals(configId)) {
+            return parsePlayerMaxY(rawValue);
+        }
         if (requiresPositiveInt(configId)) {
             return parsePositiveInt(rawValue);
         }
@@ -244,7 +248,7 @@ public final class RoomDefinitionScalarConfigEditor {
     private static boolean requiresPositiveInt(String configId) {
         return switch (configId) {
             case "minstartplayers", "queuemaxplayers", "outsideboundarydeathseconds",
-                "aircraftoutsideboundarycleanupseconds", "playermaxy", "aircraftpassengermaxy",
+                "aircraftoutsideboundarycleanupseconds", "aircraftpassengermaxy",
                 "dmmatchdurationminutes", "dmtargetscore", "dmstartcountdownseconds", "dmrespawnseconds",
                 "gmmatchdurationminutes", "gmtargetscore", "gmstartcountdownseconds", "gmrespawnseconds",
                 "gmkillsperweaponswitch", "antibasenuketriggerseconds", "antibasenukerespawndelayseconds",
@@ -356,6 +360,18 @@ public final class RoomDefinitionScalarConfigEditor {
         int parsed = parseInt(rawValue);
         if (parsed <= 0) {
             throw new IllegalArgumentException("必须大于 0: " + rawValue);
+        }
+        return parsed;
+    }
+
+    /**
+     * GD656Mods: 玩家最大Y轴支持负数 —— 1.17 起世界最低 Y 为 -64, 地下房间可配置负数上限;
+     * 0 表示未配置(不检查高度), 低于 -64 视为非法。
+     */
+    private static int parsePlayerMaxY(String rawValue) {
+        int parsed = parseInt(rawValue);
+        if (parsed < -64) {
+            throw new IllegalArgumentException("不能小于 -64(世界最低Y): " + rawValue);
         }
         return parsed;
     }

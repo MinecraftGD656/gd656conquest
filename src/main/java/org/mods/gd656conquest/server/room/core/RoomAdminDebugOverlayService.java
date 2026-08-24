@@ -65,9 +65,12 @@ public final class RoomAdminDebugOverlayService {
         }
         StringBuilder builder = new StringBuilder();
         RoomObjectiveRuntimeView captureState = resolveCaptureState(runtimeState);
+        // GD656Mods: 战斗区域边界(区域/阶段边界、公共边界、campA/B大本营边界、campA/B活动范围边界)
+        // 是最重要的信息, 必须最先 append —— payload 超长截断(MAX_PAYLOAD_BYTES=32767)发生在字符串
+        // 末尾, 若边界点排在最后, 标记点一多就会被截掉导致"渐渐不显示边界"。
+        appendBoundaryPoints(builder, room);
         appendCaptureCenters(builder, room, captureState);
         appendConfiguredCoordinateMarkers(builder, roomId, room);
-        appendBoundaryPoints(builder, room);
         String payload = builder.length() == 0 ? "-" : builder.toString();
         if (!"-".equals(payload) && payload.length() > MAX_PAYLOAD_BYTES) {
             int lastValidSemi = payload.lastIndexOf(';', MAX_PAYLOAD_BYTES);

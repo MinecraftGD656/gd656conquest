@@ -39,6 +39,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -259,6 +260,44 @@ public final class RoomLoadoutGrantService {
                 }
             }
             return new TaczAmmoMeta(ammoId, stackSize);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * GD656Mods: 解析 TACZ 枪械类型字符串(如 pistol/smg/rifle/sniper/shotgun/mg/rpg),
+     * 用于弹药包按武器类型配置单次补给数量。未知/异常返回 null。
+     */
+    public String resolveTaczGunType(ItemStack gunStack) {
+        if (gunStack == null || gunStack.isEmpty()) {
+            return null;
+        }
+        try {
+            Class<?> iGunClass = Class.forName("com.tacz.guns.api.item.IGun");
+            Method getIGunOrNull = iGunClass.getMethod("getIGunOrNull", ItemStack.class);
+            Object iGun = getIGunOrNull.invoke(null, gunStack);
+            if (iGun == null) {
+                return null;
+            }
+            Method getGunId = iGunClass.getMethod("getGunId", ItemStack.class);
+            Object gunIdObject = getGunId.invoke(iGun, gunStack);
+            if (!(gunIdObject instanceof ResourceLocation gunId)) {
+                return null;
+            }
+            Class<?> timelessApiClass = Class.forName("com.tacz.guns.api.TimelessAPI");
+            Method getCommonGunIndex = timelessApiClass.getMethod("getCommonGunIndex", ResourceLocation.class);
+            Object gunIndexOptionalObject = getCommonGunIndex.invoke(null, gunId);
+            if (!(gunIndexOptionalObject instanceof Optional<?> gunIndexOptional) || gunIndexOptional.isEmpty()) {
+                return null;
+            }
+            Object gunIndex = gunIndexOptional.get();
+            Method getType = gunIndex.getClass().getMethod("getType");
+            Object typeObject = getType.invoke(gunIndex);
+            if (!(typeObject instanceof String type) || type.isBlank()) {
+                return null;
+            }
+            return type.trim().toLowerCase(Locale.ROOT);
         } catch (Throwable ignored) {
             return null;
         }

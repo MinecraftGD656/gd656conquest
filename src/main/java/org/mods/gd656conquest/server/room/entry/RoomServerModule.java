@@ -40,6 +40,8 @@ public final class RoomServerModule implements ServerModule {
         if (player == null || player.server == null) {
             return;
         }
+        // GD656Mods: 玩家离线时直接实现对局内暂存的配装修改
+        org.mods.gd656conquest.server.loadout.LoadoutUiService.applyPendingLoadoutEdits(player);
         RoomCoreRuntimeManager.of(player.server).handlePlayerLogout(player.getUUID(), player.server.getTickCount());
     }
 

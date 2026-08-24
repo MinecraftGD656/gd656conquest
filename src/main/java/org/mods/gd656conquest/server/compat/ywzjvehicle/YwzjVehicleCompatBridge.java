@@ -48,6 +48,7 @@ public final class YwzjVehicleCompatBridge {
     private static Method canAddPassengerMethod;
     private static Method passengerCapacityMethod;
     private static Method getOwnOperatorUnitMethod;
+    private static Class<?> weaponUnitClass;
     private static Method worldSeatPositionMethod;
     private static Method applySeatRotMethod;
     private static Method positionRiderMethod;
@@ -100,6 +101,36 @@ public final class YwzjVehicleCompatBridge {
 
     public static boolean isVehicleEntity(Entity entity) {
         return entity != null && resolveReflection() && abstractVehicleClass != null && abstractVehicleClass.isInstance(entity);
+    }
+
+    /**
+     * GD656Mods: 玩家是否为载具驾驶员。
+     */
+    public static boolean isDriver(Entity vehicle, Entity passenger) {
+        if (!isVehicleEntity(vehicle) || passenger == null || getDriverMethod == null) {
+            return false;
+        }
+        try {
+            Object driverValue = getDriverMethod.invoke(vehicle);
+            return driverValue == passenger;
+        } catch (ReflectiveOperationException ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * GD656Mods: 玩家当前座位是否有可操作的武器(操作单元为 WeaponUnit)。
+     */
+    public static boolean hasOperableWeapon(Entity vehicle, Entity passenger) {
+        if (!isVehicleEntity(vehicle) || passenger == null || getOwnOperatorUnitMethod == null || weaponUnitClass == null) {
+            return false;
+        }
+        try {
+            Object partUnit = getOwnOperatorUnitMethod.invoke(vehicle, passenger);
+            return partUnit != null && weaponUnitClass.isInstance(partUnit);
+        } catch (ReflectiveOperationException ignored) {
+            return false;
+        }
     }
 
     /**
@@ -416,6 +447,7 @@ public final class YwzjVehicleCompatBridge {
             canAddPassengerMethod = resolveCanAddPassengerMethod(abstractVehicleClass);
             passengerCapacityMethod = resolvePassengerCapacityMethod(abstractVehicleClass);
             getOwnOperatorUnitMethod = resolveOwnOperatorUnitMethod(abstractVehicleClass);
+            weaponUnitClass = resolveWeaponUnitClass();
             worldSeatPositionMethod = resolveWorldSeatPositionMethod(abstractVehicleClass);
             applySeatRotMethod = resolveApplySeatRotMethod(abstractVehicleClass);
             positionRiderMethod = resolvePositionRiderMethod(abstractVehicleClass);
@@ -589,6 +621,15 @@ public final class YwzjVehicleCompatBridge {
             }
         }
         return null;
+    }
+
+    /** GD656Mods: 载具武器操作单元类(org.ywzj.vehicle.vehicle.part.WeaponUnit), 用于判断座位是否有可操作武器 */
+    private static Class<?> resolveWeaponUnitClass() {
+        try {
+            return Class.forName("org.ywzj.vehicle.vehicle.part.WeaponUnit");
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     private static Method resolveWorldSeatPositionMethod(Class<?> vehicleClass) {

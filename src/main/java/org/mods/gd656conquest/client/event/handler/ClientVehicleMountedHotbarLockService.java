@@ -4,7 +4,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraftforge.client.event.InputEvent;
 import org.lwjgl.glfw.GLFW;
-import org.mods.gd656conquest.server.compat.superbwarfare.SuperbWarfareVehicleCompatBridge;
 import org.mods.gd656conquest.server.compat.vehicle.VehicleCompatFacade;
 
 final class ClientVehicleMountedHotbarLockService {
@@ -50,11 +49,18 @@ final class ClientVehicleMountedHotbarLockService {
     }
 
     boolean shouldCancelMouseScroll(Minecraft minecraft) {
-        if (!shouldLockForVehicle(minecraft) || minecraft == null || minecraft.screen != null) {
+        if (minecraft == null || minecraft.screen != null || minecraft.player == null || minecraft.level == null) {
             return false;
         }
-        Entity vehicle = minecraft.player == null ? null : minecraft.player.getVehicle();
-        return !SuperbWarfareVehicleCompatBridge.isVehicleEntity(vehicle);
+        Entity vehicle = minecraft.player.getVehicle();
+        Entity passenger = minecraft.player;
+        if (!VehicleCompatFacade.isVehicleEntity(vehicle) || passenger == null) {
+            return false;
+        }
+        // GD656Mods: 玩家是驾驶员或所在座位有可操作武器 -> 禁用滚轮;
+        // 否则(如直升机副驾驶/无武器乘客位) -> 启用滚轮。
+        return VehicleCompatFacade.isDriver(vehicle, passenger)
+            || VehicleCompatFacade.hasOperableWeapon(vehicle, passenger);
     }
 
     void reset() {

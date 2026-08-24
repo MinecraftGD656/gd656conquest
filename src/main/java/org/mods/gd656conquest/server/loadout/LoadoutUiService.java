@@ -97,6 +97,15 @@ public final class LoadoutUiService {
             return;
         }
         String normalizedAction = action == null ? "" : action.trim().toLowerCase(Locale.ROOT);
+        // GD656Mods: 对局进行中(非部署流程)修改配装 -> 暂存不实现, 于玩家死亡/对局结束时应用
+        if (isLoadoutEditAction(normalizedAction) && isLoadoutEditBlockedInRunning(player)) {
+            if (!validatePendingEditForRoom(player, normalizedAction)) {
+                return;
+            }
+            queuePendingLoadoutEdit(player, normalizedAction, classKey, slotIndex, itemId, contextId, attachmentType);
+            sendInfo(player, "您修改的配装将在下一次死亡时实现");
+            return;
+        }
         switch (normalizedAction) {
             case "select_class" -> {
                 if (applyClassSelection(player, classKey)) {
@@ -1194,6 +1203,105 @@ public final class LoadoutUiService {
             return null;
         }
         return manager.findRoom(roomId).orElse(null);
+    }
+
+    /** 是否为修改配装的动作(兵种/槽位/配件选择) */
+    private static boolean isLoadoutEditAction(String normalizedAction) {
+        return "select_class".equals(normalizedAction)
+            || "select_slot".equals(normalizedAction)
+            || "select_attachment".equals(normalizedAction);
+    }
+
+    /**
+     * GD656Mods: 是否处于"对局进行中且非部署流程"(配装修改需暂存)。
+     * 部署界面(isInDeployFlow)与主城/匹配中(无运行中状态)均允许直接修改。
+     */
+    private static boolean isLoadoutEditBlockedInRunning(ServerPlayer player) {
+        RunningRuntimeState state = resolveCurrentRunningState(player);
+        return state != null && !state.isInDeployFlow(player.getUUID());
+    }
+
+    // GD656Mods: 对局内配装修改暂存区(玩家 UUID -> 待实现编辑列表)
+    private static final Map<UUID, List<PendingLoadoutEdit>> PENDING_LOADOUT_EDITS = new LinkedHashMap<>();
+
+    private record PendingLoadoutEdit(
+        String action,
+        String classKey,
+        int slotIndex,
+        String itemId,
+        String contextId,
+        String attachmentType
+    ) {
+    }
+
+    private static void queuePendingLoadoutEdit(
+        ServerPlayer player,
+        String action,
+        String classKey,
+        int slotIndex,
+        String itemId,
+        String contextId,
+        String attachmentType
+    ) {
+        if (player == null) {
+            return;
+        }
+        PENDING_LOADOUT_EDITS.computeIfAbsent(player.getUUID(), ignored -> new ArrayList<>())
+            .add(new PendingLoadoutEdit(action, classKey, slotIndex, itemId, contextId, attachmentType));
+    }
+
+    /** 暂存前校验房间规则(随机配装/随机配件房间不允许修改配装) */
+    private static boolean validatePendingEditForRoom(ServerPlayer player, String action) {
+        if (isRandomLoadoutEnabledInCurrentRoom(player)) {
+            sendError(player, "select_slot".equals(action)
+                ? "当前房间已启用随机配备，配装将于部署时随机发放"
+                : "select_attachment".equals(action)
+                    ? "当前房间已启用随机配备，武器配件不会按个人配置发放"
+                    : "当前房间已启用随机配备，兵种将于部署时随机发放");
+            return false;
+        }
+        if ("select_attachment".equals(action) && isRandomAttachmentEnabledInCurrentRoom(player)) {
+            sendError(player, "当前房间已启用房间随机配件，武器配件将由服务器随机发放");
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * GD656Mods: 应用玩家暂存的配装修改(玩家死亡/对局结束时调用)。
+     * 按暂存顺序逐个应用, 全部完成后发送"实现"提示; 无暂存或全部失败则不发送。
+     */
+    public static void applyPendingLoadoutEdits(ServerPlayer player) {
+        if (player == null || player.server == null) {
+            return;
+        }
+        List<PendingLoadoutEdit> edits = PENDING_LOADOUT_EDITS.remove(player.getUUID());
+        if (edits == null || edits.isEmpty()) {
+            return;
+        }
+        boolean anyApplied = false;
+        for (PendingLoadoutEdit edit : edits) {
+            if (edit == null) {
+                continue;
+            }
+            boolean applied = switch (edit.action()) {
+                case "select_class" -> applyClassSelection(player, edit.classKey());
+                case "select_slot" -> applySlotSelection(player, edit.classKey(), edit.slotIndex(), edit.itemId());
+                case "select_attachment" -> applyAttachmentSelection(player, edit.slotIndex(), edit.contextId(), edit.attachmentType(), edit.itemId());
+                default -> false;
+            };
+            anyApplied |= applied;
+        }
+        if (anyApplied) {
+            sendInfo(player, "您的上一次配装修改暂存已实现");
+        }
+    }
+
+    /** 玩家离开房间/对局时丢弃未实现的暂存配装修改 */
+    public static void discardPendingLoadoutEdits(UUID playerId) {
+        if (playerId != null) {
+            PENDING_LOADOUT_EDITS.remove(playerId);
+        }
     }
 
     private static RunningRuntimeState resolveCurrentRunningState(ServerPlayer player) {

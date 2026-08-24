@@ -22,7 +22,6 @@ import org.mods.gd656conquest.server.room.runtime.audio.RoomThirdPersonAudioCueR
 
 public class AmmoBagItem extends ConquestGeoItem {
     private static final int ITEM_COOLDOWN_TICKS = 5 * 20;
-    private static final int MAX_AMMO_PER_USE = 75;
     private static final ResourceLocation AMMO_BAG_THROW_SOUND_ID = ResourceLocation.fromNamespaceAndPath("gd656conquest", "sfx.ammo_bag_throw");
 
     public AmmoBagItem(Properties properties, ResourceLocation geoModel, ResourceLocation texture, ResourceLocation animation) {
@@ -97,7 +96,8 @@ public class AmmoBagItem extends ConquestGeoItem {
         if (coreManager.findPlayerRoomId(contextPlayer.getUUID()).isEmpty()) {
             return RoomPlayerLoadoutService.AmmoSupplyResult.EMPTY;
         }
-        return coreManager.trySupplyAmmoByBag(targetPlayer, MAX_AMMO_PER_USE);
+        // GD656Mods: 自己使用/给予他人弹药包走"支援组"补给量配置
+        return coreManager.trySupplyAmmoByBag(targetPlayer, true);
     }
 
     private static boolean isSameCampPlayer(ServerPlayer giver, ServerPlayer receiver) {
@@ -109,17 +109,25 @@ public class AmmoBagItem extends ConquestGeoItem {
     }
 
     private static MutableComponent buildSelfUseMessage(RoomPlayerLoadoutService.AmmoSupplyResult supplyResult) {
-        return Component.literal("弹药已得到补给").withStyle(ChatFormatting.GREEN);
+        return Component.literal("成功补给了" + formatSlot(supplyResult) + "武器的弹药").withStyle(ChatFormatting.GREEN);
     }
 
     private static MutableComponent buildReceiverMessage(ServerPlayer giver, RoomPlayerLoadoutService.AmmoSupplyResult supplyResult) {
         return Component.literal(giver.getGameProfile().getName()).withStyle(ChatFormatting.GOLD)
-                .append(Component.literal(" 给了你一个弹药包，弹药已得到补给").withStyle(ChatFormatting.AQUA));
+                .append(Component.literal(" 给了你一个弹药包，成功补给了" + formatSlot(supplyResult) + "武器的弹药").withStyle(ChatFormatting.AQUA));
     }
 
     private static MutableComponent buildGiverMessage(ServerPlayer receiver, RoomPlayerLoadoutService.AmmoSupplyResult supplyResult) {
         return Component.literal("你给了 ").withStyle(ChatFormatting.GREEN)
                 .append(Component.literal(receiver.getGameProfile().getName()).withStyle(ChatFormatting.GOLD))
-                .append(Component.literal(" 一个弹药包，弹药已得到补给").withStyle(ChatFormatting.GREEN));
+                .append(Component.literal(" 一个弹药包，已补给" + formatSlot(supplyResult) + "武器的弹药").withStyle(ChatFormatting.GREEN));
+    }
+
+    /** 槽位显示(1-9), 无有效槽位时返回空串 */
+    private static String formatSlot(RoomPlayerLoadoutService.AmmoSupplyResult supplyResult) {
+        if (supplyResult == null || supplyResult.slotIndex() < 0) {
+            return "";
+        }
+        return (supplyResult.slotIndex() + 1) + "槽位";
     }
 }

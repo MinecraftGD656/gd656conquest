@@ -253,7 +253,23 @@ public final class RoomDefinitionGroupConfigEditor {
             common.campAEquipmentSetId(),
             common.campBEquipmentSetId(),
             common.mapName(),
-            common.roomDescription()
+            common.roomDescription(),
+            common.ammoBagTaczPistol(),
+            common.ammoBagTaczSmg(),
+            common.ammoBagTaczRifle(),
+            common.ammoBagTaczSniper(),
+            common.ammoBagTaczShotgun(),
+            common.ammoBagTaczMg(),
+            common.ammoBagTaczRpg(),
+            common.ammoBagSbw(),
+            common.supportAmmoBagTaczPistol(),
+            common.supportAmmoBagTaczSmg(),
+            common.supportAmmoBagTaczRifle(),
+            common.supportAmmoBagTaczSniper(),
+            common.supportAmmoBagTaczShotgun(),
+            common.supportAmmoBagTaczMg(),
+            common.supportAmmoBagTaczRpg(),
+            common.supportAmmoBagSbw()
         );
         return new RoomDefinition(
             definition.roomId(),
@@ -855,7 +871,21 @@ public final class RoomDefinitionGroupConfigEditor {
     private static boolean isRushSpawnGroup(String canonical) {
         return "rscampabasespawngroup".equals(canonical)
             || "rscampbbasespawngroup".equals(canonical)
-            || canonical.startsWith("rsbombcampaspawngroup_")
+            || isRushBombSpawnGroupA(canonical)
+            || isRushBombSpawnGroupB(canonical);
+    }
+
+    /** 炸弹点内部出生组(进攻侧): 兼容注册表 ID(rsbombinnerspawngroup_/rsbombinnerspawns_)与旧命令 ID(rsbombcampaspawngroup_) */
+    private static boolean isRushBombSpawnGroupA(String canonical) {
+        return canonical.startsWith("rsbombinnerspawngroup_")
+            || canonical.startsWith("rsbombinnerspawns_")
+            || canonical.startsWith("rsbombcampaspawngroup_");
+    }
+
+    /** 靠防守方内部出生组: 兼容注册表 ID(rsbombdefenderinnerspawngroup_/rsbombdefenderinnerspawns_)与旧命令 ID(rsbombcampbspawngroup_) */
+    private static boolean isRushBombSpawnGroupB(String canonical) {
+        return canonical.startsWith("rsbombdefenderinnerspawngroup_")
+            || canonical.startsWith("rsbombdefenderinnerspawns_")
             || canonical.startsWith("rsbombcampbspawngroup_");
     }
 
@@ -1004,13 +1034,29 @@ public final class RoomDefinitionGroupConfigEditor {
         if ("rscampbbasespawngroup".equals(canonical)) {
             return "rushConfig.campBBaseSpawnGroup";
         }
-        if (canonical.startsWith("rsbombcampaspawngroup_")) {
-            String stageCode = canonical.substring("rsbombcampaspawngroup_".length()).toUpperCase(Locale.ROOT);
-            return "rushConfig.bombInnerSpawnGroup" + stageCode;
+        // 炸弹点内部出生组(进攻侧) -> RoomRushConfig.bombCampASpawnGroup<CODE>
+        if (isRushBombSpawnGroupA(canonical)) {
+            return "rushConfig.bombCampASpawnGroup" + extractRushBombSpawnCode(canonical);
         }
-        if (canonical.startsWith("rsbombcampbspawngroup_")) {
-            String stageCode = canonical.substring("rsbombcampbspawngroup_".length()).toUpperCase(Locale.ROOT);
-            return "rushConfig.bombDefenderInnerSpawnGroup" + stageCode;
+        // 靠防守方内部出生组 -> RoomRushConfig.bombCampBSpawnGroup<CODE>
+        if (isRushBombSpawnGroupB(canonical)) {
+            return "rushConfig.bombCampBSpawnGroup" + extractRushBombSpawnCode(canonical);
+        }
+        throw new IllegalArgumentException("未知突袭出生组: " + canonical);
+    }
+
+    private static String extractRushBombSpawnCode(String canonical) {
+        for (String prefix : new String[]{
+            "rsbombinnerspawngroup_",
+            "rsbombinnerspawns_",
+            "rsbombcampaspawngroup_",
+            "rsbombdefenderinnerspawngroup_",
+            "rsbombdefenderinnerspawns_",
+            "rsbombcampbspawngroup_"
+        }) {
+            if (canonical.startsWith(prefix)) {
+                return canonical.substring(prefix.length()).toUpperCase(Locale.ROOT);
+            }
         }
         throw new IllegalArgumentException("未知突袭出生组: " + canonical);
     }

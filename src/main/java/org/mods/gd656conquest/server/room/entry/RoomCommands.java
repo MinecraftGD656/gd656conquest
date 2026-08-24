@@ -1398,7 +1398,23 @@ public final class RoomCommands {
             common.campAEquipmentSetId(),
             common.campBEquipmentSetId(),
             common.mapName(),
-            common.roomDescription()
+            common.roomDescription(),
+            common.ammoBagTaczPistol(),
+            common.ammoBagTaczSmg(),
+            common.ammoBagTaczRifle(),
+            common.ammoBagTaczSniper(),
+            common.ammoBagTaczShotgun(),
+            common.ammoBagTaczMg(),
+            common.ammoBagTaczRpg(),
+            common.ammoBagSbw(),
+            common.supportAmmoBagTaczPistol(),
+            common.supportAmmoBagTaczSmg(),
+            common.supportAmmoBagTaczRifle(),
+            common.supportAmmoBagTaczSniper(),
+            common.supportAmmoBagTaczShotgun(),
+            common.supportAmmoBagTaczMg(),
+            common.supportAmmoBagTaczRpg(),
+            common.supportAmmoBagSbw()
         );
 
         RoomDefinition updated = new RoomDefinition(

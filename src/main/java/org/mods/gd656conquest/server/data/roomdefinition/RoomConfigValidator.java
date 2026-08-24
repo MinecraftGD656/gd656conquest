@@ -76,7 +76,8 @@ public final class RoomConfigValidator {
         if (common.aircraftOutsideBoundaryCleanupSeconds() <= 0) {
             result.addMissing("common.aircraftOutsideBoundaryCleanupSeconds", "aircraftOutsideBoundaryCleanupSeconds");
         }
-        if (common.playerMaxY() <= 0) {
+        // GD656Mods: 玩家最大Y轴支持负数(1.17 起世界最低 Y 为 -64), 仅低于世界最低视为无效
+        if (common.playerMaxY() < -64) {
             result.addMissing("common.playerMaxY", "playerMaxY");
         }
         if (common.aircraftPassengerMaxY() <= 0) {

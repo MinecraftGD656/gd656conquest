@@ -646,6 +646,13 @@ public final class RoomCoreService {
         if (roomId.isEmpty()) {
             return;
         }
+        // GD656Mods: 玩家离开房间时直接实现对局内暂存的配装修改; 玩家对象不可用时兜底丢弃
+        ServerPlayer leavingPlayer = server.getPlayerList().getPlayer(playerId);
+        if (leavingPlayer != null) {
+            org.mods.gd656conquest.server.loadout.LoadoutUiService.applyPendingLoadoutEdits(leavingPlayer);
+        } else {
+            org.mods.gd656conquest.server.loadout.LoadoutUiService.discardPendingLoadoutEdits(playerId);
+        }
         long gameTick = server.getTickCount();
         matchLoadService.cancel(playerId, gameTick);
         runtimeRepository.find(roomId.get())
@@ -1086,11 +1093,11 @@ public final class RoomCoreService {
         return (leftTeam == RoomTeamId.CAMP_A || leftTeam == RoomTeamId.CAMP_B) && leftTeam == rightTeam;
     }
 
-    public RoomPlayerLoadoutService.AmmoSupplyResult trySupplyAmmoByBag(ServerPlayer player, int maxRounds) {
+    public RoomPlayerLoadoutService.AmmoSupplyResult trySupplyAmmoByBag(ServerPlayer player, boolean supportGroup) {
         if (gunmasterLoadoutService.isGunmasterPlayer(player)) {
             return RoomPlayerLoadoutService.AmmoSupplyResult.EMPTY;
         }
-        return playerLoadoutService.trySupplyAmmoByBag(player, maxRounds);
+        return playerLoadoutService.trySupplyAmmoByBag(player, supportGroup);
     }
 
     public boolean refreshPlayerLoadout(ServerPlayer player) {
@@ -1980,6 +1987,8 @@ public final class RoomCoreService {
         for (UUID playerId : players) {
             ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
             if (player != null) {
+                // GD656Mods: 对局结束时实现对局内暂存的配装修改
+                org.mods.gd656conquest.server.loadout.LoadoutUiService.applyPendingLoadoutEdits(player);
                 PlayerInventorySanitizer.clearArmorSlots(player);
                 inventorySnapshotService.restore(player, slot.runtime());
                 clearTransientRoomClientState(player);

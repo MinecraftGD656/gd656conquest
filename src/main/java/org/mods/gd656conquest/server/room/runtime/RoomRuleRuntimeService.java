@@ -279,24 +279,22 @@ public final class RoomRuleRuntimeService {
             return false;
         }
         UUID playerId = player.getUUID();
+        // 客户端上报过期时仅清理陈旧标记, 判定不再依赖客户端上报(服务端权威)
         Long lastReportTick = state.getBoundaryHeightReportTicks().get(playerId);
         if (lastReportTick == null || gameTick - lastReportTick > CLIENT_BOUNDARY_HEIGHT_REPORT_TTL_TICKS) {
             state.getBoundaryPlayerMaxYReportedPlayers().remove(playerId);
             state.getBoundaryAircraftMaxYReportedPlayers().remove(playerId);
-            return false;
         }
         Entity vehicle = player.getVehicle();
         double confirmedY = aircraftVehicle && vehicle != null ? Math.max(player.getY(), vehicle.getY()) : player.getY();
         if (aircraftVehicle) {
             int maxAircraftPassengerY = room.commonConfig().aircraftPassengerMaxY();
-            return maxAircraftPassengerY > 0
-                && state.getBoundaryAircraftMaxYReportedPlayers().contains(playerId)
-                && confirmedY > maxAircraftPassengerY;
+            return maxAircraftPassengerY > 0 && confirmedY > maxAircraftPassengerY;
         }
         int maxPlayerY = room.commonConfig().playerMaxY();
-        return maxPlayerY > 0
-            && state.getBoundaryPlayerMaxYReportedPlayers().contains(playerId)
-            && confirmedY > maxPlayerY;
+        // GD656Mods: 服务端权威判定高度上限(不依赖客户端上报), 支持负数配置
+        // (地下房间, 1.17 世界最低 Y 为 -64); 0 表示未配置(不检查高度), 负数同样参与上限判定。
+        return maxPlayerY != 0 && confirmedY > maxPlayerY;
     }
 
     private void clearBoundaryPenalty(ServerPlayer player, RunningRuntimeState state, UUID playerId) {

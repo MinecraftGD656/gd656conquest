@@ -36,6 +36,7 @@ import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
+import org.mods.gd656conquest.server.room.model.RoomCommonConfig;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
@@ -46,6 +47,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -399,68 +401,87 @@ public final class RoomPlayerLoadoutService {
         }
     }
 
-    public AmmoSupplyResult trySupplyAmmoByBag(ServerPlayer player, int maxRounds) {
-        if (player == null || maxRounds <= 0) {
+    /**
+     * GD656Mods: 弹药包单次补给。
+     * 规则(单个弹药包只补一个槽位, 允许超过该武器备弹上限):
+     * 1. 按快捷栏槽位顺序(0→8)扫描有弹药配置(附加数据 extraData>0)的武器, 跳过无弹药物品;
+     * 2. 优先选择第一个"剩余弹药为0"的武器;
+     * 3. 否则选择第一个"未达备弹(当前弹药<备弹)"的武器;
+     * 4. 全部满备弹则默认补给第一槽位(槽位1)的武器;
+     * 5. 补给量 = 该武器类型对应的配置值(自己用组 supportGroup=false / 支援组 supportGroup=true)。
+     *
+     * @param supportGroup true=支援组配置(自己使用/给予他人), false=自己用组配置(拾取弹药包掉落物)
+     */
+    public AmmoSupplyResult trySupplyAmmoByBag(ServerPlayer player, boolean supportGroup) {
+        if (player == null) {
             return AmmoSupplyResult.EMPTY;
         }
-        LoadoutAmmoContext primary = resolveLoadoutAmmoContext(player, CustomLoadoutSlot.PRIMARY_WEAPON, PRIMARY_WEAPON_HOTBAR_SLOT, PRIMARY_AMMO_ROW_START, PRIMARY_AMMO_ROW_END);
-        LoadoutAmmoContext secondary = resolveLoadoutAmmoContext(
+        RoomRuntimeContext roomContext = resolveRoomRuntimeContext(player);
+        RoomCommonConfig config = roomContext == null || roomContext.room() == null ? null : roomContext.room().commonConfig();
+        if (config == null) {
+            return AmmoSupplyResult.EMPTY;
+        }
+        ConquestDataManager dataManager = ConquestDataManager.of(server);
+        EquipmentDataStore equipmentDataHandler = dataManager.equipmentData();
+        PlayerDataStore playerDataHandler = dataManager.playerData();
+        EquipmentDataModel equipmentData = equipmentDataHandler.getData();
+        if (equipmentData == null) {
+            return AmmoSupplyResult.EMPTY;
+        }
+        if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false)) {
+            equipmentData = equipmentDataHandler.getData();
+        }
+        PlayerDataModel playerData = playerDataHandler.getPlayerData(player.getUUID());
+        ActiveLoadoutSelection selection = resolveActiveLoadoutSelection(
+            roomContext,
+            equipmentData,
+            playerData,
             player,
-            CustomLoadoutSlot.SECONDARY_WEAPON,
-            SECONDARY_WEAPON_HOTBAR_SLOT,
-            SECONDARY_AMMO_ROW_START,
-            SECONDARY_AMMO_ROW_END
+            resolveRoomTeamId(roomContext, player),
+            PlayerLevelService.getEffectiveLevel(player),
+            false,
+            false
         );
-        int remaining = maxRounds;
-        int primaryAdded = 0;
-        int secondaryAdded = 0;
-        int superbWarfareAdded = 0;
-
-        if (primary != null && primary.targetAmmo() > 0) {
-            int currentPrimary = countAmmoInInventory(player, primary.ammoMeta());
-            int missingPrimary = Math.max(0, primary.targetAmmo() - currentPrimary);
-            int firstPass = Math.min(remaining, missingPrimary);
-            if (firstPass > 0) {
-                int added = addTaczAmmoToPreferredSlots(player, primary.ammoMeta(), null, firstPass, primary.preferredSlots());
-                primaryAdded += added;
-                remaining -= added;
+        List<HotbarWeapon> weapons = new ArrayList<>();
+        for (int hotbar = 0; hotbar < 9; hotbar++) {
+            ItemStack stack = player.getInventory().getItem(hotbar);
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+            int targetAmmo = resolveHotbarExtraData(selection, hotbar);
+            if (targetAmmo <= 0) {
+                continue;
+            }
+            TaczAmmoMeta ammoMeta = resolveTaczAmmoMeta(stack);
+            if (ammoMeta != null && ammoMeta.ammoId() != null) {
+                String type = grantService.resolveTaczGunType(stack);
+                int current = countAmmoInInventory(player, ammoMeta);
+                weapons.add(new HotbarWeapon(hotbar, "tacz", type, ammoMeta, targetAmmo, current, resolveAmmoSlotsForHotbar(hotbar)));
+                continue;
+            }
+            if (SuperbWarfareCompatBridge.isGunItem(stack)) {
+                int current = SuperbWarfareCompatBridge.getReserveAmmo(stack);
+                weapons.add(new HotbarWeapon(hotbar, "sbw", "sbw", null, targetAmmo, current, null));
             }
         }
-
-        if (remaining > 0 && secondary != null && secondary.targetAmmo() > 0) {
-            int currentSecondary = countAmmoInInventory(player, secondary.ammoMeta());
-            int missingSecondary = Math.max(0, secondary.targetAmmo() - currentSecondary);
-            int secondPass = Math.min(remaining, missingSecondary);
-            if (secondPass > 0) {
-                int added = addTaczAmmoToPreferredSlots(player, secondary.ammoMeta(), null, secondPass, secondary.preferredSlots());
-                secondaryAdded += added;
-                remaining -= added;
-            }
+        if (weapons.isEmpty()) {
+            return AmmoSupplyResult.EMPTY;
         }
-
-        if (remaining > 0 && primary != null) {
-            int added = addTaczAmmoToPreferredSlots(player, primary.ammoMeta(), null, remaining, primary.preferredSlots());
-            primaryAdded += added;
-            remaining -= added;
+        HotbarWeapon target = resolveAmmoBagTarget(weapons, config, supportGroup);
+        if (target == null) {
+            return AmmoSupplyResult.EMPTY;
         }
-
-        if (remaining > 0) {
-            Map<CustomLoadoutSlot, ResolvedLoadoutItem> resolvedItems = resolveConfiguredLoadoutItems(player);
-            for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
-                if (remaining <= 0) {
-                    break;
-                }
-                int added = addSuperbWarfareAmmoToConfiguredSlot(player, resolvedItems.get(slot), remaining);
-                if (added <= 0) {
-                    continue;
-                }
-                superbWarfareAdded += added;
-                remaining -= added;
-            }
+        int supply = resolveAmmoBagSupplyAmount(config, supportGroup, target.kind(), target.type());
+        if (supply <= 0) {
+            return AmmoSupplyResult.EMPTY;
         }
-
-        int totalAdded = primaryAdded + secondaryAdded + superbWarfareAdded;
-        if (totalAdded <= 0) {
+        int added;
+        if ("sbw".equals(target.kind())) {
+            added = addSuperbWarfareAmmoToHotbarSlot(player, target.hotbarSlot(), supply);
+        } else {
+            added = addTaczAmmoToPreferredSlots(player, target.ammoMeta(), null, supply, target.preferredSlots());
+        }
+        if (added <= 0) {
             return AmmoSupplyResult.EMPTY;
         }
         player.getInventory().setChanged();
@@ -475,7 +496,114 @@ public final class RoomPlayerLoadoutService {
                 1.0F,
                 1.0F
         );
-        return new AmmoSupplyResult(totalAdded);
+        return new AmmoSupplyResult(added, target.hotbarSlot());
+    }
+
+    /**
+     * 选择补给目标槽位: 0弹优先 -> 未满备弹 -> 全部满则补第一槽位武器。
+     * 每个候选武器仅当"该武器类型的补给数量配置 > 0"时才会被选中,
+     * 配置为 0(不补给该类型)的武器直接跳过, 继续寻找下一个可补武器。
+     */
+    private HotbarWeapon resolveAmmoBagTarget(List<HotbarWeapon> weapons, RoomCommonConfig config, boolean supportGroup) {
+        if (weapons == null || weapons.isEmpty()) {
+            return null;
+        }
+        for (HotbarWeapon weapon : weapons) {
+            if (weapon.currentAmmo() <= 0 && resolveAmmoBagSupplyAmount(config, supportGroup, weapon.kind(), weapon.type()) > 0) {
+                return weapon;
+            }
+        }
+        for (HotbarWeapon weapon : weapons) {
+            if (weapon.currentAmmo() < weapon.targetAmmo() && resolveAmmoBagSupplyAmount(config, supportGroup, weapon.kind(), weapon.type()) > 0) {
+                return weapon;
+            }
+        }
+        for (HotbarWeapon weapon : weapons) {
+            if (weapon.hotbarSlot() == 0 && resolveAmmoBagSupplyAmount(config, supportGroup, weapon.kind(), weapon.type()) > 0) {
+                return weapon;
+            }
+        }
+        for (HotbarWeapon weapon : weapons) {
+            if (resolveAmmoBagSupplyAmount(config, supportGroup, weapon.kind(), weapon.type()) > 0) {
+                return weapon;
+            }
+        }
+        return null;
+    }
+
+    /** 从快捷栏槽位取装备配置的备弹上限(附加数据), 无对应配置返回 0 */
+    private int resolveHotbarExtraData(ActiveLoadoutSelection selection, int hotbarSlot) {
+        CustomLoadoutSlot loadoutSlot = hotbarSlotToLoadoutSlot(hotbarSlot);
+        if (loadoutSlot == null || selection == null || selection.entriesBySlot() == null) {
+            return 0;
+        }
+        EquipmentDataModel.EquipmentEntry entry = selection.entriesBySlot().get(loadoutSlot);
+        return entry == null ? 0 : Math.max(0, entry.getExtraData());
+    }
+
+    private CustomLoadoutSlot hotbarSlotToLoadoutSlot(int hotbarSlot) {
+        return switch (hotbarSlot) {
+            case 0 -> CustomLoadoutSlot.PRIMARY_WEAPON;
+            case 1 -> CustomLoadoutSlot.SECONDARY_WEAPON;
+            case 2 -> CustomLoadoutSlot.MELEE;
+            case 3 -> CustomLoadoutSlot.GADGET_1;
+            case 4 -> CustomLoadoutSlot.GADGET_2;
+            case 5 -> CustomLoadoutSlot.THROWABLE;
+            default -> null;
+        };
+    }
+
+    /** 快捷栏槽位对应的 TACZ 弹药行(主武器行/副武器行/其他武器行) */
+    private int[] resolveAmmoSlotsForHotbar(int hotbarSlot) {
+        if (hotbarSlot == PRIMARY_WEAPON_HOTBAR_SLOT) {
+            return buildSlotRange(PRIMARY_AMMO_ROW_START, PRIMARY_AMMO_ROW_END);
+        }
+        if (hotbarSlot == SECONDARY_WEAPON_HOTBAR_SLOT) {
+            return buildSlotRange(SECONDARY_AMMO_ROW_START, SECONDARY_AMMO_ROW_END);
+        }
+        int mapped = OTHER_GUN_AMMO_ROW_START + Math.max(0, hotbarSlot - 3);
+        if (mapped > OTHER_GUN_AMMO_ROW_END) {
+            return new int[0];
+        }
+        return new int[]{mapped};
+    }
+
+    /** 按武器类型取弹药包单次补给数量(自己用组/支援组) */
+    private int resolveAmmoBagSupplyAmount(RoomCommonConfig config, boolean supportGroup, String kind, String type) {
+        if (config == null) {
+            return 0;
+        }
+        if ("sbw".equals(kind)) {
+            return supportGroup ? config.supportAmmoBagSbw() : config.ammoBagSbw();
+        }
+        String t = type == null ? "" : type.toLowerCase(Locale.ROOT);
+        return switch (t) {
+            case "pistol" -> supportGroup ? config.supportAmmoBagTaczPistol() : config.ammoBagTaczPistol();
+            case "smg" -> supportGroup ? config.supportAmmoBagTaczSmg() : config.ammoBagTaczSmg();
+            case "rifle" -> supportGroup ? config.supportAmmoBagTaczRifle() : config.ammoBagTaczRifle();
+            case "sniper" -> supportGroup ? config.supportAmmoBagTaczSniper() : config.ammoBagTaczSniper();
+            case "shotgun" -> supportGroup ? config.supportAmmoBagTaczShotgun() : config.ammoBagTaczShotgun();
+            case "mg" -> supportGroup ? config.supportAmmoBagTaczMg() : config.ammoBagTaczMg();
+            case "rpg" -> supportGroup ? config.supportAmmoBagTaczRpg() : config.ammoBagTaczRpg();
+            default -> 0;
+        };
+    }
+
+    /** 给指定快捷栏槽位的 SBW 枪械直接补充备弹(允许超过配置备弹上限) */
+    private int addSuperbWarfareAmmoToHotbarSlot(ServerPlayer player, int hotbarSlot, int amount) {
+        if (player == null || amount <= 0 || hotbarSlot < 0 || hotbarSlot >= player.getInventory().items.size()) {
+            return 0;
+        }
+        ItemStack gunStack = player.getInventory().getItem(hotbarSlot);
+        if (!SuperbWarfareCompatBridge.isGunItem(gunStack)) {
+            return 0;
+        }
+        int currentReserveAmmo = SuperbWarfareCompatBridge.getReserveAmmo(gunStack);
+        int added = Math.max(0, Math.min(amount, Integer.MAX_VALUE - Math.max(0, currentReserveAmmo)));
+        if (added <= 0) {
+            return 0;
+        }
+        return SuperbWarfareCompatBridge.applyReserveAmmo(gunStack, Math.max(0, currentReserveAmmo) + added) ? added : 0;
     }
 
     private void grantConfiguredWeaponAmmoByExtraData(ServerPlayer player, ItemStack gunStack, int extraData, int[] preferredSlots) {
@@ -1063,8 +1191,20 @@ public final class RoomPlayerLoadoutService {
         };
     }
 
-    public record AmmoSupplyResult(int totalAdded) {
-        public static final AmmoSupplyResult EMPTY = new AmmoSupplyResult(0);
+    public record AmmoSupplyResult(int totalAdded, int slotIndex) {
+        public static final AmmoSupplyResult EMPTY = new AmmoSupplyResult(0, -1);
+    }
+
+    /** 快捷栏武器补给上下文: kind=tacz/sbw, type=tacz 类型字符串, preferredSlots 为 null 表示 sbw */
+    private record HotbarWeapon(
+        int hotbarSlot,
+        String kind,
+        String type,
+        TaczAmmoMeta ammoMeta,
+        int targetAmmo,
+        int currentAmmo,
+        int[] preferredSlots
+    ) {
     }
 
     private record LoadoutAmmoContext(

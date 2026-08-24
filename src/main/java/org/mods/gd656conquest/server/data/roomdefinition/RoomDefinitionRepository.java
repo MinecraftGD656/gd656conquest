@@ -284,7 +284,23 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().campAEquipmentSetId(),
             base.commonConfig().campBEquipmentSetId(),
             base.commonConfig().mapName(),
-            base.commonConfig().roomDescription()
+            base.commonConfig().roomDescription(),
+            base.commonConfig().ammoBagTaczPistol(),
+            base.commonConfig().ammoBagTaczSmg(),
+            base.commonConfig().ammoBagTaczRifle(),
+            base.commonConfig().ammoBagTaczSniper(),
+            base.commonConfig().ammoBagTaczShotgun(),
+            base.commonConfig().ammoBagTaczMg(),
+            base.commonConfig().ammoBagTaczRpg(),
+            base.commonConfig().ammoBagSbw(),
+            base.commonConfig().supportAmmoBagTaczPistol(),
+            base.commonConfig().supportAmmoBagTaczSmg(),
+            base.commonConfig().supportAmmoBagTaczRifle(),
+            base.commonConfig().supportAmmoBagTaczSniper(),
+            base.commonConfig().supportAmmoBagTaczShotgun(),
+            base.commonConfig().supportAmmoBagTaczMg(),
+            base.commonConfig().supportAmmoBagTaczRpg(),
+            base.commonConfig().supportAmmoBagSbw()
         );
         org.mods.gd656conquest.server.room.model.IRoomGameplayConfig gameplayConfig;
         if (base.gameplayConfig() instanceof RoomConquestConfig conquest) {
@@ -417,7 +433,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             RoomResultConfig.defaults(),
             false, // disableHunger
             false, // enableAutoTeamSwitchPrompt
-            false, // disableInventoryChange
+            true,  // disableInventoryChange: 默认禁用玩家背包
             false, // enableGoatHorn
             false, // enablePlayerDowned
             false, // enableRespawnCountdownWhileDowned
@@ -448,7 +464,25 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             "",
             "",
             "",
-            ""
+            "",
+            // GD656Mods: 弹药包单次补给数量默认(自己用组)
+            6,
+            15,
+            10,
+            3,
+            4,
+            20,
+            1,
+            1,
+            // GD656Mods: 弹药包单次补给数量默认(支援组)
+            6,
+            15,
+            10,
+            3,
+            4,
+            20,
+            1,
+            1
         );
         return new RoomDefinition(
             normalized,

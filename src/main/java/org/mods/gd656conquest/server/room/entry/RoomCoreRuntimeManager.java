@@ -506,11 +506,11 @@ public final class RoomCoreRuntimeManager {
         return coreService.isSameCampPlayer(left, right);
     }
 
-    public RoomPlayerLoadoutService.AmmoSupplyResult trySupplyAmmoByBag(ServerPlayer player, int maxRounds) {
+    public RoomPlayerLoadoutService.AmmoSupplyResult trySupplyAmmoByBag(ServerPlayer player, boolean supportGroup) {
         if (coreService == null) {
             return RoomPlayerLoadoutService.AmmoSupplyResult.EMPTY;
         }
-        return coreService.trySupplyAmmoByBag(player, maxRounds);
+        return coreService.trySupplyAmmoByBag(player, supportGroup);
     }
 
     public boolean refreshPlayerLoadout(ServerPlayer player) {

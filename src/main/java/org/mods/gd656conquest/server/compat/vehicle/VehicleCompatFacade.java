@@ -41,6 +41,22 @@ public final class VehicleCompatFacade {
             || SuperbWarfareVehicleCompatBridge.isVehicleEntity(entity);
     }
 
+    /** GD656Mods: 玩家是否为载具驾驶员 */
+    public static boolean isDriver(Entity vehicle, Entity passenger) {
+        if (YwzjVehicleCompatBridge.isVehicleEntity(vehicle)) {
+            return YwzjVehicleCompatBridge.isDriver(vehicle, passenger);
+        }
+        return SuperbWarfareVehicleCompatBridge.isDriver(vehicle, passenger);
+    }
+
+    /** GD656Mods: 玩家当前座位是否有可操作的武器 */
+    public static boolean hasOperableWeapon(Entity vehicle, Entity passenger) {
+        if (YwzjVehicleCompatBridge.isVehicleEntity(vehicle)) {
+            return YwzjVehicleCompatBridge.hasOperableWeapon(vehicle, passenger);
+        }
+        return SuperbWarfareVehicleCompatBridge.hasOperableWeapon(vehicle, passenger);
+    }
+
     public static boolean isManagedVehicleEntity(Entity entity) {
         return YwzjVehicleCompatBridge.isManagedVehicleEntity(entity)
             || SuperbWarfareVehicleCompatBridge.isManagedVehicleEntity(entity);
