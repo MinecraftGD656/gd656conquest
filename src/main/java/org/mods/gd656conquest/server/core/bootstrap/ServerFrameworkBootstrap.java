@@ -16,6 +16,7 @@ import org.mods.gd656conquest.server.player.state.SleepRuleServerModule;
 import org.mods.gd656conquest.server.room.entry.RoomServerModule;
 import org.mods.gd656conquest.server.social.party.PartyServerModule;
 import org.mods.gd656conquest.server.title.TitleServerModule;
+import org.mods.gd656conquest.server.vehicle.DroneServerModule;
 import org.mods.gd656conquest.server.vehicle.VehicleServerModule;
 
 import java.util.List;
@@ -42,7 +43,8 @@ public final class ServerFrameworkBootstrap {
                 new LoadoutServerModule(),
                 new RangeServerModule(),
                 new VehicleServerModule(),
-                new RoomServerModule()
+                new RoomServerModule(),
+                new DroneServerModule()
             ))
         );
     }

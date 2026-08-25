@@ -845,13 +845,18 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private RoomAttackTroopBalanceSupport.AttackTroopBalanceSnapshot resolveAttackTroopBalance(RoomDefinition room) {
+        return resolveAttackTroopBalance(room, runtimeState.getCurrentStageIndex());
+    }
+
+    private RoomAttackTroopBalanceSupport.AttackTroopBalanceSnapshot resolveAttackTroopBalance(RoomDefinition room, int targetStageIndex) {
         if (room == null) {
-            return RoomAttackTroopBalanceSupport.resolve(runningState, RoomTroopBalanceReference.ATTACKER, 0);
+            return RoomAttackTroopBalanceSupport.resolve(runningState, RoomTroopBalanceReference.ATTACKER, 0, 0.0D);
         }
         return RoomAttackTroopBalanceSupport.resolve(
             runningState,
             room.breakthroughConfig().troopBalanceReference(),
-            room.breakthroughConfig().maxAttackTroopsAt12Players()
+            room.breakthroughConfig().maxAttackTroopsAt12Players(),
+            room.breakthroughConfig().stageTroopRestoreRatio(targetStageIndex)
         );
     }
 
@@ -1146,7 +1151,10 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private int previewStageTroopDelta(RoomDefinition room) {
-        RoomAttackTroopBalanceSupport.AttackTroopBalanceSnapshot balance = resolveAttackTroopBalance(room);
+        RoomAttackTroopBalanceSupport.AttackTroopBalanceSnapshot balance = resolveAttackTroopBalance(
+            room,
+            Math.min(runtimeState.getMaxStageCount(), runtimeState.getCurrentStageIndex() + 1)
+        );
         int currentTroops = runtimeState.getAttackTroops();
         int targetTroops = Math.min(balance.troopCap(), currentTroops + balance.stageReward());
         return targetTroops - currentTroops;

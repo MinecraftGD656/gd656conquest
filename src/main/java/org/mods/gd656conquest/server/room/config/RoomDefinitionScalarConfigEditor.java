@@ -232,6 +232,9 @@ public final class RoomDefinitionScalarConfigEditor {
         if ("invulnerableseconds".equals(configId) || "revivedinvulnerableseconds".equals(configId)) {
             return parseInvulnerableSeconds(rawValue);
         }
+        if (isStageTroopRestoreRatio(configId)) {
+            return parsePositiveDouble(rawValue);
+        }
         if ("fullcaptureendseconds".equals(configId)) {
             return parseNonNegativeOrDisable(rawValue);
         }
@@ -243,6 +246,16 @@ public final class RoomDefinitionScalarConfigEditor {
             return parsePositiveInt(rawValue);
         }
         return parseNonNegativeInt(rawValue);
+    }
+
+    private static boolean isStageTroopRestoreRatio(String configId) {
+        return switch (configId) {
+            case "btstagebtrooprestoreratio", "btstagectrooprestoreratio", "btstagedtrooprestoreratio",
+                "btstageetrooprestoreratio", "btstageftrooprestoreratio",
+                "rsstagebtrooprestoreratio", "rsstagectrooprestoreratio", "rsstagedtrooprestoreratio",
+                "rsstageetrooprestoreratio", "rsstageftrooprestoreratio" -> true;
+            default -> false;
+        };
     }
 
     private static boolean requiresPositiveInt(String configId) {

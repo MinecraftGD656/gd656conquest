@@ -36,6 +36,11 @@ public record RoomBreakthroughConfig(
     int defenderRetreatSeconds,
     int troopGainPerDefenderKill,
     int maxAttackTroopsAt12Players,
+    double stageBTroopRestoreRatio,
+    double stageCTroopRestoreRatio,
+    double stageDTroopRestoreRatio,
+    double stageETroopRestoreRatio,
+    double stageFTroopRestoreRatio,
     RoomTroopBalanceReference troopBalanceReference,
     List<RoomPosition> ammoBoxPositions,
     List<RoomPosition> medicalBoxPositions
@@ -63,6 +68,11 @@ public record RoomBreakthroughConfig(
         defenderRetreatSeconds = Math.max(0, defenderRetreatSeconds);
         troopGainPerDefenderKill = Math.max(0, troopGainPerDefenderKill);
         maxAttackTroopsAt12Players = Math.max(0, maxAttackTroopsAt12Players);
+        stageBTroopRestoreRatio = normalizeTroopRestoreRatio(stageBTroopRestoreRatio);
+        stageCTroopRestoreRatio = normalizeTroopRestoreRatio(stageCTroopRestoreRatio);
+        stageDTroopRestoreRatio = normalizeTroopRestoreRatio(stageDTroopRestoreRatio);
+        stageETroopRestoreRatio = normalizeTroopRestoreRatio(stageETroopRestoreRatio);
+        stageFTroopRestoreRatio = normalizeTroopRestoreRatio(stageFTroopRestoreRatio);
         troopBalanceReference = troopBalanceReference == null ? RoomTroopBalanceReference.defaultValue() : troopBalanceReference;
         ammoBoxPositions = copyPositions(ammoBoxPositions);
         medicalBoxPositions = copyPositions(medicalBoxPositions);
@@ -97,6 +107,11 @@ public record RoomBreakthroughConfig(
             0,
             0,
             0,
+            0.5D,
+            0.5D,
+            0.5D,
+            0.5D,
+            0.5D,
             RoomTroopBalanceReference.defaultValue(),
             List.of(),
             List.of()
@@ -187,6 +202,17 @@ public record RoomBreakthroughConfig(
         };
     }
 
+    public double stageTroopRestoreRatio(int stageIndex) {
+        return switch (stageIndex) {
+            case 2 -> stageBTroopRestoreRatio;
+            case 3 -> stageCTroopRestoreRatio;
+            case 4 -> stageDTroopRestoreRatio;
+            case 5 -> stageETroopRestoreRatio;
+            case 6 -> stageFTroopRestoreRatio;
+            default -> 0.0D;
+        };
+    }
+
     public Optional<RoomPosition> pickRandomBaseSpawn(RoomTeamId teamId) {
         RoomSpawnGroupConfig group = teamId == RoomTeamId.CAMP_A ? campABaseSpawnGroup : teamId == RoomTeamId.CAMP_B ? campBBaseSpawnGroup : null;
         if (group != null && group.enabled() && !group.spawns().isEmpty()) {
@@ -219,6 +245,10 @@ public record RoomBreakthroughConfig(
         return mapId == null ? "" : mapId.trim();
     }
 
+    private static double normalizeTroopRestoreRatio(double value) {
+        return !Double.isFinite(value) ? 0.0D : Math.max(0.0D, value);
+    }
+
     private static String breakthroughStageBoundaryConfigId(int stageIndex) {
         return switch (stageIndex) {
             case 1 -> "btStageABoundary";
@@ -240,6 +270,17 @@ public record RoomBreakthroughConfig(
             case 5 -> "btStageDeployViewE";
             case 6 -> "btStageDeployViewF";
             default -> "btStageDeployView";
+        };
+    }
+
+    private static String breakthroughStageTroopRestoreRatioConfigId(int stageIndex) {
+        return switch (stageIndex) {
+            case 2 -> "btStageBTroopRestoreRatio";
+            case 3 -> "btStageCTroopRestoreRatio";
+            case 4 -> "btStageDTroopRestoreRatio";
+            case 5 -> "btStageETroopRestoreRatio";
+            case 6 -> "btStageFTroopRestoreRatio";
+            default -> "btStageTroopRestoreRatio";
         };
     }
 
@@ -292,6 +333,12 @@ public record RoomBreakthroughConfig(
                 breakthroughStageViewConfigId(stageIndex),
                 breakthrough.stageDeployViewPosition(stageIndex)
             );
+            if (stageIndex >= 2 && breakthrough.stageTroopRestoreRatio(stageIndex) <= 0.0D) {
+                result.addMissing(
+                    "breakthrough.stage" + stageIndex + "TroopRestoreRatio",
+                    breakthroughStageTroopRestoreRatioConfigId(stageIndex)
+                );
+            }
         }
         boolean hasActivePoint = false;
         for (RoomCapturePointDefinition point : breakthrough.points().values()) {

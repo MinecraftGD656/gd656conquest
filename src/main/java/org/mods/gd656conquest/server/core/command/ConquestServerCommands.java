@@ -98,6 +98,8 @@ public final class ConquestServerCommands {
         "groundSensorScanBonusCooldownSeconds",
         "boolEnableExperimentalPlayerBalance",
         "boolMaintenanceMode",
+        "droneBatteryDurationSeconds",
+        "kamikazeDroneBatteryDurationSeconds",
         "ammoBagTaczPistol",
         "ammoBagTaczSmg",
         "ammoBagTaczRifle",
@@ -553,6 +555,8 @@ public final class ConquestServerCommands {
         CommandFeedbacks.line(context.getSource(), ServerText.colored("groundSensorScanBonusCooldownSeconds=" + store.getGroundSensorScanBonusCooldownSeconds(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("boolEnableExperimentalPlayerBalance=" + store.isExperimentalPlayerBalanceEnabled(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("boolMaintenanceMode=" + store.isMaintenanceModeEnabled(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("droneBatteryDurationSeconds=" + store.getDroneBatteryDurationSeconds(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("kamikazeDroneBatteryDurationSeconds=" + store.getKamikazeDroneBatteryDurationSeconds(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("ammoBagTaczPistol=" + store.getAmmoBagTaczPistol(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("ammoBagTaczSmg=" + store.getAmmoBagTaczSmg(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("ammoBagTaczRifle=" + store.getAmmoBagTaczRifle(), net.minecraft.ChatFormatting.AQUA));
@@ -612,6 +616,8 @@ public final class ConquestServerCommands {
             case "groundSensorScanBonusCooldownSeconds" -> config.setGroundSensorScanBonusCooldownSeconds(parsePositiveInt(rawValue));
             case "boolEnableExperimentalPlayerBalance" -> config.setBoolEnableExperimentalPlayerBalance(parseBooleanStrict(rawValue));
             case "boolMaintenanceMode" -> config.setBoolMaintenanceMode(parseBooleanStrict(rawValue));
+            case "droneBatteryDurationSeconds" -> config.setDroneBatteryDurationSeconds(parsePositiveInt(rawValue));
+            case "kamikazeDroneBatteryDurationSeconds" -> config.setKamikazeDroneBatteryDurationSeconds(parsePositiveInt(rawValue));
             case "ammoBagTaczPistol" -> config.setAmmoBagTaczPistol(parseNonNegativeInt(rawValue));
             case "ammoBagTaczSmg" -> config.setAmmoBagTaczSmg(parseNonNegativeInt(rawValue));
             case "ammoBagTaczRifle" -> config.setAmmoBagTaczRifle(parseNonNegativeInt(rawValue));
@@ -690,6 +696,10 @@ public final class ConquestServerCommands {
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
             case "boolMaintenanceMode" ->
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
+            case "droneBatteryDurationSeconds" ->
+                SharedSuggestionProvider.suggest(List.of("30", "60", "90", "120"), builder);
+            case "kamikazeDroneBatteryDurationSeconds" ->
+                SharedSuggestionProvider.suggest(List.of("15", "30", "45", "60"), builder);
             case "ammoBagTaczPistol", "supportAmmoBagTaczPistol" ->
                 SharedSuggestionProvider.suggest(List.of("0", "6", "12"), builder);
             case "ammoBagTaczSmg", "supportAmmoBagTaczSmg" ->
@@ -751,6 +761,8 @@ public final class ConquestServerCommands {
             case "groundsensorscanbonuscooldownseconds", "groundsensorbonuscooldown", "sensorbonuscooldown" -> "groundSensorScanBonusCooldownSeconds";
             case "boolenableexperimentalplayerbalance", "experimentalplayerbalance", "playerbalance", "teambalance" -> "boolEnableExperimentalPlayerBalance";
             case "boolmaintenancemode", "maintenancemode", "maintenance" -> "boolMaintenanceMode";
+            case "dronebatterydurationseconds" -> "droneBatteryDurationSeconds";
+            case "kamikazedronebatterydurationseconds" -> "kamikazeDroneBatteryDurationSeconds";
             case "ammobagtaczpistol", "taczpistolammo", "taczpistolammobag" -> "ammoBagTaczPistol";
             case "ammobagtaczsmg", "taczsmgammo", "taczsmgammobag" -> "ammoBagTaczSmg";
             case "ammobagtaczrifle", "taczrifleammo", "taczrifleammobag" -> "ammoBagTaczRifle";
@@ -802,6 +814,8 @@ public final class ConquestServerCommands {
             case "groundSensorScanBonusCooldownSeconds" -> String.valueOf(store.getGroundSensorScanBonusCooldownSeconds());
             case "boolEnableExperimentalPlayerBalance" -> String.valueOf(store.isExperimentalPlayerBalanceEnabled());
             case "boolMaintenanceMode" -> String.valueOf(store.isMaintenanceModeEnabled());
+            case "droneBatteryDurationSeconds" -> String.valueOf(store.getDroneBatteryDurationSeconds());
+            case "kamikazeDroneBatteryDurationSeconds" -> String.valueOf(store.getKamikazeDroneBatteryDurationSeconds());
             case "ammoBagTaczPistol" -> String.valueOf(store.getAmmoBagTaczPistol());
             case "ammoBagTaczSmg" -> String.valueOf(store.getAmmoBagTaczSmg());
             case "ammoBagTaczRifle" -> String.valueOf(store.getAmmoBagTaczRifle());

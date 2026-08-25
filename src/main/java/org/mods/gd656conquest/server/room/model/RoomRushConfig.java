@@ -84,6 +84,11 @@ public record RoomRushConfig(
     int defenderRetreatSeconds,
     int troopGainPerDefenderKill,
     int maxAttackTroopsAt12Players,
+    double stageBTroopRestoreRatio,
+    double stageCTroopRestoreRatio,
+    double stageDTroopRestoreRatio,
+    double stageETroopRestoreRatio,
+    double stageFTroopRestoreRatio,
     RoomTroopBalanceReference troopBalanceReference,
     List<RoomPosition> ammoBoxPositions,
     List<RoomPosition> medicalBoxPositions,
@@ -172,6 +177,11 @@ public record RoomRushConfig(
         defenderRetreatSeconds = Math.max(0, defenderRetreatSeconds);
         troopGainPerDefenderKill = Math.max(0, troopGainPerDefenderKill);
         maxAttackTroopsAt12Players = Math.max(0, maxAttackTroopsAt12Players);
+        stageBTroopRestoreRatio = normalizeTroopRestoreRatio(stageBTroopRestoreRatio);
+        stageCTroopRestoreRatio = normalizeTroopRestoreRatio(stageCTroopRestoreRatio);
+        stageDTroopRestoreRatio = normalizeTroopRestoreRatio(stageDTroopRestoreRatio);
+        stageETroopRestoreRatio = normalizeTroopRestoreRatio(stageETroopRestoreRatio);
+        stageFTroopRestoreRatio = normalizeTroopRestoreRatio(stageFTroopRestoreRatio);
         troopBalanceReference = troopBalanceReference == null ? RoomTroopBalanceReference.defaultValue() : troopBalanceReference;
         ammoBoxPositions = copyPositions(ammoBoxPositions);
         medicalBoxPositions = copyPositions(medicalBoxPositions);
@@ -258,6 +268,11 @@ public record RoomRushConfig(
             0,
             0,
             0,
+            0.5D,
+            0.5D,
+            0.5D,
+            0.5D,
+            0.5D,
             RoomTroopBalanceReference.defaultValue(),
             List.of(),
             List.of(),
@@ -364,6 +379,17 @@ public record RoomRushConfig(
         return switch (teamId) {
             case CAMP_A -> campABaseDeployIconPosition;
             case CAMP_B -> campBBaseDeployIconPosition;
+        };
+    }
+
+    public double stageTroopRestoreRatio(int stageIndex) {
+        return switch (stageIndex) {
+            case 2 -> stageBTroopRestoreRatio;
+            case 3 -> stageCTroopRestoreRatio;
+            case 4 -> stageDTroopRestoreRatio;
+            case 5 -> stageETroopRestoreRatio;
+            case 6 -> stageFTroopRestoreRatio;
+            default -> 0.0D;
         };
     }
 
@@ -508,6 +534,11 @@ public record RoomRushConfig(
             defenderRetreatSeconds,
             troopGainPerDefenderKill,
             maxAttackTroopsAt12Players,
+            stageBTroopRestoreRatio,
+            stageCTroopRestoreRatio,
+            stageDTroopRestoreRatio,
+            stageETroopRestoreRatio,
+            stageFTroopRestoreRatio,
             troopBalanceReference,
             ammoBoxPositions,
             medicalBoxPositions,
@@ -604,6 +635,12 @@ public record RoomRushConfig(
                 result.addMissing("rush.bombPosition." + requiredCode, "rsBombPosition_" + requiredCode);
                 continue;
             }
+            if (stageIndex >= 2 && rush.stageTroopRestoreRatio(stageIndex) <= 0.0D) {
+                result.addMissing(
+                    "rush.stage" + stageIndex + "TroopRestoreRatio",
+                    rushStageTroopRestoreRatioConfigId(stageIndex)
+                );
+            }
             for (String code : stageCodes) {
                 org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomPosition(
                     result,
@@ -656,6 +693,10 @@ public record RoomRushConfig(
         return code == null ? "" : code.trim().toUpperCase(Locale.ROOT);
     }
 
+    private static double normalizeTroopRestoreRatio(double value) {
+        return !Double.isFinite(value) ? 0.0D : Math.max(0.0D, value);
+    }
+
     private static int stageIndexOfCode(String code) {
         String normalized = normalizeObjectiveCode(code);
         if (normalized.isBlank()) {
@@ -696,6 +737,17 @@ public record RoomRushConfig(
             case 5 -> "rsStageDeployViewE";
             case 6 -> "rsStageDeployViewF";
             default -> "rsStageDeployView";
+        };
+    }
+
+    private static String rushStageTroopRestoreRatioConfigId(int stageIndex) {
+        return switch (stageIndex) {
+            case 2 -> "rsStageBTroopRestoreRatio";
+            case 3 -> "rsStageCTroopRestoreRatio";
+            case 4 -> "rsStageDTroopRestoreRatio";
+            case 5 -> "rsStageETroopRestoreRatio";
+            case 6 -> "rsStageFTroopRestoreRatio";
+            default -> "rsStageTroopRestoreRatio";
         };
     }
 }

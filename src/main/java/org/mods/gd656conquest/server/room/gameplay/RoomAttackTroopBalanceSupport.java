@@ -8,8 +8,6 @@ import java.util.UUID;
 
 public final class RoomAttackTroopBalanceSupport {
     private static final int ATTACK_TROOP_REFERENCE_PLAYERS = 12;
-    private static final int STAGE_REWARD_DIVISOR = 2;
-
     private RoomAttackTroopBalanceSupport() {
     }
 
@@ -18,13 +16,18 @@ public final class RoomAttackTroopBalanceSupport {
         RoomTroopBalanceReference reference,
         int configuredTroopCap
     ) {
+        return resolve(runningState, reference, configuredTroopCap, 0.5D);
+    }
+
+    public static AttackTroopBalanceSnapshot resolve(
+        RunningRuntimeState runningState,
+        RoomTroopBalanceReference reference,
+        int configuredTroopCap,
+        double stageRestoreRatio
+    ) {
         int referencePlayerCount = resolveReferencePlayerCount(runningState, reference);
         int troopCap = resolveCeilScaledValue(configuredTroopCap, referencePlayerCount, ATTACK_TROOP_REFERENCE_PLAYERS);
-        int stageReward = resolveCeilScaledValue(
-            configuredTroopCap,
-            referencePlayerCount,
-            ATTACK_TROOP_REFERENCE_PLAYERS * STAGE_REWARD_DIVISOR
-        );
+        int stageReward = resolveStageRestoreReward(troopCap, stageRestoreRatio);
         return new AttackTroopBalanceSnapshot(referencePlayerCount, troopCap, stageReward);
     }
 
@@ -53,6 +56,13 @@ public final class RoomAttackTroopBalanceSupport {
             return 0;
         }
         return (int) Math.ceil(baseValue * playerCount / (double) divisor);
+    }
+
+    private static int resolveStageRestoreReward(int troopCap, double stageRestoreRatio) {
+        if (troopCap <= 0 || !Double.isFinite(stageRestoreRatio) || stageRestoreRatio <= 0.0D) {
+            return 0;
+        }
+        return (int) Math.ceil(troopCap * stageRestoreRatio);
     }
 
     public record AttackTroopBalanceSnapshot(int referencePlayerCount, int troopCap, int stageReward) {

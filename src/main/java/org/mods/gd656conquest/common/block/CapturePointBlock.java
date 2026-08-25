@@ -191,6 +191,11 @@ public final class CapturePointBlock extends Block {
             config.defenderRetreatSeconds(),
             config.troopGainPerDefenderKill(),
             config.maxAttackTroopsAt12Players(),
+            config.stageBTroopRestoreRatio(),
+            config.stageCTroopRestoreRatio(),
+            config.stageDTroopRestoreRatio(),
+            config.stageETroopRestoreRatio(),
+            config.stageFTroopRestoreRatio(),
             config.troopBalanceReference(),
             config.ammoBoxPositions(),
             config.medicalBoxPositions()

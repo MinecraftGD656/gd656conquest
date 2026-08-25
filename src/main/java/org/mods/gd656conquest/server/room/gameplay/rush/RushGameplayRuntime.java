@@ -126,7 +126,9 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
     private final Map<String, BombArmedAudioState> armedBombAudioStates = new LinkedHashMap<>();
     private final List<PendingBombExplosion> pendingSecondaryExplosions = new ArrayList<>();
     private static final String RETREAT_PERSISTENT_SOURCE = "rush_retreat";
+    private static final String DESPERATE_PERSISTENT_SOURCE = "bt_desperate_mode";
     private final Map<UUID, String> retreatSubtitleByPlayer = new LinkedHashMap<>();
+    private final Map<UUID, String> desperateSubtitleByPlayer = new LinkedHashMap<>();
     private static final String ACTIONBAR_SOURCE_RETREAT = "rush_retreat";
     private static final int TITLE_FADE_IN_TICKS = 5;
     private static final int TITLE_STAY_TICKS = 20;
@@ -190,6 +192,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         pendingSecondaryExplosions.clear();
         subtitleService.reset();
         clearRetreatPersistentSubtitles();
+        clearDesperatePersistentSubtitles();
         clearRetreatTitles();
         clearCountdownTitles();
         initializeBombStates(room);
@@ -209,6 +212,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         syncObjectiveSnapshots(room, gameTick);
         subtitleService.syncStagePressure(currentStageIndex, currentStageRemainingCodes(room), currentStageArmedBombCount(room), gameTick);
         syncBombActionbars(room, gameTick);
+        syncDesperatePersistentSubtitles();
         if (pendingEndRequest != null) {
             return;
         }
@@ -351,6 +355,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         pendingEndRequest = null;
         subtitleService.reset();
         clearRetreatPersistentSubtitles();
+        clearDesperatePersistentSubtitles();
         clearRetreatTitles();
         clearCountdownTitles();
     }
@@ -1514,13 +1519,18 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private RoomAttackTroopBalanceSupport.AttackTroopBalanceSnapshot resolveAttackTroopBalance(RoomDefinition room) {
+        return resolveAttackTroopBalance(room, currentStageIndex);
+    }
+
+    private RoomAttackTroopBalanceSupport.AttackTroopBalanceSnapshot resolveAttackTroopBalance(RoomDefinition room, int targetStageIndex) {
         if (room == null) {
-            return RoomAttackTroopBalanceSupport.resolve(runningState, null, 0);
+            return RoomAttackTroopBalanceSupport.resolve(runningState, null, 0, 0.0D);
         }
         return RoomAttackTroopBalanceSupport.resolve(
             runningState,
             room.rushConfig().troopBalanceReference(),
-            room.rushConfig().maxAttackTroopsAt12Players()
+            room.rushConfig().maxAttackTroopsAt12Players(),
+            room.rushConfig().stageTroopRestoreRatio(targetStageIndex)
         );
     }
 
@@ -1675,8 +1685,8 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             if (desperateDeadlineTick > 0L && gameTick < desperateDeadlineTick) {
                 return false;
             }
-            // 2 分钟到: 所有当前阶段炸弹点均已安放炸弹等待爆炸 -> 进入破釜沉舟; 否则进攻失败
-            if (areAllCurrentStageBombsArmed(room)) {
+            // 2 分钟到: 当前阶段所有尚未炸毁的炸弹点均已安放炸弹等待爆炸 -> 进入破釜沉舟; 否则进攻失败
+            if (areAllRemainingCurrentStageBombsArmed(room)) {
                 activateBurnBoats(room, gameTick);
             } else {
                 failDesperateMode(gameTick, "背水一战结束，进攻方未能安装全部炸弹");
@@ -1694,7 +1704,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         return false;
     }
 
-    private boolean areAllCurrentStageBombsArmed(RoomDefinition room) {
+    private boolean areAllRemainingCurrentStageBombsArmed(RoomDefinition room) {
         if (room == null) {
             return false;
         }
@@ -1702,16 +1712,21 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         if (points.isEmpty()) {
             return false;
         }
+        boolean hasRemainingBomb = false;
         for (RoomCapturePointDefinition point : points) {
             if (point == null) {
                 continue;
             }
-            BombSiteState state = bombStates.get(normalizeCode(point.code()));
-            if (state == null || state.phase() != BombPhase.ARMED) {
+            BombSiteState state = bombState(point);
+            if (state.phase() == BombPhase.EXPLODED) {
+                continue;
+            }
+            hasRemainingBomb = true;
+            if (state.phase() != BombPhase.ARMED) {
                 return false;
             }
         }
-        return true;
+        return hasRemainingBomb;
     }
 
     /** 进入破釜沉舟: 时长 = 所有已安放炸弹中引信剩余最长者 */
@@ -1959,6 +1974,49 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             }
         }
         retreatSubtitleByPlayer.clear();
+    }
+
+    private void syncDesperatePersistentSubtitles() {
+        boolean active = desperateMode != DesperateMode.NONE;
+        for (UUID playerId : runningState.getRoomPlayers()) {
+            ServerPlayer player = findOnlinePlayer(playerId);
+            if (player == null) {
+                desperateSubtitleByPlayer.remove(playerId);
+                continue;
+            }
+            String desired = active ? resolveDesperatePersistentText() : "";
+            String previous = desperateSubtitleByPlayer.getOrDefault(playerId, "");
+            if (desired.equals(previous)) {
+                continue;
+            }
+            if (desired.isBlank()) {
+                NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.clearPersistent(DESPERATE_PERSISTENT_SOURCE));
+                desperateSubtitleByPlayer.remove(playerId);
+                continue;
+            }
+            NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.setPersistent(DESPERATE_PERSISTENT_SOURCE, desired));
+            desperateSubtitleByPlayer.put(playerId, desired);
+        }
+    }
+
+    private void clearDesperatePersistentSubtitles() {
+        for (UUID playerId : new LinkedHashSet<>(desperateSubtitleByPlayer.keySet())) {
+            ServerPlayer player = findOnlinePlayer(playerId);
+            if (player != null) {
+                NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.clearPersistent(DESPERATE_PERSISTENT_SOURCE));
+            }
+        }
+        desperateSubtitleByPlayer.clear();
+    }
+
+    private String resolveDesperatePersistentText() {
+        if (desperateMode == DesperateMode.BACK_TO_WALL) {
+            return hudStyledText("BT_LAST_STAND_PERSISTENT", "背水一战");
+        }
+        if (desperateMode == DesperateMode.BURN_BOATS) {
+            return hudStyledText("BT_BURN_BOATS_PERSISTENT", "破釜沉舟");
+        }
+        return "";
     }
 
     private void syncRetreatActionbar(RoomDefinition room, long gameTick) {

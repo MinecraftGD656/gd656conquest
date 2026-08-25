@@ -255,6 +255,11 @@ public final class RoomConfigDescriptorRegistry {
         breakthrough(descriptors, RoomConfigCategory.RULES, "btDefenderRetreatSeconds", "防守方撤退秒数", "breakthroughConfig.defenderRetreatSeconds", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopGainPerDefenderKill", "守方击杀补充兵力", "breakthroughConfig.troopGainPerDefenderKill", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btMaxAttackTroopsAt12Players", "12人进攻方最大兵力", "breakthroughConfig.maxAttackTroopsAt12Players", RoomConfigValueType.NUMBER, List.of());
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btStageBTroopRestoreRatio", "突破B阶段恢复兵力数量比值", "breakthroughConfig.stageBTroopRestoreRatio", RoomConfigValueType.NUMBER, List.of());
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btStageCTroopRestoreRatio", "突破C阶段恢复兵力数量比值", "breakthroughConfig.stageCTroopRestoreRatio", RoomConfigValueType.NUMBER, List.of());
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btStageDTroopRestoreRatio", "突破D阶段恢复兵力数量比值", "breakthroughConfig.stageDTroopRestoreRatio", RoomConfigValueType.NUMBER, List.of());
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btStageETroopRestoreRatio", "突破E阶段恢复兵力数量比值", "breakthroughConfig.stageETroopRestoreRatio", RoomConfigValueType.NUMBER, List.of());
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btStageFTroopRestoreRatio", "突破F阶段恢复兵力数量比值", "breakthroughConfig.stageFTroopRestoreRatio", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopBalanceReference", "突破兵力计算基准", "breakthroughConfig.troopBalanceReference", RoomConfigValueType.STRING, RoomTroopBalanceReference.suggestions(), "troopBalanceReference");
 
         deathmatch(descriptors, RoomConfigCategory.CAPTURE, "dmMapID", "团队死斗地图ID", "deathmatchConfig.mapId", RoomConfigValueType.STRING, List.of());
@@ -317,6 +322,11 @@ public final class RoomConfigDescriptorRegistry {
         rush(descriptors, RoomConfigCategory.RULES, "rsDefenderRetreatSeconds", "防守方撤退秒数", "rushConfig.defenderRetreatSeconds", RoomConfigValueType.NUMBER, List.of());
         rush(descriptors, RoomConfigCategory.RULES, "rsTroopGainPerDefenderKill", "撤退阶段进攻方击杀回兵", "rushConfig.troopGainPerDefenderKill", RoomConfigValueType.NUMBER, List.of());
         rush(descriptors, RoomConfigCategory.RULES, "rsMaxAttackTroopsAt12Players", "12人进攻方最大兵力", "rushConfig.maxAttackTroopsAt12Players", RoomConfigValueType.NUMBER, List.of());
+        rush(descriptors, RoomConfigCategory.RULES, "rsStageBTroopRestoreRatio", "突袭B阶段恢复兵力数量比值", "rushConfig.stageBTroopRestoreRatio", RoomConfigValueType.NUMBER, List.of());
+        rush(descriptors, RoomConfigCategory.RULES, "rsStageCTroopRestoreRatio", "突袭C阶段恢复兵力数量比值", "rushConfig.stageCTroopRestoreRatio", RoomConfigValueType.NUMBER, List.of());
+        rush(descriptors, RoomConfigCategory.RULES, "rsStageDTroopRestoreRatio", "突袭D阶段恢复兵力数量比值", "rushConfig.stageDTroopRestoreRatio", RoomConfigValueType.NUMBER, List.of());
+        rush(descriptors, RoomConfigCategory.RULES, "rsStageETroopRestoreRatio", "突袭E阶段恢复兵力数量比值", "rushConfig.stageETroopRestoreRatio", RoomConfigValueType.NUMBER, List.of());
+        rush(descriptors, RoomConfigCategory.RULES, "rsStageFTroopRestoreRatio", "突袭F阶段恢复兵力数量比值", "rushConfig.stageFTroopRestoreRatio", RoomConfigValueType.NUMBER, List.of());
         rush(descriptors, RoomConfigCategory.RULES, "rsTroopBalanceReference", "突袭模式兵力计算基准", "rushConfig.troopBalanceReference", RoomConfigValueType.STRING, RoomTroopBalanceReference.suggestions());
         rush(descriptors, RoomConfigCategory.RULES, "rsBombPlantTimeSeconds", "炸弹安装时间(秒)", "rushConfig.bombPlantTimeSeconds", RoomConfigValueType.NUMBER, List.of());
         rush(descriptors, RoomConfigCategory.RULES, "rsBombDefuseTimeSeconds", "炸弹拆除时间(秒)", "rushConfig.bombDefuseTimeSeconds", RoomConfigValueType.NUMBER, List.of());

@@ -112,24 +112,27 @@ public final class RoomMarkerRuntimeService {
         } else if (!isMarkerDistanceValid(player, normalizedPos)) {
             return false;
         }
-        Map<UUID, RunningRuntimeState.TacticalMarker> markerMap = resolvedKind == RunningRuntimeState.MarkerKind.AUTO_ENEMY
-            ? state.getAutoTacticalMarkersByOwner()
-            : state.getTacticalMarkersByOwner();
-        long expireTick = gameTick + (isRescueRequestKind(resolvedKind)
-            ? RESCUE_REQUEST_LIFETIME_TICKS
-            : resolveLifetimeTicks(resolvedKind));
-        long directSpotExpireTick = resolvedKind == RunningRuntimeState.MarkerKind.DIRECT_ENEMY ? gameTick + DIRECT_SPOT_LIFETIME_TICKS : -1L;
-        markerMap.put(
-            ownerId,
-            new RunningRuntimeState.TacticalMarker(
-                normalizedPos,
-                resolvedKind,
-                resolvedTargetPlayerId,
-                gameTick,
-                expireTick,
-                directSpotExpireTick
-            )
+        RunningRuntimeState.TacticalMarker nextMarker = new RunningRuntimeState.TacticalMarker(
+            normalizedPos,
+            resolvedKind,
+            resolvedTargetPlayerId,
+            gameTick,
+            gameTick + (isRescueRequestKind(resolvedKind)
+                ? RESCUE_REQUEST_LIFETIME_TICKS
+                : resolveLifetimeTicks(resolvedKind)),
+            resolvedKind == RunningRuntimeState.MarkerKind.DIRECT_ENEMY ? gameTick + DIRECT_SPOT_LIFETIME_TICKS : -1L
         );
+        if (resolvedKind == RunningRuntimeState.MarkerKind.DIRECT_ENEMY && isPlayerInDroneView(player)) {
+            // GD656Mods: 无人机视角 AOE 索敌 —— 同一玩家可同时标记多个敌人, 按被标记敌人分别存储, 互不覆盖
+            state.getDroneSpotMarkersByOwner()
+                .computeIfAbsent(ownerId, ignored -> new java.util.LinkedHashMap<>())
+                .put(resolvedTargetPlayerId, nextMarker);
+        } else {
+            Map<UUID, RunningRuntimeState.TacticalMarker> markerMap = resolvedKind == RunningRuntimeState.MarkerKind.AUTO_ENEMY
+                ? state.getAutoTacticalMarkersByOwner()
+                : state.getTacticalMarkersByOwner();
+            markerMap.put(ownerId, nextMarker);
+        }
         if (resolvedKind != RunningRuntimeState.MarkerKind.AUTO_ENEMY && !isRescueRequestKind(resolvedKind)) {
             showMarkerSuccessActionbar(player, normalizedPos, resolvedKind, resolvedTargetPlayerId);
         }
@@ -179,7 +182,7 @@ public final class RoomMarkerRuntimeService {
         return target;
     }
 
-    /** GD656Mods: 救援提醒 actionbar —— 标记者:"已提醒救援 X，请尽快前往"; 倒地玩家:"X(<m>米) 即将前来救援" */
+    /** GD656Mods: 救援提醒 actionbar —— 标记者:"已提醒救援 X"; 倒地玩家:"X x米 即将前来救援" */
     private void showRescueRequestActionbars(ServerPlayer marker, ServerPlayer rescueTarget, BlockPos markerPos) {
         if (marker == null || rescueTarget == null) {
             return;
@@ -187,13 +190,12 @@ public final class RoomMarkerRuntimeService {
         String targetName = rescueTarget.getScoreboardName();
         ServerActionBarService.showBuilder(marker, ACTIONBAR_SOURCE_MARKER, ServerActionBarService.builder()
             .text("已提醒救援 ", net.minecraft.ChatFormatting.AQUA)
-            .text(targetName, net.minecraft.ChatFormatting.GOLD)
-            .text("，请尽快前往", net.minecraft.ChatFormatting.WHITE), RESCUE_ACTIONBAR_TICKS);
+            .text(targetName, net.minecraft.ChatFormatting.GOLD), RESCUE_ACTIONBAR_TICKS);
         double distance = marker.position().distanceTo(rescueTarget.position());
         ServerActionBarService.showBuilder(rescueTarget, ACTIONBAR_SOURCE_MARKER, ServerActionBarService.builder()
-            .text(marker.getScoreboardName() + "(", net.minecraft.ChatFormatting.GOLD)
-            .text(Math.round(distance) + "米) ", net.minecraft.ChatFormatting.WHITE)
-            .text("即将前来救援", net.minecraft.ChatFormatting.GREEN), RESCUE_ACTIONBAR_TICKS);
+            .text(marker.getScoreboardName() + " ", net.minecraft.ChatFormatting.GOLD)
+            .text(Math.round(distance) + "米 ", net.minecraft.ChatFormatting.DARK_GRAY)
+            .text("即将前来救援", net.minecraft.ChatFormatting.GRAY), RESCUE_ACTIONBAR_TICKS);
     }
 
     public boolean cancelMarker(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long gameTick) {
@@ -201,6 +203,7 @@ public final class RoomMarkerRuntimeService {
             return false;
         }
         RunningRuntimeState.TacticalMarker removed = state.getTacticalMarkersByOwner().remove(player.getUUID());
+        state.getDroneSpotMarkersByOwner().remove(player.getUUID());
         if (removed == null) {
             syncRunningRoom(room, state, gameTick);
             return true;
@@ -302,25 +305,29 @@ public final class RoomMarkerRuntimeService {
         for (Map.Entry<UUID, RunningRuntimeState.TacticalMarker> entry : List.copyOf(state.getTacticalMarkersByOwner().entrySet())) {
             UUID ownerId = entry.getKey();
             RunningRuntimeState.TacticalMarker marker = entry.getValue();
-            if (ownerId == null || marker == null || marker.kind() != RunningRuntimeState.MarkerKind.DIRECT_ENEMY) {
+            if (ownerId == null || marker == null) {
                 continue;
             }
-            if (!victimId.equals(marker.targetPlayerId()) || marker.directSpotExpireTick() < gameTick) {
+            if (rewardAndRemoveDirectSpotMarkerForVictim(state, ownerId, marker, victim, killer, killerTeam, gameTick)) {
+                state.getTacticalMarkersByOwner().remove(ownerId);
+                changed = true;
+            }
+        }
+        for (Map.Entry<UUID, Map<UUID, RunningRuntimeState.TacticalMarker>> ownerEntry : List.copyOf(state.getDroneSpotMarkersByOwner().entrySet())) {
+            UUID ownerId = ownerEntry.getKey();
+            Map<UUID, RunningRuntimeState.TacticalMarker> ownedMarkers = ownerEntry.getValue();
+            if (ownerId == null || ownedMarkers == null) {
                 continue;
             }
-            ServerPlayer owner = server.getPlayerList().getPlayer(ownerId);
-            if (owner != null) {
-                if (killer != null && killer.getUUID().equals(ownerId)) {
-                    KilliconScoreboardBridge.tryAwardConquestBonus(killer, "SPOTTING_KILL", 1.0F, "", victim.getId(), victim.getScoreboardName());
-                } else if (killer != null) {
-                    RoomTeamId ownerTeam = state.getRoomTeams().get(ownerId);
-                    if (ownerTeam != null && ownerTeam == killerTeam) {
-                        KilliconScoreboardBridge.tryAwardConquestBonus(owner, "SPOTTING_TEAM_ASSIST", 1.0F, "", victim.getId(), victim.getScoreboardName());
-                    }
+            for (Map.Entry<UUID, RunningRuntimeState.TacticalMarker> targetEntry : List.copyOf(ownedMarkers.entrySet())) {
+                if (rewardAndRemoveDirectSpotMarkerForVictim(state, ownerId, targetEntry.getValue(), victim, killer, killerTeam, gameTick)) {
+                    ownedMarkers.remove(targetEntry.getKey());
+                    changed = true;
                 }
             }
-            state.getTacticalMarkersByOwner().remove(ownerId);
-            changed = true;
+            if (ownedMarkers.isEmpty()) {
+                state.getDroneSpotMarkersByOwner().remove(ownerId);
+            }
         }
         for (Map.Entry<UUID, RunningRuntimeState.TacticalMarker> entry : List.copyOf(state.getAutoTacticalMarkersByOwner().entrySet())) {
             RunningRuntimeState.TacticalMarker marker = entry.getValue();
@@ -349,10 +356,47 @@ public final class RoomMarkerRuntimeService {
         }
     }
 
+    /**
+     * GD656Mods: 被标记敌人死亡结算 —— 标记仍处于直接索敌有效期内时, 给标记者结算击杀/助攻奖励。
+     * 单标记与无人机多标记共用, 返回 true 表示该标记应被移除。
+     */
+    private boolean rewardAndRemoveDirectSpotMarkerForVictim(
+        RunningRuntimeState state,
+        UUID ownerId,
+        RunningRuntimeState.TacticalMarker marker,
+        ServerPlayer victim,
+        ServerPlayer killer,
+        RoomTeamId killerTeam,
+        long gameTick
+    ) {
+        if (state == null || ownerId == null || marker == null || victim == null) {
+            return false;
+        }
+        if (marker.kind() != RunningRuntimeState.MarkerKind.DIRECT_ENEMY) {
+            return false;
+        }
+        if (!victim.getUUID().equals(marker.targetPlayerId()) || marker.directSpotExpireTick() < gameTick) {
+            return false;
+        }
+        ServerPlayer owner = server.getPlayerList().getPlayer(ownerId);
+        if (owner != null && killer != null) {
+            if (killer.getUUID().equals(ownerId)) {
+                KilliconScoreboardBridge.tryAwardConquestBonus(killer, "SPOTTING_KILL", 1.0F, "", victim.getId(), victim.getScoreboardName());
+            } else {
+                RoomTeamId ownerTeam = state.getRoomTeams().get(ownerId);
+                if (ownerTeam != null && ownerTeam == killerTeam) {
+                    KilliconScoreboardBridge.tryAwardConquestBonus(owner, "SPOTTING_TEAM_ASSIST", 1.0F, "", victim.getId(), victim.getScoreboardName());
+                }
+            }
+        }
+        return true;
+    }
+
     private boolean pruneExpiredMarkers(RunningRuntimeState state, long gameTick) {
         boolean changed = false;
         changed |= pruneExpiredMarkersFromMap(state.getTacticalMarkersByOwner(), gameTick);
         changed |= pruneExpiredMarkersFromMap(state.getAutoTacticalMarkersByOwner(), gameTick);
+        changed |= pruneExpiredDroneMarkers(state, gameTick);
         changed |= pruneExpiredGameplayMarkers(state.getGameplayTacticalMarkersByKey(), gameTick);
         return changed;
     }
@@ -361,6 +405,7 @@ public final class RoomMarkerRuntimeService {
         List<RoomMarkerSyncPacket.MarkerEntry> entries = new ArrayList<>();
         appendVisibleMarkers(entries, state, state.getTacticalMarkersByOwner(), viewerTeam, gameTick);
         appendVisibleMarkers(entries, state, state.getAutoTacticalMarkersByOwner(), viewerTeam, gameTick);
+        appendDroneSpotMarkers(entries, state, state.getDroneSpotMarkersByOwner(), viewerTeam, gameTick);
         appendGameplayVisibleMarkers(entries, state.getGameplayTacticalMarkersByKey(), viewerTeam, gameTick);
         return entries;
     }
@@ -645,44 +690,52 @@ public final class RoomMarkerRuntimeService {
         return hasClearSightToTarget(owner, target) ? target : null;
     }
 
-    private net.minecraft.world.phys.Vec3 getPlayerOrDroneEyePosition(ServerPlayer player) {
-        net.minecraft.world.item.ItemStack stack = player.getMainHandItem();
-        if (!stack.getItem().getClass().getName().equals("com.atsuishio.superbwarfare.item.misc.MonitorItem") || !stack.getOrCreateTag().getBoolean("Using")) {
-            stack = player.getOffhandItem();
+    /** GD656Mods: 玩家是否处于 SBW 无人机视角(手持 MonitorItem 且正在使用) */
+    private boolean isPlayerInDroneView(ServerPlayer player) {
+        if (player == null) {
+            return false;
         }
-        if (stack.getItem().getClass().getName().equals("com.atsuishio.superbwarfare.item.misc.MonitorItem") && stack.getOrCreateTag().getBoolean("Using")) {
-            String droneId = stack.getOrCreateTag().getString("LinkedDrone");
-            if (droneId != null && !droneId.isEmpty() && !droneId.equals("none")) {
-                try {
-                    java.util.UUID uuid = java.util.UUID.fromString(droneId);
-                    net.minecraft.world.entity.Entity entity = player.level().getServer().getLevel(player.level().dimension()).getEntity(uuid);
-                    if (entity != null) {
-                        return entity.position().add(0, entity.getBbHeight() * 0.5D, 0);
-                    }
-                } catch (Exception e) {}
-            }
+        return isMonitorUsing(player.getMainHandItem()) || isMonitorUsing(player.getOffhandItem());
+    }
+
+    private boolean isMonitorUsing(net.minecraft.world.item.ItemStack stack) {
+        return stack != null
+            && !stack.isEmpty()
+            && stack.getItem().getClass().getName().equals("com.atsuishio.superbwarfare.item.misc.MonitorItem")
+            && stack.getOrCreateTag().getBoolean("Using");
+    }
+
+    private net.minecraft.world.phys.Vec3 getPlayerOrDroneEyePosition(ServerPlayer player) {
+        net.minecraft.world.entity.Entity drone = resolveLinkedDrone(player);
+        if (drone != null) {
+            return drone.position().add(0, drone.getBbHeight() * 0.5D, 0);
         }
         return player.getEyePosition();
     }
 
     private net.minecraft.world.phys.Vec3 getPlayerOrDronePosition(ServerPlayer player) {
-        net.minecraft.world.item.ItemStack stack = player.getMainHandItem();
-        if (!stack.getItem().getClass().getName().equals("com.atsuishio.superbwarfare.item.misc.MonitorItem") || !stack.getOrCreateTag().getBoolean("Using")) {
-            stack = player.getOffhandItem();
-        }
-        if (stack.getItem().getClass().getName().equals("com.atsuishio.superbwarfare.item.misc.MonitorItem") && stack.getOrCreateTag().getBoolean("Using")) {
-            String droneId = stack.getOrCreateTag().getString("LinkedDrone");
-            if (droneId != null && !droneId.isEmpty() && !droneId.equals("none")) {
-                try {
-                    java.util.UUID uuid = java.util.UUID.fromString(droneId);
-                    net.minecraft.world.entity.Entity entity = player.level().getServer().getLevel(player.level().dimension()).getEntity(uuid);
-                    if (entity != null) {
-                        return entity.position();
-                    }
-                } catch (Exception e) {}
-            }
+        net.minecraft.world.entity.Entity drone = resolveLinkedDrone(player);
+        if (drone != null) {
+            return drone.position();
         }
         return player.position();
+    }
+
+    private net.minecraft.world.entity.Entity resolveLinkedDrone(ServerPlayer player) {
+        if (!isPlayerInDroneView(player)) {
+            return null;
+        }
+        net.minecraft.world.item.ItemStack stack = isMonitorUsing(player.getMainHandItem()) ? player.getMainHandItem() : player.getOffhandItem();
+        String droneId = stack.getOrCreateTag().getString("LinkedDrone");
+        if (droneId == null || droneId.isEmpty() || droneId.equals("none")) {
+            return null;
+        }
+        try {
+            java.util.UUID uuid = java.util.UUID.fromString(droneId);
+            return player.level().getServer().getLevel(player.level().dimension()).getEntity(uuid);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private boolean isMarkerDistanceValid(ServerPlayer player, BlockPos blockPos) {
@@ -848,6 +901,36 @@ public final class RoomMarkerRuntimeService {
         return changed;
     }
 
+    /** GD656Mods: 清理无人机视角 AOE 索敌标记 —— 过期或目标死亡/离线的标记逐条移除 */
+    private boolean pruneExpiredDroneMarkers(RunningRuntimeState state, long gameTick) {
+        boolean changed = false;
+        for (Map.Entry<UUID, Map<UUID, RunningRuntimeState.TacticalMarker>> ownerEntry : List.copyOf(state.getDroneSpotMarkersByOwner().entrySet())) {
+            UUID ownerId = ownerEntry.getKey();
+            Map<UUID, RunningRuntimeState.TacticalMarker> ownedMarkers = ownerEntry.getValue();
+            if (ownedMarkers == null) {
+                state.getDroneSpotMarkersByOwner().remove(ownerId);
+                changed = true;
+                continue;
+            }
+            for (Map.Entry<UUID, RunningRuntimeState.TacticalMarker> targetEntry : List.copyOf(ownedMarkers.entrySet())) {
+                RunningRuntimeState.TacticalMarker marker = targetEntry.getValue();
+                boolean expired = marker == null || marker.expireTick() <= gameTick;
+                if (!expired && marker.kind() == RunningRuntimeState.MarkerKind.DIRECT_ENEMY && marker.targetPlayerId() != null) {
+                    ServerPlayer target = server.getPlayerList().getPlayer(marker.targetPlayerId());
+                    expired = target == null || !target.isAlive();
+                }
+                if (expired) {
+                    ownedMarkers.remove(targetEntry.getKey());
+                    changed = true;
+                }
+            }
+            if (ownedMarkers.isEmpty()) {
+                state.getDroneSpotMarkersByOwner().remove(ownerId);
+            }
+        }
+        return changed;
+    }
+
     private boolean pruneExpiredGameplayMarkers(Map<String, RunningRuntimeState.TeamScopedTacticalMarker> markerMap, long gameTick) {
         boolean changed = false;
         for (Map.Entry<String, RunningRuntimeState.TeamScopedTacticalMarker> entry : List.copyOf(markerMap.entrySet())) {
@@ -878,34 +961,62 @@ public final class RoomMarkerRuntimeService {
         long gameTick
     ) {
         for (Map.Entry<UUID, RunningRuntimeState.TacticalMarker> entry : markerMap.entrySet()) {
-            UUID ownerId = entry.getKey();
-            RunningRuntimeState.TacticalMarker marker = entry.getValue();
-            if (ownerId == null || marker == null) {
-                continue;
-            }
-            RoomTeamId ownerTeam = state.getRoomTeams().get(ownerId);
-            if (ownerTeam != viewerTeam) {
-                continue;
-            }
-            int remainingTicks = (int) Math.max(0L, marker.expireTick() - gameTick);
-            if (remainingTicks <= 0) {
-                continue;
-            }
-            int ageTicks = (int) Math.max(0L, gameTick - marker.placedTick());
-            String ownerName = resolveOwnerName(ownerId);
-            BlockPos displayPos = resolveDisplayPosition(marker);
-            entries.add(new RoomMarkerSyncPacket.MarkerEntry(
-                ownerId,
-                ownerName,
-                marker.kind().name(),
-                displayPos.getX(),
-                displayPos.getY(),
-                displayPos.getZ(),
-                marker.targetPlayerId(),
-                ageTicks,
-                remainingTicks
-            ));
+            appendMarkerEntry(entries, state, entry.getKey(), entry.getValue(), viewerTeam, gameTick);
         }
+    }
+
+    /** GD656Mods: 无人机视角 AOE 索敌标记同步 —— 同一玩家的多个敌人标记全部下发 */
+    private void appendDroneSpotMarkers(
+        List<RoomMarkerSyncPacket.MarkerEntry> entries,
+        RunningRuntimeState state,
+        Map<UUID, Map<UUID, RunningRuntimeState.TacticalMarker>> droneMarkers,
+        RoomTeamId viewerTeam,
+        long gameTick
+    ) {
+        for (Map.Entry<UUID, Map<UUID, RunningRuntimeState.TacticalMarker>> ownerEntry : droneMarkers.entrySet()) {
+            Map<UUID, RunningRuntimeState.TacticalMarker> ownedMarkers = ownerEntry.getValue();
+            if (ownedMarkers == null) {
+                continue;
+            }
+            for (RunningRuntimeState.TacticalMarker marker : ownedMarkers.values()) {
+                appendMarkerEntry(entries, state, ownerEntry.getKey(), marker, viewerTeam, gameTick);
+            }
+        }
+    }
+
+    private void appendMarkerEntry(
+        List<RoomMarkerSyncPacket.MarkerEntry> entries,
+        RunningRuntimeState state,
+        UUID ownerId,
+        RunningRuntimeState.TacticalMarker marker,
+        RoomTeamId viewerTeam,
+        long gameTick
+    ) {
+        if (ownerId == null || marker == null) {
+            return;
+        }
+        RoomTeamId ownerTeam = state.getRoomTeams().get(ownerId);
+        if (ownerTeam != viewerTeam) {
+            return;
+        }
+        int remainingTicks = (int) Math.max(0L, marker.expireTick() - gameTick);
+        if (remainingTicks <= 0) {
+            return;
+        }
+        int ageTicks = (int) Math.max(0L, gameTick - marker.placedTick());
+        String ownerName = resolveOwnerName(ownerId);
+        BlockPos displayPos = resolveDisplayPosition(marker);
+        entries.add(new RoomMarkerSyncPacket.MarkerEntry(
+            ownerId,
+            ownerName,
+            marker.kind().name(),
+            displayPos.getX(),
+            displayPos.getY(),
+            displayPos.getZ(),
+            marker.targetPlayerId(),
+            ageTicks,
+            remainingTicks
+        ));
     }
 
     private void appendGameplayVisibleMarkers(

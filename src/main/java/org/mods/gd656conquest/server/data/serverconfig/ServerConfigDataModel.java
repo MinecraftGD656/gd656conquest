@@ -32,6 +32,8 @@ public final class ServerConfigDataModel {
     private Integer groundSensorScanBonusCooldownSeconds = 10;
     private Boolean boolEnableExperimentalPlayerBalance = false;
     private Boolean boolMaintenanceMode = false;
+    private Integer droneBatteryDurationSeconds = 60;
+    private Integer kamikazeDroneBatteryDurationSeconds = 30;
     // GD656Mods: 弹药包单次补给数量(自己用组: 拾取弹药包掉落物)
     private Integer ammoBagTaczPistol = 6;
     private Integer ammoBagTaczSmg = 15;
@@ -273,6 +275,22 @@ public final class ServerConfigDataModel {
 
     public void setBoolMaintenanceMode(Boolean boolMaintenanceMode) {
         this.boolMaintenanceMode = boolMaintenanceMode;
+    }
+
+    public Integer getDroneBatteryDurationSeconds() {
+        return droneBatteryDurationSeconds;
+    }
+
+    public void setDroneBatteryDurationSeconds(Integer droneBatteryDurationSeconds) {
+        this.droneBatteryDurationSeconds = droneBatteryDurationSeconds;
+    }
+
+    public Integer getKamikazeDroneBatteryDurationSeconds() {
+        return kamikazeDroneBatteryDurationSeconds;
+    }
+
+    public void setKamikazeDroneBatteryDurationSeconds(Integer kamikazeDroneBatteryDurationSeconds) {
+        this.kamikazeDroneBatteryDurationSeconds = kamikazeDroneBatteryDurationSeconds;
     }
 
     public Integer getAmmoBagTaczPistol() {

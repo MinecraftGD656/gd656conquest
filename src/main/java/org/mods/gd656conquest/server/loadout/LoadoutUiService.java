@@ -1214,11 +1214,16 @@ public final class LoadoutUiService {
 
     /**
      * GD656Mods: 是否处于"对局进行中且非部署流程"(配装修改需暂存)。
-     * 部署界面(isInDeployFlow)与主城/匹配中(无运行中状态)均允许直接修改。
+     * 匹配阶段(无运行中状态)、部署界面(含第一次部署界面 deployViewActivePlayers
+     * 与死亡部署 isInDeployFlow)均允许直接修改配装。
      */
     private static boolean isLoadoutEditBlockedInRunning(ServerPlayer player) {
         RunningRuntimeState state = resolveCurrentRunningState(player);
-        return state != null && !state.isInDeployFlow(player.getUUID());
+        if (state == null) {
+            return false;
+        }
+        return !state.isInDeployFlow(player.getUUID())
+            && !state.getDeployViewActivePlayers().contains(player.getUUID());
     }
 
     // GD656Mods: 对局内配装修改暂存区(玩家 UUID -> 待实现编辑列表)

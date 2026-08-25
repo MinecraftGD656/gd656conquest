@@ -88,6 +88,7 @@ public final class RunningRuntimeState {
     private final Set<UUID> boundaryAircraftMaxYReportedPlayers = new LinkedHashSet<>();
     private final Map<UUID, TacticalMarker> tacticalMarkersByOwner = new LinkedHashMap<>();
     private final Map<UUID, TacticalMarker> autoTacticalMarkersByOwner = new LinkedHashMap<>();
+    private final Map<UUID, Map<UUID, TacticalMarker>> droneSpotMarkersByOwner = new LinkedHashMap<>();
     private final Map<String, TeamScopedTacticalMarker> gameplayTacticalMarkersByKey = new LinkedHashMap<>();
     private final Map<UUID, RejoinTicket> rejoinTickets = new LinkedHashMap<>();
     private RoomTeamId resultWinnerTeam;
@@ -452,6 +453,11 @@ public final class RunningRuntimeState {
         return autoTacticalMarkersByOwner;
     }
 
+    /** GD656Mods: 无人机视角 AOE 索敌标记 —— owner -> (被标记敌人 -> 标记), 支持同一玩家同时标记多个敌人 */
+    public Map<UUID, Map<UUID, TacticalMarker>> getDroneSpotMarkersByOwner() {
+        return droneSpotMarkersByOwner;
+    }
+
     public Map<String, TeamScopedTacticalMarker> getGameplayTacticalMarkersByKey() {
         return gameplayTacticalMarkersByKey;
     }
@@ -640,6 +646,7 @@ public final class RunningRuntimeState {
         boundaryAircraftMaxYReportedPlayers.remove(playerId);
         tacticalMarkersByOwner.remove(playerId);
         autoTacticalMarkersByOwner.remove(playerId);
+        droneSpotMarkersByOwner.remove(playerId);
         gameplayTacticalMarkersByKey.entrySet().removeIf(entry -> {
             TeamScopedTacticalMarker marker = entry.getValue();
             return marker != null && playerId.equals(marker.marker().targetPlayerId());
@@ -712,6 +719,7 @@ public final class RunningRuntimeState {
         boundaryAircraftMaxYReportedPlayers.clear();
         tacticalMarkersByOwner.clear();
         autoTacticalMarkersByOwner.clear();
+        droneSpotMarkersByOwner.clear();
         gameplayTacticalMarkersByKey.clear();
         clearResultState();
         clearActiveMatchInstance();

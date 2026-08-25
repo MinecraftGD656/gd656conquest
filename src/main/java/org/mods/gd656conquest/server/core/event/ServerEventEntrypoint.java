@@ -21,6 +21,7 @@ import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
 import org.mods.gd656conquest.server.compat.tacz.TaczShellingImpactEventEntrypoint;
 import org.mods.gd656conquest.server.compat.ywzjvehicle.YwzjVehicleDeployMountGuard;
 import org.mods.gd656conquest.server.core.lifecycle.ServerLifecycleCoordinator;
+import org.mods.gd656conquest.server.vehicle.DroneLifecycleService;
 
 import java.util.Objects;
 
@@ -201,6 +202,7 @@ public final class ServerEventEntrypoint {
                             
                             placer.setItemInHand(hand, monitor);
                             monitor.use(event.getLevel(), placer, hand);
+                            DroneLifecycleService.of(serverLevel.getServer()).registerPlacedDrone(placer, event.getEntity(), serverLevel.getServer().getTickCount());
                             org.mods.gd656conquest.network.NetworkManager.sendToPlayer(placer, new org.mods.gd656conquest.network.packet.ClientboundOpenDroneMonitorPacket());
                         } catch (Exception e) {}
                     }

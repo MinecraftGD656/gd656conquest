@@ -105,6 +105,16 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         return Boolean.TRUE.equals(get().getBoolMaintenanceMode());
     }
 
+    public synchronized int getDroneBatteryDurationSeconds() {
+        Integer value = get().getDroneBatteryDurationSeconds();
+        return value == null || value <= 0 ? 60 : value;
+    }
+
+    public synchronized int getKamikazeDroneBatteryDurationSeconds() {
+        Integer value = get().getKamikazeDroneBatteryDurationSeconds();
+        return value == null || value <= 0 ? 30 : value;
+    }
+
     public synchronized int getAmmoBagTaczPistol() {
         Integer value = get().getAmmoBagTaczPistol();
         return value == null ? 6 : Math.max(0, value);
@@ -293,6 +303,12 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         }
         if (model.getBoolMaintenanceMode() == null) {
             model.setBoolMaintenanceMode(false);
+        }
+        if (model.getDroneBatteryDurationSeconds() == null || model.getDroneBatteryDurationSeconds() <= 0) {
+            model.setDroneBatteryDurationSeconds(60);
+        }
+        if (model.getKamikazeDroneBatteryDurationSeconds() == null || model.getKamikazeDroneBatteryDurationSeconds() <= 0) {
+            model.setKamikazeDroneBatteryDurationSeconds(30);
         }
         if (model.getOverworldSpawn() == null) {
             BlockPos shared = server.overworld().getSharedSpawnPos();
