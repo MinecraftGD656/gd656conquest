@@ -240,6 +240,10 @@ public final class ClientRoomMarkerState {
         // GD656Mods: 标记键指向倒地友军/小队队友图标 -> 在倒地玩家处生成救援提醒标记(蓝/绿, 5秒)
         HoveredMarker hovered = resolveHoveredMarker(minecraft);
         if (hovered != null && isDownedFriendlyMarker(hovered.marker().kind())) {
+            // GD656Mods: 自身倒地/被救援中无法发起救援提醒(静默阻止, 不发请求)
+            if (isSelfDownedOrBeingRevived()) {
+                return;
+            }
             ClientMarker downedMarker = hovered.marker();
             MarkerKind rescueKind = downedMarker.kind() == MarkerKind.DOWNED_SQUAD ? MarkerKind.RESCUE_SQUAD : MarkerKind.RESCUE_ALLY;
             NetworkManager.getChannel().sendToServer(RoomMarkerActionPacket.place(
@@ -263,6 +267,12 @@ public final class ClientRoomMarkerState {
 
     private static boolean isDownedFriendlyMarker(MarkerKind kind) {
         return kind == MarkerKind.DOWNED_ALLY || kind == MarkerKind.DOWNED_SQUAD;
+    }
+
+    /** GD656Mods: 玩家自身是否处于倒地/被救援状态(服务端锁快照 reason 判定) */
+    private static boolean isSelfDownedOrBeingRevived() {
+        String reason = ClientRoomLockState.snapshot().reason();
+        return "downed".equals(reason) || "being_revived".equals(reason);
     }
 
     private static Vec3 resolveMarkerRayStart(Minecraft minecraft) {

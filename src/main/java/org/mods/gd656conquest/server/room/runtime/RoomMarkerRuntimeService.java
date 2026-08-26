@@ -103,6 +103,10 @@ public final class RoomMarkerRuntimeService {
             resolvedTargetPlayerId = targetPlayer.getUUID();
         } else if (isRescueRequestKind(resolvedKind)) {
             // GD656Mods: 救援提醒 —— 标记键指向倒地友军/小队队友图标时, 标记生成在倒地玩家处
+            // GD656Mods: 倒地/倒地待确认的玩家自身无法发起救援提醒(静默阻止, 无任何反馈)
+            if (state.isPlayerDowned(player.getUUID()) || state.isPlayerPendingDowned(player.getUUID())) {
+                return false;
+            }
             rescueTarget = resolveDownedFriendlyTarget(state, player, targetPlayerId);
             if (rescueTarget == null) {
                 return false;

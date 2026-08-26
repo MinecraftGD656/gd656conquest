@@ -244,10 +244,11 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             syncCountdownTitles(room, gameTick);
             if (gameTick >= advanceCountdownEndTick) {
                 clearCountdownTitles();
-                refreshAttackTroopCapForNextStage(room);
-                int rewardTroops = applyStageReward(room);
                 int previousStageIndex = currentStageIndex;
-                currentStageIndex = Math.min(Math.max(1, room.rushConfig().stageCount()), currentStageIndex + 1);
+                int nextStageIndex = Math.min(Math.max(1, room.rushConfig().stageCount()), currentStageIndex + 1);
+                refreshAttackTroopCapForNextStage(room, nextStageIndex);
+                int rewardTroops = applyStageReward(room, nextStageIndex);
+                currentStageIndex = nextStageIndex;
                 configuredStageCount = Math.max(1, room.rushConfig().stageCount());
                 phase = Phase.COMBAT;
                 retreatStageIndex = 0;
@@ -1628,15 +1629,19 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         }
     }
 
-    private void refreshAttackTroopCapForNextStage(RoomDefinition room) {
-        setAttackTroopCap(resolveAttackTroopBalance(room).troopCap(), true);
+    private void refreshAttackTroopCapForNextStage(RoomDefinition room, int targetStageIndex) {
+        setAttackTroopCap(resolveAttackTroopBalance(room, targetStageIndex).troopCap(), true);
     }
 
     private int applyStageReward(RoomDefinition room) {
+        return applyStageReward(room, currentStageIndex);
+    }
+
+    private int applyStageReward(RoomDefinition room, int targetStageIndex) {
         if (room == null) {
             return 0;
         }
-        RoomAttackTroopBalanceSupport.AttackTroopBalanceSnapshot balance = resolveAttackTroopBalance(room);
+        RoomAttackTroopBalanceSupport.AttackTroopBalanceSnapshot balance = resolveAttackTroopBalance(room, targetStageIndex);
         setAttackTroopCap(balance.troopCap(), true);
         if (balance.stageReward() <= 0 || attackTroops >= attackTroopCap) {
             return 0;

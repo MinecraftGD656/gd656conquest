@@ -939,7 +939,7 @@ public final class LoadoutUiService {
             player,
             refreshedInRange
                 ? "已切换兵种：" + classType.getDisplayName() + "，并已在靶场中刷新当前配装"
-                : "已切换兵种：" + classType.getDisplayName() + "，将在下次部署或弹药箱补给时生效"
+                : "已切换兵种：" + classType.getDisplayName() + "，将在下一次重生时发放"
         );
         return true;
     }
@@ -978,7 +978,7 @@ public final class LoadoutUiService {
                 Component.literal(
                     refreshedInRange
                         ? String.format(Locale.ROOT, "已设置当前房间：%s %s -> 空，并已在靶场中刷新当前配装", classType.getDisplayName(), slot.getKey())
-                        : String.format(Locale.ROOT, "已设置当前房间：%s %s -> 空，将在下次部署或弹药箱补给时生效", classType.getDisplayName(), slot.getKey())
+                        : String.format(Locale.ROOT, "已设置当前房间：%s %s -> 空，将在下一次重生时发放", classType.getDisplayName(), slot.getKey())
                 ).withStyle(ChatFormatting.AQUA)
             );
             return true;
@@ -1008,7 +1008,7 @@ public final class LoadoutUiService {
                 Component.literal(
                     refreshedInRange
                         ? String.format(Locale.ROOT, "已设置当前房间：%s %s -> %s，并已在靶场中刷新当前配装", classType.getDisplayName(), slot.getKey(), entry.getDisplayName())
-                        : String.format(Locale.ROOT, "已设置当前房间：%s %s -> %s，将在下次部署或弹药箱补给时生效", classType.getDisplayName(), slot.getKey(), entry.getDisplayName())
+                        : String.format(Locale.ROOT, "已设置当前房间：%s %s -> %s，将在下一次重生时发放", classType.getDisplayName(), slot.getKey(), entry.getDisplayName())
                 ).withStyle(ChatFormatting.AQUA)
             );
             return true;
@@ -1023,7 +1023,7 @@ public final class LoadoutUiService {
             Component.literal(
                 refreshedInRange
                     ? String.format(Locale.ROOT, "已设置：%s %s -> %s，并已在靶场中刷新当前配装", classType.getDisplayName(), slot.getKey(), entry.getDisplayName())
-                    : String.format(Locale.ROOT, "已设置：%s %s -> %s，将在下次部署或弹药箱补给时生效", classType.getDisplayName(), slot.getKey(), entry.getDisplayName())
+                    : String.format(Locale.ROOT, "已设置：%s %s -> %s，将在下一次重生时发放", classType.getDisplayName(), slot.getKey(), entry.getDisplayName())
             )
                 .withStyle(ChatFormatting.AQUA)
         );
@@ -1125,7 +1125,7 @@ public final class LoadoutUiService {
             player,
             refreshedInRange
                 ? "已更新 " + WeaponAttachmentService.getAttachmentTypeLabel(normalizedAttachmentType) + "，并已在靶场中刷新当前武器"
-                : "已更新 " + WeaponAttachmentService.getAttachmentTypeLabel(normalizedAttachmentType) + "，将在下次部署或重发配装时生效"
+                : "已更新 " + WeaponAttachmentService.getAttachmentTypeLabel(normalizedAttachmentType) + "，将在下一次重生时发放"
         );
         return true;
     }
@@ -1214,12 +1214,17 @@ public final class LoadoutUiService {
 
     /**
      * GD656Mods: 是否处于"对局进行中且非部署流程"(配装修改需暂存)。
-     * 匹配阶段(无运行中状态)、部署界面(含第一次部署界面 deployViewActivePlayers
-     * 与死亡部署 isInDeployFlow)均允许直接修改配装。
+     * 匹配阶段(第一次对局开始前, 房间生命周期非 RUNNING)、部署界面(含第一次部署界面
+     * deployViewActivePlayers 与死亡部署 isInDeployFlow)均允许直接修改配装。
      */
     private static boolean isLoadoutEditBlockedInRunning(ServerPlayer player) {
         RunningRuntimeState state = resolveCurrentRunningState(player);
         if (state == null) {
+            return false;
+        }
+        RoomDefinition room = resolveCurrentRoom(player);
+        if (room != null && room.lifecycleState() != RoomLifecycleState.RUNNING) {
+            // GD656Mods: 匹配阶段(第一次对局开始前)/结算阶段修改配装立即生效, 不走暂存
             return false;
         }
         return !state.isInDeployFlow(player.getUUID())
