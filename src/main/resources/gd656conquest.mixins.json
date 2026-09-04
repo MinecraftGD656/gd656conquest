@@ -16,6 +16,7 @@
     "server.compat.curios.CPacketOpenCuriosMixin"
   ],
   "client": [
+    "client.ClientPacketListenerMixin",
     "client.forge.ModMismatchDisconnectedScreenMixin",
     "client.forge.ModMismatchInfoPanelAccessor",
     "client.ItemInHandLayerMixin",

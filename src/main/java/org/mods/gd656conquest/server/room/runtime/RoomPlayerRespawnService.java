@@ -38,6 +38,7 @@ import org.mods.gd656conquest.server.loadout.TaczDisplayNameResolver;
 import org.mods.gd656conquest.server.loadout.application.CustomLoadoutService;
 import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
+import org.mods.gd656conquest.server.shared.inventory.PlayerInventorySanitizer;
 import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
 import org.mods.gd656conquest.server.social.chat.ServerActionBarService;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
@@ -174,6 +175,7 @@ public final class RoomPlayerRespawnService {
             org.mods.gd656conquest.server.loadout.LoadoutUiService.applyPendingLoadoutEdits(player);
             prepareRespawnAnchor(room, state, player);
             if (deathmatch) {
+                clearInventoryOnConfirmedDeath(player);
                 ServerPlayer killerPlayer = findPlayerByEntityId(killerEntityId);
                 if (killerPlayer != null && isEnemyCause(state, playerId, killerEntityId)) {
                     showKillerActionbar(player, killerPlayer, "击杀者: ");
@@ -294,6 +296,13 @@ public final class RoomPlayerRespawnService {
     }
 
     public String requestRedeploy(RoomDefinition room, RunningRuntimeState state, ServerPlayer player) {
+        // #region debug-point C:request-redeploy-entry
+        reportRedeployDebug(
+            "C",
+            "[DEBUG] server requestRedeploy entry",
+            "{\"player\":\"" + escapeJson(player == null ? "null" : player.getScoreboardName()) + "\",\"roomNull\":" + (room == null) + ",\"stateNull\":" + (state == null) + ",\"serverTick\":" + server.getTickCount() + "}"
+        );
+        // #endregion
         if (room == null || state == null || player == null) {
             return "当前不在任何房间";
         }
@@ -327,7 +336,21 @@ public final class RoomPlayerRespawnService {
         state.clearRespawnFlow(playerId);
         state.getDoubledRespawnPending().add(playerId);
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
+        // #region debug-point C:request-redeploy-before-force-death
+        reportRedeployDebug(
+            "C",
+            "[DEBUG] server requestRedeploy before forceRedeployDeath",
+            "{\"player\":\"" + escapeJson(player.getScoreboardName()) + "\",\"roomId\":\"" + escapeJson(room.roomId()) + "\",\"alive\":" + player.isAlive() + ",\"spectator\":" + player.isSpectator() + ",\"inRespawnFlow\":" + state.isInRespawnFlow(playerId) + ",\"doubledRespawnPending\":" + state.getDoubledRespawnPending().contains(playerId) + "}"
+        );
+        // #endregion
         if (forceRedeployDeath(player)) {
+            // #region debug-point D:force-redeploy-death-result
+            reportRedeployDebug(
+                "D",
+                "[DEBUG] server requestRedeploy forceRedeployDeath returned true",
+                "{\"player\":\"" + escapeJson(player.getScoreboardName()) + "\",\"aliveAfter\":" + player.isAlive() + ",\"serverTick\":" + server.getTickCount() + "}"
+            );
+            // #endregion
             state.getRoomTeams().computeIfPresent(playerId, (id, teamId) -> {
                 state.getGameplayRuntime().ifPresent(runtime -> {
                     runtime.onPlayerInvalidated(
@@ -343,6 +366,13 @@ public final class RoomPlayerRespawnService {
             });
             return "已触发重新部署：本次会立即自杀，并按双倍等待时长进入部署";
         }
+        // #region debug-point D:force-redeploy-death-result
+        reportRedeployDebug(
+            "D",
+            "[DEBUG] server requestRedeploy forceRedeployDeath returned false",
+            "{\"player\":\"" + escapeJson(player.getScoreboardName()) + "\",\"aliveAfter\":" + player.isAlive() + ",\"serverTick\":" + server.getTickCount() + "}"
+        );
+        // #endregion
         state.getDoubledRespawnPending().remove(playerId);
         return "重新部署触发失败，请稍后重试";
     }
@@ -393,6 +423,13 @@ public final class RoomPlayerRespawnService {
         if (player == null || !player.isAlive()) {
             return false;
         }
+        // #region debug-point D:force-redeploy-death-call
+        reportRedeployDebug(
+            "D",
+            "[DEBUG] server forceRedeployDeath before genericKill",
+            "{\"player\":\"" + escapeJson(player.getScoreboardName()) + "\",\"passenger\":" + player.isPassenger() + ",\"aliveBefore\":" + player.isAlive() + ",\"healthBefore\":" + player.getHealth() + "}"
+        );
+        // #endregion
         if (player.isPassenger()) {
             player.stopRiding();
         }
@@ -400,11 +437,54 @@ public final class RoomPlayerRespawnService {
         player.setInvulnerable(false);
         player.setDeltaMovement(0.0D, 0.0D, 0.0D);
         player.hurt(player.damageSources().genericKill(), Float.MAX_VALUE);
+        // #region debug-point D:force-redeploy-death-call
+        reportRedeployDebug(
+            "D",
+            "[DEBUG] server forceRedeployDeath after genericKill",
+            "{\"player\":\"" + escapeJson(player.getScoreboardName()) + "\",\"aliveAfterHurt\":" + player.isAlive() + ",\"healthAfterHurt\":" + player.getHealth() + "}"
+        );
+        // #endregion
         if (!player.isAlive()) {
             return true;
         }
         player.kill();
+        // #region debug-point D:force-redeploy-death-call
+        reportRedeployDebug(
+            "D",
+            "[DEBUG] server forceRedeployDeath after kill fallback",
+            "{\"player\":\"" + escapeJson(player.getScoreboardName()) + "\",\"aliveAfterKill\":" + player.isAlive() + ",\"healthAfterKill\":" + player.getHealth() + "}"
+        );
+        // #endregion
         return !player.isAlive();
+    }
+
+    private static void reportRedeployDebug(String hypothesisId, String msg, String dataJson) {
+        try {
+            String body = "{\"sessionId\":\"redeploy-click-freeze\",\"runId\":\"pre-fix\",\"hypothesisId\":\""
+                + escapeJson(hypothesisId)
+                + "\",\"location\":\"RoomPlayerRespawnService\",\"msg\":\""
+                + escapeJson(msg)
+                + "\",\"data\":"
+                + (dataJson == null || dataJson.isBlank() ? "{}" : dataJson)
+                + ",\"ts\":"
+                + System.currentTimeMillis()
+                + "}";
+            java.net.http.HttpClient.newHttpClient().sendAsync(
+                java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:7777/event"))
+                    .header("Content-Type", "application/json")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body))
+                    .build(),
+                java.net.http.HttpResponse.BodyHandlers.discarding()
+            ).exceptionally(ignored -> null);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static String escapeJson(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     public void beginInitialDeploy(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long gameTick) {
@@ -690,6 +770,7 @@ public final class RoomPlayerRespawnService {
             state.getDeployReadyTicks().put(playerId, gameTick + deployDelayTicks);
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player != null) {
+                clearInventoryOnConfirmedDeath(player);
                 if (isArenaGameplay(room)) {
                     beginDeathmatchRespawnHold(room, state, player, gameTick, deployDelayTicks, false, true);
                 } else {
@@ -1233,6 +1314,7 @@ public final class RoomPlayerRespawnService {
         if (player != null) {
             // GD656Mods: 玩家确认死亡时实现对局内暂存的配装修改
             org.mods.gd656conquest.server.loadout.LoadoutUiService.applyPendingLoadoutEdits(player);
+            clearInventoryOnConfirmedDeath(player);
             ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DOWNED);
             ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DOWNED_BEING_RESCUED);
             PlayerAnimatorDebugDimensionsState.stopPreview(player);
@@ -1259,6 +1341,7 @@ public final class RoomPlayerRespawnService {
         NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
         PlayerAnimatorDebugDimensionsState.stopPreview(player);
+        clearInventoryOnConfirmedDeath(player);
         int killerEntityId = state.getDeathKillerEntityIdOrDefault(playerId);
         int deployDelayTicks = resolveDeployDelayTicksFromDowned(room, state, playerId, gameTick);
         state.clearReviveState(playerId);
@@ -1463,6 +1546,13 @@ public final class RoomPlayerRespawnService {
         state.getGameplayRuntime().ifPresent(runtime ->
             runtime.onPlayerInvalidated(room, playerId, teamId, org.mods.gd656conquest.server.room.core.RoomPlayerInvalidationReason.DEATH, killerEntityId, gameTick)
         );
+    }
+
+    private void clearInventoryOnConfirmedDeath(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        PlayerInventorySanitizer.clearAllSlots(player);
     }
 
     private boolean tryStartSelectedDeploy(

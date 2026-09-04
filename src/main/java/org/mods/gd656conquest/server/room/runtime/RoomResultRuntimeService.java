@@ -16,6 +16,7 @@ import org.mods.gd656conquest.server.shared.log.ServerLogger;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.gameplay.RoomTeamPresentationSupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
@@ -24,6 +25,7 @@ import org.mods.gd656conquest.server.room.model.RoomViewPosition;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -53,13 +55,12 @@ public final class RoomResultRuntimeService {
         this.playerTransferQueueService = Objects.requireNonNull(playerTransferQueueService, "playerTransferQueueService");
     }
 
-    public boolean beginMatchEnd(RoomDefinition room, RunningRuntimeState state, RoomTeamId winner, UUID winnerPlayerId, String reason, long gameTick) {
-        if (room == null || state == null || state.getResultSequenceEndTick() > 0) {
+    public boolean beginMatchEnd(RoomDefinition room, RunningRuntimeState state, RoomMatchEndRequest request, long gameTick) {
+        if (room == null || state == null || request == null || state.getResultSequenceEndTick() > 0) {
             return false;
         }
-        state.setResultWinnerTeam(winner);
-        state.setResultWinnerPlayerId(winnerPlayerId);
-        state.setResultReason(reason);
+        state.setResultPlayerResults(request.playerResults());
+        state.setResultReason(request.reason());
         state.setResultBlackStartTick(gameTick + MATCH_RESULT_BLACK_START_TICKS);
         state.setResultSequenceEndTick(gameTick + MATCH_RESULT_TOTAL_TICKS);
         state.setResultCloseRemainAnnouncedSecond(-1);
@@ -71,7 +72,7 @@ public final class RoomResultRuntimeService {
         for (UUID playerId : state.getRoomPlayers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player == null) {
-                continue;
+                continue; // 掉线/已离场玩家不参与结算
             }
             playerTransferQueueService.cancelPendingTransfers(playerId);
             state.clearRespawnFlow(playerId);
@@ -80,21 +81,10 @@ public final class RoomResultRuntimeService {
             NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());
             NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
             NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setBoundaryPenalty(false));
-            RoomTeamId selfTeam = state.getRoomTeams().get(playerId);
-            MatchResultType resultType = resolveResultType(playerId, selfTeam, winner, winnerPlayerId);
-            NetworkManager.sendToPlayer(player, new RoomMatchResultPacket(
-                true,
-                resultType,
-                MATCH_RESULT_TOTAL_TICKS,
-                MATCH_RESULT_BLACK_START_TICKS,
-                MATCH_RESULT_RESTORE_TICKS,
-                buildResultSubtitle(room, state, playerId, resultType)
-            ));
+            applyPlayerResult(room, state, player, request.playerResults().get(playerId), request.reason(), gameTick, true);
             player.setInvulnerable(true);
             player.setDeltaMovement(0.0D, 0.0D, 0.0D);
             ServerPlayerLockService.of(server).syncPlayer(player);
-            sendResultChat(room, state, winner, winnerPlayerId, reason, player, resultType, selfTeam);
-            awardMatchExperience(room, state, playerId, player, winner, winnerPlayerId, gameTick);
             state.getResultAwardedPlayers().add(playerId);
         }
         return true;
@@ -143,6 +133,11 @@ public final class RoomResultRuntimeService {
             return;
         }
         UUID playerId = player.getUUID();
+        // GD656Mods: 结果表中无该玩家条目(如对局结束请求创建后才中途加入的玩家) -> 未参与本局, 不参与结算
+        RoomMatchEndRequest.PlayerResultEntry entry = state.getResultPlayerResults().get(playerId);
+        if (entry == null) {
+            return;
+        }
         playerTransferQueueService.cancelPendingTransfers(playerId);
         state.clearRespawnFlow(playerId);
         ruleRuntimeService.clearPlayer(playerId);
@@ -150,23 +145,10 @@ public final class RoomResultRuntimeService {
         NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setBoundaryPenalty(false));
-        RoomTeamId selfTeam = state.getRoomTeams().get(playerId);
-        RoomTeamId winner = state.getResultWinnerTeam();
-        UUID winnerPlayerId = state.getResultWinnerPlayerId();
-        MatchResultType resultType = resolveResultType(playerId, selfTeam, winner, winnerPlayerId);
-        NetworkManager.sendToPlayer(player, new RoomMatchResultPacket(
-            true,
-            resultType,
-            MATCH_RESULT_TOTAL_TICKS,
-            MATCH_RESULT_BLACK_START_TICKS,
-            MATCH_RESULT_RESTORE_TICKS,
-            buildResultSubtitle(room, state, playerId, resultType)
-        ));
+        applyPlayerResult(room, state, player, entry, state.getResultReason(), gameTick, awardExperience);
         player.setInvulnerable(true);
         player.setDeltaMovement(0.0D, 0.0D, 0.0D);
-        sendResultChat(room, state, winner, winnerPlayerId, state.getResultReason(), player, resultType, selfTeam);
         if (awardExperience && !state.getResultAwardedPlayers().contains(playerId)) {
-            awardMatchExperience(room, state, playerId, player, winner, winnerPlayerId, gameTick);
             state.getResultAwardedPlayers().add(playerId);
         }
         RoomViewPosition endView = room.commonConfig().resultConfig().endViewPosition();
@@ -278,15 +260,48 @@ public final class RoomResultRuntimeService {
         }
     }
 
+    /**
+     * GD656Mods: 对局结束判定器(融入结算层) —— 根据结果表中的单个玩家结算条目,
+     * 生成并发送该玩家的结果包(客户端 title/subtitle)、聊天框文本与对局结束加分。
+     * entry 由对局运行器写入结果表时已保证存在(RoomMatchEndRequest 构造期全量校验), 此处不可为 null。
+     */
+    private void applyPlayerResult(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player,
+        RoomMatchEndRequest.PlayerResultEntry entry,
+        String reason,
+        long gameTick,
+        boolean awardExperience
+    ) {
+        if (player == null) {
+            return;
+        }
+        if (entry == null) {
+            throw new IllegalStateException("对局结束结果表缺少玩家结算条目: " + player.getUUID());
+        }
+        UUID playerId = player.getUUID();
+        MatchResultType resultType = entry.resultType();
+        NetworkManager.sendToPlayer(player, new RoomMatchResultPacket(
+            true,
+            resultType,
+            MATCH_RESULT_TOTAL_TICKS,
+            MATCH_RESULT_BLACK_START_TICKS,
+            MATCH_RESULT_RESTORE_TICKS,
+            buildResultSubtitle(room, state, playerId, resultType)
+        ));
+        sendResultChat(room, state, player, resultType, reason);
+        if (awardExperience) {
+            awardMatchExperience(room, state, playerId, player, entry, gameTick);
+        }
+    }
+
     private void sendResultChat(
         RoomDefinition room,
         RunningRuntimeState state,
-        RoomTeamId winner,
-        UUID winnerPlayerId,
-        String reason,
         ServerPlayer player,
         MatchResultType resultType,
-        RoomTeamId selfTeam
+        String reason
     ) {
         if (player == null) {
             return;
@@ -297,44 +312,53 @@ public final class RoomResultRuntimeService {
             summary = "对局结束：本局平局";
             type = ClientMessageType.INFO;
         } else if (resultType == MatchResultType.VICTORY) {
-            summary = winner != null ? "对局结束：你所在阵营获胜" : "对局结束：你获得胜利";
+            summary = "对局结束：你获得胜利";
             type = ClientMessageType.SUCCESS;
-        } else if (winner != null) {
-            summary = "对局结束：你所在阵营战败";
-            type = ClientMessageType.FAILURE;
-        } else if (winnerPlayerId != null) {
+        } else {
             summary = "对局结束：你未能取得胜利";
             type = ClientMessageType.FAILURE;
-        } else {
-            summary = "对局结束：" + resolveTeamDisplayName(room, state, winner) + " 获胜";
-            type = ClientMessageType.INFO;
         }
         ServerLogger.sendToClient(player, type, summary);
-        if (winner != null) {
-            ServerLogger.sendToClient(player, ClientMessageType.INFO, "胜方：%s", resolveTeamDisplayName(room, state, winner));
-            if (winnerPlayerId != null) {
-                ServerLogger.sendToClient(player, ClientMessageType.INFO, "达成者：%s", resolvePlayerName(winnerPlayerId));
+        if (resultType == MatchResultType.VICTORY) {
+            RoomTeamId winnerTeam = state == null ? null : state.resolveResultWinnerTeam();
+            if (winnerTeam != null) {
+                ServerLogger.sendToClient(player, ClientMessageType.INFO, "胜方：%s", resolveTeamDisplayName(room, state, winnerTeam));
+            } else {
+                UUID winnerPlayerId = resolveSingleWinnerPlayerId(state, player.getUUID());
+                if (winnerPlayerId != null) {
+                    ServerLogger.sendToClient(player, ClientMessageType.INFO, "胜者：%s", resolvePlayerName(winnerPlayerId));
+                }
             }
-        } else if (winnerPlayerId != null) {
-            ServerLogger.sendToClient(player, ClientMessageType.INFO, "胜者：%s", resolvePlayerName(winnerPlayerId));
         }
         if (reason != null && !reason.isBlank() && !"-".equals(reason)) {
             ServerLogger.sendToClient(player, ClientMessageType.INFO, "结束原因：%s", reason);
         }
     }
 
-    private void awardMatchExperience(RoomDefinition room, RunningRuntimeState state, UUID playerId, ServerPlayer player, RoomTeamId winner, UUID winnerPlayerId, long gameTick) {
+    /** GD656Mods: 从结果表推导唯一胜者(单人胜, 如枪神个人战); 无/多个时返回 null */
+    private UUID resolveSingleWinnerPlayerId(RunningRuntimeState state, UUID selfPlayerId) {
+        if (state == null) {
+            return null;
+        }
+        UUID winner = null;
+        for (Map.Entry<UUID, RoomMatchEndRequest.PlayerResultEntry> entry : state.getResultPlayerResults().entrySet()) {
+            if (entry.getValue() == null || entry.getValue().resultType() != MatchResultType.VICTORY) {
+                continue;
+            }
+            if (winner != null && !winner.equals(entry.getKey())) {
+                return null;
+            }
+            winner = entry.getKey();
+        }
+        return winner == null || winner.equals(selfPlayerId) ? null : winner;
+    }
+
+    private void awardMatchExperience(RoomDefinition room, RunningRuntimeState state, UUID playerId, ServerPlayer player, RoomMatchEndRequest.PlayerResultEntry entry, long gameTick) {
         if (room == null || state == null || playerId == null || player == null) {
             return;
         }
         KilliconScoreboardBridge.TempSnapshot snapshot = KilliconScoreboardBridge.getPlayerSnapshot(state, playerId);
-        PlayerLevelService.MatchOutcome outcome = resolveMatchOutcome(playerId, state.getRoomTeams().get(playerId), winner, winnerPlayerId);
-        
-        int rank = -1;
-        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) && room.gunmasterConfig().isSoloGrouping()) {
-            rank = resolveGunmasterSoloRank(state, playerId);
-        }
-
+        PlayerLevelService.MatchOutcome outcome = resolveMatchOutcome(entry.resultType());
         PlayerLevelService.awardAndNotifyMatchExperience(
             player,
             new PlayerLevelService.MatchStats(
@@ -343,38 +367,18 @@ public final class RoomResultRuntimeService {
                 snapshot.assist(),
                 snapshot.death(),
                 resolveMatchDurationSeconds(state, gameTick),
-                rank
+                entry.extraScore()
             ),
             outcome
         );
     }
 
-    private PlayerLevelService.MatchOutcome resolveMatchOutcome(UUID selfPlayerId, RoomTeamId selfTeam, RoomTeamId winner, UUID winnerPlayerId) {
-        if (winner != null) {
-            return winner == selfTeam
-                ? PlayerLevelService.MatchOutcome.WIN
-                : PlayerLevelService.MatchOutcome.LOSE;
-        }
-        if (winnerPlayerId != null) {
-            return winnerPlayerId.equals(selfPlayerId)
-                ? PlayerLevelService.MatchOutcome.WIN
-                : PlayerLevelService.MatchOutcome.LOSE;
-        }
-        return PlayerLevelService.MatchOutcome.DRAW;
-    }
-
-    private MatchResultType resolveResultType(UUID selfPlayerId, RoomTeamId selfTeam, RoomTeamId winner, UUID winnerPlayerId) {
-        if (winner != null) {
-            return winner == selfTeam
-                ? MatchResultType.VICTORY
-                : MatchResultType.DEFEAT;
-        }
-        if (winnerPlayerId != null) {
-            return winnerPlayerId.equals(selfPlayerId)
-                ? MatchResultType.VICTORY
-                : MatchResultType.DEFEAT;
-        }
-        return MatchResultType.DRAW;
+    private PlayerLevelService.MatchOutcome resolveMatchOutcome(MatchResultType resultType) {
+        return switch (resultType) {
+            case VICTORY -> PlayerLevelService.MatchOutcome.WIN;
+            case DEFEAT -> PlayerLevelService.MatchOutcome.LOSE;
+            default -> PlayerLevelService.MatchOutcome.DRAW;
+        };
     }
 
     private int resolveMatchDurationSeconds(RunningRuntimeState state, long gameTick) {

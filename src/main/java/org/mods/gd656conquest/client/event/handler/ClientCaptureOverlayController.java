@@ -32,6 +32,32 @@ final class ClientCaptureOverlayController {
         return runtime.debugTotalCacheSize();
     }
 
+    // GD656Mods: 临时观测入口，测完删除
+    String deployOverlayDebugLine() {
+        return deployBoundaryOverlayRenderer.debugStatsLine();
+    }
+
+    // GD656Mods: 临时观测入口，测完删除
+    String deployOverlayDebugDetailLine() {
+        return deployBoundaryOverlayRenderer.debugStatsDetailLine();
+    }
+
+    // GD656Mods: 临时观测，payload 解析次数每秒采样，测完删除
+    private long lastPayloadParseSample;
+    private long lastPayloadParseSampleMillis;
+    private int payloadParsePerSecond;
+
+    int payloadParsePerSecond() {
+        long now = System.currentTimeMillis();
+        long count = runtime.debugPayloadParseCount();
+        if (lastPayloadParseSampleMillis == 0L || now - lastPayloadParseSampleMillis >= 1000L) {
+            payloadParsePerSecond = (int) (count - lastPayloadParseSample);
+            lastPayloadParseSample = count;
+            lastPayloadParseSampleMillis = now;
+        }
+        return payloadParsePerSecond;
+    }
+
     boolean isDeployMouseScreen(Screen screen) {
         return runtime.isDeployMouseScreen(screen);
     }

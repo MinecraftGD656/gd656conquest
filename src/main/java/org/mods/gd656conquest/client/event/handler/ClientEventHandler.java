@@ -6,6 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.BlockPos;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.MovementInputUpdateEvent;
@@ -32,7 +33,6 @@ import org.mods.gd656conquest.client.marker.ClientMarkerDebugPreviewState;
 import org.mods.gd656conquest.client.marker.ClientRoomMarkerState;
 import org.mods.gd656conquest.client.parkour.ClientParkourLeaderboardState;
 import org.mods.gd656conquest.client.parkour.ClientParkourRuntimeState;
-import org.mods.gd656conquest.client.pack.ClientPackAuditService;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.client.room.ClientBoundaryHeightReportService;
 import org.mods.gd656conquest.client.room.ClientDeployDeathMarkerState;
@@ -97,7 +97,6 @@ public final class ClientEventHandler {
         ClientRoomMarkerState.tick();
         ClientParkourRuntimeState.tick(minecraft);
         ClientDeathFlowState.tick();
-        ClientPackAuditService.tick(minecraft);
         ClientBoundaryHeightReportService.tick(minecraft);
         ClientDownedState.tick();
         ClientReviveState.tick();
@@ -199,6 +198,17 @@ public final class ClientEventHandler {
         int totalCache = rendererCache + outlineCache;
         String line = "垃圾: R=" + rendererCache + " O=" + outlineCache + " T=" + totalCache;
         guiGraphics.drawString(font, Component.literal(line).withStyle(ChatFormatting.GRAY), x, y, 0xFFFFFF);
+        // GD656Mods: 临时观测第二、三行，测完删除
+        String deployStats = captureOverlayController.deployOverlayDebugLine();
+        if (deployStats != null && !deployStats.isEmpty()) {
+            guiGraphics.drawString(font, Component.literal(deployStats).withStyle(ChatFormatting.GRAY), x, y + 10, 0xFFFFFF);
+        }
+        String deployDetail = captureOverlayController.deployOverlayDebugDetailLine();
+        if (deployDetail != null && !deployDetail.isEmpty()) {
+            int parsePerSecond = captureOverlayController.payloadParsePerSecond();
+            String detailLine = deployDetail + " parse=" + parsePerSecond + "/s";
+            guiGraphics.drawString(font, Component.literal(detailLine).withStyle(ChatFormatting.GRAY), x, y + 20, 0xFFFFFF);
+        }
     }
 
     public void renderMainHud(net.minecraftforge.client.gui.overlay.ForgeGui gui, net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
@@ -258,7 +268,6 @@ public final class ClientEventHandler {
         ClientMatchResultOverlayState.clear();
         ClientMatchLoadState.clear();
         ClientDeathFlowState.clear();
-        ClientPackAuditService.clear();
         ClientBoundaryHeightReportService.clear();
         ClientDownedState.clear();
         ClientDeployDeathMarkerState.clear();
@@ -272,6 +281,7 @@ public final class ClientEventHandler {
         superbWarfareShellingHook.reset();
         roomSessionController.handleLogout();
         captureOverlayController.handleClientLogout();
+        ClientCaptureBakeState.reset();
         captureOutlineController.clear();
     }
 
@@ -281,6 +291,7 @@ public final class ClientEventHandler {
         if (roomId != null && !roomId.isBlank() && !"-".equals(roomId)) {
             ClientDeployDeathMarkerState.clear();
             captureOverlayController.clearRenderCaches();
+            ClientCaptureBakeState.reset();
             captureOutlineController.clear();
         }
     }
@@ -339,7 +350,23 @@ public final class ClientEventHandler {
         PlayerAnimatorDebugDimensionsState.handleEntitySize(event);
     }
 
+    public void handleClientBlockStateUpdate(BlockPos pos, BlockState newState) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || pos == null || newState == null) {
+            return;
+        }
+        captureOutlineController.onBlockStateUpdate(minecraft.level, pos, newState);
+    }
+
     public void handleScreenCharTyped(ScreenEvent.CharacterTyped event) {
         roomSessionController.handleScreenCharTyped(event);
+    }
+
+    public void applyCaptureBake(String roomId, java.util.Map<BlockPos, String> blocks) {
+        captureOutlineController.applyBakedCaptureBlocks(blocks);
+    }
+
+    public void setCaptureDebugScanEnabled(boolean enabled) {
+        captureOutlineController.setDebugScanEnabled(enabled);
     }
 }

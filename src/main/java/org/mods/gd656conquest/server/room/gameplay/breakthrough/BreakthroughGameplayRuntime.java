@@ -144,12 +144,13 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         syncFinalSegmentPersistentSubtitles();
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT) {
             if (gameTick >= runtimeState.getStageDeadlineTick()) {
+                // GD656Mods: 阶段时间耗尽 -> 防守方直接获胜(不再平局)
                 broadcastOutcomeSubtitle(
                     "bt_match_end_timeout_" + gameTick,
-                    "战斗时间结束，本局平局",
-                    "战斗时间结束，本局平局"
+                    "战斗时间结束，防守方获胜",
+                    "战斗时间结束，防守方获胜"
                 );
-                pendingEndRequest = new RoomMatchEndRequest((RoomTeamId) null, "达到时长，判定平局");
+                pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_B, "阶段时间结束，防守方获胜");
                 return;
             }
             captureRuntimeService.tick(room, runningState, runtimeState, gameTick);
@@ -163,7 +164,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                         "我方突破了全部防线",
                         "敌军突破了全部防线"
                     );
-                    pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, "进攻方占领全部阶段");
+                    pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_A, "进攻方占领全部阶段");
                     return;
                 }
                 int defenders = captureRuntimeService.countDefendersInStageBoundary(room, runningState, runtimeState.getCurrentStageIndex());
@@ -270,7 +271,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                     "我方兵力已耗尽",
                     "敌军兵力已耗尽"
                 );
-                pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, "进攻方兵力耗尽");
+                pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_B, "进攻方兵力耗尽");
                 return;
             }
         }
@@ -623,7 +624,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
 
     @Override
     public void syncEndingHudSubtitles(RoomDefinition room, long gameTick) {
-        RoomTeamId winner = runningState.getResultWinnerTeam();
+        RoomTeamId winner = runningState.resolveResultWinnerTeam();
         String reason = runningState.getResultReason();
         for (java.util.UUID playerId : runningState.getRoomPlayers()) {
             ServerPlayer player = captureRuntimeService.findOnlinePlayer(playerId);
@@ -1405,7 +1406,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private void failDesperateMode(long gameTick, String reason, String attackerText, String defenderText) {
         runtimeState.clearDesperateMode();
         broadcastOutcomeSubtitle("bt_desperate_fail_" + gameTick, attackerText, defenderText);
-        pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, reason);
+        pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_B, reason);
     }
 
     private void syncDesperatePersistentSubtitles() {

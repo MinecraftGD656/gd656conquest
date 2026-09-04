@@ -24,7 +24,6 @@ public final class ServerConfigDataModel {
     private String parkourCompletionTitleId = "";
     private String parkourBestTitleId = "";
     private RoomVehicleBackend vehicleBackend = RoomVehicleBackend.defaultValue();
-    private Boolean enablePackValidation = false;
     private Double missileKillRadius = 35.0;
     private Double groundSensorScanRadius = 10.0;
     private Integer groundSensorScanIntervalSeconds = 4;
@@ -211,14 +210,6 @@ public final class ServerConfigDataModel {
 
     public void setVehicleBackend(RoomVehicleBackend vehicleBackend) {
         this.vehicleBackend = vehicleBackend;
-    }
-
-    public Boolean getEnablePackValidation() {
-        return enablePackValidation;
-    }
-
-    public void setEnablePackValidation(Boolean enablePackValidation) {
-        this.enablePackValidation = enablePackValidation;
     }
 
     public Double getMissileKillRadius() {

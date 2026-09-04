@@ -57,7 +57,7 @@ public final class ServerChatFormatService {
             if (!isViewerEligible(channel.scope, coreManager, viewer, roomId, senderTeamKey)) {
                 continue;
             }
-            viewer.sendSystemMessage(buildFormattedLine(sender, viewer, coreManager, roomId, senderTeamKey, channel, messageBody));
+            ServerMessageSender.system(viewer, null, buildFormattedLine(sender, viewer, coreManager, roomId, senderTeamKey, channel, messageBody));
         }
         if (channel == ChatChannel.TEAM) {
             ChatChannelNoticeService.handleTeamChannelMessage(sender);
@@ -79,7 +79,7 @@ public final class ServerChatFormatService {
             if (viewer == null) {
                 continue;
             }
-            viewer.sendSystemMessage(buildFormattedLine(sender, viewer, coreManager, roomId, senderTeamKey, ChatChannel.PARTY, messageBody));
+            ServerMessageSender.system(viewer, null, buildFormattedLine(sender, viewer, coreManager, roomId, senderTeamKey, ChatChannel.PARTY, messageBody));
         }
     }
 

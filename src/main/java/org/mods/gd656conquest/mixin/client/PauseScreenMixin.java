@@ -89,8 +89,58 @@ public abstract class PauseScreenMixin extends Screen {
         if (minecraft == null || minecraft.player == null || minecraft.player.connection == null) {
             return;
         }
+        // #region debug-point A:pause-redeploy-click
+        reportRedeployDebug(
+            "A",
+            "[DEBUG] pause executeRoomCommand before sendUnsignedCommand",
+            "{\"command\":\"" + escapeJson(command) + "\",\"screen\":\"" + escapeJson(this.getClass().getSimpleName()) + "\",\"player\":\"" + escapeJson(minecraft.player.getScoreboardName()) + "\",\"hasCameraOverride\":" + ClientDeathFlowState.hasActiveCameraOverride() + ",\"downedActive\":" + ClientDownedState.isActive() + ",\"releaseMouseForUi\":" + ClientRoomLockState.shouldReleaseMouseForUi() + "}"
+        );
+        // #endregion
         minecraft.player.connection.sendUnsignedCommand(command);
+        // #region debug-point A:pause-redeploy-click
+        reportRedeployDebug(
+            "A",
+            "[DEBUG] pause executeRoomCommand after sendUnsignedCommand",
+            "{\"command\":\"" + escapeJson(command) + "\",\"screen\":\"" + escapeJson(this.getClass().getSimpleName()) + "\"}"
+        );
+        // #endregion
         minecraft.setScreen(null);
+        // #region debug-point A:pause-redeploy-click
+        reportRedeployDebug(
+            "A",
+            "[DEBUG] pause executeRoomCommand after setScreen null",
+            "{\"command\":\"" + escapeJson(command) + "\",\"screenCleared\":" + (minecraft.screen == null) + "}"
+        );
+        // #endregion
+    }
+
+    private static void reportRedeployDebug(String hypothesisId, String msg, String dataJson) {
+        try {
+            String body = "{\"sessionId\":\"redeploy-click-freeze\",\"runId\":\"pre-fix\",\"hypothesisId\":\""
+                + escapeJson(hypothesisId)
+                + "\",\"location\":\"PauseScreenMixin.executeRoomCommand\",\"msg\":\""
+                + escapeJson(msg)
+                + "\",\"data\":"
+                + (dataJson == null || dataJson.isBlank() ? "{}" : dataJson)
+                + ",\"ts\":"
+                + System.currentTimeMillis()
+                + "}";
+            java.net.http.HttpClient.newHttpClient().sendAsync(
+                java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:7777/event"))
+                    .header("Content-Type", "application/json")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body))
+                    .build(),
+                java.net.http.HttpResponse.BodyHandlers.discarding()
+            ).exceptionally(ignored -> null);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static String escapeJson(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private Button findDisconnectButton() {

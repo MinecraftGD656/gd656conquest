@@ -91,8 +91,7 @@ public final class RunningRuntimeState {
     private final Map<UUID, Map<UUID, TacticalMarker>> droneSpotMarkersByOwner = new LinkedHashMap<>();
     private final Map<String, TeamScopedTacticalMarker> gameplayTacticalMarkersByKey = new LinkedHashMap<>();
     private final Map<UUID, RejoinTicket> rejoinTickets = new LinkedHashMap<>();
-    private RoomTeamId resultWinnerTeam;
-    private UUID resultWinnerPlayerId;
+    private Map<UUID, org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest.PlayerResultEntry> resultPlayerResults = Map.of();
     private String resultReason = "-";
     private long resultBlackStartTick = -1L;
     private long resultSequenceEndTick = -1L;
@@ -466,20 +465,29 @@ public final class RunningRuntimeState {
         return rejoinTickets;
     }
 
-    public RoomTeamId getResultWinnerTeam() {
-        return resultWinnerTeam;
+    public Map<UUID, org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest.PlayerResultEntry> getResultPlayerResults() {
+        return resultPlayerResults;
     }
 
-    public void setResultWinnerTeam(RoomTeamId resultWinnerTeam) {
-        this.resultWinnerTeam = resultWinnerTeam;
+    public void setResultPlayerResults(Map<UUID, org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest.PlayerResultEntry> resultPlayerResults) {
+        this.resultPlayerResults = resultPlayerResults == null ? Map.of() : Map.copyOf(resultPlayerResults);
     }
 
-    public UUID getResultWinnerPlayerId() {
-        return resultWinnerPlayerId;
-    }
-
-    public void setResultWinnerPlayerId(UUID resultWinnerPlayerId) {
-        this.resultWinnerPlayerId = resultWinnerPlayerId;
+    /**
+     * GD656Mods: 从结果表推导胜方队伍(供结算展示, 如突破结算副标题)。
+     * 平局或结果表为空时返回 null。
+     */
+    public RoomTeamId resolveResultWinnerTeam() {
+        for (Map.Entry<UUID, org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest.PlayerResultEntry> entry : resultPlayerResults.entrySet()) {
+            if (entry.getValue() != null
+                && entry.getValue().resultType() == org.mods.gd656conquest.common.match.MatchResultType.VICTORY) {
+                RoomTeamId team = roomTeams.get(entry.getKey());
+                if (team == RoomTeamId.CAMP_A || team == RoomTeamId.CAMP_B) {
+                    return team;
+                }
+            }
+        }
+        return null;
     }
 
     public String getResultReason() {
@@ -977,8 +985,7 @@ public final class RunningRuntimeState {
     }
 
     public void clearResultState() {
-        resultWinnerTeam = null;
-        resultWinnerPlayerId = null;
+        resultPlayerResults = Map.of();
         resultReason = "-";
         resultBlackStartTick = -1L;
         resultSequenceEndTick = -1L;

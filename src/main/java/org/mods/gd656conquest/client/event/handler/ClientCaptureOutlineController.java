@@ -27,62 +27,66 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
-import org.mods.gd656conquest.client.hud.ClientHudDebugState;
 import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.TeamToken;
+import org.mods.gd656conquest.client.hud.ClientHudDebugState;
 import org.mods.gd656conquest.common.block.ConquestBlocks;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 final class ClientCaptureOutlineController {
-    private static final int CAPTURE_SCAN_INTERVAL_TICKS = 4;
-    private static final int NEARBY_CAPTURE_SCAN_INTERVAL_TICKS = 20;
-    private static final int NEARBY_CAPTURE_SCAN_RADIUS = 50;
     static final double CAPTURE_BOUNDARY_RENDER_MAX_DISTANCE = 50.0D;
     static final double CAPTURE_BOUNDARY_RENDER_MAX_DISTANCE_SQR = CAPTURE_BOUNDARY_RENDER_MAX_DISTANCE * CAPTURE_BOUNDARY_RENDER_MAX_DISTANCE;
+    private static final double DEBUG_SCAN_RADIUS = 25.0D;
+    private static final double DEBUG_SCAN_RADIUS_SQR = DEBUG_SCAN_RADIUS * DEBUG_SCAN_RADIUS;
+    private static final int DEBUG_SCAN_VERTICAL_RADIUS = 25;
+    private static final long DEBUG_SCAN_INTERVAL_MS = 1_000L;
     private static final int CAPTURE_SUPPORT_SEARCH_MAX_DEPTH = 16;
     private static final float CAPTURE_BLOCK_FACADE_BOTTOM_ALPHA = 1.0F;
     private static final float CAPTURE_BLOCK_FACADE_TOP_ALPHA = 0.0F;
     private static final double CAPTURE_BLOCK_FACADE_HEIGHT = 0.5D;
     private static final double CAPTURE_BLOCK_FACADE_OUTSET = 0.00125D;
 
-    private long lastNearbyCaptureScanTick = -1L;
-    private Set<BlockPos> cachedNearbyCaptureBlocks = Set.of();
+    private final Map<BlockPos, String> knownCaptureBlocks = new LinkedHashMap<>();
+    private final Map<BlockPos, String> bakedCaptureBlocks = new LinkedHashMap<>();
+    private boolean nearbyCacheDirty = true;
+    private BlockPos lastPlayerBlockPos;
     private Set<BlockPos> cachedCaptureOutlineBlocks = Set.of();
     private List<OutlineFacade> cachedCaptureOutlineFacades = List.of();
+    private boolean debugScanEnabled;
+    private boolean usingScanData;
+    private long lastDebugScanAtMs;
 
     void tick(Minecraft minecraft) {
         if (minecraft == null || minecraft.player == null || minecraft.level == null) {
             clear();
             return;
         }
+        BlockPos playerPos = minecraft.player.blockPosition();
         Item heldCapturePointItem = resolveHeldCapturePointItem(minecraft);
-        if (minecraft.level.getGameTime() % CAPTURE_SCAN_INTERVAL_TICKS != 0L) {
-            return;
+        boolean shouldUseScanData = debugScanEnabled || heldCapturePointItem != null;
+        if (shouldUseScanData) {
+            long now = System.currentTimeMillis();
+            if (!usingScanData || now - lastDebugScanAtMs >= DEBUG_SCAN_INTERVAL_MS) {
+                scanNearbyCaptureBlocks(minecraft.level, playerPos);
+                lastDebugScanAtMs = now;
+            }
+        } else if (usingScanData) {
+            usingScanData = false;
+            lastDebugScanAtMs = 0L;
+            setKnownCaptureBlocks(bakedCaptureBlocks);
         }
-        long gameTime = minecraft.level.getGameTime();
-        Set<BlockPos> captureBlocks = collectCaptureBlocksFromServerPayload(minecraft.level);
-        if (lastNearbyCaptureScanTick < 0L || gameTime - lastNearbyCaptureScanTick >= NEARBY_CAPTURE_SCAN_INTERVAL_TICKS) {
-            cachedNearbyCaptureBlocks = collectNearbyCaptureBlocks(minecraft.level, minecraft.player.blockPosition(), NEARBY_CAPTURE_SCAN_RADIUS);
-            lastNearbyCaptureScanTick = gameTime;
+        if (nearbyCacheDirty || !Objects.equals(lastPlayerBlockPos, playerPos)) {
+            rebuildNearbyCaches(minecraft.level, playerPos);
+            lastPlayerBlockPos = playerPos.immutable();
         }
-        if (!cachedNearbyCaptureBlocks.isEmpty()) {
-            captureBlocks.addAll(cachedNearbyCaptureBlocks);
-        }
-        if (captureBlocks.isEmpty()) {
-            cachedCaptureOutlineBlocks = Set.of();
-            cachedCaptureOutlineFacades = List.of();
-            return;
-        }
-        cachedCaptureOutlineBlocks = Set.copyOf(captureBlocks);
-        cachedCaptureOutlineFacades = buildCaptureOutlineFacades(minecraft.level, cachedCaptureOutlineBlocks);
         if (heldCapturePointItem != null) {
             for (BlockPos pos : cachedCaptureOutlineBlocks) {
                 spawnBarrierMarkerParticle(minecraft.level, pos);
@@ -90,17 +94,50 @@ final class ClientCaptureOutlineController {
         }
     }
 
+    void onBlockStateUpdate(ClientLevel level, BlockPos pos, BlockState newState) {
+    }
+
     void clear() {
-        lastNearbyCaptureScanTick = -1L;
-        cachedNearbyCaptureBlocks = Set.of();
+        bakedCaptureBlocks.clear();
+        nearbyCacheDirty = true;
+        lastPlayerBlockPos = null;
+        knownCaptureBlocks.clear();
         cachedCaptureOutlineBlocks = Set.of();
         cachedCaptureOutlineFacades = List.of();
+        debugScanEnabled = false;
+        usingScanData = false;
+        lastDebugScanAtMs = 0L;
+    }
+
+    void applyBakedCaptureBlocks(Map<BlockPos, String> blocks) {
+        bakedCaptureBlocks.clear();
+        if (blocks != null && !blocks.isEmpty()) {
+            for (Map.Entry<BlockPos, String> entry : blocks.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null && !entry.getValue().isBlank()) {
+                    bakedCaptureBlocks.put(entry.getKey().immutable(), entry.getValue());
+                }
+            }
+        }
+        if (!usingScanData) {
+            setKnownCaptureBlocks(bakedCaptureBlocks);
+        }
+    }
+
+    void setDebugScanEnabled(boolean enabled) {
+        debugScanEnabled = enabled;
+        if (!enabled && usingScanData) {
+            usingScanData = false;
+            lastDebugScanAtMs = 0L;
+            setKnownCaptureBlocks(bakedCaptureBlocks);
+        } else if (enabled) {
+            nearbyCacheDirty = true;
+        }
     }
 
     int debugTotalOutlineCacheSize() {
-        return cachedCaptureOutlineFacades.size()
+        return knownCaptureBlocks.size()
             + cachedCaptureOutlineBlocks.size()
-            + cachedNearbyCaptureBlocks.size();
+            + cachedCaptureOutlineFacades.size();
     }
 
     void renderCaptureBlockOutlineLines(RenderLevelStageEvent event, TeamToken selfTeam) {
@@ -140,87 +177,88 @@ final class ClientCaptureOutlineController {
         }
     }
 
-    private Set<BlockPos> collectCaptureBlocksFromServerPayload(Level level) {
-        Set<BlockPos> centerSeeds = new HashSet<>();
-        String payload = ClientHudDebugState.getCaptureIcons();
-        if (payload == null || payload.isBlank() || "-".equals(payload)) {
-            return centerSeeds;
-        }
-        String[] rows = payload.split(";");
-        for (String row : rows) {
-            String[] cols = row.trim().split(",");
-            if (cols.length < 5 || !"C".equalsIgnoreCase(cols[0])) {
-                continue;
-            }
-            try {
-                int x = Integer.parseInt(cols[2]);
-                int y = Integer.parseInt(cols[3]);
-                int z = Integer.parseInt(cols[4]);
-                centerSeeds.add(new BlockPos(x, y, z));
-            } catch (Exception ignored) {
-            }
-        }
-        if (centerSeeds.isEmpty()) {
-            return centerSeeds;
-        }
-        Set<BlockPos> blocks = new HashSet<>();
-        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
-        for (BlockPos seed : centerSeeds) {
-            BlockState state = level.getBlockState(seed);
-            if (!ConquestBlocks.isCapturePoint(state) && !ConquestBlocks.isOutOfBoundsBlock(state)) {
-                continue;
-            }
-            BlockPos immutable = seed.immutable();
-            if (blocks.add(immutable)) {
-                queue.add(immutable);
-            }
-        }
-        int maxNodes = 12000;
-        while (!queue.isEmpty() && blocks.size() < maxNodes) {
-            BlockPos current = queue.poll();
-            for (BlockPos next : new BlockPos[]{current.north(), current.south(), current.west(), current.east(), current.above(), current.below()}) {
-                if (blocks.contains(next)) {
+    private void setKnownCaptureBlocks(Map<BlockPos, String> source) {
+        knownCaptureBlocks.clear();
+        if (source != null && !source.isEmpty()) {
+            for (Map.Entry<BlockPos, String> entry : source.entrySet()) {
+                BlockPos pos = entry.getKey();
+                String code = entry.getValue();
+                if (pos == null || code == null) {
                     continue;
                 }
-                BlockState state = level.getBlockState(next);
-                if (!ConquestBlocks.isCapturePoint(state) && !ConquestBlocks.isOutOfBoundsBlock(state)) {
-                    continue;
-                }
-                BlockPos immutable = next.immutable();
-                if (blocks.add(immutable)) {
-                    queue.add(immutable);
-                }
+                knownCaptureBlocks.put(pos.immutable(), code);
             }
         }
-        return blocks;
+        nearbyCacheDirty = true;
     }
 
-    private Set<BlockPos> collectNearbyCaptureBlocks(Level level, BlockPos center, int radius) {
-        Set<BlockPos> blocks = new HashSet<>();
-        int radiusSqr = radius * radius;
-        int minX = center.getX() - radius;
-        int maxX = center.getX() + radius;
-        int minZ = center.getZ() - radius;
-        int maxZ = center.getZ() + radius;
-        int minY = Math.max(level.getMinBuildHeight(), center.getY() - 16);
-        int maxY = Math.min(level.getMaxBuildHeight() - 1, center.getY() + 24);
+    private void scanNearbyCaptureBlocks(ClientLevel level, BlockPos center) {
+        if (level == null || center == null) {
+            setKnownCaptureBlocks(Map.of());
+            usingScanData = true;
+            return;
+        }
+        Map<BlockPos, String> scanned = new LinkedHashMap<>();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
+        int minX = Mth.floor(center.getX() - DEBUG_SCAN_RADIUS);
+        int maxX = Mth.floor(center.getX() + DEBUG_SCAN_RADIUS);
+        int minZ = Mth.floor(center.getZ() - DEBUG_SCAN_RADIUS);
+        int maxZ = Mth.floor(center.getZ() + DEBUG_SCAN_RADIUS);
+        int minY = center.getY() - DEBUG_SCAN_VERTICAL_RADIUS;
+        int maxY = center.getY() + DEBUG_SCAN_VERTICAL_RADIUS;
         for (int x = minX; x <= maxX; x++) {
+            double dx = x + 0.5D - (center.getX() + 0.5D);
             for (int z = minZ; z <= maxZ; z++) {
-                int dx = x - center.getX();
-                int dz = z - center.getZ();
-                if (dx * dx + dz * dz > radiusSqr) {
+                double dz = z + 0.5D - (center.getZ() + 0.5D);
+                if (dx * dx + dz * dz > DEBUG_SCAN_RADIUS_SQR) {
                     continue;
                 }
                 for (int y = minY; y <= maxY; y++) {
-                    BlockPos pos = new BlockPos(x, y, z);
-                    BlockState state = level.getBlockState(pos);
-                    if (ConquestBlocks.isCapturePoint(state) || ConquestBlocks.isOutOfBoundsBlock(state)) {
-                        blocks.add(pos.immutable());
+                    mutable.set(x, y, z);
+                    Optional<String> code = resolveIndexedCaptureCode(level.getBlockState(mutable));
+                    if (code.isPresent()) {
+                        scanned.put(mutable.immutable(), code.get());
                     }
                 }
             }
         }
-        return blocks;
+        usingScanData = true;
+        setKnownCaptureBlocks(scanned);
+    }
+
+    private void rebuildNearbyCaches(Level level, BlockPos playerPos) {
+        if (level == null || playerPos == null || knownCaptureBlocks.isEmpty()) {
+            cachedCaptureOutlineBlocks = Set.of();
+            cachedCaptureOutlineFacades = List.of();
+            nearbyCacheDirty = false;
+            return;
+        }
+        Set<BlockPos> nearbyBlocks = new HashSet<>();
+        Vec3 playerCenter = Vec3.atCenterOf(playerPos);
+        for (BlockPos pos : knownCaptureBlocks.keySet()) {
+            if (distanceSqr(playerCenter, pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D) <= CAPTURE_BOUNDARY_RENDER_MAX_DISTANCE_SQR) {
+                nearbyBlocks.add(pos);
+            }
+        }
+        if (nearbyBlocks.isEmpty()) {
+            cachedCaptureOutlineBlocks = Set.of();
+            cachedCaptureOutlineFacades = List.of();
+            nearbyCacheDirty = false;
+            return;
+        }
+        cachedCaptureOutlineBlocks = Set.copyOf(nearbyBlocks);
+        cachedCaptureOutlineFacades = buildCaptureOutlineFacades(level, cachedCaptureOutlineBlocks);
+        nearbyCacheDirty = false;
+    }
+
+    private Optional<String> resolveIndexedCaptureCode(BlockState state) {
+        if (ConquestBlocks.isCapturePoint(state)) {
+            return ConquestBlocks.resolveCaptureCode(state);
+        }
+        if (ConquestBlocks.isOutOfBoundsBlock(state)) {
+            return Optional.of("");
+        }
+        return Optional.empty();
     }
 
     private Map<String, String> resolveCapturePerspectiveByCode(TeamToken selfTeam) {
@@ -268,7 +306,7 @@ final class ClientCaptureOutlineController {
             if (support == null) {
                 continue;
             }
-            String code = ConquestBlocks.resolveCaptureCode(level.getBlockState(pos)).orElse("");
+            String code = knownCaptureBlocks.getOrDefault(pos, "");
             cells.put(packColumnKey(pos.getX(), pos.getZ()), new OutlineCell(pos.getX(), pos.getZ(), support.baseY, code, support.outwardOffset));
         }
         if (cells.isEmpty()) {
@@ -395,14 +433,14 @@ final class ClientCaptureOutlineController {
         boolean holdingMatching = false;
         if (ConquestBlocks.isOutOfBoundsBlock(captureState)) {
             holdingMatching = ConquestBlocks.isOutOfBoundsBlockItem(minecraft.player.getMainHandItem().getItem()) ||
-                              ConquestBlocks.isOutOfBoundsBlockItem(minecraft.player.getOffhandItem().getItem());
+                ConquestBlocks.isOutOfBoundsBlockItem(minecraft.player.getOffhandItem().getItem());
         } else {
-            Optional<String> code = ConquestBlocks.resolveCaptureCode(captureState);
-            if (code.isPresent()) {
-                Item matchItem = ConquestBlocks.getCaptureBlockItem(code.get());
+            String code = knownCaptureBlocks.getOrDefault(pos, "");
+            if (!code.isBlank()) {
+                Item matchItem = ConquestBlocks.getCaptureBlockItem(code);
                 if (matchItem != null) {
                     holdingMatching = minecraft.player.getMainHandItem().is(matchItem) ||
-                                      minecraft.player.getOffhandItem().is(matchItem);
+                        minecraft.player.getOffhandItem().is(matchItem);
                 }
             }
         }

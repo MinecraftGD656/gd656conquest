@@ -66,6 +66,11 @@ final class ClientCaptureOverlayRuntime {
         codec.syncCaptureOverlayState(state);
     }
 
+    // GD656Mods: 临时观测，测完删除
+    long debugPayloadParseCount() {
+        return codec.payloadParseCount;
+    }
+
     float resolveCaptureRenderDeltaSeconds() {
         return codec.resolveCaptureRenderDeltaSeconds(state);
     }

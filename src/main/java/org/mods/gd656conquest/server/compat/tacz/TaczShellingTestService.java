@@ -1,5 +1,6 @@
 package org.mods.gd656conquest.server.compat.tacz;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -20,6 +21,7 @@ import org.mods.gd656conquest.server.data.shelling.ShellingImpactType;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.runtime.audio.RoomDistanceAudioService;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
+import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
 import org.mods.gd656conquest.server.shared.util.ItemStackSnbtCodec;
 
 import java.lang.reflect.Constructor;
@@ -331,7 +333,7 @@ public final class TaczShellingTestService {
         } catch (Exception exception) {
             ServerLogger.failure("炮击测试生成炮弹失败 task=%s owner=%s error=%s", task.taskId(), task.ownerName(), exception.getMessage());
             exception.printStackTrace();
-            owner.sendSystemMessage(net.minecraft.network.chat.Component.literal("§c炮弹生成失败: " + exception.toString()));
+            ServerMessageSender.system(owner, null, "炮弹生成失败: " + exception, ChatFormatting.RED);
             return false;
         }
     }

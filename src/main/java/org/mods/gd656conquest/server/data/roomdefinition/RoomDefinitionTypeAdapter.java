@@ -38,6 +38,18 @@ public final class RoomDefinitionTypeAdapter implements JsonDeserializer<RoomDef
         
         IRoomGameplayConfig gameplayConfig;
         JsonElement configElement = obj.get("gameplayConfig");
+        if (configElement != null && configElement.isJsonObject()) {
+            JsonObject configObj = configElement.getAsJsonObject();
+            if (!configObj.has("sharedBoundary") && configObj.has("gameBoundary")) {
+                configObj.add("sharedBoundary", configObj.get("gameBoundary"));
+            }
+            if (!configObj.has("campABoundary") && configObj.has("campAGameBoundary")) {
+                configObj.add("campABoundary", configObj.get("campAGameBoundary"));
+            }
+            if (!configObj.has("campBBoundary") && configObj.has("campBGameBoundary")) {
+                configObj.add("campBBoundary", configObj.get("campBGameBoundary"));
+            }
+        }
         
         if ("breakthrough".equalsIgnoreCase(gameplayId)) {
             gameplayConfig = context.deserialize(configElement, RoomBreakthroughConfig.class);

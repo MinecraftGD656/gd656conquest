@@ -27,6 +27,7 @@ import org.mods.gd656conquest.network.packet.MarkerDebugPreviewPacket;
 import org.mods.gd656conquest.network.packet.PlayerAnimatorDebugPacket;
 import org.mods.gd656conquest.network.packet.RoomDownedStatePacket;
 import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
+import org.mods.gd656conquest.server.capture.CaptureBoundaryBakeCommands;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.data.playerdata.LegacySurvivalDataExportService;
 import org.mods.gd656conquest.server.data.serverconfig.ServerConfigDataModel;
@@ -40,7 +41,6 @@ import org.mods.gd656conquest.server.facility.support.EquipmentSetCommands;
 import org.mods.gd656conquest.server.facility.support.HeroKitCommands;
 import org.mods.gd656conquest.server.facility.support.ShellingCommands;
 import org.mods.gd656conquest.server.loadout.LoadoutCommands;
-import org.mods.gd656conquest.server.pack.PackValidationService;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.player.lock.ServerPlayerLockService;
 import org.mods.gd656conquest.server.player.state.HubDimensionMigrationService;
@@ -90,7 +90,6 @@ public final class ConquestServerCommands {
         "parkourEndPos",
         "parkourCompletionTitleId",
         "parkourBestTitleId",
-        "enablePackValidation",
         "missileKillRadius",
         "groundSensorScanRadius",
         "groundSensorScanIntervalSeconds",
@@ -139,9 +138,9 @@ public final class ConquestServerCommands {
         root.then(PlayerTitleCommands.buildTree());
         root.then(PartyCommands.buildTree());
         root.then(ActionCommands.buildTree());
+        root.then(CaptureBoundaryBakeCommands.buildTree());
 
         root.then(buildConfigAliasTree());
-        root.then(buildPackAliasTree());
         root.then(buildDebugAliasTree());
         root.then(buildHubAliasTree());
         root.then(buildLevelAliasTree());
@@ -154,9 +153,12 @@ public final class ConquestServerCommands {
             .executes(context -> {
                 var result = org.mods.gd656conquest.server.data.roomdefinition.RoomDefinitionMigrator.migrateLegacyRooms(context.getSource().getServer());
                 for (String msg : result.messages()) {
-                    context.getSource().sendSuccess(() -> Component.literal(msg), false);
+                    CommandFeedbacks.line(context.getSource(), Component.literal(msg));
                 }
-                context.getSource().sendSuccess(() -> Component.literal("迁移完成: 成功 " + result.successCount() + " 个, 失败 " + result.failureCount() + " 个"), true);
+                CommandFeedbacks.line(
+                    context.getSource(),
+                    Component.literal("迁移完成: 成功 " + result.successCount() + " 个, 失败 " + result.failureCount() + " 个")
+                );
                 return result.successCount();
             })
         );
@@ -185,23 +187,11 @@ public final class ConquestServerCommands {
                         .executes(ConquestServerCommands::executeConfigSet))));
     }
 
-    private static ArgumentBuilder<CommandSourceStack, ?> buildPackAliasTree() {
-        return Commands.literal("pack")
-            .requires(source -> source.hasPermission(2))
-            .then(Commands.literal("update")
-                .executes(ConquestServerCommands::executePackUpdate))
-            .then(Commands.literal("list")
-                .executes(ConquestServerCommands::executePackList))
-            .then(Commands.literal("del")
-                .then(Commands.argument("fileName", StringArgumentType.string())
-                    .suggests(ConquestServerCommands::suggestPackWhitelistFileNames)
-                    .executes(ConquestServerCommands::executePackDelete)));
-    }
-
     private static ArgumentBuilder<CommandSourceStack, ?> buildDebugAliasTree() {
         return Commands.literal("debug")
             .requires(source -> source.hasPermission(2))
             .then(buildDebugOverlayTree())
+            .then(CaptureBoundaryBakeCommands.buildDebugScanTree())
             .then(buildDebugPreviewTree())
             .then(buildDebugPlayerTree())
             .then(buildDebugRoomTree())
@@ -547,7 +537,6 @@ public final class ConquestServerCommands {
         CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourEndPos=" + formatPosition(config.getParkourEndPos()), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourCompletionTitleId=" + store.getParkourCompletionTitleId(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourBestTitleId=" + store.getParkourBestTitleId(), net.minecraft.ChatFormatting.AQUA));
-        CommandFeedbacks.line(context.getSource(), ServerText.colored("enablePackValidation=" + store.isPackValidationEnabled(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("missileKillRadius=" + formatDecimal(store.getMissileKillRadius()), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("groundSensorScanRadius=" + formatDecimal(store.getGroundSensorScanRadius()), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("groundSensorScanIntervalSeconds=" + store.getGroundSensorScanIntervalSeconds(), net.minecraft.ChatFormatting.AQUA));
@@ -608,7 +597,6 @@ public final class ConquestServerCommands {
             case "parkourEndPos" -> config.setParkourEndPos(parseConfigPosition(context, rawValue));
             case "parkourCompletionTitleId" -> config.setParkourCompletionTitleId(rawValue);
             case "parkourBestTitleId" -> config.setParkourBestTitleId(rawValue);
-            case "enablePackValidation" -> config.setEnablePackValidation(parseBooleanStrict(rawValue));
             case "missileKillRadius" -> config.setMissileKillRadius(parseNonNegativeDouble(rawValue));
             case "groundSensorScanRadius" -> config.setGroundSensorScanRadius(parseNonNegativeDouble(rawValue));
             case "groundSensorScanIntervalSeconds" -> config.setGroundSensorScanIntervalSeconds(parsePositiveInt(rawValue));
@@ -656,7 +644,7 @@ public final class ConquestServerCommands {
             return builder.buildFuture();
         }
         return switch (normalized) {
-            case "boolOverworldInvulnerable", "boolRestrictConquestDimension", "boolNaturalRegeneration", "enablePackValidation" ->
+            case "boolOverworldInvulnerable", "boolRestrictConquestDimension", "boolNaturalRegeneration" ->
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
             case "passiveRegenIntervalTicks" ->
                 SharedSuggestionProvider.suggest(List.of("3", "5", "10"), builder);
@@ -753,7 +741,6 @@ public final class ConquestServerCommands {
             case "parkourendpos", "parkourend", "parkourfinish" -> "parkourEndPos";
             case "parkourcompletiontitleid", "parkourtitle", "parkourcompletiontitle" -> "parkourCompletionTitleId";
             case "parkourbesttitleid", "parkourfirsttitle", "parkourrecordtitle" -> "parkourBestTitleId";
-            case "enablepackvalidation", "packvalidation", "checkpacks", "packcheck" -> "enablePackValidation";
             case "missilekillradius", "missileradius", "missilekill" -> "missileKillRadius";
             case "groundsensorscanradius", "groundsensorradius", "sensorradius" -> "groundSensorScanRadius";
             case "groundsensorscanintervalseconds", "groundsensorinterval", "sensorinterval" -> "groundSensorScanIntervalSeconds";
@@ -806,7 +793,6 @@ public final class ConquestServerCommands {
             case "parkourEndPos" -> formatPosition(config.getParkourEndPos());
             case "parkourCompletionTitleId" -> store.getParkourCompletionTitleId();
             case "parkourBestTitleId" -> store.getParkourBestTitleId();
-            case "enablePackValidation" -> String.valueOf(store.isPackValidationEnabled());
             case "missileKillRadius" -> formatDecimal(store.getMissileKillRadius());
             case "groundSensorScanRadius" -> formatDecimal(store.getGroundSensorScanRadius());
             case "groundSensorScanIntervalSeconds" -> String.valueOf(store.getGroundSensorScanIntervalSeconds());
@@ -834,27 +820,6 @@ public final class ConquestServerCommands {
             case "supportAmmoBagSbw" -> String.valueOf(store.getSupportAmmoBagSbw());
             default -> "-";
         };
-    }
-
-    private static int executePackUpdate(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ServerPlayer player = context.getSource().getPlayerOrException();
-        return PackValidationService.of(context.getSource().getServer()).requestManualWhitelistUpdate(context.getSource(), player);
-    }
-
-    private static int executePackList(CommandContext<CommandSourceStack> context) {
-        return PackValidationService.of(context.getSource().getServer()).listWhitelist(context.getSource());
-    }
-
-    private static int executePackDelete(CommandContext<CommandSourceStack> context) {
-        String fileName = StringArgumentType.getString(context, "fileName");
-        return PackValidationService.of(context.getSource().getServer()).deleteWhitelistEntry(context.getSource(), fileName);
-    }
-
-    private static CompletableFuture<Suggestions> suggestPackWhitelistFileNames(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
-        return SharedSuggestionProvider.suggest(
-            PackValidationService.of(context.getSource().getServer()).suggestWhitelistFileNames(),
-            builder
-        );
     }
 
     private static String formatPosition(RoomPosition position) {

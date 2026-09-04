@@ -14,6 +14,7 @@ import org.mods.gd656conquest.Gd656conquest;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -33,6 +34,8 @@ public final class ConquestBlocks {
     };
     private static final Map<String, RegistryObject<Block>> CAPTURE_BLOCKS = new LinkedHashMap<>();
     private static final Map<String, RegistryObject<Item>> CAPTURE_BLOCK_ITEMS = new LinkedHashMap<>();
+    private static final Map<Block, String> CAPTURE_CODE_BY_BLOCK = new IdentityHashMap<>();
+    private static final Map<Item, String> CAPTURE_CODE_BY_ITEM = new IdentityHashMap<>();
     private static final RegistryObject<Block> OOB_BLOCK = BLOCKS.register(OOB_BLOCK_ID, () ->
             new CapturePointBlock(BlockBehaviour.Properties.of().noCollission().noLootTable().noOcclusion().strength(-1.0F, 3600000.0F)));
     private static final RegistryObject<Item> OOB_BLOCK_ITEM = ITEMS.register(OOB_BLOCK_ID, () -> new BlockItem(OOB_BLOCK.get(), new Item.Properties()));
@@ -54,21 +57,11 @@ public final class ConquestBlocks {
     }
 
     public static boolean isCapturePoint(BlockState state) {
-        for (RegistryObject<Block> block : CAPTURE_BLOCKS.values()) {
-            if (state.is(block.get())) {
-                return true;
-            }
-        }
-        return false;
+        return state != null && CAPTURE_CODE_BY_BLOCK.containsKey(state.getBlock());
     }
 
     public static boolean isCapturePointItem(Item item) {
-        for (RegistryObject<Item> captureItem : CAPTURE_BLOCK_ITEMS.values()) {
-            if (item == captureItem.get()) {
-                return true;
-            }
-        }
-        return false;
+        return item != null && CAPTURE_CODE_BY_ITEM.containsKey(item);
     }
 
     public static boolean isOutOfBoundsBlockItem(Item item) {
@@ -80,21 +73,14 @@ public final class ConquestBlocks {
     }
 
     public static Optional<String> resolveCaptureCode(BlockState state) {
-        for (Map.Entry<String, RegistryObject<Block>> entry : CAPTURE_BLOCKS.entrySet()) {
-            if (state.is(entry.getValue().get())) {
-                return Optional.of(entry.getKey());
-            }
+        if (state == null) {
+            return Optional.empty();
         }
-        return Optional.empty();
+        return Optional.ofNullable(CAPTURE_CODE_BY_BLOCK.get(state.getBlock()));
     }
 
     public static Optional<String> resolveCaptureCode(Item item) {
-        for (Map.Entry<String, RegistryObject<Item>> entry : CAPTURE_BLOCK_ITEMS.entrySet()) {
-            if (item == entry.getValue().get()) {
-                return Optional.of(entry.getKey());
-            }
-        }
-        return Optional.empty();
+        return item == null ? Optional.empty() : Optional.ofNullable(CAPTURE_CODE_BY_ITEM.get(item));
     }
 
     public static Item getCaptureBlockItem(String code) {
@@ -159,5 +145,17 @@ public final class ConquestBlocks {
     public static void register(IEventBus eventBus) {
         BLOCKS.register(eventBus);
         ITEMS.register(eventBus);
+        eventBus.addListener((net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent event) ->
+            event.enqueueWork(() -> {
+                CAPTURE_CODE_BY_BLOCK.clear();
+                CAPTURE_CODE_BY_ITEM.clear();
+                for (Map.Entry<String, RegistryObject<Block>> entry : CAPTURE_BLOCKS.entrySet()) {
+                    CAPTURE_CODE_BY_BLOCK.put(entry.getValue().get(), entry.getKey());
+                }
+                for (Map.Entry<String, RegistryObject<Item>> entry : CAPTURE_BLOCK_ITEMS.entrySet()) {
+                    CAPTURE_CODE_BY_ITEM.put(entry.getValue().get(), entry.getKey());
+                }
+            })
+        );
     }
 }

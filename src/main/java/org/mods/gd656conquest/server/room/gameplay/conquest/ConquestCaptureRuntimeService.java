@@ -7,6 +7,7 @@ import net.minecraft.util.Mth;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import net.minecraft.world.level.GameType;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
+import org.mods.gd656conquest.common.match.MatchResultType;
 import org.mods.gd656conquest.server.room.model.ConquestFullCaptureResponseMode;
 import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.model.RoomCaptureConfig;
@@ -107,7 +108,7 @@ public final class ConquestCaptureRuntimeService {
             if (owner != null && owner != previousOwner) {
                 pushOwnershipChangedEvents(room, scoreState, owner, code, gameTick);
             }
-            Optional<RoomMatchEndRequest> scoreEnd = applyScore(room, captureState, scoreState, code, owner, gameTick, pendingTroopLoss);
+            Optional<RoomMatchEndRequest> scoreEnd = applyScore(room, state, captureState, scoreState, code, owner, gameTick, pendingTroopLoss);
             if (scoreEnd.isPresent()) {
                 return scoreEnd;
             }
@@ -116,7 +117,7 @@ public final class ConquestCaptureRuntimeService {
         if (isTroopDepletionMode(room) && !pendingTroopLoss.isEmpty()) {
             scoreState.setCampAScore(scoreState.getCampAScore() - pendingTroopLoss.getOrDefault(RoomTeamId.CAMP_A, 0));
             scoreState.setCampBScore(scoreState.getCampBScore() - pendingTroopLoss.getOrDefault(RoomTeamId.CAMP_B, 0));
-            Optional<RoomMatchEndRequest> troopEnd = checkTroopDepletionEnd(scoreState);
+            Optional<RoomMatchEndRequest> troopEnd = checkTroopDepletionEnd(state, scoreState);
             if (troopEnd.isPresent()) {
                 return troopEnd;
             }
@@ -127,6 +128,7 @@ public final class ConquestCaptureRuntimeService {
 
     private Optional<RoomMatchEndRequest> applyScore(
         RoomDefinition room,
+        RunningRuntimeState state,
         ConquestCaptureRuntimeState captureState,
         ConquestScoreRuntimeState scoreState,
         String code,
@@ -151,28 +153,28 @@ public final class ConquestCaptureRuntimeService {
         if (owner == RoomTeamId.CAMP_A) {
             scoreState.setCampAScore(scoreState.getCampAScore() + 1);
             if (scoreState.getCampAScore() >= room.conquestConfig().captureConfig().targetScore()) {
-                return Optional.of(new RoomMatchEndRequest(RoomTeamId.CAMP_A, "达到目标得分"));
+                return Optional.of(RoomMatchEndRequest.byTeam(state.getRoomPlayers(), state.getRoomTeams(), RoomTeamId.CAMP_A, "达到目标得分"));
             }
         } else if (owner == RoomTeamId.CAMP_B) {
             scoreState.setCampBScore(scoreState.getCampBScore() + 1);
             if (scoreState.getCampBScore() >= room.conquestConfig().captureConfig().targetScore()) {
-                return Optional.of(new RoomMatchEndRequest(RoomTeamId.CAMP_B, "达到目标得分"));
+                return Optional.of(RoomMatchEndRequest.byTeam(state.getRoomPlayers(), state.getRoomTeams(), RoomTeamId.CAMP_B, "达到目标得分"));
             }
         }
         return Optional.empty();
     }
 
-    Optional<RoomMatchEndRequest> checkTroopDepletionEnd(ConquestScoreRuntimeState scoreState) {
+    Optional<RoomMatchEndRequest> checkTroopDepletionEnd(RunningRuntimeState state, ConquestScoreRuntimeState scoreState) {
         int campA = scoreState.getCampAScore();
         int campB = scoreState.getCampBScore();
         if (campA <= 0 && campB <= 0) {
-            return Optional.of(new RoomMatchEndRequest((RoomTeamId) null, "双方兵力同时耗尽"));
+            return Optional.of(RoomMatchEndRequest.forAll(state.getRoomPlayers(), MatchResultType.DRAW, "双方兵力同时耗尽"));
         }
         if (campA <= 0) {
-            return Optional.of(new RoomMatchEndRequest(RoomTeamId.CAMP_B, "CampA兵力耗尽"));
+            return Optional.of(RoomMatchEndRequest.byTeam(state.getRoomPlayers(), state.getRoomTeams(), RoomTeamId.CAMP_B, "CampA兵力耗尽"));
         }
         if (campB <= 0) {
-            return Optional.of(new RoomMatchEndRequest(RoomTeamId.CAMP_A, "CampB兵力耗尽"));
+            return Optional.of(RoomMatchEndRequest.byTeam(state.getRoomPlayers(), state.getRoomTeams(), RoomTeamId.CAMP_A, "CampB兵力耗尽"));
         }
         return Optional.empty();
     }
@@ -234,7 +236,7 @@ public final class ConquestCaptureRuntimeService {
                 return Optional.empty();
             }
             if (gameTick >= scoreState.getFullCaptureEndTick()) {
-                return Optional.of(new RoomMatchEndRequest(ownerTeam, "控制全部据点并维持到决战结束"));
+                return Optional.of(RoomMatchEndRequest.byTeam(state.getRoomPlayers(), state.getRoomTeams(), ownerTeam, "控制全部据点并维持到决战结束"));
             }
             if (dominantTeam == enemyTeam) {
                 scoreState.clearFullCaptureState();
@@ -246,7 +248,7 @@ public final class ConquestCaptureRuntimeService {
         }
         if (responseMode == ConquestFullCaptureResponseMode.COUNTDOWN_END) {
             if (fullCaptureEndSeconds == 0) {
-                return Optional.of(new RoomMatchEndRequest(dominantTeam, "控制全部据点"));
+                return Optional.of(RoomMatchEndRequest.byTeam(state.getRoomPlayers(), state.getRoomTeams(), dominantTeam, "控制全部据点"));
             }
             RoomTeamId enemy = dominantTeam == RoomTeamId.CAMP_A ? RoomTeamId.CAMP_B : RoomTeamId.CAMP_A;
             scoreState.setFullCaptureOwnerTeam(dominantTeam);
@@ -311,8 +313,10 @@ public final class ConquestCaptureRuntimeService {
                 player,
                 ACTIONBAR_SOURCE_ANTI_BASE_NUKE,
                 ServerActionBarService.builder()
-                    .text("即将抵达：", ChatFormatting.RED)
-                    .text(String.valueOf(remainSeconds), ChatFormatting.DARK_RED),
+                    .text("(对局防压家) ", ChatFormatting.DARK_GRAY)
+                    .text("即将重新部署：", ChatFormatting.DARK_RED)
+                    .text(String.valueOf(remainSeconds), ChatFormatting.RED)
+                    .text("秒", ChatFormatting.DARK_RED),
                 110
             );
         }

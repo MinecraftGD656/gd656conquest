@@ -14,6 +14,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 public final class ClientDeathFlowState {
+    private static final long DEBUG_SLOW_PHASE_MS = 8L;
+    private static final long DEBUG_SHADER_PHASE_MS = 2L;
     private static final float HURT_FLASH_DURATION_SECONDS = 0.2F;
     private static final float VISUAL_SMOOTH_SHARPNESS = 4.5F;
     private static final float DEATH_DESATURATION_LEVEL = 0.92F;
@@ -104,8 +106,17 @@ public final class ClientDeathFlowState {
     }
 
     public static void startDeathSequence(double deathXValue, double deathYValue, double deathZValue, int killerId) {
+        long debugStartNanos = System.nanoTime();
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
+        // #region debug-point B:client-death-flow
+        reportRedeployDebug(
+            "B",
+            "ClientDeathFlowState.startDeathSequence",
+            "[DEBUG] startDeathSequence entry",
+            "{\"killerId\":" + killerId + ",\"activeBefore\":" + active + ",\"phaseBefore\":\"" + phaseName(phase) + "\",\"deathX\":" + deathXValue + ",\"deathY\":" + deathYValue + ",\"deathZ\":" + deathZValue + "}"
+        );
+        // #endregion
         if (player == null) {
             clear();
             return;
@@ -146,6 +157,14 @@ public final class ClientDeathFlowState {
         trackedKillerY = deathYValue + player.getEyeHeight();
         trackedKillerZ = deathZValue;
         setCameraPose(startEye.x, startEye.y, startEye.z, deathStartYaw, deathStartPitch, true);
+        // #region debug-point B:client-death-flow
+        reportRedeployDebug(
+            "B",
+            "ClientDeathFlowState.startDeathSequence",
+            "[DEBUG] startDeathSequence exit",
+            "{\"durationMs\":" + millisSince(debugStartNanos) + ",\"phaseAfter\":\"" + phaseName(phase) + "\",\"cameraX\":" + currentCameraX + ",\"cameraY\":" + currentCameraY + ",\"cameraZ\":" + currentCameraZ + "}"
+        );
+        // #endregion
     }
 
     public static void openDeploySequence(double sourceX, double sourceY, double sourceZ, double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int deployDelayTicks) {
@@ -285,15 +304,27 @@ public final class ClientDeathFlowState {
         if (!active) {
             return;
         }
+        long debugStartNanos = System.nanoTime();
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null) {
             return;
         }
+        String debugBranch = phaseName(phase);
         player.setDeltaMovement(0.0D, 0.0D, 0.0D);
         if (phase == PHASE_DEPLOY_OPEN) {
             deployTicksSinceOpen++;
             setCameraPose(transitionTargetX, transitionTargetY, transitionTargetZ, transitionTargetYaw, transitionTargetPitch, false);
+            // #region debug-point B:client-death-flow
+            reportIfSlow(
+                "B",
+                "ClientDeathFlowState.tick",
+                "[DEBUG] slow death-flow tick",
+                debugStartNanos,
+                "{\"branch\":\"" + debugBranch + "\",\"phase\":\"" + phaseName(phase) + "\",\"phaseTicks\":" + phaseTicks + ",\"deployTicksSinceOpen\":" + deployTicksSinceOpen + "}",
+                DEBUG_SLOW_PHASE_MS
+            );
+            // #endregion
             return;
         }
         if (phase == PHASE_RESPAWN_HOLD) {
@@ -301,10 +332,30 @@ public final class ClientDeathFlowState {
                 respawnHoldElapsedTicks++;
             }
             setCameraPose(transitionTargetX, transitionTargetY, transitionTargetZ, transitionTargetYaw, transitionTargetPitch, false);
+            // #region debug-point B:client-death-flow
+            reportIfSlow(
+                "B",
+                "ClientDeathFlowState.tick",
+                "[DEBUG] slow death-flow tick",
+                debugStartNanos,
+                "{\"branch\":\"" + debugBranch + "\",\"phase\":\"" + phaseName(phase) + "\",\"phaseTicks\":" + phaseTicks + ",\"respawnHoldElapsedTicks\":" + respawnHoldElapsedTicks + "}",
+                DEBUG_SLOW_PHASE_MS
+            );
+            // #endregion
             return;
         }
         if (phase == PHASE_DOWNED_HOLD) {
             tickDownedHold(player);
+            // #region debug-point B:client-death-flow
+            reportIfSlow(
+                "B",
+                "ClientDeathFlowState.tick",
+                "[DEBUG] slow death-flow tick",
+                debugStartNanos,
+                "{\"branch\":\"" + debugBranch + "\",\"phase\":\"" + phaseName(phase) + "\",\"phaseTicks\":" + phaseTicks + "}",
+                DEBUG_SLOW_PHASE_MS
+            );
+            // #endregion
             return;
         }
         switch (phase) {
@@ -317,9 +368,20 @@ public final class ClientDeathFlowState {
             default -> {
             }
         }
+        // #region debug-point B:client-death-flow
+        reportIfSlow(
+            "B",
+            "ClientDeathFlowState.tick",
+            "[DEBUG] slow death-flow tick",
+            debugStartNanos,
+            "{\"branch\":\"" + debugBranch + "\",\"phase\":\"" + phaseName(phase) + "\",\"phaseTicks\":" + phaseTicks + ",\"travelElapsedTicks\":" + travelElapsedTicks + "}",
+            DEBUG_SLOW_PHASE_MS
+        );
+        // #endregion
     }
 
     public static void renderFrame(float partialTick) {
+        long debugStartNanos = System.nanoTime();
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null) {
@@ -336,12 +398,23 @@ public final class ClientDeathFlowState {
             return;
         }
         updateVisualEffects(minecraft, player);
+        // #region debug-point B:client-death-flow
+        reportIfSlow(
+            "B",
+            "ClientDeathFlowState.renderFrame",
+            "[DEBUG] slow death-flow renderFrame",
+            debugStartNanos,
+            "{\"phase\":\"" + phaseName(phase) + "\",\"partialTick\":" + partialTick + ",\"currentDarkness\":" + currentDarkness + ",\"currentDesaturation\":" + currentDesaturation + "}",
+            DEBUG_SLOW_PHASE_MS
+        );
+        // #endregion
     }
 
     public static void applyCameraOverride(Camera camera, float partialTick) {
         if (!active || camera == null) {
             return;
         }
+        long debugStartNanos = System.nanoTime();
         if (phase == PHASE_DOWNED_HOLD) {
             Minecraft minecraft = Minecraft.getInstance();
             LocalPlayer player = minecraft.player;
@@ -350,6 +423,16 @@ public final class ClientDeathFlowState {
             float pitch = player == null ? currentCameraPitch : player.getXRot();
             invokeCameraPosition(camera, position);
             invokeCameraRotation(camera, yaw, pitch);
+            // #region debug-point B:client-death-flow
+            reportIfSlow(
+                "B",
+                "ClientDeathFlowState.applyCameraOverride",
+                "[DEBUG] slow death-flow applyCameraOverride",
+                debugStartNanos,
+                "{\"phase\":\"" + phaseName(phase) + "\",\"partialTick\":" + partialTick + ",\"downed\":true}",
+                DEBUG_SLOW_PHASE_MS
+            );
+            // #endregion
             return;
         }
         Vec3 position = getInterpolatedCameraPosition(partialTick);
@@ -357,6 +440,16 @@ public final class ClientDeathFlowState {
         float pitch = getInterpolatedCameraPitch(partialTick);
         invokeCameraPosition(camera, position);
         invokeCameraRotation(camera, yaw, pitch);
+        // #region debug-point B:client-death-flow
+        reportIfSlow(
+            "B",
+            "ClientDeathFlowState.applyCameraOverride",
+            "[DEBUG] slow death-flow applyCameraOverride",
+            debugStartNanos,
+            "{\"phase\":\"" + phaseName(phase) + "\",\"partialTick\":" + partialTick + ",\"cameraX\":" + position.x + ",\"cameraY\":" + position.y + ",\"cameraZ\":" + position.z + "}",
+            DEBUG_SLOW_PHASE_MS
+        );
+        // #endregion
     }
 
     public static boolean hasActiveCameraOverride() {
@@ -536,6 +629,7 @@ public final class ClientDeathFlowState {
     }
 
     private static void updateVisualEffects(Minecraft minecraft, LocalPlayer player) {
+        long debugStartNanos = System.nanoTime();
         long now = System.nanoTime();
         float deltaSeconds = lastVisualUpdateNanos <= 0L ? (1.0F / 120.0F) : (float) ((now - lastVisualUpdateNanos) / 1_000_000_000.0D);
         deltaSeconds = Mth.clamp(deltaSeconds, 0.0F, 0.05F);
@@ -574,6 +668,16 @@ public final class ClientDeathFlowState {
         currentDeployIconAlpha = exponentialApproach(currentDeployIconAlpha, targetDeployIconAlpha, deltaSeconds, 8.0F);
         hurtFlashRemainSeconds = Math.max(0.0F, hurtFlashRemainSeconds - deltaSeconds);
         applyDesaturation(minecraft, currentDesaturation);
+        // #region debug-point B:client-death-flow
+        reportIfSlow(
+            "B",
+            "ClientDeathFlowState.updateVisualEffects",
+            "[DEBUG] slow death-flow updateVisualEffects",
+            debugStartNanos,
+            "{\"phase\":\"" + phaseName(phase) + "\",\"deltaSeconds\":" + deltaSeconds + ",\"targetDesaturation\":" + targetDesaturation + ",\"targetDarkness\":" + targetDarkness + ",\"shaderLoaded\":" + shaderLoaded + "}",
+            DEBUG_SLOW_PHASE_MS
+        );
+        // #endregion
     }
 
     private static float resolveDeployIconAlphaTarget() {
@@ -639,9 +743,20 @@ public final class ClientDeathFlowState {
     }
 
     private static void tickDeathRecover(LocalPlayer player) {
+        long debugResolveStartNanos = System.nanoTime();
         phaseTicks++;
         double progress = easeOutCubic(normalizedProgress(phaseTicks, DEATH_RECOVER_TICKS));
         float[] targetAngles = resolveTrackedKillerAngles(Minecraft.getInstance(), deathFallTargetX, deathFallTargetY, deathFallTargetZ);
+        // #region debug-point B:client-death-flow
+        reportIfSlow(
+            "B",
+            "ClientDeathFlowState.tickDeathRecover",
+            "[DEBUG] slow resolveTrackedKillerAngles",
+            debugResolveStartNanos,
+            "{\"phaseTicks\":" + phaseTicks + ",\"killerEntityId\":" + killerEntityId + "}",
+            DEBUG_SLOW_PHASE_MS
+        );
+        // #endregion
         float yaw = Mth.rotLerp((float) progress, trackBlendStartYaw, targetAngles[0]);
         float pitch = Mth.lerp((float) progress, trackBlendStartPitch, targetAngles[1]);
         setCameraPose(deathFallTargetX, deathFallTargetY, deathFallTargetZ, yaw, pitch, false);
@@ -900,6 +1015,7 @@ public final class ClientDeathFlowState {
     }
 
     private static void enableDesaturate(Minecraft minecraft) {
+        long debugStartNanos = System.nanoTime();
         if (shaderLoaded) {
             return;
         }
@@ -909,9 +1025,20 @@ public final class ClientDeathFlowState {
         } catch (Exception exception) {
             shaderLoaded = false;
         }
+        // #region debug-point B:client-death-flow
+        reportIfSlow(
+            "B",
+            "ClientDeathFlowState.enableDesaturate",
+            "[DEBUG] enableDesaturate completed",
+            debugStartNanos,
+            "{\"shaderLoaded\":" + shaderLoaded + "}",
+            DEBUG_SHADER_PHASE_MS
+        );
+        // #endregion
     }
 
     private static void disableDesaturate(Minecraft minecraft) {
+        long debugStartNanos = System.nanoTime();
         if (!shaderLoaded) {
             return;
         }
@@ -920,5 +1047,85 @@ public final class ClientDeathFlowState {
         } catch (Exception ignored) {
         }
         shaderLoaded = false;
+        // #region debug-point B:client-death-flow
+        reportIfSlow(
+            "B",
+            "ClientDeathFlowState.disableDesaturate",
+            "[DEBUG] disableDesaturate completed",
+            debugStartNanos,
+            "{\"shaderLoaded\":" + shaderLoaded + "}",
+            DEBUG_SHADER_PHASE_MS
+        );
+        // #endregion
+    }
+
+    private static long millisSince(long startNanos) {
+        return Math.max(0L, (System.nanoTime() - startNanos) / 1_000_000L);
+    }
+
+    private static void reportIfSlow(
+        String hypothesisId,
+        String location,
+        String msg,
+        long startNanos,
+        String dataJson,
+        long minDurationMs
+    ) {
+        long durationMs = millisSince(startNanos);
+        if (durationMs < minDurationMs) {
+            return;
+        }
+        String payload = (dataJson == null || dataJson.isBlank() ? "{}" : dataJson);
+        if (payload.endsWith("}")) {
+            payload = payload.substring(0, payload.length() - 1) + ",\"durationMs\":" + durationMs + "}";
+        }
+        reportRedeployDebug(hypothesisId, location, msg, payload);
+    }
+
+    private static void reportRedeployDebug(String hypothesisId, String location, String msg, String dataJson) {
+        try {
+            String body = "{\"sessionId\":\"redeploy-click-freeze\",\"runId\":\"pre-fix\",\"hypothesisId\":\""
+                + escapeJson(hypothesisId)
+                + "\",\"location\":\""
+                + escapeJson(location)
+                + "\",\"msg\":\""
+                + escapeJson(msg)
+                + "\",\"data\":"
+                + (dataJson == null || dataJson.isBlank() ? "{}" : dataJson)
+                + ",\"ts\":"
+                + System.currentTimeMillis()
+                + "}";
+            java.net.http.HttpClient.newHttpClient().sendAsync(
+                java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:7777/event"))
+                    .header("Content-Type", "application/json")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body))
+                    .build(),
+                java.net.http.HttpResponse.BodyHandlers.discarding()
+            ).exceptionally(ignored -> null);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static String escapeJson(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private static String phaseName(int phaseValue) {
+        return switch (phaseValue) {
+            case PHASE_IDLE -> "IDLE";
+            case PHASE_DEATH_FALL -> "DEATH_FALL";
+            case PHASE_DEATH_WAIT -> "DEATH_WAIT";
+            case PHASE_DEATH_HOLD -> "DEATH_HOLD";
+            case PHASE_DEPLOY_TRAVEL -> "DEPLOY_TRAVEL";
+            case PHASE_DEPLOY_OPEN -> "DEPLOY_OPEN";
+            case PHASE_RESPAWN_TRAVEL -> "RESPAWN_TRAVEL";
+            case PHASE_RESPAWN_HOLD -> "RESPAWN_HOLD";
+            case PHASE_DOWNED_HOLD -> "DOWNED_HOLD";
+            case PHASE_DEATH_RECOVER -> "DEATH_RECOVER";
+            default -> "UNKNOWN_" + phaseValue;
+        };
     }
 }

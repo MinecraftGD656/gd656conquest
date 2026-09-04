@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.core.bootstrap;
 
 import org.mods.gd656conquest.server.core.command.ConquestCommandModule;
+import org.mods.gd656conquest.server.capture.CaptureBoundaryBakeServerModule;
 import org.mods.gd656conquest.server.compat.tacz.TaczShellingServerModule;
 import org.mods.gd656conquest.server.core.lifecycle.ServerLifecycleCoordinator;
 import org.mods.gd656conquest.server.data.DataServerModule;
@@ -10,7 +11,6 @@ import org.mods.gd656conquest.server.facility.range.RangeServerModule;
 import org.mods.gd656conquest.server.facility.sign.SignServerModule;
 import org.mods.gd656conquest.server.loadout.LoadoutServerModule;
 import org.mods.gd656conquest.server.maintenance.MaintenanceServerModule;
-import org.mods.gd656conquest.server.pack.PackValidationServerModule;
 import org.mods.gd656conquest.server.player.PlayerServerModule;
 import org.mods.gd656conquest.server.player.state.SleepRuleServerModule;
 import org.mods.gd656conquest.server.room.entry.RoomServerModule;
@@ -30,9 +30,9 @@ public final class ServerFrameworkBootstrap {
             new ServerModuleRegistry(List.of(
                 new DataServerModule(),
                 new MaintenanceServerModule(),
+                new CaptureBoundaryBakeServerModule(),
                 new ConquestCommandModule(),
                 new TaczShellingServerModule(),
-                new PackValidationServerModule(),
                 new TitleServerModule(),
                 new PartyServerModule(),
                 new PlayerServerModule(),

@@ -2,8 +2,8 @@ package org.mods.gd656conquest.server.social.party;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.network.chat.Component;
 import org.mods.gd656conquest.server.core.bootstrap.ServerModule;
+import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
 import org.mods.gd656conquest.server.social.party.domain.PartyAggregate;
 import org.mods.gd656conquest.server.social.party.infra.InMemoryPartyRepository;
 import org.mods.gd656conquest.server.social.party.application.PartyRoomBridgeService;
@@ -65,7 +65,7 @@ public final class PartyServerModule implements ServerModule {
             if (member == null) {
                 continue;
             }
-            member.sendSystemMessage(Component.literal("队长已离线，当前队伍已解散；你当前的房间状态不受影响"));
+            ServerMessageSender.system(member, null, "队长已离线，当前队伍已解散；你当前的房间状态不受影响", net.minecraft.ChatFormatting.GRAY);
         }
     }
 }

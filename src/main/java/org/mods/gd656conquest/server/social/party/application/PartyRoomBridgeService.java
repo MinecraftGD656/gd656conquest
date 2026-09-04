@@ -18,6 +18,7 @@ import org.mods.gd656conquest.server.room.model.RoomMatchingConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.matching.MatchingRuntimeState;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
+import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
 import org.mods.gd656conquest.server.social.party.domain.PartyAggregate;
 import org.mods.gd656conquest.server.social.party.domain.PartyLockState;
 import org.mods.gd656conquest.server.social.party.domain.PartyRoomActionState;
@@ -744,7 +745,7 @@ public final class PartyRoomBridgeService {
             if (member == null || member.getUUID().equals(operatorId)) {
                 continue;
             }
-            member.sendSystemMessage(Component.literal(message));
+            ServerMessageSender.system(member, null, message, net.minecraft.ChatFormatting.GRAY);
         }
     }
 

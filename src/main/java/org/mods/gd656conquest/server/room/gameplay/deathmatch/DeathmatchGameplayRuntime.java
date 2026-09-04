@@ -119,7 +119,7 @@ public class DeathmatchGameplayRuntime implements
         if (killerTeam == RoomTeamId.CAMP_A) {
             campAScore++;
             if (campAScore >= target) {
-                pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, room.gameplayTeamDisplayName(RoomTeamId.CAMP_A) + "达到目标得分");
+                pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_A, room.gameplayTeamDisplayName(RoomTeamId.CAMP_A) + "达到目标得分");
             } else {
                 if (!campA50Sent && campAScore >= target * 0.5f) {
                     campA50Sent = true;
@@ -143,7 +143,7 @@ public class DeathmatchGameplayRuntime implements
         } else if (killerTeam == RoomTeamId.CAMP_B) {
             campBScore++;
             if (campBScore >= target) {
-                pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, room.gameplayTeamDisplayName(RoomTeamId.CAMP_B) + "达到目标得分");
+                pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_B, room.gameplayTeamDisplayName(RoomTeamId.CAMP_B) + "达到目标得分");
             } else {
                 if (!campB50Sent && campBScore >= target * 0.5f) {
                     campB50Sent = true;
@@ -366,13 +366,16 @@ public class DeathmatchGameplayRuntime implements
     }
 
     private RoomMatchEndRequest buildTimeLimitEndRequest(RoomDefinition room) {
+        RoomTeamId winner = null;
         if (campAScore > campBScore) {
-            return new RoomMatchEndRequest(RoomTeamId.CAMP_A, "达到时长，" + safeTeamName(room, RoomTeamId.CAMP_A) + "得分领先");
+            winner = RoomTeamId.CAMP_A;
+        } else if (campBScore > campAScore) {
+            winner = RoomTeamId.CAMP_B;
         }
-        if (campBScore > campAScore) {
-            return new RoomMatchEndRequest(RoomTeamId.CAMP_B, "达到时长，" + safeTeamName(room, RoomTeamId.CAMP_B) + "得分领先");
-        }
-        return new RoomMatchEndRequest((RoomTeamId) null, "达到时长，判定平局");
+        String reason = winner == null
+            ? "达到时长，判定平局"
+            : "达到时长，" + safeTeamName(room, winner) + "得分领先";
+        return RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), winner, reason);
     }
 
     private String buildAudioState(RoomDefinition room, RoomTeamId selfTeam) {

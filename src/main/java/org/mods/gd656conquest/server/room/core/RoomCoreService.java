@@ -1964,9 +1964,7 @@ public final class RoomCoreService {
         if (!resultRuntimeService.beginMatchEnd(
             slot.room(),
             slot.runtime().getRunningState(),
-            request.winnerTeam(),
-            request.winnerPlayerId(),
-            request.reason(),
+            request,
             gameTick
         )) {
             return;
@@ -2083,7 +2081,7 @@ public final class RoomCoreService {
         if (campACount > 0 && campBCount > 0) {
             return;
         }
-        beginMatchEnd(slot, new RoomMatchEndRequest((RoomTeamId) null, "运行中某阵营玩家数归零，判定平局"), gameTick);
+        beginMatchEnd(slot, RoomMatchEndRequest.forAll(slot.runtime().getRunningState().getRoomPlayers(), org.mods.gd656conquest.common.match.MatchResultType.DRAW, "运行中某阵营玩家数归零，判定平局"), gameTick);
     }
 
     private void syncRunningHudIfDue(RoomDefinition room, RunningRuntimeState state, long gameTick) {

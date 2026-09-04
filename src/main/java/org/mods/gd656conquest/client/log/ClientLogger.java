@@ -6,6 +6,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import org.mods.gd656conquest.common.log.ClientMessageType;
+import org.mods.gd656conquest.server.shared.text.ServerText;
 import org.slf4j.Logger;
 
 import java.util.Locale;
@@ -37,7 +38,7 @@ public final class ClientLogger {
         String finalMessage = format(message, args);
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player != null) {
-            MutableComponent prefix = Component.literal(CLIENT_PREFIX).withStyle(ChatFormatting.GOLD);
+            MutableComponent prefix = ServerText.conquestPrefix().withStyle(ChatFormatting.GOLD);
             Component content = Component.literal(finalMessage).withStyle(type.getColor());
             minecraft.player.sendSystemMessage(prefix.append(content));
         }

@@ -310,7 +310,7 @@ public final class PlayerTitleService {
         }
         PlayerDataModel data = ensurePlayerDefaults(player.getUUID(), player.getScoreboardName());
         List<PlayerTitleRegistryStore.TitleDefinition> titles = resolveOwnedTitles(data);
-        player.sendSystemMessage(Component.literal("========== 我的称号 ==========").withStyle(ChatFormatting.GOLD));
+        ServerMessageSender.system(player, null, Component.literal("========== 我的称号 ==========").withStyle(ChatFormatting.GOLD));
         for (PlayerTitleRegistryStore.TitleDefinition title : titles) {
             boolean equipped = title.id().equals(data.getEquippedTitleId());
             MutableComponent line = Component.literal("- ").withStyle(ChatFormatting.GRAY)
@@ -326,9 +326,11 @@ public final class PlayerTitleService {
                     "点击佩戴该称号"
                 )));
             }
-            player.sendSystemMessage(line);
+            ServerMessageSender.system(player, null, line);
         }
-        player.sendSystemMessage(
+        ServerMessageSender.system(
+            player,
+            null,
             Component.literal("- ").withStyle(ChatFormatting.GRAY)
                 .append(ServerText.action(new ClickActionSpec(
                     "[取消称号佩戴]",

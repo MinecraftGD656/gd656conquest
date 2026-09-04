@@ -43,6 +43,24 @@ final class ClientDeployBoundaryOverlayRenderer {
     private int cachedGeometryScreenHeight = -1;
     private CachedDeployOverlayGeometry cachedGeometry = CachedDeployOverlayGeometry.empty();
 
+    // GD656Mods: 临时观测计数，定位部署界面卡顿(测完删除)
+    private long totalMaskRebuilds;
+    private long totalProjectionPasses;
+    private long lastDebugStatsSampleMillis;
+    private int maskRebuildsPerSecond;
+    private int projectionPassesPerSecond;
+    private long observedBoundaryVersion = Long.MIN_VALUE;
+    private long lastSampleBoundaryVersion = Long.MIN_VALUE;
+    private int versionDeltaPerSecond;
+    private long totalMaskBuildNanos;
+    private long totalGeometryComparisons;
+    private long totalGeometryNearHits;
+    private int geometryComparePerSecond;
+    private int geometryHitPerSecond;
+    private int lastMaskBuildCols;
+    private int maskColsPerSecond;
+    private double avgMaskBuildMillis;
+
     ClientDeployBoundaryOverlayRenderer(ClientCaptureBoundaryRenderer boundaryRenderer) {
         this.boundaryRenderer = boundaryRenderer;
     }
@@ -76,6 +94,9 @@ final class ClientDeployBoundaryOverlayRenderer {
         if (alphaFactor <= 0.001F) {
             return;
         }
+        // GD656Mods: 临时观测采样(测完删除)
+        observedBoundaryVersion = state.boundaryGeometryVersion;
+        sampleDebugStatsPerSecond(System.currentTimeMillis());
         ResolvedBoundarySegments segments = boundaryRenderer.resolveRenderableSegments(
             state,
             selfTeam,
@@ -105,6 +126,8 @@ final class ClientDeployBoundaryOverlayRenderer {
         }
 
         java.util.Map<WorldPointKey, ScreenPoint> pointProjectionCache = new java.util.HashMap<>();
+        // GD656Mods: 临时观测计数(测完删除)
+        totalProjectionPasses++;
         List<ProjectedBoundaryPolygon> polygons = projectPolygons(state, minecraft, selfTeam, pointProjectionCache);
         
         if (polygons.isEmpty()) {
@@ -113,10 +136,17 @@ final class ClientDeployBoundaryOverlayRenderer {
             return cachedGeometry;
         }
 
+        // GD656Mods: 临时观测计数(测完删除)
+        totalGeometryComparisons++;
         if (!cachedGeometry.isEmpty() && arePolygonsNear(cachedGeometry.sourcePolygons(), polygons)) {
+            // GD656Mods: 临时观测计数(测完删除)
+            totalGeometryNearHits++;
             return cachedGeometry;
         }
 
+        // GD656Mods: 临时观测计数(测完删除)
+        totalMaskRebuilds++;
+        long maskBuildStart = System.nanoTime();
         cachedGeometry = new CachedDeployOverlayGeometry(
             polygons,
             buildMaskFills(screenWidth, screenHeight, polygons),
@@ -125,6 +155,7 @@ final class ClientDeployBoundaryOverlayRenderer {
             projectLineSegments(minecraft, state, segments.neutralSegments(), pointProjectionCache),
             projectLineSegments(minecraft, state, segments.sharedSegments(), pointProjectionCache)
         );
+        totalMaskBuildNanos += System.nanoTime() - maskBuildStart;
         updateCachedGeometryBase(state, selfTeam, screenWidth, screenHeight);
         return cachedGeometry;
     }
@@ -140,6 +171,61 @@ final class ClientDeployBoundaryOverlayRenderer {
             && cachedGeometryScreenWidth == screenWidth
             && cachedGeometryScreenHeight == screenHeight
             && state.worldProjectionMatrix != null;
+    }
+
+    // GD656Mods: 临时观测，测完删除
+    private void sampleDebugStatsPerSecond(long nowMillis) {
+        if (lastDebugStatsSampleMillis == 0L) {
+            lastDebugStatsSampleMillis = nowMillis;
+            lastSampleBoundaryVersion = observedBoundaryVersion;
+            return;
+        }
+        if (nowMillis - lastDebugStatsSampleMillis < 1000L) {
+            return;
+        }
+        maskRebuildsPerSecond = (int) totalMaskRebuilds;
+        projectionPassesPerSecond = (int) totalProjectionPasses;
+        versionDeltaPerSecond = observedBoundaryVersion - lastSampleBoundaryVersion > Integer.MAX_VALUE
+            ? 0
+            : (int) (observedBoundaryVersion - lastSampleBoundaryVersion);
+        lastSampleBoundaryVersion = observedBoundaryVersion;
+        geometryComparePerSecond = (int) totalGeometryComparisons;
+        geometryHitPerSecond = (int) totalGeometryNearHits;
+        maskColsPerSecond = lastMaskBuildCols;
+        avgMaskBuildMillis = totalMaskRebuilds <= 0L
+            ? 0.0D
+            : totalMaskBuildNanos / 1_000_000.0D / totalMaskRebuilds;
+        totalMaskRebuilds = 0L;
+        totalProjectionPasses = 0L;
+        totalMaskBuildNanos = 0L;
+        totalGeometryComparisons = 0L;
+        totalGeometryNearHits = 0L;
+        lastDebugStatsSampleMillis = nowMillis;
+    }
+
+    // GD656Mods: 临时观测，测完删除
+    String debugStatsLine() {
+        double appliedFov = org.mods.gd656conquest.client.input.ClientFovScrollService.getLastAppliedFov();
+        String fovText = appliedFov < 0.0D ? "-" : String.format("%.1f", appliedFov);
+        return String.format(
+            "deploy: mask=%d/s proj=%d/s ver=%d d=%d fov=%s",
+            maskRebuildsPerSecond,
+            projectionPassesPerSecond,
+            observedBoundaryVersion,
+            versionDeltaPerSecond,
+            fovText
+        );
+    }
+
+    // GD656Mods: 临时观测，测完删除
+    String debugStatsDetailLine() {
+        return String.format(
+            "mask: avg=%.2fms cols=%d hit=%d/%d",
+            avgMaskBuildMillis,
+            maskColsPerSecond,
+            geometryHitPerSecond,
+            geometryComparePerSecond
+        );
     }
 
     private void updateCachedGeometryBase(
@@ -268,6 +354,8 @@ final class ClientDeployBoundaryOverlayRenderer {
         }
         scanStartX = Mth.clamp(scanStartX, 0, width);
         scanEndX = Mth.clamp(scanEndX, 0, width);
+        // GD656Mods: 临时观测(测完删除)
+        lastMaskBuildCols = Math.max(0, scanEndX - scanStartX);
         if (scanStartX > 0) {
             fills.add(new MaskFill(0, 0, scanStartX, height));
         }

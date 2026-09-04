@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import net.minecraft.ChatFormatting;
@@ -49,12 +50,16 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class RoomCommands {
     private static final Gson GSON = new Gson();
     private static final String ROOM_SERVICE_NOT_INITIALIZED = "房间服务尚未初始化";
     private static final long ROOM_ADMIN_CONFIRM_WINDOW_MS = 5_000L;
     private static final Map<String, Long> ROOM_ADMIN_CONFIRMATIONS = new ConcurrentHashMap<>();
+    private static final Pattern ROOM_ID_PATTERN = Pattern.compile("room_(\\d{2})", Pattern.CASE_INSENSITIVE);
+    private static final SimpleCommandExceptionType INVALID_ROOM_ID = new SimpleCommandExceptionType(Component.literal("房间ID格式无效，必须为 Room_01~Room_32"));
 
     private RoomCommands() {
     }
@@ -66,14 +71,14 @@ public final class RoomCommands {
             .then(Commands.literal("leave").executes(RoomCommands::executeLeave))
             .then(Commands.literal("copy")
                 .requires(source -> source.hasPermission(2))
-                .then(Commands.argument("templateRoomId", StringArgumentType.string())
+                .then(Commands.argument("templateRoomId", StringArgumentType.word())
                     .suggests(RoomCommands::suggestRoomIds)
-                    .then(Commands.argument("targetRoomId", StringArgumentType.string())
+                    .then(Commands.argument("targetRoomId", StringArgumentType.word())
                         .suggests(RoomCommands::suggestRoomIds)
                         .executes(RoomCommands::executeCopyRoomConfig))))
             .then(Commands.literal("delete")
                 .requires(source -> source.hasPermission(2))
-                .then(Commands.argument("targetRoomId", StringArgumentType.string())
+                .then(Commands.argument("targetRoomId", StringArgumentType.word())
                     .suggests(RoomCommands::suggestRoomIds)
                     .executes(RoomCommands::executeDeleteRoom)))
             .then(buildCurrentTeamTree())
@@ -97,7 +102,7 @@ public final class RoomCommands {
     }
 
     private static ArgumentBuilder<CommandSourceStack, ?> buildRoomScopedTree() {
-        return Commands.argument("roomId", StringArgumentType.string())
+        return Commands.argument("roomId", StringArgumentType.word())
             .suggests(RoomCommands::suggestRoomIds)
             .then(Commands.literal("get").executes(RoomCommands::executeGet))
             .then(Commands.literal("join").executes(RoomCommands::executeJoin))
@@ -297,7 +302,10 @@ public final class RoomCommands {
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
         }
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         RoomDefinition room = manager.findRoom(roomId).orElse(null);
         if (room == null) {
             return replyFailure(context.getSource(), "未找到房间: " + roomId);
@@ -357,7 +365,10 @@ public final class RoomCommands {
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
         }
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         RoomDefinition room = manager.findRoom(roomId).orElse(null);
         if (room == null) {
             return replyFailure(context.getSource(), "未找到房间: " + roomId);
@@ -390,23 +401,34 @@ public final class RoomCommands {
     }
 
     private static int executeCampJoin(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         ServerPlayer target = EntityArgument.getPlayer(context, "target");
         return executeCampJoinInternal(context, roomId, target);
     }
 
     private static int executeCampSwitchSelf(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         return executeCampSwitchInternal(
             context,
-            normalizeRoomId(StringArgumentType.getString(context, "roomId")),
+            roomId,
             context.getSource().getPlayerOrException()
         );
     }
 
     private static int executeCampSwitchTarget(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         return executeCampSwitchInternal(
             context,
-            normalizeRoomId(StringArgumentType.getString(context, "roomId")),
+            roomId,
             EntityArgument.getPlayer(context, "target")
         );
     }
@@ -465,7 +487,10 @@ public final class RoomCommands {
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
         }
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         String result = manager.acceptAutoTeamSwitch(roomId, player.getUUID(), context.getSource().getServer().getTickCount());
         return replyInfo(context.getSource(), result);
     }
@@ -489,7 +514,10 @@ public final class RoomCommands {
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
         }
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         return sendTeamSummary(context.getSource(), manager, roomId, player);
     }
 
@@ -501,7 +529,10 @@ public final class RoomCommands {
     }
 
     private static int executeStartRoom(CommandContext<CommandSourceStack> context) {
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
@@ -512,7 +543,10 @@ public final class RoomCommands {
     }
 
     private static int executeCleanRoom(CommandContext<CommandSourceStack> context) {
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
@@ -524,7 +558,10 @@ public final class RoomCommands {
     }
 
     private static int executeSaveRoom(CommandContext<CommandSourceStack> context) {
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
@@ -536,7 +573,10 @@ public final class RoomCommands {
     }
 
     private static int executeMaintenanceRoom(CommandContext<CommandSourceStack> context) {
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
@@ -552,8 +592,11 @@ public final class RoomCommands {
         if (!manager.isInitialized()) {
             return replyFailure(source, ROOM_SERVICE_NOT_INITIALIZED);
         }
-        String templateRoomId = normalizeRoomId(StringArgumentType.getString(context, "templateRoomId"));
-        String targetRoomId = normalizeRoomId(StringArgumentType.getString(context, "targetRoomId"));
+        String templateRoomId = requireCanonicalRoomId(context, "templateRoomId");
+        String targetRoomId = requireCanonicalRoomId(context, "targetRoomId");
+        if (templateRoomId == null || targetRoomId == null) {
+            return 0;
+        }
         String confirmCommand = "/gdc room copy " + templateRoomId + " " + targetRoomId;
         if (!confirmRoomAdminAction(source, "copy:" + templateRoomId + "->" + targetRoomId)) {
             return replyInfo(source, "请在5秒内再次输入 " + confirmCommand);
@@ -570,7 +613,10 @@ public final class RoomCommands {
         if (!manager.isInitialized()) {
             return replyFailure(source, ROOM_SERVICE_NOT_INITIALIZED);
         }
-        String targetRoomId = normalizeRoomId(StringArgumentType.getString(context, "targetRoomId"));
+        String targetRoomId = requireCanonicalRoomId(context, "targetRoomId");
+        if (targetRoomId == null) {
+            return 0;
+        }
         String confirmCommand = "/gdc room delete " + targetRoomId;
         if (!confirmRoomAdminAction(source, "delete:" + targetRoomId)) {
             return replyInfo(source, "请在5秒内再次输入 " + confirmCommand);
@@ -765,7 +811,10 @@ public final class RoomCommands {
     }
 
     private static int executeConfigGroupListById(CommandContext<CommandSourceStack> context, String configId, RoomConfigScope expectedScope) {
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
@@ -806,7 +855,10 @@ public final class RoomCommands {
         String value,
         RoomConfigScope expectedScope
     ) {
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
@@ -837,7 +889,10 @@ public final class RoomCommands {
     }
 
     private static int executeConfigReload(CommandContext<CommandSourceStack> context) {
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
@@ -867,7 +922,10 @@ public final class RoomCommands {
         boolean add,
         RoomConfigScope expectedScope
     ) {
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);
@@ -941,6 +999,27 @@ public final class RoomCommands {
 
     private static String normalizeRoomId(String roomId) {
         return roomId == null ? "" : roomId.trim();
+    }
+
+    private static String requireCanonicalRoomId(CommandContext<CommandSourceStack> context, String argumentName) {
+        String raw = normalizeRoomId(StringArgumentType.getString(context, argumentName));
+        Matcher matcher = ROOM_ID_PATTERN.matcher(raw);
+        if (!matcher.matches()) {
+            replyFailure(context.getSource(), INVALID_ROOM_ID.create().getMessage());
+            return null;
+        }
+        int id;
+        try {
+            id = Integer.parseInt(matcher.group(1));
+        } catch (NumberFormatException ignored) {
+            replyFailure(context.getSource(), INVALID_ROOM_ID.create().getMessage());
+            return null;
+        }
+        if (id < 1 || id > 32) {
+            replyFailure(context.getSource(), INVALID_ROOM_ID.create().getMessage());
+            return null;
+        }
+        return String.format(Locale.ROOT, "Room_%02d", id);
     }
 
     private static CompletableFuture<Suggestions> suggestRoomIds(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
@@ -1116,7 +1195,10 @@ public final class RoomCommands {
     }
 
     private static CompletableFuture<Suggestions> suggestConfigGroupDeleteValues(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return Suggestions.empty();
+        }
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
         RoomDefinition room = manager.findRoom(roomId).orElse(null);
         RoomConfigDescriptor descriptor = resolveGroupCommandDescriptor(StringArgumentType.getString(context, "configId"));
@@ -1320,7 +1402,10 @@ public final class RoomCommands {
     }
 
     private static int executeMergeWeaponWhitelist(CommandContext<CommandSourceStack> context) {
-        String roomId = normalizeRoomId(StringArgumentType.getString(context, "roomId"));
+        String roomId = requireCanonicalRoomId(context, "roomId");
+        if (roomId == null) {
+            return 0;
+        }
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
         if (!manager.isInitialized()) {
             return replyFailure(context.getSource(), ROOM_SERVICE_NOT_INITIALIZED);

@@ -48,6 +48,8 @@ public final class ClientRoomMarkerState {
     private static final double MAX_MARKER_DISTANCE_SQR = MAX_MARKER_DISTANCE * MAX_MARKER_DISTANCE;
     private static final int AUTO_MARK_AIM_TICKS = 20;
     private static final int AUTO_MARK_REFRESH_THRESHOLD_TICKS = 10;
+    // GD656Mods: 自动索敌检测扫描间隔(20 tick = 每秒一次, 原为每 tick)
+    private static final int AUTO_MARK_SCAN_INTERVAL_TICKS = 20;
     private static final float AUTO_MARK_TRIGGER_RADIUS_PIXELS = 15.0F;
     private static final float ICON_WORLD_Y_OFFSET = 1.10F;
     private static final float CROSSHAIR_HOVER_RADIUS_PIXELS = 24.0F;
@@ -240,10 +242,6 @@ public final class ClientRoomMarkerState {
         // GD656Mods: 标记键指向倒地友军/小队队友图标 -> 在倒地玩家处生成救援提醒标记(蓝/绿, 5秒)
         HoveredMarker hovered = resolveHoveredMarker(minecraft);
         if (hovered != null && isDownedFriendlyMarker(hovered.marker().kind())) {
-            // GD656Mods: 自身倒地/被救援中无法发起救援提醒(静默阻止, 不发请求)
-            if (isSelfDownedOrBeingRevived()) {
-                return;
-            }
             ClientMarker downedMarker = hovered.marker();
             MarkerKind rescueKind = downedMarker.kind() == MarkerKind.DOWNED_SQUAD ? MarkerKind.RESCUE_SQUAD : MarkerKind.RESCUE_ALLY;
             NetworkManager.getChannel().sendToServer(RoomMarkerActionPacket.place(
@@ -267,12 +265,6 @@ public final class ClientRoomMarkerState {
 
     private static boolean isDownedFriendlyMarker(MarkerKind kind) {
         return kind == MarkerKind.DOWNED_ALLY || kind == MarkerKind.DOWNED_SQUAD;
-    }
-
-    /** GD656Mods: 玩家自身是否处于倒地/被救援状态(服务端锁快照 reason 判定) */
-    private static boolean isSelfDownedOrBeingRevived() {
-        String reason = ClientRoomLockState.snapshot().reason();
-        return "downed".equals(reason) || "being_revived".equals(reason);
     }
 
     private static Vec3 resolveMarkerRayStart(Minecraft minecraft) {
@@ -713,6 +705,16 @@ public final class ClientRoomMarkerState {
     }
 
     private static void tickAutoEnemyMarking(Minecraft minecraft, long gameTick) {
+        // GD656Mods: 自动索敌检测降频为每秒一次(原每 tick), 降低客户端每 tick 射线检测开销
+        if (gameTick % AUTO_MARK_SCAN_INTERVAL_TICKS != 0L) {
+            return;
+        }
+        // GD656Mods: 仅侦察兵执行自动标记(服务端 isAutoEnemyMarkerAllowed 同样校验 RECON),
+        // 非侦察兵跳过, 避免无效的每 tick 索敌射线(服务端会拒绝其 AUTO_ENEMY 请求)
+        if (!"recon".equals(ClientHudDebugState.getSelfClass())) {
+            clearAutoAimState();
+            return;
+        }
         if (!canPlaceMarkerNow(minecraft)) {
             clearAutoAimState();
             return;

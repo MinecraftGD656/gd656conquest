@@ -14,6 +14,8 @@ public final class ClientFovScrollService {
     private static double currentFov = -1;
     private static double prevFov = -1;
     private static double step = 2.5;
+    // GD656Mods: 临时观测，测完删除
+    private static double lastAppliedFov = -1;
 
     private ClientFovScrollService() {
     }
@@ -113,11 +115,18 @@ public final class ClientFovScrollService {
 
         double partialTick = event.getPartialTick();
         double interpolatedFov = Mth.lerp(partialTick, prevFov, currentFov);
+        // GD656Mods: 临时观测，测完删除
+        lastAppliedFov = interpolatedFov;
 
         // event.getFOV() 已经包含了药水、疾跑等修饰符：(原版基础FOV * modifier)
         // 我们通过除以原版基础FOV得到修饰符，然后乘上我们精确的小数FOV
         double modifier = event.getFOV() / (double) optionFov;
         event.setFOV(interpolatedFov * modifier);
+    }
+
+    // GD656Mods: 临时观测，测完删除
+    public static double getLastAppliedFov() {
+        return lastAppliedFov;
     }
 
     private static boolean isControlBindingDown(Minecraft minecraft) {

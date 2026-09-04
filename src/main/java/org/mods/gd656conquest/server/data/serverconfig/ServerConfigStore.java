@@ -93,10 +93,6 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         return configured == null ? RoomVehicleBackend.defaultValue() : configured;
     }
 
-    public synchronized boolean isPackValidationEnabled() {
-        return Boolean.TRUE.equals(get().getEnablePackValidation());
-    }
-
     public synchronized boolean isExperimentalPlayerBalanceEnabled() {
         return Boolean.TRUE.equals(get().getBoolEnableExperimentalPlayerBalance());
     }
@@ -294,9 +290,6 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         model.setMaxScopeMg(sanitizeScopeLimit(model.getMaxScopeMg(), 4.0D));
         if (model.getVehicleBackend() == null) {
             model.setVehicleBackend(RoomVehicleBackend.defaultValue());
-        }
-        if (model.getEnablePackValidation() == null) {
-            model.setEnablePackValidation(false);
         }
         if (model.getBoolEnableExperimentalPlayerBalance() == null) {
             model.setBoolEnableExperimentalPlayerBalance(false);

@@ -115,7 +115,7 @@ public final class ConquestGameplayRuntime implements
             } else if (teamId == RoomTeamId.CAMP_B) {
                 scoreState.setCampBScore(scoreState.getCampBScore() - 1);
             }
-            pendingEndRequest = captureRuntimeService.checkTroopDepletionEnd(scoreState).orElse(null);
+            pendingEndRequest = captureRuntimeService.checkTroopDepletionEnd(runningState, scoreState).orElse(null);
             if (pendingEndRequest != null) {
                 return;
             }
@@ -147,12 +147,12 @@ public final class ConquestGameplayRuntime implements
             if (killerTeam == RoomTeamId.CAMP_A) {
                 scoreState.setCampAScore(scoreState.getCampAScore() + 1);
                 if (scoreState.getCampAScore() >= captureConfig(room).targetScore()) {
-                    pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, "达到目标得分");
+                    pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_A, "达到目标得分");
                 }
             } else if (killerTeam == RoomTeamId.CAMP_B) {
                 scoreState.setCampBScore(scoreState.getCampBScore() + 1);
                 if (scoreState.getCampBScore() >= captureConfig(room).targetScore()) {
-                    pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, "达到目标得分");
+                    pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_B, "达到目标得分");
                 }
             }
         }
@@ -624,7 +624,15 @@ public final class ConquestGameplayRuntime implements
         if (gameTick < matchEndTick) {
             return Optional.empty();
         }
-        return Optional.of(new RoomMatchEndRequest((RoomTeamId) null, "达到时长，判定平局"));
+        // GD656Mods: 时间耗尽不再直接平局 —— 分数(SCORE_TARGET)/兵力剩余(TROOP_DEPLETION)最多的一方胜, 相同才平局
+        RoomTeamId winner = null;
+        if (scoreState.getCampAScore() > scoreState.getCampBScore()) {
+            winner = RoomTeamId.CAMP_A;
+        } else if (scoreState.getCampBScore() > scoreState.getCampAScore()) {
+            winner = RoomTeamId.CAMP_B;
+        }
+        String reason = winner == null ? "达到时长，判定平局" : "达到时长，" + (winner == RoomTeamId.CAMP_A ? "CampA" : "CampB") + "分数领先";
+        return Optional.of(RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), winner, reason));
     }
 
     private boolean isTroopRatioNearEnd(RoomDefinition room) {

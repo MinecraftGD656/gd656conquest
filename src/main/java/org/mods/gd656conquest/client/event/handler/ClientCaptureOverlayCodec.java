@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Set;
 
 final class ClientCaptureOverlayCodec {
+    // GD656Mods: 临时观测计数(测完删除)
+    long payloadParseCount;
     boolean shouldRenderCaptureLinesForStage(RenderLevelStageEvent.Stage stage) {
         if (stage == RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
             return true;
@@ -64,6 +66,8 @@ final class ClientCaptureOverlayCodec {
         }
         state.adminDebugOverlayActive = hasDebugPayload;
         if (!iconPayload.equals(state.cachedCaptureIconPayload)) {
+            // GD656Mods: 临时观测计数(测完删除)
+            payloadParseCount++;
             ParsedCaptureIcons parsedIcons = parseCaptureIcons(iconPayload);
             ParsedCaptureIcons roomBoundaryIcons = hasRoomPayload
                 ? (roomPayload.equals(iconPayload) ? parsedIcons : parseCaptureIcons(roomPayload))

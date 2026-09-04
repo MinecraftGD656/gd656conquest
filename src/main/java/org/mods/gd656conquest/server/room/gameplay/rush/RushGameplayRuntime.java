@@ -228,7 +228,8 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             }
             if (stageDeadlineTick > 0L && gameTick >= stageDeadlineTick) {
                 subtitleService.onStageTimeout(gameTick);
-                pendingEndRequest = new RoomMatchEndRequest((RoomTeamId) null, "达到时长，判定平局");
+                // GD656Mods: 阶段时间耗尽 -> 防守方直接获胜(不再平局)
+                pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_B, "阶段时间结束，防守方获胜");
             }
             return;
         }
@@ -302,7 +303,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
                 if (tryActivateBackToWall(room, gameTick)) {
                     return;
                 }
-                pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, "进攻方兵力耗尽");
+                pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_B, "进攻方兵力耗尽");
             } else {
                 subtitleService.onAttackTroopsChanged(attackTroops, attackTroopCap, gameTick);
             }
@@ -751,7 +752,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             desperateMode = DesperateMode.NONE;
             desperateDeadlineTick = -1L;
             subtitleService.onBurnBoatsSucceed(gameTick);
-            pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, "破釜沉舟成功");
+            pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_A, "破釜沉舟成功");
             return;
         }
         BombSiteState previousState = bombStates.get(code);
@@ -778,7 +779,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         triggerStageEndSettlement(room);
         subtitleService.onStageDestroyed(currentStageIndex, gameTick);
         if (currentStageIndex >= Math.max(1, room.rushConfig().stageCount())) {
-            pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, "进攻方爆破全部阶段");
+            pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_A, "进攻方爆破全部阶段");
             subtitleService.onAttackCompletedAllStages(gameTick);
             return;
         }
@@ -1703,7 +1704,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             desperateMode = DesperateMode.NONE;
             desperateDeadlineTick = -1L;
             subtitleService.onBurnBoatsSucceed(gameTick);
-            pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_A, "破釜沉舟成功");
+            pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_A, "破釜沉舟成功");
             return true;
         }
         return false;
@@ -1755,7 +1756,7 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         desperateMode = DesperateMode.NONE;
         desperateDeadlineTick = -1L;
         subtitleService.onDesperateFail(gameTick);
-        pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, reason);
+        pendingEndRequest = RoomMatchEndRequest.byTeam(runningState.getRoomPlayers(), runningState.getRoomTeams(), RoomTeamId.CAMP_B, reason);
     }
 
     /** 背水一战/破釜沉舟触发音效: 无专属语音, 复用炸弹警报音表达紧张感 */

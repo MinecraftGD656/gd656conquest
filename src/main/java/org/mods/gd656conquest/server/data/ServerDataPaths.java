@@ -18,14 +18,6 @@ public final class ServerDataPaths {
         return getModRoot(server).resolve("serverconfig.json");
     }
 
-    public static Path getPackWhitelistFile(MinecraftServer server) {
-        return getModRoot(server).resolve("packwhitelist.json");
-    }
-
-    public static Path getPackLogFile(MinecraftServer server) {
-        return getModRoot(server).resolve("packlog.json");
-    }
-
     public static Path getPlayerDataDirectory(MinecraftServer server) {
         return getModRoot(server).resolve("playerdata");
     }
@@ -109,5 +101,21 @@ public final class ServerDataPaths {
 
     public static Path getRoomResetRecoveryFile(MinecraftServer server) {
         return getModRoot(server).resolve("room-reset-recovery.json");
+    }
+
+    public static Path getCaptureBakeDirectory(MinecraftServer server) {
+        return getModRoot(server).resolve("bake");
+    }
+
+    public static Path getCaptureBakeFile(MinecraftServer server, String roomId) {
+        return getCaptureBakeDirectory(server).resolve(toBakeFileName(roomId));
+    }
+
+    public static String toBakeFileName(String roomId) {
+        String normalized = roomId == null ? "" : roomId.trim().toLowerCase(java.util.Locale.ROOT);
+        if (normalized.startsWith("room_") && normalized.length() == 7) {
+            normalized = "Room_" + normalized.substring(5);
+        }
+        return normalized + ".gdcb";
     }
 }

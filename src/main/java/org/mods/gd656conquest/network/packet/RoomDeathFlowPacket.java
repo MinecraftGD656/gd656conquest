@@ -127,6 +127,15 @@ public final class RoomDeathFlowPacket {
     public static void handle(RoomDeathFlowPacket message, Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context context = contextSupplier.get();
         context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
+            // #region debug-point B:death-flow-packet-handle
+            if (message.action != ACTION_BOUNDARY_ON && message.action != ACTION_BOUNDARY_OFF) {
+                reportRedeployDebug(
+                    "B",
+                    "[DEBUG] client RoomDeathFlowPacket handle entry",
+                    "{\"action\":" + message.action + ",\"killerEntityId\":" + message.killerEntityId + ",\"deployCountdownTicks\":" + message.deployCountdownTicks + ",\"transitionTicks\":" + message.transitionTicks + "}"
+                );
+            }
+            // #endregion
             if (ClientPacketBypassConfig.bypassDeathFlowPackets()) {
                 ClientDeathFlowState.clear();
                 return;
@@ -188,5 +197,34 @@ public final class RoomDeathFlowPacket {
             ClientDeathFlowState.clear();
         }));
         context.setPacketHandled(true);
+    }
+
+    private static void reportRedeployDebug(String hypothesisId, String msg, String dataJson) {
+        try {
+            String body = "{\"sessionId\":\"redeploy-click-freeze\",\"runId\":\"pre-fix\",\"hypothesisId\":\""
+                + escapeJson(hypothesisId)
+                + "\",\"location\":\"RoomDeathFlowPacket.handle\",\"msg\":\""
+                + escapeJson(msg)
+                + "\",\"data\":"
+                + (dataJson == null || dataJson.isBlank() ? "{}" : dataJson)
+                + ",\"ts\":"
+                + System.currentTimeMillis()
+                + "}";
+            java.net.http.HttpClient.newHttpClient().sendAsync(
+                java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:7777/event"))
+                    .header("Content-Type", "application/json")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body))
+                    .build(),
+                java.net.http.HttpResponse.BodyHandlers.discarding()
+            ).exceptionally(ignored -> null);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static String escapeJson(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

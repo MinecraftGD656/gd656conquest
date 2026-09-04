@@ -47,7 +47,11 @@ import org.mods.gd656conquest.network.packet.MarkerDebugPreviewPacket;
 import org.mods.gd656conquest.network.packet.ClientLoopSoundPacket;
 import org.mods.gd656conquest.network.packet.ClientPositionalSoundPacket;
 import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
-import org.mods.gd656conquest.network.packet.ClientboundPackAuditRequestPacket;
+import org.mods.gd656conquest.network.packet.CaptureBoundaryBakeChunkPacket;
+import org.mods.gd656conquest.network.packet.CaptureBoundaryBakeFailurePacket;
+import org.mods.gd656conquest.network.packet.CaptureBoundaryBakeMetaPacket;
+import org.mods.gd656conquest.network.packet.CaptureBoundaryBakeRequestPacket;
+import org.mods.gd656conquest.network.packet.CaptureBoundaryDebugScanPacket;
 import org.mods.gd656conquest.network.packet.ClientboundScreenshotRequestPacket;
 import org.mods.gd656conquest.network.packet.ClientboundOpenDroneMonitorPacket;
 import org.mods.gd656conquest.network.packet.ServerboundScreenshotChunkPacket;
@@ -59,13 +63,12 @@ import org.mods.gd656conquest.network.packet.SupportUiActionPacket;
 import org.mods.gd656conquest.network.packet.SupportUiOpenPacket;
 import org.mods.gd656conquest.network.packet.SupportUiRequestPacket;
 import org.mods.gd656conquest.network.packet.SupportUiSnapshotPacket;
-import org.mods.gd656conquest.network.packet.ServerboundPackAuditReportPacket;
 import org.mods.gd656conquest.network.packet.ServerboundBoundaryHeightStatePacket;
 import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "103";
+    private static final String PROTOCOL_VERSION = "106";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -402,24 +405,10 @@ public final class NetworkManager {
         );
         CHANNEL.registerMessage(
                 packetId++,
-                ClientboundPackAuditRequestPacket.class,
-                ClientboundPackAuditRequestPacket::encode,
-                ClientboundPackAuditRequestPacket::decode,
-                ClientboundPackAuditRequestPacket::handle
-        );
-        CHANNEL.registerMessage(
-                packetId++,
                 ClientboundScreenshotRequestPacket.class,
                 ClientboundScreenshotRequestPacket::encode,
                 ClientboundScreenshotRequestPacket::decode,
                 ClientboundScreenshotRequestPacket::handle
-        );
-        CHANNEL.registerMessage(
-                packetId++,
-                ServerboundPackAuditReportPacket.class,
-                ServerboundPackAuditReportPacket::encode,
-                ServerboundPackAuditReportPacket::decode,
-                ServerboundPackAuditReportPacket::handle
         );
         CHANNEL.registerMessage(
                 packetId++,
@@ -470,10 +459,49 @@ public final class NetworkManager {
                 RoomMatchLoadPacket::decode,
                 RoomMatchLoadPacket::handle
         );
+        CHANNEL.registerMessage(
+                packetId++,
+                CaptureBoundaryBakeMetaPacket.class,
+                CaptureBoundaryBakeMetaPacket::encode,
+                CaptureBoundaryBakeMetaPacket::decode,
+                CaptureBoundaryBakeMetaPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                CaptureBoundaryBakeChunkPacket.class,
+                CaptureBoundaryBakeChunkPacket::encode,
+                CaptureBoundaryBakeChunkPacket::decode,
+                CaptureBoundaryBakeChunkPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                CaptureBoundaryBakeFailurePacket.class,
+                CaptureBoundaryBakeFailurePacket::encode,
+                CaptureBoundaryBakeFailurePacket::decode,
+                CaptureBoundaryBakeFailurePacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                CaptureBoundaryBakeRequestPacket.class,
+                CaptureBoundaryBakeRequestPacket::encode,
+                CaptureBoundaryBakeRequestPacket::decode,
+                CaptureBoundaryBakeRequestPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                CaptureBoundaryDebugScanPacket.class,
+                CaptureBoundaryDebugScanPacket::encode,
+                CaptureBoundaryDebugScanPacket::decode,
+                CaptureBoundaryDebugScanPacket::handle
+        );
     }
 
     public static void sendToPlayer(ServerPlayer player, Object packet) {
         CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), packet);
+    }
+
+    public static void sendToServer(Object packet) {
+        CHANNEL.sendToServer(packet);
     }
 
     public static SimpleChannel getChannel() {

@@ -2,10 +2,12 @@ package org.mods.gd656conquest.server.room.gameplay.gunmaster;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import org.mods.gd656conquest.common.match.MatchResultType;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataModel;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.core.RoomPlayerInvalidationReason;
+import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
 import org.mods.gd656conquest.server.room.gameplay.IRoomGameplayRuntime;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayBoundaryHudProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayBoundaryPolicyProvider;
@@ -30,9 +32,11 @@ import org.mods.gd656conquest.server.shared.log.ServerLogger;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -510,7 +514,16 @@ public final class GunmasterGameplayRuntime implements
         if (currentStage >= finalStageIndex) {
             if (nextKills >= killsNeeded) {
                 if (room.gunmasterConfig().isSoloGrouping()) {
-                    pendingEndRequest = new RoomMatchEndRequest(killerId, "最终武器达成击杀");
+                    // GD656Mods: 个人战最终武器达成击杀 -> 击杀者胜利, 其余失败; 名次加成分按当前击杀排名
+                    Map<UUID, Integer> rankByPlayer = resolveKillRanks(sortPlayersByKillDesc());
+                    java.util.LinkedHashMap<UUID, RoomMatchEndRequest.PlayerResultEntry> results = new java.util.LinkedHashMap<>();
+                    for (UUID playerId : gunmasterRunningState.getRoomPlayers()) {
+                        results.put(playerId, new RoomMatchEndRequest.PlayerResultEntry(
+                            playerId.equals(killerId) ? MatchResultType.VICTORY : MatchResultType.DEFEAT,
+                            resolveRankExtra(rankByPlayer.getOrDefault(playerId, 1))
+                        ));
+                    }
+                    pendingEndRequest = new RoomMatchEndRequest(gunmasterRunningState.getRoomPlayers(), results, "最终武器达成击杀");
                 } else {
                     RoomTeamId killerTeam = gunmasterRunningState.getRoomTeams().get(killerId);
                     pendingEndRequest = buildTeamCompletedUnlockEndRequest(room, killerTeam, killerId);
@@ -554,11 +567,12 @@ public final class GunmasterGameplayRuntime implements
 
     private RoomMatchEndRequest buildTeamCompletedUnlockEndRequest(RoomDefinition room, RoomTeamId winnerTeam, UUID winnerPlayerId) {
         if (winnerTeam == null) {
-            return new RoomMatchEndRequest((RoomTeamId) null, "枪神团队战胜方缺失，判定平局");
+            return RoomMatchEndRequest.forAll(gunmasterRunningState.getRoomPlayers(), MatchResultType.DRAW, "枪神团队战胜方缺失，判定平局");
         }
-        return new RoomMatchEndRequest(
+        return RoomMatchEndRequest.byTeam(
+            gunmasterRunningState.getRoomPlayers(),
+            gunmasterRunningState.getRoomTeams(),
             winnerTeam,
-            winnerPlayerId,
             room.gameplayTeamDisplayName(winnerTeam) + "已有玩家完成全部枪械解锁，直接获胜"
         );
     }
@@ -605,92 +619,111 @@ public final class GunmasterGameplayRuntime implements
 
     private RoomMatchEndRequest buildTimeLimitEndRequest(RoomDefinition room) {
         if (room == null) {
-            return new RoomMatchEndRequest((RoomTeamId) null, "达到时长，判定平局");
+            return RoomMatchEndRequest.forAll(gunmasterRunningState.getRoomPlayers(), MatchResultType.DRAW, "达到时长，判定平局");
         }
         if (room.gunmasterConfig().isSoloGrouping()) {
-            UUID winnerId = resolveSoloLeader();
-            return winnerId == null
-                ? new RoomMatchEndRequest((RoomTeamId) null, "达到时长，判定平局")
-                : new RoomMatchEndRequest(winnerId, "达到时长，当前排名第一的玩家获胜");
+            return buildSoloTimeLimitEndRequest(room);
         }
-        RoomTeamId completedUnlockWinner = resolveCompletedUnlockWinner();
-        if (completedUnlockWinner != null) {
-            return new RoomMatchEndRequest(
-                completedUnlockWinner,
-                "达到时长，" + room.gameplayTeamDisplayName(completedUnlockWinner) + "已有玩家完成全部枪械解锁"
-            );
-        }
-        RoomTeamId winnerTeam = resolveLeadingTeam();
-        return winnerTeam == null
-            ? new RoomMatchEndRequest((RoomTeamId) null, "达到时长，判定平局")
-            : new RoomMatchEndRequest(winnerTeam, "达到时长，" + room.gameplayTeamDisplayName(winnerTeam) + "领先");
+        return buildTeamTimeLimitEndRequest(room);
     }
 
-    private RoomTeamId resolveLeadingTeam() {
-        int campAProgress = 0;
-        int campBProgress = 0;
+    /**
+     * GD656Mods: 枪神个人战时间耗尽 —— 解锁进度=GDKI 对局击杀数。
+     * 唯一击杀数最多者获胜; 多人并列第一时这些玩家平局、其余失败。
+     * 名次加成分由本运行器(枪神)按击杀排名计算, 写入每条结算条目的附加额外分。
+     */
+    private RoomMatchEndRequest buildSoloTimeLimitEndRequest(RoomDefinition room) {
+        List<UUID> sorted = sortPlayersByKillDesc();
+        if (sorted.isEmpty()) {
+            return RoomMatchEndRequest.forAll(gunmasterRunningState.getRoomPlayers(), MatchResultType.DRAW, "达到时长，判定平局");
+        }
+        int maxKill = killOf(sorted.get(0));
+        List<UUID> top = new ArrayList<>();
+        for (UUID playerId : sorted) {
+            if (killOf(playerId) == maxKill) {
+                top.add(playerId);
+            } else {
+                break;
+            }
+        }
+        Map<UUID, Integer> rankByPlayer = resolveKillRanks(sorted);
+        java.util.LinkedHashMap<UUID, RoomMatchEndRequest.PlayerResultEntry> results = new java.util.LinkedHashMap<>();
         for (UUID playerId : gunmasterRunningState.getRoomPlayers()) {
-            RoomTeamId teamId = gunmasterRunningState.getRoomTeams().get(playerId);
-            int progress = resolvePlayerProgress(playerId);
-            if (teamId == RoomTeamId.CAMP_A) {
-                campAProgress = Math.max(campAProgress, progress);
-            } else if (teamId == RoomTeamId.CAMP_B) {
-                campBProgress = Math.max(campBProgress, progress);
-            }
+            boolean isTop = top.contains(playerId);
+            MatchResultType type = top.size() == 1
+                ? (playerId.equals(top.get(0)) ? MatchResultType.VICTORY : MatchResultType.DEFEAT)
+                : (isTop ? MatchResultType.DRAW : MatchResultType.DEFEAT);
+            results.put(playerId, new RoomMatchEndRequest.PlayerResultEntry(type, resolveRankExtra(rankByPlayer.getOrDefault(playerId, 1))));
         }
-        if (campAProgress > campBProgress) {
-            return RoomTeamId.CAMP_A;
-        }
-        if (campBProgress > campAProgress) {
-            return RoomTeamId.CAMP_B;
-        }
-        return null;
+        String reason = top.size() == 1
+            ? "达到时长，当前击杀数第一的玩家获胜"
+            : "达到时长，多名玩家击杀数并列第一，判定平局";
+        return new RoomMatchEndRequest(gunmasterRunningState.getRoomPlayers(), results, reason);
     }
 
-    private UUID resolveSoloLeader() {
-        UUID leaderId = null;
-        int bestProgress = Integer.MIN_VALUE;
-        for (UUID playerId : gunmasterRunningState.getRoomPlayers()) {
-            int progress = resolvePlayerProgress(playerId);
-            if (progress > bestProgress) {
-                bestProgress = progress;
-                leaderId = playerId;
-            } else if (progress == bestProgress) {
-                leaderId = null;
+    /**
+     * GD656Mods: 枪神队伍模式时间耗尽 —— 全局击杀数唯一最多的玩家所在队伍获胜;
+     * 最大击杀数玩家不止一个(含双方最高相同)时全局平局。
+     */
+    private RoomMatchEndRequest buildTeamTimeLimitEndRequest(RoomDefinition room) {
+        List<UUID> sorted = sortPlayersByKillDesc();
+        RoomTeamId winnerTeam = null;
+        if (!sorted.isEmpty()) {
+            int maxKill = killOf(sorted.get(0));
+            List<UUID> top = new ArrayList<>();
+            for (UUID playerId : sorted) {
+                if (killOf(playerId) == maxKill) {
+                    top.add(playerId);
+                } else {
+                    break;
+                }
+            }
+            if (top.size() == 1) {
+                winnerTeam = gunmasterRunningState.getRoomTeams().get(top.get(0));
             }
         }
-        return leaderId;
+        String reason = winnerTeam == null
+            ? "达到时长，判定平局"
+            : "达到时长，" + room.gameplayTeamDisplayName(winnerTeam) + "领先";
+        return RoomMatchEndRequest.byTeam(gunmasterRunningState.getRoomPlayers(), gunmasterRunningState.getRoomTeams(), winnerTeam, reason);
     }
 
-    private RoomTeamId resolveCompletedUnlockWinner() {
-        List<String> sequence = gunmasterRunningState.getGunmasterMatchWeaponSequenceIds();
-        if (sequence.isEmpty()) {
-            return null;
-        }
-        int finalStageIndex = Math.max(0, sequence.size() - 1);
-        boolean campACompleted = false;
-        boolean campBCompleted = false;
-        for (UUID playerId : gunmasterRunningState.getRoomPlayers()) {
-            if (Math.max(0, gunmasterRunningState.getGunmasterStageIndexByPlayer().getOrDefault(playerId, 0)) < finalStageIndex) {
-                continue;
-            }
-            RoomTeamId teamId = gunmasterRunningState.getRoomTeams().get(playerId);
-            if (teamId == RoomTeamId.CAMP_A) {
-                campACompleted = true;
-            } else if (teamId == RoomTeamId.CAMP_B) {
-                campBCompleted = true;
-            }
-        }
-        if (campACompleted == campBCompleted) {
-            return null;
-        }
-        return campACompleted ? RoomTeamId.CAMP_A : RoomTeamId.CAMP_B;
+    private List<UUID> sortPlayersByKillDesc() {
+        List<UUID> players = new ArrayList<>(gunmasterRunningState.getRoomPlayers());
+        players.sort(Comparator
+            .comparingInt((UUID id) -> killOf(id)).reversed()
+            .thenComparing(UUID::toString));
+        return players;
     }
 
-    private int resolvePlayerProgress(UUID playerId) {
-        int stageIndex = Math.max(0, gunmasterRunningState.getGunmasterStageIndexByPlayer().getOrDefault(playerId, 0));
-        int kills = Math.max(0, gunmasterRunningState.getGunmasterStageKillsByPlayer().getOrDefault(playerId, 0));
-        return stageIndex * 1000 + kills;
+    private int killOf(UUID playerId) {
+        return KilliconScoreboardBridge.getPlayerSnapshot(gunmasterRunningState, playerId).kill();
+    }
+
+    /** 标准竞赛排名: 击杀数相同者同名次(1,1,3...) */
+    private Map<UUID, Integer> resolveKillRanks(List<UUID> sortedByKillDesc) {
+        Map<UUID, Integer> ranks = new java.util.LinkedHashMap<>();
+        int rank = 0;
+        int prevKill = Integer.MAX_VALUE;
+        int index = 0;
+        for (UUID playerId : sortedByKillDesc) {
+            int kill = killOf(playerId);
+            if (kill < prevKill) {
+                rank = index + 1;
+                prevKill = kill;
+            }
+            ranks.put(playerId, rank);
+            index++;
+        }
+        return ranks;
+    }
+
+    private int resolveRankExtra(int rank) {
+        int[] rankExtra = {10, 9, 8, 7, 6, 6, 5, 4, 3, 2};
+        if (rank <= rankExtra.length) {
+            return rankExtra[rank - 1];
+        }
+        return 2;
     }
 
     private List<List<RoomPosition>> resolveConfiguredBoundaries(RoomDefinition room) {

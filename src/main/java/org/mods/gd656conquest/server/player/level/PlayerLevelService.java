@@ -206,20 +206,12 @@ public final class PlayerLevelService {
     private static Formula computeFormula(MatchStats stats, MatchOutcome outcome) {
         int score = Math.max(0, stats.score());
         double base = score * 0.005D;
-        int extra;
-        if (stats.rank() > 0) {
-            int[] rankExtra = {10, 9, 8, 7, 6, 6, 5, 4, 3, 2};
-            if (stats.rank() <= rankExtra.length) {
-                extra = rankExtra[stats.rank() - 1];
-            } else {
-                extra = 2;
-            }
-        } else {
-            extra = switch (outcome) {
-                case WIN -> 7;
-                case DRAW, LOSE -> 4;
-            };
-        }
+        // GD656Mods: 结果额外分(胜7/败4/平4) + 对局运行器提供的附加额外分(如枪神名次加成)
+        int outcomeExtra = switch (outcome) {
+            case WIN -> 7;
+            case DRAW, LOSE -> 4;
+        };
+        int extra = outcomeExtra + Math.max(0, stats.extraScore());
         double rawTotal = base + extra;
         int total = Math.max(0, (int) Math.round(rawTotal));
         return new Formula(score, base, extra, rawTotal, total, outcome);
@@ -291,9 +283,9 @@ public final class PlayerLevelService {
         }
     }
 
-    public record MatchStats(int score, int kill, int assist, int death, int durationSeconds, int rank) {
+    public record MatchStats(int score, int kill, int assist, int death, int durationSeconds, int extraScore) {
         public MatchStats(int score, int kill, int assist, int death, int durationSeconds) {
-            this(score, kill, assist, death, durationSeconds, -1);
+            this(score, kill, assist, death, durationSeconds, 0);
         }
     }
 
