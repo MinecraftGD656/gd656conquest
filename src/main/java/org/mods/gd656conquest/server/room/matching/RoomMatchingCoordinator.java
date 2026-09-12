@@ -3,7 +3,12 @@ package org.mods.gd656conquest.server.room.matching;
 import org.mods.gd656conquest.server.room.model.RoomMatchingConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class RoomMatchingCoordinator {
@@ -14,7 +19,7 @@ public final class RoomMatchingCoordinator {
         if (!state.getQueuePlayers().contains(playerId) && state.getQueuePlayers().size() >= config.totalMaxPlayers()) {
             return false;
         }
-        if (state.getQueuePlayers().add(playerId) && state.getQueueStartTick() < 0) {
+        if (state.getQueuePlayers().add(playerId) && state.getQueueStartTick() < 0L) {
             state.setQueueStartTick(gameTick);
         }
         RoomTeamId chosenTeam = chooseBestTeam(state, config, 1);
@@ -43,7 +48,7 @@ public final class RoomMatchingCoordinator {
     }
 
     public boolean hasPreMatchDeployPhase(MatchingRuntimeState state) {
-        return state != null && state.getPreMatchDeployEndTick() > 0;
+        return state != null && state.getPreMatchDeployEndTick() > 0L;
     }
 
     public boolean canStart(MatchingRuntimeState state, RoomMatchingConfig config) {
@@ -59,8 +64,8 @@ public final class RoomMatchingCoordinator {
             return 0;
         }
         int count = 0;
-        for (RoomTeamId team : enabledTeams) {
-            if (state.getQueueTeams().containsValue(team)) {
+        for (RoomTeamId teamId : enabledTeams) {
+            if (state.getQueueTeams().containsValue(teamId)) {
                 count++;
             }
         }
@@ -85,17 +90,17 @@ public final class RoomMatchingCoordinator {
         }
         List<RoomTeamId> eligibleTeams = new ArrayList<>();
         int minPlayers = Integer.MAX_VALUE;
-        for (RoomTeamId team : config.enabledTeams()) {
-            if (availableSlots(state, config, team) < requiredSlots) {
+        for (RoomTeamId teamId : config.enabledTeams()) {
+            if (availableSlots(state, config, teamId) < requiredSlots) {
                 continue;
             }
-            int count = countPlayersInTeam(state, team);
+            int count = countPlayersInTeam(state, teamId);
             if (count < minPlayers) {
                 minPlayers = count;
                 eligibleTeams.clear();
-                eligibleTeams.add(team);
+                eligibleTeams.add(teamId);
             } else if (count == minPlayers) {
-                eligibleTeams.add(team);
+                eligibleTeams.add(teamId);
             }
         }
         if (eligibleTeams.isEmpty()) {
@@ -104,17 +109,51 @@ public final class RoomMatchingCoordinator {
         return eligibleTeams.get(ThreadLocalRandom.current().nextInt(eligibleTeams.size()));
     }
 
-    private int availableSlots(MatchingRuntimeState state, RoomMatchingConfig config, RoomTeamId team) {
-        if (state == null || config == null || team == null) {
-            return 0;
-        }
-        return config.maxPlayersForTeam(team) - countPlayersInTeam(state, team);
+    public RoomTeamId chooseSimpleTeam(MatchingRuntimeState state, RoomMatchingConfig config, int requiredSlots) {
+        return chooseBestTeam(state, config, requiredSlots);
     }
 
-    private int countPlayersInTeam(MatchingRuntimeState state, RoomTeamId team) {
+    public RoomTeamId chooseSimpleTeam(
+        Set<RoomTeamId> enabledTeams,
+        Map<RoomTeamId, Integer> countByTeam,
+        Map<RoomTeamId, Integer> maxPlayersByTeam,
+        int requiredSlots
+    ) {
+        if (enabledTeams == null || enabledTeams.isEmpty() || requiredSlots <= 0) {
+            return null;
+        }
+        List<RoomTeamId> eligibleTeams = new ArrayList<>();
+        int minPlayers = Integer.MAX_VALUE;
+        for (RoomTeamId teamId : enabledTeams) {
+            int currentCount = Math.max(0, countByTeam.getOrDefault(teamId, 0));
+            if (Math.max(0, maxPlayersByTeam.getOrDefault(teamId, 0)) - currentCount < requiredSlots) {
+                continue;
+            }
+            if (currentCount < minPlayers) {
+                minPlayers = currentCount;
+                eligibleTeams.clear();
+                eligibleTeams.add(teamId);
+            } else if (currentCount == minPlayers) {
+                eligibleTeams.add(teamId);
+            }
+        }
+        if (eligibleTeams.isEmpty()) {
+            return null;
+        }
+        return eligibleTeams.get(ThreadLocalRandom.current().nextInt(eligibleTeams.size()));
+    }
+
+    private int availableSlots(MatchingRuntimeState state, RoomMatchingConfig config, RoomTeamId teamId) {
+        if (state == null || config == null || teamId == null) {
+            return 0;
+        }
+        return config.maxPlayersForTeam(teamId) - countPlayersInTeam(state, teamId);
+    }
+
+    private int countPlayersInTeam(MatchingRuntimeState state, RoomTeamId teamId) {
         int count = 0;
-        for (RoomTeamId assigned : state.getQueueTeams().values()) {
-            if (assigned == team) {
+        for (RoomTeamId assignedTeam : state.getQueueTeams().values()) {
+            if (assignedTeam == teamId) {
                 count++;
             }
         }

@@ -10,6 +10,7 @@ import org.mods.gd656conquest.server.room.gameplay.RoomGameplayBoundaryPolicyPro
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentationProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayHudState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomAutoBalanceWindowSnapshot;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayVehicleDeployRuleProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
@@ -75,6 +76,21 @@ public class DeathmatchGameplayRuntime implements
         campALeading20Sent = false;
         campBLeading20Sent = false;
         pendingEndRequest = null;
+    }
+
+    @Override
+    public RoomAutoBalanceWindowSnapshot autoBalanceWindowSnapshot(RoomDefinition room, long gameTick) {
+        if (matchDurationSeconds(gameTick) < 300) {
+            return RoomAutoBalanceWindowSnapshot.locked("主对局前 300 秒不自动换队");
+        }
+        if (room == null || room.arenaConfig().targetScore() <= 0) {
+            return RoomAutoBalanceWindowSnapshot.allowed();
+        }
+        double targetScore = Math.max(1, room.arenaConfig().targetScore());
+        if ((campAScore / targetScore) > 0.75D || (campBScore / targetScore) > 0.75D) {
+            return RoomAutoBalanceWindowSnapshot.locked("死斗模式阵营分数已超过 75%");
+        }
+        return RoomAutoBalanceWindowSnapshot.allowed();
     }
 
     @Override

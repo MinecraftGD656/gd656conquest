@@ -9,6 +9,7 @@ import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentatio
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayHudState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayObjectiveSnapshotProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomAutoBalanceWindowSnapshot;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayVehicleDeployRuleProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.gameplay.RoomObjectiveEventTextService;
@@ -95,6 +96,33 @@ public final class ConquestGameplayRuntime implements
         hudSubtitleRuntimeService.resetAllPlayers(hudSubtitleState, runningState);
         enteredTick = -1L;
         pendingEndRequest = null;
+    }
+
+    @Override
+    public RoomAutoBalanceWindowSnapshot autoBalanceWindowSnapshot(RoomDefinition room, long gameTick) {
+        if (matchDurationSeconds(gameTick) < 300) {
+            return RoomAutoBalanceWindowSnapshot.locked("主对局前 300 秒不自动换队");
+        }
+        if (room == null) {
+            return RoomAutoBalanceWindowSnapshot.allowed();
+        }
+        if ("TROOP_DEPLETION".equalsIgnoreCase(captureConfig(room).scoreMethod())) {
+            int campAGoal = Math.max(1, captureConfig(room).campAInitialTroops());
+            int campBGoal = Math.max(1, captureConfig(room).campBInitialTroops());
+            double campARemainRatio = scoreState.getCampAScore() / (double) campAGoal;
+            double campBRemainRatio = scoreState.getCampBScore() / (double) campBGoal;
+            if (campARemainRatio < 0.25D || campBRemainRatio < 0.25D) {
+                return RoomAutoBalanceWindowSnapshot.locked("征服兵力耗尽模式剩余兵力低于 25%");
+            }
+            return RoomAutoBalanceWindowSnapshot.allowed();
+        }
+        int targetScore = Math.max(1, captureConfig(room).targetScore());
+        double campAProgress = scoreState.getCampAScore() / (double) targetScore;
+        double campBProgress = scoreState.getCampBScore() / (double) targetScore;
+        if (campAProgress > 0.75D || campBProgress > 0.75D) {
+            return RoomAutoBalanceWindowSnapshot.locked("征服模式阵营分数已超过 75%");
+        }
+        return RoomAutoBalanceWindowSnapshot.allowed();
     }
 
     @Override

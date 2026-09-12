@@ -104,8 +104,16 @@ public final class ClientRoomTeamMirror {
         if (targetPlayer == null) {
             return false;
         }
+        return isTeammateName(targetPlayer.getScoreboardName());
+    }
+
+    public static boolean isSquadMate(Player targetPlayer) {
+        return targetPlayer != null && isSquadMateName(targetPlayer.getScoreboardName());
+    }
+
+    public static boolean isTeammateName(String targetPlayerName) {
         String selfName = resolveSelfPlayerName();
-        String targetName = normalizePlayerName(targetPlayer.getScoreboardName());
+        String targetName = normalizePlayerName(targetPlayerName);
         if (selfName.isBlank() || targetName.isBlank() || selfName.equals(targetName)) {
             return false;
         }
@@ -114,12 +122,12 @@ public final class ClientRoomTeamMirror {
         return selfTeam != TeamToken.UNKNOWN && selfTeam == targetTeam;
     }
 
-    public static boolean isSquadMate(Player targetPlayer) {
-        if (!isTeammate(targetPlayer)) {
+    public static boolean isSquadMateName(String targetPlayerName) {
+        if (!isTeammateName(targetPlayerName)) {
             return false;
         }
         String selfSquad = resolveSelfSquadLabel();
-        String targetSquad = SQUAD_BY_PLAYER.getOrDefault(normalizePlayerName(targetPlayer.getScoreboardName()), "");
+        String targetSquad = SQUAD_BY_PLAYER.getOrDefault(normalizePlayerName(targetPlayerName), "");
         return !selfSquad.isBlank() && selfSquad.equals(targetSquad);
     }
 

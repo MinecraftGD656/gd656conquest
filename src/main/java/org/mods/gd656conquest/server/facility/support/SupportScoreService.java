@@ -65,13 +65,6 @@ public final class SupportScoreService {
         return normalized;
     }
 
-    public static void clearPlayer(RunningRuntimeState runningState, UUID playerId) {
-        if (runningState == null || playerId == null) {
-            return;
-        }
-        runningState.getSupportSpentScoreByPlayer().remove(playerId);
-    }
-
     public record ConsumptionResult(
         boolean success,
         int spentScore,

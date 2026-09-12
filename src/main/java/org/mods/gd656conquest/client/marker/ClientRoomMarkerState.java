@@ -167,6 +167,60 @@ public final class ClientRoomMarkerState {
         dynamicEntityFirstSeen.clear();
     }
 
+    /**
+     * GD656Mods: 供 xaero compat 读取的房间标记快照。
+     *
+     * <p>这里只导出 P5 需要的两类小地图标记:</p>
+     * <ul>
+     *   <li>友军地面标记;</li>
+     *   <li>敌军标记(含可跟随目标玩家的实体标记)。</li>
+     * </ul>
+     */
+    public static List<ClientRoomMinimapMarkerSnapshot> snapshotMinimapMarkers() {
+        if (!isInRunningRoom() || markers.isEmpty()) {
+            return List.of();
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        long gameTime = minecraft.level == null ? 0L : minecraft.level.getGameTime();
+        List<ClientRoomMinimapMarkerSnapshot> snapshots = new ArrayList<>();
+        for (ClientMarker marker : markers) {
+            if (marker == null || marker.kind() == null) {
+                continue;
+            }
+            ClientRoomMinimapMarkerSnapshot.MarkerIconKind iconKind = switch (marker.kind()) {
+                case NORMAL -> ClientRoomMinimapMarkerSnapshot.MarkerIconKind.MAP_MARKER;
+                case OBSERVE_GROUND -> ClientRoomMinimapMarkerSnapshot.MarkerIconKind.OBSERVE_GROUND;
+                case REQUEST_STRIKE -> ClientRoomMinimapMarkerSnapshot.MarkerIconKind.REQUEST_STRIKE;
+                case ENEMY -> ClientRoomMinimapMarkerSnapshot.MarkerIconKind.ENEMY_GROUND;
+                case DIRECT_ENEMY, AUTO_ENEMY -> ClientRoomMinimapMarkerSnapshot.MarkerIconKind.ENEMY_TRACKED;
+                case AMMO_BOX, MEDICAL_BOX -> ClientRoomMinimapMarkerSnapshot.MarkerIconKind.SUPPLY_BOX;
+                case AMMO_BAG, MEDICAL_BAG -> ClientRoomMinimapMarkerSnapshot.MarkerIconKind.SUPPLY_BAG;
+                case BEACON_FRIENDLY -> ClientRoomMinimapMarkerSnapshot.MarkerIconKind.RESPAWN_BEACON;
+                case ALLY_PERSISTENT, SQUAD_PERSISTENT, DOWNED_ALLY, DOWNED_SQUAD, RESCUE_ALLY, RESCUE_SQUAD, NEED_AMMO_ALLY, NEED_AMMO_SQUAD ->
+                    ClientRoomMinimapMarkerSnapshot.MarkerIconKind.ALLY;
+                default -> null;
+            };
+            if (iconKind == null) {
+                continue;
+            }
+            int remainingTicks = marker.remainingTicksAt(gameTime);
+            if (remainingTicks <= 0) {
+                continue;
+            }
+            snapshots.add(new ClientRoomMinimapMarkerSnapshot(
+                marker.renderKey(),
+                iconKind,
+                marker.x(),
+                marker.y(),
+                marker.z(),
+                remainingTicks,
+                marker.kind().isTrackedPlayerMarker() ? marker.targetPlayerId() : null,
+                resolveHoveredLabelLine1(marker)
+            ));
+        }
+        return snapshots.isEmpty() ? List.of() : List.copyOf(snapshots);
+    }
+
     public static void triggerHelpPulse(UUID playerId) {
         if (playerId == null) {
             return;

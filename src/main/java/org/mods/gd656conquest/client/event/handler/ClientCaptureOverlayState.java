@@ -13,6 +13,7 @@ final class ClientCaptureOverlayState {
     String cachedAdminDebugPayload = "-";
     List<ClientCaptureOverlayModel.CaptureIconEntry> cachedCaptureIcons = List.of();
     List<ClientCaptureOverlayModel.CaptureIconEntry> cachedObjectiveEntries = List.of();
+    List<ClientCaptureObjectiveWaypointSnapshot> cachedObjectiveWaypointSnapshots = List.of();
     Map<String, ClientCaptureOverlayModel.CaptureIconEntry> objectiveEntryByCode = Map.of();
     List<ClientCaptureOverlayModel.BoundaryPolygon> cachedRoomBoundaryPolygons = List.of();
     List<ClientCaptureOverlayModel.BoundaryPolygon> cachedDebugBoundaryPolygons = List.of();
@@ -45,6 +46,7 @@ final class ClientCaptureOverlayState {
         adminDebugOverlayActive = false;
         cachedCaptureIcons = List.of();
         cachedObjectiveEntries = List.of();
+        cachedObjectiveWaypointSnapshots = List.of();
         objectiveEntryByCode = Map.of();
         cachedRoomBoundaryPolygons = List.of();
         cachedDebugBoundaryPolygons = List.of();

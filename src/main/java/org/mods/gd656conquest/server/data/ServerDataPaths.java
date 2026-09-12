@@ -58,6 +58,14 @@ public final class ServerDataPaths {
         return getModRoot(server).resolve("parkourData.json");
     }
 
+    public static Path getRoomStatisticDataDirectory(MinecraftServer server) {
+        return getModRoot(server).resolve("roomstatisticdata");
+    }
+
+    public static Path getRoomStatisticDataFile(MinecraftServer server, String roomId) {
+        return getRoomStatisticDataDirectory(server).resolve(normalizeRoomStatisticFileName(roomId));
+    }
+
     public static Path getRoomDefinitionDirectory(MinecraftServer server) {
         return getModRoot(server).resolve("roomdefinitions");
     }
@@ -117,5 +125,16 @@ public final class ServerDataPaths {
             normalized = "Room_" + normalized.substring(5);
         }
         return normalized + ".gdcb";
+    }
+
+    private static String normalizeRoomStatisticFileName(String roomId) {
+        String normalized = roomId == null ? "" : roomId.trim().toLowerCase(java.util.Locale.ROOT);
+        if (normalized.matches("room_\\d{2}")) {
+            return normalized + ".json";
+        }
+        if (normalized.matches("room\\d{2}")) {
+            return "room_" + normalized.substring(normalized.length() - 2) + ".json";
+        }
+        return normalized + ".json";
     }
 }

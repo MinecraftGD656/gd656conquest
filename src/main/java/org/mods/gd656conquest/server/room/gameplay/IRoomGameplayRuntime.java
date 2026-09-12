@@ -12,6 +12,12 @@ public interface IRoomGameplayRuntime {
 
     void tick(RoomDefinition room, long gameTick);
 
+    /**
+     * 返回当前玩法是否允许执行实验性局内自动换队。
+     * 不提供 default 实现，目的是强制每一个新玩法在接入时显式补齐该规则。
+     */
+    RoomAutoBalanceWindowSnapshot autoBalanceWindowSnapshot(RoomDefinition room, long gameTick);
+
     default void onPlayerInvalidated(
         RoomDefinition room,
         UUID playerId,

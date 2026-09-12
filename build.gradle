@@ -218,6 +218,11 @@ dependencies {
     //compileOnly fileTree(dir: "../GD656KilliconServer/build/libs", include: ["*.jar"])
     //runtimeOnly fileTree(dir: "../GD656KilliconServer/build/libs", include: ["*.jar"])
 
+    // 次元小地图(Xaero's Minimap)联动: 可选依赖, 仅编译期使用; 运行时若玩家未安装则整条桥自动跳过
+    compileOnly fg.deobf(files("../联动模组jar/xaerominimap-forge-1.20.1-26.5.0.jar"))
+    // Xaero 公共库(jar-in-jar 里的依赖), 提供配置管理器与配置重定向等 API
+    compileOnly fg.deobf(files("../联动模组jar/xaerolib-forge-1.20.1-1.7.3.jar"))
+
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
 }
 

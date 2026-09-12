@@ -569,7 +569,19 @@ public final class RoomCommands {
         sendLine(context.getSource(), Component.literal("正在执行 saveRoom: " + roomId).withStyle(ChatFormatting.YELLOW));
         RoomAdminLifecycleService.OperationResult result = new RoomAdminLifecycleService(context.getSource().getServer())
             .saveRoom(roomId, context.getSource().getServer().getTickCount());
-        return result.success() ? replyInfo(context.getSource(), result.message()) : replyFailure(context.getSource(), result.message());
+        if (result.success()) {
+            return replyInfo(context.getSource(), result.message());
+        }
+        // GD656Mods: 失败时逐行输出详细诊断信息, 便于管理员定位失败阶段与异常根因
+        String[] detailLines = result.message().split("\n");
+        for (int index = 0; index < detailLines.length; index++) {
+            if (index == 0) {
+                replyFailure(context.getSource(), detailLines[index]);
+            } else {
+                sendLine(context.getSource(), Component.literal(detailLines[index]).withStyle(ChatFormatting.GRAY));
+            }
+        }
+        return 0;
     }
 
     private static int executeMaintenanceRoom(CommandContext<CommandSourceStack> context) {

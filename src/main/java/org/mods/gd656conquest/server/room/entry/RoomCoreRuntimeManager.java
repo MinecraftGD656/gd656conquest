@@ -170,6 +170,13 @@ public final class RoomCoreRuntimeManager {
         return coreService.findCurrentTeam(playerId);
     }
 
+    public Optional<RoomTeamId> applyPendingTeamChangeOnRespawnDeploy(String roomId, UUID playerId) {
+        if (coreService == null) {
+            return Optional.empty();
+        }
+        return coreService.applyPendingTeamChangeOnRespawnDeploy(roomId, playerId);
+    }
+
     public Optional<String> findPlayerSquadLabel(UUID playerId) {
         if (coreService == null) {
             return Optional.empty();
@@ -637,13 +644,6 @@ public final class RoomCoreRuntimeManager {
             return new SupportScoreService.ConsumptionResult(false, 0, 0, Math.max(0, cost));
         }
         return coreService.tryConsumePlayerSupportScore(playerId, cost);
-    }
-
-    public void clearPlayerSupportScore(UUID playerId) {
-        if (coreService == null) {
-            return;
-        }
-        coreService.clearPlayerSupportScore(playerId);
     }
 
     public int refundPlayerSupportScore(UUID playerId, int refundAmount) {

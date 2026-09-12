@@ -11,6 +11,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.GameType;
+import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.RoomDeathFlowPacket;
 import org.mods.gd656conquest.server.compat.vehicle.VehicleCompatFacade;
@@ -82,6 +83,10 @@ public final class RoomRuleRuntimeService {
     }
 
     private void processAutoTeamSwitchPrompt(RoomDefinition room, RunningRuntimeState state, long gameTick) {
+        if (ConquestDataManager.of(server).serverConfig().isExperimentalPlayerBalanceEnabled()) {
+            resetAutoTeamSwitchPromptState(state);
+            return;
+        }
         if (!room.commonConfig().enableAutoTeamSwitchPrompt()) {
             resetAutoTeamSwitchPromptState(state);
             return;

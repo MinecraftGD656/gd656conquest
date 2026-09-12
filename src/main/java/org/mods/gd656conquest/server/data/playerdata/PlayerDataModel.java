@@ -19,6 +19,8 @@ public final class PlayerDataModel {
     private String equippedTitleId = "";
     private String lastKnownPlayerName = "";
     private List<PendingTitleNotice> pendingTitleNotices = new ArrayList<>();
+    private MatchStatistics matchStatistics = new MatchStatistics();
+    private Map<String, RoomRatingRecord> roomRatings = new HashMap<>();
 
     public int getLevel() {
         return level;
@@ -123,6 +125,28 @@ public final class PlayerDataModel {
         this.pendingTitleNotices = pendingTitleNotices;
     }
 
+    public MatchStatistics getMatchStatistics() {
+        if (matchStatistics == null) {
+            matchStatistics = new MatchStatistics();
+        }
+        return matchStatistics;
+    }
+
+    public void setMatchStatistics(MatchStatistics matchStatistics) {
+        this.matchStatistics = matchStatistics;
+    }
+
+    public Map<String, RoomRatingRecord> getRoomRatings() {
+        if (roomRatings == null) {
+            roomRatings = new HashMap<>();
+        }
+        return roomRatings;
+    }
+
+    public void setRoomRatings(Map<String, RoomRatingRecord> roomRatings) {
+        this.roomRatings = roomRatings;
+    }
+
     public static final class PendingTitleNotice {
         private String giverName = "";
         private String titleId = "";
@@ -150,6 +174,130 @@ public final class PlayerDataModel {
 
         public void setTitleText(String titleText) {
             this.titleText = titleText;
+        }
+    }
+
+    public static final class MatchStatistics {
+        private double matchActiveMinutes;
+        private int matchesPlayed;
+        private int wins;
+        private int losses;
+        private int draws;
+
+        public boolean normalize() {
+            boolean changed = false;
+            if (matchActiveMinutes < 0.0D) {
+                matchActiveMinutes = 0.0D;
+                changed = true;
+            }
+            if (matchesPlayed < 0) {
+                matchesPlayed = 0;
+                changed = true;
+            }
+            if (wins < 0) {
+                wins = 0;
+                changed = true;
+            }
+            if (losses < 0) {
+                losses = 0;
+                changed = true;
+            }
+            if (draws < 0) {
+                draws = 0;
+                changed = true;
+            }
+            return changed;
+        }
+
+        public double getMatchActiveMinutes() {
+            if (matchActiveMinutes < 0.0D) {
+                matchActiveMinutes = 0.0D;
+            }
+            return matchActiveMinutes;
+        }
+
+        public void setMatchActiveMinutes(double matchActiveMinutes) {
+            this.matchActiveMinutes = Math.max(0.0D, matchActiveMinutes);
+        }
+
+        public int getMatchesPlayed() {
+            if (matchesPlayed < 0) {
+                matchesPlayed = 0;
+            }
+            return matchesPlayed;
+        }
+
+        public void setMatchesPlayed(int matchesPlayed) {
+            this.matchesPlayed = Math.max(0, matchesPlayed);
+        }
+
+        public int getWins() {
+            if (wins < 0) {
+                wins = 0;
+            }
+            return wins;
+        }
+
+        public void setWins(int wins) {
+            this.wins = Math.max(0, wins);
+        }
+
+        public int getLosses() {
+            if (losses < 0) {
+                losses = 0;
+            }
+            return losses;
+        }
+
+        public void setLosses(int losses) {
+            this.losses = Math.max(0, losses);
+        }
+
+        public int getDraws() {
+            if (draws < 0) {
+                draws = 0;
+            }
+            return draws;
+        }
+
+        public void setDraws(int draws) {
+            this.draws = Math.max(0, draws);
+        }
+    }
+
+    public static final class RoomRatingRecord {
+        private String roomId = "";
+        private int rating;
+        private long updatedAtEpochMillis;
+
+        public String getRoomId() {
+            return roomId == null ? "" : roomId;
+        }
+
+        public void setRoomId(String roomId) {
+            this.roomId = roomId;
+        }
+
+        public int getRating() {
+            if (rating < 1 || rating > 5) {
+                rating = 0;
+            }
+            return rating;
+        }
+
+        public void setRating(int rating) {
+            this.rating = rating >= 1 && rating <= 5 ? rating : 0;
+        }
+
+        public long getUpdatedAtEpochMillis() {
+            if (updatedAtEpochMillis < 0L) {
+                updatedAtEpochMillis = 0L;
+            }
+            return updatedAtEpochMillis;
+        }
+
+        public void setUpdatedAtEpochMillis(long updatedAtEpochMillis) {
+            this.updatedAtEpochMillis = Math.max(0L, updatedAtEpochMillis);
         }
     }
 

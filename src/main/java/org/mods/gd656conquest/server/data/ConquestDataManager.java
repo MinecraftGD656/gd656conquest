@@ -9,6 +9,7 @@ import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataStore;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataStore;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
 import org.mods.gd656conquest.server.data.roomdefinition.RoomDefinitionRepository;
+import org.mods.gd656conquest.server.data.roomstatisticdata.RoomStatisticDataStore;
 import org.mods.gd656conquest.server.data.roomtemplate.RoomTemplateRepository;
 import org.mods.gd656conquest.server.data.serverconfig.ServerConfigStore;
 import org.mods.gd656conquest.server.data.util.DelayedJsonWriteService;
@@ -25,6 +26,7 @@ public final class ConquestDataManager {
     private final PlayerDataStore playerDataStore;
     private final PlayerTitleRegistryStore playerTitleRegistryStore;
     private final RoomDefinitionRepository roomDefinitionRepository;
+    private final RoomStatisticDataStore roomStatisticDataStore;
     private final RoomTemplateRepository roomTemplateRepository;
     private final EquipmentDataStore equipmentDataStore;
     private final EquipmentSetDataStore equipmentSetDataStore;
@@ -42,6 +44,7 @@ public final class ConquestDataManager {
         this.playerDataStore = new PlayerDataStore(server, delayedJsonWriteService);
         this.playerTitleRegistryStore = new PlayerTitleRegistryStore(server, delayedJsonWriteService);
         this.roomDefinitionRepository = new RoomDefinitionRepository(server, delayedJsonWriteService);
+        this.roomStatisticDataStore = new RoomStatisticDataStore(server, delayedJsonWriteService);
         this.roomTemplateRepository = new RoomTemplateRepository(server);
         this.equipmentDataStore = new EquipmentDataStore(server, delayedJsonWriteService);
         this.equipmentSetDataStore = new EquipmentSetDataStore(server, delayedJsonWriteService);
@@ -75,6 +78,7 @@ public final class ConquestDataManager {
         playerDataStore.initialize();
         playerTitleRegistryStore.initialize();
         roomDefinitionRepository.initialize();
+        roomStatisticDataStore.initialize();
         equipmentDataStore.initialize();
         equipmentSetDataStore.initialize();
         heroKitDataStore.initialize();
@@ -111,6 +115,11 @@ public final class ConquestDataManager {
     public RoomDefinitionRepository roomDefinitions() {
         initialize();
         return roomDefinitionRepository;
+    }
+
+    public RoomStatisticDataStore roomStatisticData() {
+        initialize();
+        return roomStatisticDataStore;
     }
 
     public EquipmentDataStore equipmentData() {

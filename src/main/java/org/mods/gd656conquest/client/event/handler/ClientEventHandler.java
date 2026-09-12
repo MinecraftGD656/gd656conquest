@@ -65,6 +65,26 @@ public final class ClientEventHandler {
     private ClientEventHandler() {
     }
 
+    public java.util.List<ClientCaptureObjectiveWaypointSnapshot> objectiveWaypointSnapshots() {
+        return captureOverlayController.objectiveWaypointSnapshots();
+    }
+
+    public ClientCaptureObjectiveWaypointSnapshot.TeamToken resolveObjectiveWaypointSelfTeam() {
+        return captureOverlayController.resolveObjectiveWaypointSelfTeam();
+    }
+
+    public java.util.List<ClientCaptureBattleAreaPolygonSnapshot> battleAreaPolygonSnapshots() {
+        return captureOverlayController.battleAreaPolygonSnapshots();
+    }
+
+    public java.util.List<ClientCaptureBattleAreaLineSnapshot> battleAreaLineSnapshots() {
+        return captureOverlayController.battleAreaLineSnapshots();
+    }
+
+    public ClientCaptureBattleAreaPolygonSnapshot.TeamToken resolveBattleAreaSelfTeam() {
+        return captureOverlayController.resolveBattleAreaSelfTeam();
+    }
+
     public void handleClientTick(TickEvent.ClientTickEvent event) {
         Minecraft minecraft = Minecraft.getInstance();
         if (event.phase == TickEvent.Phase.START) {
@@ -111,6 +131,7 @@ public final class ClientEventHandler {
         }
         roomSessionController.tick(minecraft, captureOverlayController);
         captureOutlineController.tick(minecraft);
+        captureOverlayController.syncObjectiveSnapshotCache();
     }
 
     public void handleRenderLevel(RenderLevelStageEvent event) {

@@ -1,9 +1,12 @@
 package org.mods.gd656conquest.server.room.runtime;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import org.mods.gd656conquest.common.log.ClientMessageType;
 import org.mods.gd656conquest.common.match.MatchResultType;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.RoomDeathFlowPacket;
@@ -12,7 +15,6 @@ import org.mods.gd656conquest.network.packet.RoomMatchResultPacket;
 import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
 import org.mods.gd656conquest.server.player.lock.ServerPlayerLockService;
 import org.mods.gd656conquest.server.social.chat.ServerActionBarService;
-import org.mods.gd656conquest.server.shared.log.ServerLogger;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
@@ -290,10 +292,8 @@ public final class RoomResultRuntimeService {
             MATCH_RESULT_RESTORE_TICKS,
             buildResultSubtitle(room, state, playerId, resultType)
         ));
-        sendResultChat(room, state, player, resultType, reason);
-        if (awardExperience) {
-            awardMatchExperience(room, state, playerId, player, entry, gameTick);
-        }
+        MatchRewardFeedback rewardFeedback = resolveRewardFeedback(room, state, playerId, player, entry, gameTick, awardExperience);
+        sendResultChat(room, state, player, resultType, reason, rewardFeedback, gameTick);
     }
 
     private void sendResultChat(
@@ -301,38 +301,45 @@ public final class RoomResultRuntimeService {
         RunningRuntimeState state,
         ServerPlayer player,
         MatchResultType resultType,
-        String reason
+        String reason,
+        MatchRewardFeedback rewardFeedback,
+        long gameTick
     ) {
-        if (player == null) {
+        if (player == null || room == null || state == null) {
             return;
         }
-        String summary;
-        ClientMessageType type;
-        if (resultType == MatchResultType.DRAW) {
-            summary = "对局结束：本局平局";
-            type = ClientMessageType.INFO;
-        } else if (resultType == MatchResultType.VICTORY) {
-            summary = "对局结束：你获得胜利";
-            type = ClientMessageType.SUCCESS;
-        } else {
-            summary = "对局结束：你未能取得胜利";
-            type = ClientMessageType.FAILURE;
-        }
-        ServerLogger.sendToClient(player, type, summary);
-        if (resultType == MatchResultType.VICTORY) {
-            RoomTeamId winnerTeam = state == null ? null : state.resolveResultWinnerTeam();
-            if (winnerTeam != null) {
-                ServerLogger.sendToClient(player, ClientMessageType.INFO, "胜方：%s", resolveTeamDisplayName(room, state, winnerTeam));
-            } else {
-                UUID winnerPlayerId = resolveSingleWinnerPlayerId(state, player.getUUID());
-                if (winnerPlayerId != null) {
-                    ServerLogger.sendToClient(player, ClientMessageType.INFO, "胜者：%s", resolvePlayerName(winnerPlayerId));
-                }
-            }
-        }
-        if (reason != null && !reason.isBlank() && !"-".equals(reason)) {
-            ServerLogger.sendToClient(player, ClientMessageType.INFO, "结束原因：%s", reason);
-        }
+        String headlineText = resolveHeadlineText(resultType);
+        String topDelimiter = "==========";
+        String topPlain = topDelimiter + headlineText + topDelimiter;
+        String bottomPlain = "=".repeat(topPlain.length());
+        String roomId = formatRoomId(room.roomId());
+        String mapId = room.gameplayMapId();
+        String displayReason = reason == null || reason.isBlank() ? "-" : reason;
+        String currentTeam = resolveTeamDisplayName(room, state, state.getRoomTeams().get(player.getUUID()));
+        int durationSeconds = resolveMatchDurationSeconds(state, resolveFeedbackTick(state, gameTick));
+
+        player.sendSystemMessage(Component.literal(""));
+        player.sendSystemMessage(Component.empty()
+            .append(Component.literal(topDelimiter).withStyle(ChatFormatting.GRAY))
+            .append(Component.literal(headlineText).withStyle(resolveHeadlineColor(resultType)))
+            .append(Component.literal(topDelimiter).withStyle(ChatFormatting.GRAY)));
+        player.sendSystemMessage(Component.literal(""));
+        player.sendSystemMessage(labelValueLine("结束原因：", ChatFormatting.WHITE, displayReason, ChatFormatting.RED));
+        player.sendSystemMessage(labelValueLine("对局用时：", ChatFormatting.WHITE, formatDuration(durationSeconds), ChatFormatting.GOLD));
+        player.sendSystemMessage(labelValueLine("房间地图：", ChatFormatting.WHITE, mapId, ChatFormatting.YELLOW));
+        player.sendSystemMessage(labelValueLine("当前阵营：", ChatFormatting.WHITE, currentTeam, ChatFormatting.GREEN));
+        player.sendSystemMessage(labelValueLine("分数加成：", ChatFormatting.WHITE, formatRewardValue(rewardFeedback.baseScoreReward()), ChatFormatting.AQUA, ChatFormatting.GREEN));
+        player.sendSystemMessage(labelValueLine("额外加成：", ChatFormatting.WHITE, String.valueOf(rewardFeedback.extraReward()), ChatFormatting.BLUE, ChatFormatting.GREEN));
+        player.sendSystemMessage(buildLevelChangeLine(rewardFeedback.levelBefore(), rewardFeedback.levelAfter()));
+        player.sendSystemMessage(Component.literal(""));
+        player.sendSystemMessage(Component.empty()
+            .append(Component.literal("给地图 ").withStyle(ChatFormatting.WHITE))
+            .append(Component.literal(mapId).withStyle(ChatFormatting.GOLD))
+            .append(Component.literal(" 评分：").withStyle(ChatFormatting.WHITE)));
+        player.sendSystemMessage(buildRatingOptionsLine(roomId, mapId));
+        player.sendSystemMessage(Component.literal(""));
+        player.sendSystemMessage(Component.literal(bottomPlain).withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal(""));
     }
 
     /** GD656Mods: 从结果表推导唯一胜者(单人胜, 如枪神个人战); 无/多个时返回 null */
@@ -353,24 +360,34 @@ public final class RoomResultRuntimeService {
         return winner == null || winner.equals(selfPlayerId) ? null : winner;
     }
 
-    private void awardMatchExperience(RoomDefinition room, RunningRuntimeState state, UUID playerId, ServerPlayer player, RoomMatchEndRequest.PlayerResultEntry entry, long gameTick) {
-        if (room == null || state == null || playerId == null || player == null) {
-            return;
+    private MatchRewardFeedback resolveRewardFeedback(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        UUID playerId,
+        ServerPlayer player,
+        RoomMatchEndRequest.PlayerResultEntry entry,
+        long gameTick,
+        boolean awardExperience
+    ) {
+        if (room == null || state == null || playerId == null || player == null || entry == null) {
+            return MatchRewardFeedback.empty();
         }
         KilliconScoreboardBridge.TempSnapshot snapshot = KilliconScoreboardBridge.getPlayerSnapshot(state, playerId);
         PlayerLevelService.MatchOutcome outcome = resolveMatchOutcome(entry.resultType());
-        PlayerLevelService.awardAndNotifyMatchExperience(
-            player,
-            new PlayerLevelService.MatchStats(
-                snapshot.score(),
-                snapshot.kill(),
-                snapshot.assist(),
-                snapshot.death(),
-                resolveMatchDurationSeconds(state, gameTick),
-                entry.extraScore()
-            ),
-            outcome
+        PlayerLevelService.MatchStats stats = new PlayerLevelService.MatchStats(
+            snapshot.score(),
+            snapshot.kill(),
+            snapshot.assist(),
+            snapshot.death(),
+            resolveMatchDurationSeconds(state, resolveFeedbackTick(state, gameTick)),
+            entry.extraScore()
         );
+        if (awardExperience) {
+            PlayerLevelService.AwardResult result = PlayerLevelService.awardMatchExperience(player, stats, outcome);
+            return new MatchRewardFeedback(snapshot, result.formula(), result.levelBefore(), result.levelAfter());
+        }
+        int currentLevel = PlayerLevelService.getEffectiveLevel(player);
+        return new MatchRewardFeedback(snapshot, PlayerLevelService.previewFormula(stats, outcome), currentLevel, currentLevel);
     }
 
     private PlayerLevelService.MatchOutcome resolveMatchOutcome(MatchResultType resultType) {
@@ -428,5 +445,137 @@ public final class RoomResultRuntimeService {
         }
         ServerPlayer player = server.getPlayerList().getPlayer(playerId);
         return player == null ? playerId.toString() : player.getScoreboardName();
+    }
+
+    private long resolveFeedbackTick(RunningRuntimeState state, long gameTick) {
+        if (state == null) {
+            return Math.max(0L, gameTick);
+        }
+        long finalizedTick = state.getFinalizedMatchEndTick();
+        return finalizedTick >= 0L ? finalizedTick : Math.max(0L, gameTick);
+    }
+
+    private String resolveHeadlineText(MatchResultType resultType) {
+        return switch (resultType) {
+            case VICTORY -> "大获全胜";
+            case DEFEAT -> "败北";
+            case DRAW -> "势均力敌";
+        };
+    }
+
+    private ChatFormatting resolveHeadlineColor(MatchResultType resultType) {
+        return switch (resultType) {
+            case VICTORY -> ChatFormatting.GREEN;
+            case DEFEAT -> ChatFormatting.RED;
+            case DRAW -> ChatFormatting.YELLOW;
+        };
+    }
+
+    private Component labelValueLine(String label, ChatFormatting labelColor, String value, ChatFormatting valueColor) {
+        return labelValueLine(label, labelColor, value, valueColor, null);
+    }
+
+    private Component labelValueLine(
+        String label,
+        ChatFormatting labelColor,
+        String value,
+        ChatFormatting valueColor,
+        ChatFormatting prefixColor
+    ) {
+        MutableComponent line = Component.empty().append(Component.literal(label).withStyle(labelColor));
+        if (prefixColor != null) {
+            line.append(Component.literal("+").withStyle(prefixColor));
+        }
+        line.append(Component.literal(value == null ? "-" : value).withStyle(valueColor));
+        return line;
+    }
+
+    private Component buildLevelChangeLine(int levelBefore, int levelAfter) {
+        return Component.empty()
+            .append(Component.literal("等级变化：").withStyle(ChatFormatting.WHITE))
+            .append(levelComponent(levelBefore))
+            .append(Component.literal(" --> ").withStyle(ChatFormatting.GRAY))
+            .append(levelComponent(levelAfter));
+    }
+
+    private Component levelComponent(int level) {
+        return Component.literal(String.valueOf(Math.max(0, level)))
+            .withStyle(style -> style.withColor(PlayerLevelService.resolveLevelColorRgb(level)));
+    }
+
+    private Component buildRatingOptionsLine(String roomId, String mapId) {
+        ChatFormatting[] colors = new ChatFormatting[] {
+            ChatFormatting.RED,
+            ChatFormatting.GOLD,
+            ChatFormatting.YELLOW,
+            ChatFormatting.GREEN,
+            ChatFormatting.AQUA
+        };
+        MutableComponent line = Component.empty();
+        for (int rating = 1; rating <= 5; rating++) {
+            if (rating > 1) {
+                line.append(Component.literal(" "));
+            }
+            int score = rating;
+            line.append(Component.literal("[" + rating + "]")
+                .withStyle(style -> style
+                    .withColor(colors[score - 1])
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/gdc action scoring " + roomId + " " + score))
+                    .withHoverEvent(new HoverEvent(
+                        HoverEvent.Action.SHOW_TEXT,
+                        Component.literal("给地图 " + mapId + " 评分 " + score + " 分")
+                    ))));
+        }
+        return line;
+    }
+
+    private String formatDuration(int totalSeconds) {
+        int safeSeconds = Math.max(0, totalSeconds);
+        int hours = safeSeconds / 3600;
+        int minutes = (safeSeconds % 3600) / 60;
+        int seconds = safeSeconds % 60;
+        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+    }
+
+    private String formatRewardValue(double value) {
+        double safeValue = Math.max(0.0D, value);
+        if (Math.abs(safeValue - Math.rint(safeValue)) < 0.0005D) {
+            return String.valueOf((int) Math.rint(safeValue));
+        }
+        String formatted = String.format(java.util.Locale.ROOT, "%.3f", safeValue);
+        while (formatted.contains(".") && (formatted.endsWith("0") || formatted.endsWith("."))) {
+            formatted = formatted.substring(0, formatted.length() - 1);
+        }
+        return formatted;
+    }
+
+    private String formatRoomId(String roomId) {
+        if (roomId == null) {
+            return "-";
+        }
+        String normalized = roomId.trim().toLowerCase(java.util.Locale.ROOT);
+        if (normalized.matches("room_\\d{2}")) {
+            return "Room_" + normalized.substring(normalized.length() - 2);
+        }
+        return roomId;
+    }
+
+    private record MatchRewardFeedback(
+        KilliconScoreboardBridge.TempSnapshot snapshot,
+        PlayerLevelService.Formula formula,
+        int levelBefore,
+        int levelAfter
+    ) {
+        private static MatchRewardFeedback empty() {
+            return new MatchRewardFeedback(KilliconScoreboardBridge.TempSnapshot.EMPTY, null, 0, 0);
+        }
+
+        private double baseScoreReward() {
+            return formula == null ? 0.0D : Math.max(0.0D, formula.scoreFactorPart());
+        }
+
+        private int extraReward() {
+            return formula == null ? 0 : Math.max(0, formula.extraPart());
+        }
     }
 }

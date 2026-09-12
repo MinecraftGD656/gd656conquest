@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.room.core;
 
 import net.minecraft.core.BlockPos;
+import org.mods.gd656conquest.common.match.MatchResultType;
 import org.mods.gd656conquest.server.room.gameplay.IRoomGameplayRuntime;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
@@ -60,6 +61,8 @@ public final class RunningRuntimeState {
     /** 局内临时 honor 统计: honorId → (playerId → 本局获得次数)。新对局开始时清空, 与 killiconMatchStatsByPlayer 同生命周期。 */
     private final Map<String, Map<UUID, Integer>> killiconMatchHonorByHonor = new LinkedHashMap<>();
     private final Map<UUID, Integer> supportSpentScoreByPlayer = new LinkedHashMap<>();
+    /** GD656Mods: 已用阵地支援分数所属的对局实例, 与 activeMatchInstanceId 不一致时视为空账本。 */
+    private long supportSpentScoreMatchInstanceId = -1L;
     private final Map<UUID, String> activeHeroKitIdsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, String> activeHeroKitTypesByPlayer = new LinkedHashMap<>();
     private final Map<String, Long> heroKitCooldownExpireTicksByScopedKey = new LinkedHashMap<>();
@@ -78,6 +81,7 @@ public final class RunningRuntimeState {
     private int autoTeamBalanceLastDelta;
     private UUID topScorerBalanceTarget;
     private long topScorerBalanceSinceTick = -1L;
+    private long experimentalBalanceLastCheckTick = -1L;
     private final Map<UUID, Long> outsideBoundarySinceTicks = new LinkedHashMap<>();
     private final Map<UUID, Long> aircraftOutsideBoundarySinceTicks = new LinkedHashMap<>();
     private final Map<UUID, Integer> boundaryPenaltyLastShownSeconds = new LinkedHashMap<>();
@@ -91,6 +95,7 @@ public final class RunningRuntimeState {
     private final Map<UUID, Map<UUID, TacticalMarker>> droneSpotMarkersByOwner = new LinkedHashMap<>();
     private final Map<String, TeamScopedTacticalMarker> gameplayTacticalMarkersByKey = new LinkedHashMap<>();
     private final Map<UUID, RejoinTicket> rejoinTickets = new LinkedHashMap<>();
+    private final Map<UUID, MatchParticipantSession> matchParticipantSessions = new LinkedHashMap<>();
     private Map<UUID, org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest.PlayerResultEntry> resultPlayerResults = Map.of();
     private String resultReason = "-";
     private long resultBlackStartTick = -1L;
@@ -101,6 +106,8 @@ public final class RunningRuntimeState {
     private final Set<UUID> resultViewTransferPending = new LinkedHashSet<>();
     private final Set<UUID> resultAwardedPlayers = new LinkedHashSet<>();
     private long activeMatchInstanceId = -1L;
+    private long activeMatchStartTick = -1L;
+    private long finalizedMatchEndTick = -1L;
     private long initialMovementUnlockTick = -1L;
     private long lastHudSyncTick = -1L;
     private long lastNametagSyncTick = -1L;
@@ -333,6 +340,11 @@ public final class RunningRuntimeState {
     }
 
     public Map<UUID, Integer> getSupportSpentScoreByPlayer() {
+        // GD656Mods: 已用阵地支援分数以单次对局为单位存储, 对局停止前始终保留(玩家掉线/离开房间不清)
+        if (supportSpentScoreMatchInstanceId != activeMatchInstanceId) {
+            supportSpentScoreByPlayer.clear();
+            supportSpentScoreMatchInstanceId = activeMatchInstanceId;
+        }
         return supportSpentScoreByPlayer;
     }
 
@@ -412,6 +424,14 @@ public final class RunningRuntimeState {
         this.autoTeamBalanceLastDelta = autoTeamBalanceLastDelta;
     }
 
+    public long getExperimentalBalanceLastCheckTick() {
+        return experimentalBalanceLastCheckTick;
+    }
+
+    public void setExperimentalBalanceLastCheckTick(long experimentalBalanceLastCheckTick) {
+        this.experimentalBalanceLastCheckTick = experimentalBalanceLastCheckTick;
+    }
+
     public Map<UUID, Long> getOutsideBoundarySinceTicks() {
         return outsideBoundarySinceTicks;
     }
@@ -463,6 +483,10 @@ public final class RunningRuntimeState {
 
     public Map<UUID, RejoinTicket> getRejoinTickets() {
         return rejoinTickets;
+    }
+
+    public Map<UUID, MatchParticipantSession> getMatchParticipantSessions() {
+        return matchParticipantSessions;
     }
 
     public Map<UUID, org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest.PlayerResultEntry> getResultPlayerResults() {
@@ -550,15 +574,30 @@ public final class RunningRuntimeState {
         return activeMatchInstanceId;
     }
 
+    public long getActiveMatchStartTick() {
+        return activeMatchStartTick;
+    }
+
+    public long getFinalizedMatchEndTick() {
+        return finalizedMatchEndTick;
+    }
+
+    public void setFinalizedMatchEndTick(long finalizedMatchEndTick) {
+        this.finalizedMatchEndTick = finalizedMatchEndTick;
+    }
+
     public void beginNewMatchInstance(long gameTick) {
         long candidate = gameTick > 0L ? gameTick : 1L;
         if (candidate <= activeMatchInstanceId) {
             candidate = activeMatchInstanceId + 1L;
         }
         activeMatchInstanceId = candidate;
+        activeMatchStartTick = Math.max(0L, gameTick);
+        finalizedMatchEndTick = -1L;
         killiconMatchStatsByPlayer.clear();
         killiconMatchHonorByHonor.clear();
         supportSpentScoreByPlayer.clear();
+        supportSpentScoreMatchInstanceId = activeMatchInstanceId;
         activeHeroKitIdsByPlayer.clear();
         activeHeroKitTypesByPlayer.clear();
         heroKitCooldownExpireTicksByScopedKey.clear();
@@ -569,6 +608,7 @@ public final class RunningRuntimeState {
         gunmasterStageKillsByPlayer.clear();
         gunmasterMatchWeaponSequenceIds.clear();
         rejoinTickets.clear();
+        matchParticipantSessions.clear();
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();
         resultAwardedPlayers.clear();
         initialMovementLockedPlayers.clear();
@@ -580,7 +620,9 @@ public final class RunningRuntimeState {
 
     public void clearActiveMatchInstance() {
         activeMatchInstanceId = -1L;
+        activeMatchStartTick = -1L;
         supportSpentScoreByPlayer.clear();
+        supportSpentScoreMatchInstanceId = -1L;
         activeHeroKitIdsByPlayer.clear();
         activeHeroKitTypesByPlayer.clear();
         heroKitCooldownExpireTicksByScopedKey.clear();
@@ -591,6 +633,7 @@ public final class RunningRuntimeState {
         gunmasterStageKillsByPlayer.clear();
         gunmasterMatchWeaponSequenceIds.clear();
         rejoinTickets.clear();
+        matchParticipantSessions.clear();
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();
         resultAwardedPlayers.clear();
         initialMovementLockedPlayers.clear();
@@ -700,7 +743,7 @@ public final class RunningRuntimeState {
         autoTeamSwitchOfferExpireTicks.clear();
         killiconMatchStatsByPlayer.clear();
         killiconMatchHonorByHonor.clear();
-        supportSpentScoreByPlayer.clear();
+        // GD656Mods: 房间暂时无人(可能等待重连)不算对局停止, 保留阵地支援已用分数账本
         activeHeroKitIdsByPlayer.clear();
         activeHeroKitTypesByPlayer.clear();
         heroKitCooldownExpireTicksByScopedKey.clear();
@@ -717,6 +760,7 @@ public final class RunningRuntimeState {
         autoTeamBalanceImbalanceSinceTick = -1L;
         autoTeamBalanceLastPromptTick = -1L;
         autoTeamBalanceLastDelta = 0;
+        experimentalBalanceLastCheckTick = -1L;
         outsideBoundarySinceTicks.clear();
         boundaryPenaltyLastShownSeconds.clear();
         boundaryPenaltyVisualApplied.clear();
@@ -992,6 +1036,7 @@ public final class RunningRuntimeState {
         resultCloseRemainAnnouncedSecond = -1;
         resultViewApplied = false;
         resultLastViewTransferTick = -1L;
+        finalizedMatchEndTick = -1L;
         resultViewTransferPending.clear();
         resultAwardedPlayers.clear();
     }
@@ -1060,6 +1105,88 @@ public final class RunningRuntimeState {
         String squadLabel,
         long leftTick
     ) {
+    }
+
+    public static final class MatchParticipantSession {
+        private final long matchInstanceId;
+        private long joinedMainPhaseTick;
+        private long lastResumeTick;
+        private long accumulatedActiveTicks;
+        private boolean paused;
+        private boolean lateJoin;
+        private RoomTeamId lastKnownTeamId;
+        private MatchResultType finalResultType;
+
+        public MatchParticipantSession(long matchInstanceId, long joinedMainPhaseTick, long lastResumeTick, boolean lateJoin, RoomTeamId lastKnownTeamId) {
+            this.matchInstanceId = Math.max(0L, matchInstanceId);
+            this.joinedMainPhaseTick = Math.max(0L, joinedMainPhaseTick);
+            this.lastResumeTick = Math.max(0L, lastResumeTick);
+            this.accumulatedActiveTicks = 0L;
+            this.paused = false;
+            this.lateJoin = lateJoin;
+            this.lastKnownTeamId = lastKnownTeamId;
+            this.finalResultType = null;
+        }
+
+        public long getMatchInstanceId() {
+            return matchInstanceId;
+        }
+
+        public long getJoinedMainPhaseTick() {
+            return joinedMainPhaseTick;
+        }
+
+        public void setJoinedMainPhaseTick(long joinedMainPhaseTick) {
+            this.joinedMainPhaseTick = Math.max(0L, joinedMainPhaseTick);
+        }
+
+        public long getLastResumeTick() {
+            return lastResumeTick;
+        }
+
+        public void setLastResumeTick(long lastResumeTick) {
+            this.lastResumeTick = Math.max(0L, lastResumeTick);
+        }
+
+        public long getAccumulatedActiveTicks() {
+            return Math.max(0L, accumulatedActiveTicks);
+        }
+
+        public void setAccumulatedActiveTicks(long accumulatedActiveTicks) {
+            this.accumulatedActiveTicks = Math.max(0L, accumulatedActiveTicks);
+        }
+
+        public boolean isPaused() {
+            return paused;
+        }
+
+        public void setPaused(boolean paused) {
+            this.paused = paused;
+        }
+
+        public boolean isLateJoin() {
+            return lateJoin;
+        }
+
+        public void setLateJoin(boolean lateJoin) {
+            this.lateJoin = lateJoin;
+        }
+
+        public RoomTeamId getLastKnownTeamId() {
+            return lastKnownTeamId;
+        }
+
+        public void setLastKnownTeamId(RoomTeamId lastKnownTeamId) {
+            this.lastKnownTeamId = lastKnownTeamId;
+        }
+
+        public MatchResultType getFinalResultType() {
+            return finalResultType;
+        }
+
+        public void setFinalResultType(MatchResultType finalResultType) {
+            this.finalResultType = finalResultType;
+        }
     }
 
     public record KilliconMatchStats(

@@ -33,6 +33,7 @@ import org.mods.gd656conquest.server.room.gameplay.RoomGameplayHudState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayObjectiveDefinitionProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayObjectiveSnapshotProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomAutoBalanceWindowSnapshot;
 import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.gameplay.RoomObjectiveFocusPayloadService;
 import org.mods.gd656conquest.server.room.gameplay.RoomObjectivePresentationContext;
@@ -198,6 +199,20 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
         initializeBombStates(room);
         syncObjectivePresence(room);
         syncObjectiveSnapshots(room, enteredTick);
+    }
+
+    @Override
+    public RoomAutoBalanceWindowSnapshot autoBalanceWindowSnapshot(RoomDefinition room, long gameTick) {
+        if (matchDurationSeconds(gameTick) < 300) {
+            return RoomAutoBalanceWindowSnapshot.locked("主对局前 300 秒不自动换队");
+        }
+        if (currentStageIndex >= configuredStageCount) {
+            return RoomAutoBalanceWindowSnapshot.locked("突袭模式已进入最后一个阶段");
+        }
+        if (attackTroopCap > 0 && (attackTroops / (double) attackTroopCap) < 0.25D) {
+            return RoomAutoBalanceWindowSnapshot.locked("突袭模式进攻方剩余兵力低于 25%");
+        }
+        return RoomAutoBalanceWindowSnapshot.allowed();
     }
 
     @Override
@@ -2056,12 +2071,12 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
             if (lastShown >= 0 && player.connection != null) {
                 player.connection.send(new ClientboundClearTitlesPacket(true));
             }
-            sendRetreatActionbar(player, remainingSeconds);
+            sendRetreatActionbar(player, remainingSeconds, room.rushConfig().troopGainPerDefenderKill());
             retreatCountdownLastShownSecondsByPlayer.put(playerId, remainingSeconds);
         }
     }
 
-    private void sendRetreatActionbar(ServerPlayer player, int remainingSeconds) {
+    private void sendRetreatActionbar(ServerPlayer player, int remainingSeconds, int troopGainPerDefenderKill) {
         if (player == null) {
             return;
         }
@@ -2072,7 +2087,12 @@ public final class RushGameplayRuntime implements IRoomGameplayRuntime,
                 .text("请在 ", ChatFormatting.GRAY)
                 .append(Component.literal(String.valueOf(remainingSeconds))
                     .withStyle(style -> style.withColor(resolveCountdownColor(remainingSeconds)).withBold(true)))
-                .text(" 秒内撤离至下一阶段", ChatFormatting.GRAY),
+                .text(" 秒内撤离至下一阶段", ChatFormatting.GRAY)
+                // GD656Mods: 撤退倒计时末尾追加提示, 告知防守方在此死亡会为进攻方补充兵力
+                .text(" 若您在此死亡将使敌军恢复", ChatFormatting.RED)
+                .append(Component.literal(String.valueOf(Math.max(0, troopGainPerDefenderKill)))
+                    .withStyle(style -> style.withColor(ChatFormatting.DARK_RED)))
+                .text("兵力", ChatFormatting.RED),
             30
         );
     }

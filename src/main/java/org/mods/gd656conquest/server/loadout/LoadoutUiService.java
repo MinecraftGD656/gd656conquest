@@ -18,6 +18,7 @@ import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataModel;
 import org.mods.gd656conquest.server.data.attachment.WeaponAttachmentDataStore;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataStore;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
+import org.mods.gd656conquest.server.data.roomstatisticdata.RoomStatisticDataModel;
 import org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidationResult;
 import org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator;
 import org.mods.gd656conquest.server.data.vehicledata.VehicleConfigEntry;
@@ -1464,6 +1465,27 @@ public final class LoadoutUiService {
             }
         }
 
+        List<LoadoutUiOpenPacket.RoomStatisticPayload> roomStatistics = new ArrayList<>();
+        for (RoomDefinition definition : dataManager.roomDefinitions().getAllDefinitions()) {
+            if (definition == null) {
+                continue;
+            }
+            RoomStatisticDataModel statistic = dataManager.roomStatisticData().getRoomStatistics(definition.roomId());
+            roomStatistics.add(new LoadoutUiOpenPacket.RoomStatisticPayload(
+                definition.roomId(),
+                definition.displayName(),
+                definition.gameplayMapId(),
+                statistic.totalPlayCountValue(),
+                statistic.totalMatchesValue(),
+                statistic.campAWinsValue(),
+                statistic.campBWinsValue(),
+                statistic.drawMatchesValue(),
+                statistic.totalMatchDurationSecondsValue(),
+                statistic.ratingVoteCountValue(),
+                statistic.ratingScoreTotalValue()
+            ));
+        }
+
         List<LoadoutUiOpenPacket.WeaponAttachmentPanelPayload> attachmentPanels = new ArrayList<>();
         if (equipmentData != null && attachmentData != null) {
             for (CustomLoadoutSlot slot : List.of(CustomLoadoutSlot.PRIMARY_WEAPON, CustomLoadoutSlot.SECONDARY_WEAPON)) {
@@ -1513,6 +1535,7 @@ public final class LoadoutUiService {
             classes,
             adminEquipment,
             adminAttachments,
+            roomStatistics,
             attachmentPanels,
             vehiclePageSnapshot.entries()
         );

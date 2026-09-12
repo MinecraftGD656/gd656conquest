@@ -1,5 +1,6 @@
 package org.mods.gd656conquest.server.core.command;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -7,6 +8,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerPlayer;
+import org.mods.gd656conquest.server.data.roomstatisticdata.RoomRatingService;
 import org.mods.gd656conquest.server.room.entry.RoomCommands;
 import org.mods.gd656conquest.server.shared.text.CommandFeedbacks;
 import org.mods.gd656conquest.server.social.chat.ChatChannelNoticeService;
@@ -34,7 +36,11 @@ public final class ActionCommands {
             .then(Commands.literal("weartitle")
                 .then(Commands.argument("titleId", StringArgumentType.string())
                     .executes(ActionCommands::executeWearTitle)))
-            .then(Commands.literal("cleartitle").executes(ActionCommands::executeClearTitle));
+            .then(Commands.literal("cleartitle").executes(ActionCommands::executeClearTitle))
+            .then(Commands.literal("scoring")
+                .then(Commands.argument("roomId", StringArgumentType.string())
+                    .then(Commands.argument("rating", IntegerArgumentType.integer(1, 5))
+                        .executes(ActionCommands::executeScoring))));
     }
 
     private static int executeAcceptChat(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -67,6 +73,18 @@ public final class ActionCommands {
         ServerPlayer player = context.getSource().getPlayerOrException();
         PlayerTitleService.WearResult result = PlayerTitleService.of(context.getSource().getServer()).clearEquippedTitle(player);
         PlayerTitleService.of(context.getSource().getServer()).sendMyTitleList(player);
+        return result.success()
+            ? CommandFeedbacks.info(context.getSource(), result.message())
+            : CommandFeedbacks.failure(context.getSource(), result.message());
+    }
+
+    private static int executeScoring(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        RoomRatingService.RatingResult result = new RoomRatingService(context.getSource().getServer()).submitRating(
+            player,
+            StringArgumentType.getString(context, "roomId"),
+            IntegerArgumentType.getInteger(context, "rating")
+        );
         return result.success()
             ? CommandFeedbacks.info(context.getSource(), result.message())
             : CommandFeedbacks.failure(context.getSource(), result.message());

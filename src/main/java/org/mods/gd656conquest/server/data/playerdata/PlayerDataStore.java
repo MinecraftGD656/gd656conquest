@@ -20,6 +20,8 @@ import java.util.UUID;
 import java.util.Optional;
 
 public final class PlayerDataStore extends JsonDataStoreSupport {
+    private static final long ROOM_RATING_WRITE_DELAY_TICKS = 30L * 20L;
+
     private final MinecraftServer server;
     private final DelayedJsonWriteService delayedJsonWriteService;
     private final Map<UUID, PlayerDataModel> cache = new LinkedHashMap<>();
@@ -51,6 +53,32 @@ public final class PlayerDataStore extends JsonDataStoreSupport {
         }
         if (data.getUnacknowledgedTeamChannelMessageCount() < 0) {
             data.setUnacknowledgedTeamChannelMessageCount(0);
+            changed = true;
+        }
+        if (data.getMatchStatistics().normalize()) {
+            changed = true;
+        }
+        Map<String, PlayerDataModel.RoomRatingRecord> normalizedRoomRatings = new LinkedHashMap<>();
+        for (Map.Entry<String, PlayerDataModel.RoomRatingRecord> entry : data.getRoomRatings().entrySet()) {
+            if (entry == null) {
+                continue;
+            }
+            String roomId = normalizeRoomId(entry.getKey());
+            if (roomId.isBlank()) {
+                continue;
+            }
+            PlayerDataModel.RoomRatingRecord record = entry.getValue();
+            if (record == null) {
+                continue;
+            }
+            PlayerDataModel.RoomRatingRecord normalizedRecord = new PlayerDataModel.RoomRatingRecord();
+            normalizedRecord.setRoomId(roomId);
+            normalizedRecord.setRating(record.getRating());
+            normalizedRecord.setUpdatedAtEpochMillis(record.getUpdatedAtEpochMillis());
+            normalizedRoomRatings.put(roomId, normalizedRecord);
+        }
+        if (!hasSameRoomRatings(data.getRoomRatings(), normalizedRoomRatings)) {
+            data.setRoomRatings(normalizedRoomRatings);
             changed = true;
         }
         Set<String> normalizedOwnedTitleIds = new LinkedHashSet<>();
@@ -112,9 +140,17 @@ public final class PlayerDataStore extends JsonDataStoreSupport {
     }
 
     public synchronized void savePlayerData(UUID uuid, PlayerDataModel data) {
+        savePlayerData(uuid, data, 5L * 20L);
+    }
+
+    public synchronized void savePlayerData(UUID uuid, PlayerDataModel data, long delayTicks) {
         PlayerDataModel resolved = data == null ? new PlayerDataModel() : data;
         cache.put(uuid, resolved);
-        delayedJsonWriteService.schedule(ServerDataPaths.getPlayerDataFile(server, uuid.toString()), resolved, server.getTickCount());
+        delayedJsonWriteService.schedule(ServerDataPaths.getPlayerDataFile(server, uuid.toString()), resolved, server.getTickCount(), delayTicks);
+    }
+
+    public synchronized void savePlayerRoomRatings(UUID uuid, PlayerDataModel data) {
+        savePlayerData(uuid, data, ROOM_RATING_WRITE_DELAY_TICKS);
     }
 
     public synchronized Optional<String> findLastKnownPlayerName(UUID uuid) {
@@ -196,5 +232,47 @@ public final class PlayerDataStore extends JsonDataStoreSupport {
             }
         }
         return true;
+    }
+
+    private boolean hasSameRoomRatings(
+        Map<String, PlayerDataModel.RoomRatingRecord> current,
+        Map<String, PlayerDataModel.RoomRatingRecord> normalized
+    ) {
+        if (current == null || current.isEmpty()) {
+            return normalized == null || normalized.isEmpty();
+        }
+        if (normalized == null || current.size() != normalized.size()) {
+            return false;
+        }
+        for (Map.Entry<String, PlayerDataModel.RoomRatingRecord> entry : normalized.entrySet()) {
+            PlayerDataModel.RoomRatingRecord left = current.get(entry.getKey());
+            PlayerDataModel.RoomRatingRecord right = entry.getValue();
+            if (left == null || right == null) {
+                if (left != right) {
+                    return false;
+                }
+                continue;
+            }
+            if (!normalizeRoomId(left.getRoomId()).equals(entry.getKey())
+                || left.getRating() != right.getRating()
+                || left.getUpdatedAtEpochMillis() != right.getUpdatedAtEpochMillis()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String normalizeRoomId(String roomId) {
+        if (roomId == null) {
+            return "";
+        }
+        String normalized = roomId.trim().toUpperCase(Locale.ROOT);
+        if (normalized.matches("ROOM_0[1-9]") || normalized.matches("ROOM_[12]\\d") || "ROOM_30".equals(normalized) || "ROOM_31".equals(normalized) || "ROOM_32".equals(normalized)) {
+            return "Room_" + normalized.substring(normalized.length() - 2);
+        }
+        if (normalized.matches("ROOM0[1-9]") || normalized.matches("ROOM[12]\\d") || "ROOM30".equals(normalized) || "ROOM31".equals(normalized) || "ROOM32".equals(normalized)) {
+            return "Room_" + normalized.substring(normalized.length() - 2);
+        }
+        return "";
     }
 }

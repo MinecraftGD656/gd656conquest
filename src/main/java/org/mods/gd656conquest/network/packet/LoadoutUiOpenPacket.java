@@ -22,6 +22,7 @@ public final class LoadoutUiOpenPacket {
     private final List<ClassPayload> classes;
     private final List<AdminEquipmentPayload> adminEquipment;
     private final List<AdminAttachmentPayload> adminAttachments;
+    private final List<RoomStatisticPayload> roomStatistics;
     private final List<WeaponAttachmentPanelPayload> attachmentPanels;
     private final List<VehicleEntryPayload> vehicleEntries;
 
@@ -36,6 +37,7 @@ public final class LoadoutUiOpenPacket {
         List<ClassPayload> classes,
         List<AdminEquipmentPayload> adminEquipment,
         List<AdminAttachmentPayload> adminAttachments,
+        List<RoomStatisticPayload> roomStatistics,
         List<WeaponAttachmentPanelPayload> attachmentPanels,
         List<VehicleEntryPayload> vehicleEntries
     ) {
@@ -49,6 +51,7 @@ public final class LoadoutUiOpenPacket {
         this.classes = classes == null ? List.of() : List.copyOf(classes);
         this.adminEquipment = adminEquipment == null ? List.of() : List.copyOf(adminEquipment);
         this.adminAttachments = adminAttachments == null ? List.of() : List.copyOf(adminAttachments);
+        this.roomStatistics = roomStatistics == null ? List.of() : List.copyOf(roomStatistics);
         this.attachmentPanels = attachmentPanels == null ? List.of() : List.copyOf(attachmentPanels);
         this.vehicleEntries = vehicleEntries == null ? List.of() : List.copyOf(vehicleEntries);
     }
@@ -91,6 +94,10 @@ public final class LoadoutUiOpenPacket {
 
     public List<AdminAttachmentPayload> getAdminAttachments() {
         return adminAttachments;
+    }
+
+    public List<RoomStatisticPayload> getRoomStatistics() {
+        return roomStatistics;
     }
 
     public List<WeaponAttachmentPanelPayload> getAttachmentPanels() {
@@ -152,6 +159,20 @@ public final class LoadoutUiOpenPacket {
             buffer.writeInt(attachment.unlockLevel());
             buffer.writeUtf(attachment.itemSnbt());
             buffer.writeUtf(attachment.futureRequirement());
+        }
+        buffer.writeInt(packet.roomStatistics.size());
+        for (RoomStatisticPayload statistic : packet.roomStatistics) {
+            buffer.writeUtf(statistic.roomId());
+            buffer.writeUtf(statistic.roomDisplayName());
+            buffer.writeUtf(statistic.mapId());
+            buffer.writeInt(statistic.totalPlayCount());
+            buffer.writeInt(statistic.totalMatches());
+            buffer.writeInt(statistic.campAWins());
+            buffer.writeInt(statistic.campBWins());
+            buffer.writeInt(statistic.drawMatches());
+            buffer.writeLong(statistic.totalMatchDurationSeconds());
+            buffer.writeInt(statistic.ratingVoteCount());
+            buffer.writeInt(statistic.ratingScoreTotal());
         }
         buffer.writeInt(packet.attachmentPanels.size());
         for (WeaponAttachmentPanelPayload panel : packet.attachmentPanels) {
@@ -269,6 +290,23 @@ public final class LoadoutUiOpenPacket {
                 buffer.readUtf()
             ));
         }
+        int roomStatisticCount = Math.max(0, buffer.readInt());
+        List<RoomStatisticPayload> roomStatistics = new ArrayList<>();
+        for (int i = 0; i < roomStatisticCount; i++) {
+            roomStatistics.add(new RoomStatisticPayload(
+                buffer.readUtf(),
+                buffer.readUtf(),
+                buffer.readUtf(),
+                buffer.readInt(),
+                buffer.readInt(),
+                buffer.readInt(),
+                buffer.readInt(),
+                buffer.readInt(),
+                buffer.readLong(),
+                buffer.readInt(),
+                buffer.readInt()
+            ));
+        }
         int attachmentPanelCount = Math.max(0, buffer.readInt());
         List<WeaponAttachmentPanelPayload> attachmentPanels = new ArrayList<>();
         for (int panelIndex = 0; panelIndex < attachmentPanelCount; panelIndex++) {
@@ -358,6 +396,7 @@ public final class LoadoutUiOpenPacket {
             classes,
             adminEquipment,
             adminAttachments,
+            roomStatistics,
             attachmentPanels,
             vehicleEntries
         );
@@ -405,6 +444,21 @@ public final class LoadoutUiOpenPacket {
         int unlockLevel,
         String itemSnbt,
         String futureRequirement
+    ) {
+    }
+
+    public record RoomStatisticPayload(
+        String roomId,
+        String roomDisplayName,
+        String mapId,
+        int totalPlayCount,
+        int totalMatches,
+        int campAWins,
+        int campBWins,
+        int drawMatches,
+        long totalMatchDurationSeconds,
+        int ratingVoteCount,
+        int ratingScoreTotal
     ) {
     }
 

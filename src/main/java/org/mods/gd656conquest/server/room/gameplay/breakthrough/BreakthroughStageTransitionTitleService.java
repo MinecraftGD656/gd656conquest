@@ -104,7 +104,7 @@ public final class BreakthroughStageTransitionTitleService {
                 continue;
             }
             clearSingleTitle(player, lastShown >= 0);
-            sendRetreatActionbar(player, remainingSeconds);
+            sendRetreatActionbar(player, remainingSeconds, room.breakthroughConfig().troopGainPerDefenderKill());
             runtimeState.getRetreatCountdownLastShownSecondsByPlayer().put(playerId, remainingSeconds);
         }
     }
@@ -134,7 +134,7 @@ public final class BreakthroughStageTransitionTitleService {
         player.connection.send(new ClientboundSetSubtitleTextPacket(buildSubtitle(teamId)));
     }
 
-    private void sendRetreatActionbar(ServerPlayer player, int remainingSeconds) {
+    private void sendRetreatActionbar(ServerPlayer player, int remainingSeconds, int troopGainPerDefenderKill) {
         if (player == null) {
             return;
         }
@@ -145,7 +145,12 @@ public final class BreakthroughStageTransitionTitleService {
                 .text("请在", ChatFormatting.GRAY)
                 .append(Component.literal(String.valueOf(remainingSeconds))
                     .withStyle(style -> style.withColor(resolveCountdownColor(remainingSeconds)).withBold(true)))
-                .text("秒 内撤离至下一阶段", ChatFormatting.GRAY),
+                .text("秒 内撤离至下一阶段", ChatFormatting.GRAY)
+                // GD656Mods: 撤退倒计时末尾追加提示, 告知防守方在此死亡会为进攻方补充兵力
+                .text(" 若您在此死亡将使敌军恢复", ChatFormatting.RED)
+                .append(Component.literal(String.valueOf(Math.max(0, troopGainPerDefenderKill)))
+                    .withStyle(style -> style.withColor(ChatFormatting.DARK_RED)))
+                .text("兵力", ChatFormatting.RED),
             30
         );
     }

@@ -7,7 +7,10 @@ import org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator;
 import org.mods.gd656conquest.server.room.config.RoomValidationMessageFormatter;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
+import org.mods.gd656conquest.server.shared.log.ServerLogger;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -109,18 +112,27 @@ public final class RoomAdminLifecycleService {
         RoomDefinition room = repairTransientLifecycleIfNeeded(requireRoom(roomId), gameTick);
         RoomLifecycleState lifecycleState = room.lifecycleState();
         if (lifecycleState == RoomLifecycleState.RUNNING || lifecycleState == RoomLifecycleState.ENDING) {
-            return OperationResult.failure("saveRoom 禁止在运行中或结算中执行: " + room.roomId());
+            return OperationResult.failure("saveRoom 禁止在运行中或结算中执行: " + room.roomId() + "（当前状态: " + lifecycleState + "）");
         }
         if (lifecycleState == RoomLifecycleState.SAVING || lifecycleState == RoomLifecycleState.CLEANING) {
-            return OperationResult.failure("房间当前正在保存或清理中，无法执行 saveRoom: " + room.roomId());
+            return OperationResult.failure("房间当前正在保存或清理中，无法执行 saveRoom: " + room.roomId() + "（当前状态: " + lifecycleState + "）");
         }
+        // GD656Mods: 分阶段执行, 便于失败时定位到具体步骤并输出详细错误信息
+        String stage = "初始化";
         try {
+            stage = "标记停服恢复点";
             RoomResetRecoveryService.of(server).markRoomForRecovery(room.roomId());
+            stage = "切换房间状态为保存中";
             persistLifecycle(room, RoomLifecycleState.SAVING, gameTick);
+            stage = "疏散房间内玩家";
             int evacuated = manager.evacuateRoom(room.roomId(), gameTick);
+            stage = "重新读取房间定义";
             RoomDefinition current = reloadRoom(room.roomId());
+            stage = "保存维度模板";
             Path templatePath = dataManager.roomTemplates().saveCurrentDimensionAsTemplate(current);
+            stage = "切换房间状态为清理中";
             persistLifecycle(reloadRoom(room.roomId()), RoomLifecycleState.CLEANING, gameTick);
+            stage = "重置维度并重新开启房间";
             OperationResult reopened = reopenAfterReset(
                 current.roomId(),
                 gameTick,
@@ -134,8 +146,15 @@ public final class RoomAdminLifecycleService {
             }
             return OperationResult.failure(reopened.message());
         } catch (Exception exception) {
+            ServerLogger.failure(
+                "saveRoom 失败 roomId=%s stage=%s tick=%s%n%s",
+                roomId,
+                stage,
+                gameTick,
+                describeThrowable(exception)
+            );
             forceMaintenance(room.roomId(), gameTick);
-            return OperationResult.failure("saveRoom 失败，房间已转入维护状态: " + detailOf(exception));
+            return OperationResult.failure(buildSaveRoomFailureMessage(roomId, stage, gameTick, exception));
         }
     }
 
@@ -230,13 +249,66 @@ public final class RoomAdminLifecycleService {
         return message + " | 已清理玩家: " + evacuated;
     }
 
-    private String detailOf(Exception exception) {
-        if (exception == null) {
+    /** GD656Mods: saveRoom 失败时输出多行详细诊断(首行概要, 其余为阶段/异常链/堆栈细节)。 */
+    private String buildSaveRoomFailureMessage(String roomId, String stage, long gameTick, Exception exception) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("saveRoom 失败，房间已转入维护状态");
+        builder.append("\n失败阶段: ").append(stage)
+            .append(" | 房间: ").append(roomId)
+            .append(" | tick: ").append(gameTick);
+        builder.append("\n异常: ").append(exception == null ? "未知错误" : exception.getClass().getName());
+        builder.append("\n信息: ").append(detailOf(exception));
+        Throwable root = rootCauseOf(exception);
+        if (root != null && root != exception) {
+            builder.append("\n根因: ").append(root.getClass().getName()).append(": ").append(detailOf(root));
+        }
+        builder.append("\n堆栈:");
+        for (String frame : stackFramesOf(exception, 5)) {
+            builder.append("\n  ").append(frame);
+        }
+        builder.append("\n完整堆栈已写入服务端日志");
+        return builder.toString();
+    }
+
+    private String describeThrowable(Throwable throwable) {
+        if (throwable == null) {
             return "未知错误";
         }
-        String detail = exception.getMessage();
+        StringWriter writer = new StringWriter();
+        throwable.printStackTrace(new PrintWriter(writer));
+        return writer.toString();
+    }
+
+    private Throwable rootCauseOf(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null && current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        return current;
+    }
+
+    private java.util.List<String> stackFramesOf(Throwable throwable, int maxFrames) {
+        if (throwable == null || maxFrames <= 0) {
+            return java.util.List.of();
+        }
+        StackTraceElement[] frames = throwable.getStackTrace();
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        for (int index = 0; index < frames.length && index < maxFrames; index++) {
+            lines.add(frames[index].toString());
+        }
+        if (frames.length > maxFrames) {
+            lines.add("...还有 " + (frames.length - maxFrames) + " 帧未显示, 详见服务端日志");
+        }
+        return lines;
+    }
+
+    private String detailOf(Throwable throwable) {
+        if (throwable == null) {
+            return "未知错误";
+        }
+        String detail = throwable.getMessage();
         if (detail == null || detail.isBlank()) {
-            return exception.getClass().getSimpleName();
+            return throwable.getClass().getSimpleName();
         }
         return detail;
     }

@@ -47,6 +47,7 @@ import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentatio
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentationProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployViewKind;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployViewRequest;
+import org.mods.gd656conquest.server.room.gameplay.RoomTeamPresentationSupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
@@ -2439,6 +2440,7 @@ public final class RoomPlayerRespawnService {
         if (player == null || request == null) {
             return;
         }
+        applyPendingTeamChangeOnRespawnDeploy(room, state, player, request);
         RoomViewPosition view = RoomGameplayDeployPresentationSupport.resolveDeployViewPosition(room, state, player, request);
         if (view == null) {
             return;
@@ -2477,6 +2479,35 @@ public final class RoomPlayerRespawnService {
         }
         player.setDeltaMovement(0.0D, 0.0D, 0.0D);
         playerTransferQueueService.enqueueDeployViewTeleport(player, room, view, gameTick);
+    }
+
+    private void applyPendingTeamChangeOnRespawnDeploy(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player,
+        RoomGameplayDeployViewRequest request
+    ) {
+        if (room == null || state == null || player == null || request == null || request.kind() != RoomGameplayDeployViewKind.RESPAWN) {
+            return;
+        }
+        RoomCoreRuntimeManager runtimeManager = RoomCoreRuntimeManager.of(server);
+        if (runtimeManager == null) {
+            return;
+        }
+        java.util.Optional<RoomTeamId> currentTeam = runtimeManager.applyPendingTeamChangeOnRespawnDeploy(room.roomId(), player.getUUID());
+        if (currentTeam.isEmpty()) {
+            return;
+        }
+        ServerMessageSender.system(
+            player,
+            null,
+            String.format(
+                Locale.ROOT,
+                "你的队伍已切换为 %s，当前重生将按新队伍生效",
+                RoomTeamPresentationSupport.resolveTeamDisplayName(room, state, currentTeam.get())
+            ),
+            ChatFormatting.GREEN
+        );
     }
 
     private void showDeployCountdown(ServerPlayer player, int remainSeconds) {

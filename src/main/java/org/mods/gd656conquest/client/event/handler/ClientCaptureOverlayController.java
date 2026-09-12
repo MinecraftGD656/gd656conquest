@@ -124,6 +124,10 @@ final class ClientCaptureOverlayController {
         deployBoundaryOverlayRenderer.renderDeployBoundaryOverlay(runtime.state(), guiGraphics, screenWidth, screenHeight, runtime.resolveEffectiveSelfTeam());
     }
 
+    void syncObjectiveSnapshotCache() {
+        runtime.syncObjectiveSnapshotCache();
+    }
+
     void handleMouseInput(InputEvent.MouseButton event) {
         runtime.handleMouseInput(event);
     }
@@ -134,5 +138,25 @@ final class ClientCaptureOverlayController {
 
     ClientCaptureOverlayModel.TeamToken resolveSelfTeamToken() {
         return runtime.resolveSelfTeamToken();
+    }
+
+    java.util.List<ClientCaptureObjectiveWaypointSnapshot> objectiveWaypointSnapshots() {
+        return runtime.objectiveWaypointSnapshots();
+    }
+
+    ClientCaptureObjectiveWaypointSnapshot.TeamToken resolveObjectiveWaypointSelfTeam() {
+        return runtime.resolveObjectiveWaypointSelfTeam();
+    }
+
+    java.util.List<ClientCaptureBattleAreaPolygonSnapshot> battleAreaPolygonSnapshots() {
+        return runtime.battleAreaPolygonSnapshots();
+    }
+
+    java.util.List<ClientCaptureBattleAreaLineSnapshot> battleAreaLineSnapshots() {
+        return runtime.battleAreaLineSnapshots();
+    }
+
+    ClientCaptureBattleAreaPolygonSnapshot.TeamToken resolveBattleAreaSelfTeam() {
+        return runtime.resolveBattleAreaSelfTeam();
     }
 }

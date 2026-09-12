@@ -77,14 +77,12 @@ public final class SupportUiService {
             );
         }
 
+        RunningRuntimeState state = roomManager.findRunningState(roomId).orElse(null);
         int spentScore = roomManager.getPlayerSupportSpentScore(player.getUUID());
-        int remainingScore = roomManager.getPlayerRemainingSupportScore(player.getUUID());
-        int currentScore = Math.max(0, spentScore + remainingScore);
-        boolean isCurrentlyHeroKit = false;
-        org.mods.gd656conquest.server.room.core.RunningRuntimeState state = roomManager.findRunningState(roomId).orElse(null);
-        if (state != null) {
-            isCurrentlyHeroKit = state.getActiveHeroKitIdsByPlayer().containsKey(player.getUUID());
-        }
+        // GD656Mods: 剩余分数 = 本局累计总分 - 本次对局已用分数
+        int currentScore = SupportScoreService.getCurrentScore(state, player.getUUID());
+        int remainingScore = SupportScoreService.getRemainingScore(state, player.getUUID());
+        boolean isCurrentlyHeroKit = state != null && state.getActiveHeroKitIdsByPlayer().containsKey(player.getUUID());
         List<String> configuredHeroKitIds = resolveConfiguredHeroKitIds(room, teamId);
         List<String> configuredShellingIds = resolveConfiguredShellingIds(room, teamId);
         List<SupportUiSnapshotPacket.SupportEntryPayload> entries = new ArrayList<>();

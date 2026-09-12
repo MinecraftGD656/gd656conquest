@@ -79,6 +79,7 @@ final class ClientCaptureOverlayCodec {
             applyParsedDebugBoundaryPolygons(state, debugBoundaryIcons.boundaryPolygons());
             state.cachedCaptureIcons = parsedIcons.entries();
             state.cachedObjectiveEntries = parsedIcons.objectiveEntries();
+            state.cachedObjectiveWaypointSnapshots = buildObjectiveWaypointSnapshots(parsedIcons.objectiveEntries());
             state.objectiveEntryByCode = parsedIcons.objectiveEntryByCode();
             state.cachedCaptureIconPayload = iconPayload;
             state.cachedAdminDebugPayload = hasDebugPayload ? debugPayload : "-";
@@ -293,6 +294,40 @@ final class ClientCaptureOverlayCodec {
             byCode.putIfAbsent(entry.code(), entry);
         }
         return byCode.isEmpty() ? Map.of() : Map.copyOf(byCode);
+    }
+
+    private List<ClientCaptureObjectiveWaypointSnapshot> buildObjectiveWaypointSnapshots(List<CaptureIconEntry> objectiveEntries) {
+        if (objectiveEntries == null || objectiveEntries.isEmpty()) {
+            return List.of();
+        }
+        List<ClientCaptureObjectiveWaypointSnapshot> snapshots = new ArrayList<>(objectiveEntries.size());
+        for (CaptureIconEntry entry : objectiveEntries) {
+            if (entry == null || entry.code() == null || entry.code().isBlank()) {
+                continue;
+            }
+            String name = entry.note() == null || entry.note().isBlank() ? entry.code() : entry.note().trim();
+            snapshots.add(
+                new ClientCaptureObjectiveWaypointSnapshot(
+                    entry.code(),
+                    entry.x(),
+                    entry.y() - IconKind.CAPTURE.renderYOffset(),
+                    entry.z(),
+                    name,
+                    toObjectiveWaypointTeam(entry.owner())
+                )
+            );
+        }
+        return snapshots.isEmpty() ? List.of() : List.copyOf(snapshots);
+    }
+
+    private ClientCaptureObjectiveWaypointSnapshot.TeamToken toObjectiveWaypointTeam(TeamToken teamToken) {
+        if (teamToken == TeamToken.CAMP_A) {
+            return ClientCaptureObjectiveWaypointSnapshot.TeamToken.CAMP_A;
+        }
+        if (teamToken == TeamToken.CAMP_B) {
+            return ClientCaptureObjectiveWaypointSnapshot.TeamToken.CAMP_B;
+        }
+        return ClientCaptureObjectiveWaypointSnapshot.TeamToken.NEUTRAL;
     }
 
     private record ParsedCaptureIcons(

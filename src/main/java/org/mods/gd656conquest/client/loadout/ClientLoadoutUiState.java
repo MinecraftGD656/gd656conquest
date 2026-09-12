@@ -109,6 +109,26 @@ public final class ClientLoadoutUiState {
                 payload.futureRequirement() == null ? "" : payload.futureRequirement()
             ));
         }
+        Map<String, RoomStatisticState> roomStatistics = new LinkedHashMap<>();
+        for (LoadoutUiOpenPacket.RoomStatisticPayload payload : packet.getRoomStatistics()) {
+            String roomId = payload.roomId() == null ? "" : payload.roomId();
+            if (roomId.isBlank()) {
+                continue;
+            }
+            roomStatistics.put(roomId, new RoomStatisticState(
+                roomId,
+                payload.roomDisplayName() == null ? "" : payload.roomDisplayName(),
+                payload.mapId() == null ? "" : payload.mapId(),
+                Math.max(0, payload.totalPlayCount()),
+                Math.max(0, payload.totalMatches()),
+                Math.max(0, payload.campAWins()),
+                Math.max(0, payload.campBWins()),
+                Math.max(0, payload.drawMatches()),
+                Math.max(0L, payload.totalMatchDurationSeconds()),
+                Math.max(0, payload.ratingVoteCount()),
+                Math.max(0, payload.ratingScoreTotal())
+            ));
+        }
         Map<Integer, WeaponAttachmentPanelState> attachmentPanels = new LinkedHashMap<>();
         for (LoadoutUiOpenPacket.WeaponAttachmentPanelPayload payload : packet.getAttachmentPanels()) {
             Map<String, AttachmentTypeState> typeStates = new LinkedHashMap<>();
@@ -178,6 +198,7 @@ public final class ClientLoadoutUiState {
                 classes,
                 adminEquipment,
                 adminAttachments,
+                roomStatistics,
                 attachmentPanels,
                 vehicleEntries
         );
@@ -233,6 +254,7 @@ public final class ClientLoadoutUiState {
             Map<String, ClassState> classes,
             Map<String, AdminEquipmentState> adminEquipment,
             Map<String, AdminAttachmentState> adminAttachments,
+            Map<String, RoomStatisticState> roomStatistics,
             Map<Integer, WeaponAttachmentPanelState> attachmentPanels,
             List<VehicleEntryState> vehicleEntries
     ) {
@@ -245,6 +267,12 @@ public final class ClientLoadoutUiState {
         public List<AdminAttachmentState> sortedAdminAttachments() {
             return adminAttachments.values().stream()
                 .sorted((left, right) -> left.id().compareToIgnoreCase(right.id()))
+                .toList();
+        }
+
+        public List<RoomStatisticState> sortedRoomStatistics() {
+            return roomStatistics.values().stream()
+                .sorted((left, right) -> left.roomId().compareToIgnoreCase(right.roomId()))
                 .toList();
         }
 
@@ -300,6 +328,21 @@ public final class ClientLoadoutUiState {
         int unlockLevel,
         String itemSnbt,
         String futureRequirement
+    ) {
+    }
+
+    public record RoomStatisticState(
+        String roomId,
+        String roomDisplayName,
+        String mapId,
+        int totalPlayCount,
+        int totalMatches,
+        int campAWins,
+        int campBWins,
+        int drawMatches,
+        long totalMatchDurationSeconds,
+        int ratingVoteCount,
+        int ratingScoreTotal
     ) {
     }
 

@@ -24,6 +24,7 @@ import org.mods.gd656conquest.server.room.gameplay.RoomObjectivePresentationCont
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayObjectiveSnapshotProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayVehicleDeployRuleProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomAutoBalanceWindowSnapshot;
 import org.mods.gd656conquest.server.room.gameplay.RoomAttackTroopBalanceSupport;
 import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.gameplay.RoomObjectiveHudSubtitleRuntimeService;
@@ -132,6 +133,21 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         clearRetreatDefenderMarkers(room, gameTick);
         clearRetreatPersistentSubtitles();
         clearDesperatePersistentSubtitles();
+    }
+
+    @Override
+    public RoomAutoBalanceWindowSnapshot autoBalanceWindowSnapshot(RoomDefinition room, long gameTick) {
+        if (matchDurationSeconds(gameTick) < 300) {
+            return RoomAutoBalanceWindowSnapshot.locked("主对局前 300 秒不自动换队");
+        }
+        if (runtimeState.getCurrentStageIndex() >= runtimeState.getMaxStageCount()) {
+            return RoomAutoBalanceWindowSnapshot.locked("突破模式已进入最后一个阶段");
+        }
+        int attackTroopCap = runtimeState.getAttackTroopCap();
+        if (attackTroopCap > 0 && (runtimeState.getAttackTroops() / (double) attackTroopCap) < 0.25D) {
+            return RoomAutoBalanceWindowSnapshot.locked("突破模式进攻方剩余兵力低于 25%");
+        }
+        return RoomAutoBalanceWindowSnapshot.allowed();
     }
 
     @Override

@@ -14,6 +14,7 @@ import org.mods.gd656conquest.server.room.gameplay.RoomGameplayBoundaryPolicyPro
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentationProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayHudState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomAutoBalanceWindowSnapshot;
 import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
@@ -80,6 +81,24 @@ public final class GunmasterGameplayRuntime implements
             gunmasterRunningState.getGunmasterStageIndexByPlayer().put(playerId, 0);
             gunmasterRunningState.getGunmasterStageKillsByPlayer().put(playerId, 0);
         }
+    }
+
+    @Override
+    public RoomAutoBalanceWindowSnapshot autoBalanceWindowSnapshot(RoomDefinition room, long gameTick) {
+        if (matchDurationSeconds(gameTick) < 300) {
+            return RoomAutoBalanceWindowSnapshot.locked("主对局前 300 秒不自动换队");
+        }
+        int finalStageIndex = Math.max(0, gunmasterRunningState.getGunmasterMatchWeaponSequenceIds().size() - 1);
+        if (finalStageIndex <= 0) {
+            return RoomAutoBalanceWindowSnapshot.allowed();
+        }
+        for (UUID playerId : gunmasterRunningState.getRoomPlayers()) {
+            int stageIndex = Math.max(0, gunmasterRunningState.getGunmasterStageIndexByPlayer().getOrDefault(playerId, 0));
+            if ((stageIndex / (double) finalStageIndex) > 0.75D) {
+                return RoomAutoBalanceWindowSnapshot.locked("枪神模式已有玩家枪械解锁进度超过 75%");
+            }
+        }
+        return RoomAutoBalanceWindowSnapshot.allowed();
     }
 
     @Override

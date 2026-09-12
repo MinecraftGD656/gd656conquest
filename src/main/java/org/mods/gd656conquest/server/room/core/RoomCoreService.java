@@ -43,6 +43,7 @@ import org.mods.gd656conquest.server.room.runtime.RoomItemReplenishService;
 import org.mods.gd656conquest.server.room.runtime.RoomInventorySnapshotService;
 import org.mods.gd656conquest.server.room.runtime.RoomKilliconService;
 import org.mods.gd656conquest.server.room.runtime.RoomLobbyTransferService;
+import org.mods.gd656conquest.server.room.runtime.RoomMatchStatisticsRuntimeService;
 import org.mods.gd656conquest.server.room.runtime.RoomMarkerRuntimeService;
 import org.mods.gd656conquest.server.room.runtime.RoomNametagVisibilityService;
 import org.mods.gd656conquest.server.room.runtime.RoomMatchingActionBarService;
@@ -112,6 +113,8 @@ public final class RoomCoreService {
     private final RoomVehicleRuntimeService vehicleRuntimeService;
     private final RoomRuleRuntimeService ruleRuntimeService;
     private final RoomResultRuntimeService resultRuntimeService;
+    private final RoomMatchStatisticsRuntimeService matchStatisticsRuntimeService;
+    private final RoomExperimentalBalanceService experimentalBalanceService;
     private final RoomShellingRuntimeService shellingRuntimeService;
     private final RoomGroupPlacementService groupPlacementService;
     private final RoomMatchLoadService matchLoadService;
@@ -149,11 +152,15 @@ public final class RoomCoreService {
         this.vehicleRuntimeService = resolved.vehicleRuntimeService();
         this.ruleRuntimeService = resolved.ruleRuntimeService();
         this.resultRuntimeService = resolved.resultRuntimeService();
+        this.matchStatisticsRuntimeService = new RoomMatchStatisticsRuntimeService(server);
+        this.experimentalBalanceService = new RoomExperimentalBalanceService(server);
         this.shellingRuntimeService = new RoomShellingRuntimeService(server);
         this.groupPlacementService = new RoomGroupPlacementService(
+            server,
             runtimeRepository,
             playerSessionService,
             matchingCoordinator,
+            experimentalBalanceService.ratingService(),
             squadAssignmentService,
             deploySelectionService,
             playerLaunchService,
@@ -409,6 +416,23 @@ public final class RoomCoreService {
         return groupPlacementService.findCurrentTeam(playerId);
     }
 
+    public Optional<RoomTeamId> applyPendingTeamChangeOnRespawnDeploy(String roomId, UUID playerId) {
+        if (roomId == null || roomId.isBlank() || playerId == null) {
+            return Optional.empty();
+        }
+        Optional<RoomRuntimeSlot<RoomRuntimeState>> slotOptional = runtimeRepository.find(roomId);
+        if (slotOptional.isEmpty()) {
+            return Optional.empty();
+        }
+        RoomRuntimeSlot<RoomRuntimeState> slot = slotOptional.get();
+        RoomTeamSwitchService.TeamSwitchResult result = teamSwitchService.applyPendingTeamChangeAfterDeath(
+            slot.room(),
+            slot.runtime(),
+            playerId
+        );
+        return result.changed() ? Optional.ofNullable(result.currentTeam()) : Optional.empty();
+    }
+
     public Optional<String> findSquadLabel(UUID playerId) {
         return groupPlacementService.findSquadLabel(playerId);
     }
@@ -532,7 +556,8 @@ public final class RoomCoreService {
             }
             if (targetPlayer != null) {
                 ServerLogger.sendToClient(targetPlayer, ClientMessageType.SUCCESS,
-                    "管理员已将你切换到 %s，本次部署将按新队伍生效",
+                    "%s已将你切换到 %s，本次部署将按新队伍生效",
+                    operator,
                     resolveTeamDisplayName(room, state, targetTeam));
             }
             return "已将 " + resolvePlayerName(targetPlayer, targetPlayerId) + " 切换至 "
@@ -542,7 +567,8 @@ public final class RoomCoreService {
         state.getPendingTeamChanges().put(targetPlayerId, targetTeam);
         if (targetPlayer != null) {
             ServerLogger.sendToClient(targetPlayer, ClientMessageType.INFO,
-                "管理员已将你标记为切换到 %s，队伍更改将在下次重生生效",
+                "%s已将你标记为切换到 %s，队伍更改将在下次重生生效",
+                operator,
                 resolveTeamDisplayName(room, state, targetTeam));
         }
         return "已将 " + resolvePlayerName(targetPlayer, targetPlayerId) + " 标记为下次重生切换至 "
@@ -749,7 +775,6 @@ public final class RoomCoreService {
             runtime.onPlayerInvalidated(runningSlot.room(), playerId, teamId, RoomPlayerInvalidationReason.DEATH, killerEntityId, gameTick)
         );
         playerRespawnService.onPlayerDeath(runningSlot.room(), runningState, playerId, deathPosition, killerEntityId, gameTick);
-        applyPendingTeamChangeAfterDeath(runningSlot.room(), runningState, playerId);
         return true;
     }
 
@@ -825,7 +850,6 @@ public final class RoomCoreService {
             );
             playerRespawnService.onPlayerDeath(runningSlot.room(), runningState, playerId, deathPosition, killerEntityId, gameTick);
         }
-        applyPendingTeamChangeAfterDeath(runningSlot.room(), runningState, playerId);
         return downedHandled;
     }
 
@@ -1206,6 +1230,9 @@ public final class RoomCoreService {
         if (!matchingCoordinator.joinQueue(state, playerId, gameTick, slot.room().commonConfig().matchingConfig())) {
             return Optional.empty();
         }
+        if (isExperimentalPlayerBalanceEnabled()) {
+            rebalanceMatchingQueue(slot);
+        }
         if (player != null) {
             inventorySnapshotService.backupAndClear(player, slot.runtime());
             if (RoomMatchLoadService.isEnabled(slot.room())) {
@@ -1222,6 +1249,9 @@ public final class RoomCoreService {
                 PlayerInventorySanitizer.clearArmorSlots(player);
                 inventorySnapshotService.restore(player, slot.runtime());
                 matchingCoordinator.leaveQueue(state, playerId);
+                if (isExperimentalPlayerBalanceEnabled()) {
+                    rebalanceMatchingQueue(slot);
+                }
                 notifyJoinTeleportFailure(player, slot.room());
                 return Optional.empty();
             }
@@ -1254,6 +1284,9 @@ public final class RoomCoreService {
             .ifPresent(slot -> {
                 ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
                 matchingCoordinator.leaveQueue(slot.runtime().getMatchingState(), playerId);
+                if (isExperimentalPlayerBalanceEnabled()) {
+                    rebalanceMatchingQueue(slot);
+                }
                 KilliconScoreboardBridge.clearPlayerMatchSnapshot(slot.runtime().getRunningState(), playerId);
                 squadAssignmentService.removePlayer(slot.runtime(), playerId);
                 if (player != null) {
@@ -1330,6 +1363,9 @@ public final class RoomCoreService {
         }
         slot.runtime().getRunningState().beginNewMatchInstance(gameTick);
         IRoomGameplayRuntime runtime = entry.get().createRuntime(slot.room(), slot.runtime().getRunningState());
+        if (isExperimentalPlayerBalanceEnabled()) {
+            rebalanceMatchingQueue(slot);
+        }
         for (UUID playerId : slot.runtime().getMatchingState().getQueuePlayers()) {
             ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
             RoomMatchingActionBarService.clear(player);
@@ -1340,6 +1376,7 @@ public final class RoomCoreService {
                 slot.runtime().getRunningState().getSquadLabelsByPlayer().put(playerId, squadLabel);
             }
         }
+        matchStatisticsRuntimeService.beginMatchSessions(slot.runtime().getRunningState(), gameTick);
         runtime.onEnterMainPhase(slot.room(), gameTick);
         playerRespawnService.ensureInitialDeployTimelineInitialized(slot.room(), slot.runtime().getRunningState(), gameTick);
         supportBoxService.spawnPermanentSupportBoxes(slot.room());
@@ -1377,9 +1414,6 @@ public final class RoomCoreService {
             }
             syncRunningNametagsIfDue(slot.room(), slot.runtime().getRunningState(), gameTick);
             detectZeroCampDraw(slot, gameTick);
-            if (ConquestDataManager.of(server).serverConfig().isExperimentalPlayerBalanceEnabled()) {
-                tickExperimentalBalance(slot, gameTick);
-            }
             if (slot.room().lifecycleState() == RoomLifecycleState.ENDING) {
                 syncRunningHudIfDue(slot.room(), slot.runtime().getRunningState(), gameTick);
                 return;
@@ -1398,6 +1432,9 @@ public final class RoomCoreService {
                     runtime.tick(slot.room(), gameTick);
                     runtime.pollMatchEndRequest().ifPresent(request -> beginMatchEnd(slot, request, gameTick));
                 });
+            if (isExperimentalPlayerBalanceEnabled() && slot.room().lifecycleState() == RoomLifecycleState.RUNNING) {
+                experimentalBalanceService.tick(slot, teamSwitchService, gameTick);
+            }
             syncRunningHudIfDue(slot.room(), slot.runtime().getRunningState(), gameTick);
         });
     }
@@ -1629,14 +1666,6 @@ public final class RoomCoreService {
             .orElse(0);
     }
 
-    public void clearPlayerSupportScore(UUID playerId) {
-        if (playerId == null) {
-            return;
-        }
-        findRunningSlotByPlayer(playerId)
-            .ifPresent(slot -> SupportScoreService.clearPlayer(slot.runtime().getRunningState(), playerId));
-    }
-
     public RoomShellingRuntimeService.StartRequestResult startShellingRequest(
         ServerPlayer player,
         String shellingId,
@@ -1817,6 +1846,9 @@ public final class RoomCoreService {
         if (matchingState.getQueuePlayers().contains(playerId)) {
             ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
             matchingCoordinator.leaveQueue(matchingState, playerId);
+            if (isExperimentalPlayerBalanceEnabled()) {
+                rebalanceMatchingQueue(slot);
+            }
             KilliconScoreboardBridge.clearPlayerMatchSnapshot(slot.runtime().getRunningState(), playerId);
             squadAssignmentService.removePlayer(slot.runtime(), playerId);
             if (player != null) {
@@ -1852,6 +1884,7 @@ public final class RoomCoreService {
 
     private void removeRunningPlayerFromSlot(UUID playerId, RoomRuntimeSlot<RoomRuntimeState> slot, long gameTick, boolean shouldTransferLobby) {
         RunningRuntimeState runningState = slot.runtime().getRunningState();
+        matchStatisticsRuntimeService.pausePlayerSession(runningState, playerId, gameTick);
         playerRejoinService.markRejoinable(slot.room(), runningState, playerId, gameTick);
         ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
         HeroKitSupportService.endHeroKitState(server, runningState, playerId, gameTick);
@@ -1866,9 +1899,6 @@ public final class RoomCoreService {
             PlayerInventorySanitizer.clearArmorSlots(player);
             inventorySnapshotService.restore(player, slot.runtime());
             clearTransientRoomClientState(player);
-        }
-        if (shouldTransferLobby) {
-            SupportScoreService.clearPlayer(runningState, playerId);
         }
         nametagVisibilityService.clearPlayer(player);
         ruleRuntimeService.clearPlayer(playerId);
@@ -1921,7 +1951,6 @@ public final class RoomCoreService {
             inventorySnapshotService.restore(player, slot.runtime());
             clearTransientRoomClientState(player);
         }
-        SupportScoreService.clearPlayer(runningState, playerId);
         nametagVisibilityService.clearPlayer(player);
         ruleRuntimeService.clearPlayer(playerId);
         resultRuntimeService.clearPlayer(player);
@@ -1969,6 +1998,7 @@ public final class RoomCoreService {
         )) {
             return;
         }
+        matchStatisticsRuntimeService.finalizeMatchResults(slot.runtime().getRunningState(), request, gameTick);
         runtimeRepository.save(slot.room().withLifecycleState(RoomLifecycleState.ENDING), RoomRuntimeState::new);
     }
 
@@ -1980,6 +2010,7 @@ public final class RoomCoreService {
             runningState,
             RoomShellingRuntimeService.AbortReason.ROOM_UNAVAILABLE
         );
+        matchStatisticsRuntimeService.persistFinalizedStatistics(slot.room(), runningState, gameTick);
         supportBoxService.clearPermanentSupportBoxes(slot.room().roomId());
         java.util.List<UUID> players = java.util.List.copyOf(runningState.getRoomPlayers());
         for (UUID playerId : players) {
@@ -2196,13 +2227,11 @@ public final class RoomCoreService {
             return Optional.empty();
         }
         RoomTeamId targetTeam = ticket.teamId();
-        if (ConquestDataManager.of(player.server).serverConfig().isExperimentalPlayerBalanceEnabled()) {
-            int countA = countRoomPlayersByTeam(runningState, RoomTeamId.CAMP_A);
-            int countB = countRoomPlayersByTeam(runningState, RoomTeamId.CAMP_B);
-            if (targetTeam == RoomTeamId.CAMP_A && countA > countB) {
-                targetTeam = RoomTeamId.CAMP_B;
-            } else if (targetTeam == RoomTeamId.CAMP_B && countB > countA) {
-                targetTeam = RoomTeamId.CAMP_A;
+        if (isExperimentalPlayerBalanceEnabled()) {
+            // GD656Mods: 重连玩家与中途加入使用同一套规则, 人数少优先, 人数并列才比较阵营综合战力
+            RoomTeamId balancedTeam = groupPlacementService.resolveRunningJoinTeam(slot.room(), runningState, playerId);
+            if (balancedTeam != null) {
+                targetTeam = balancedTeam;
             }
         }
         inventorySnapshotService.backupAndClear(player, slot.runtime());
@@ -2210,6 +2239,9 @@ public final class RoomCoreService {
         bindPlayerToRoom(playerId, slot.room().roomId());
         KilliconScoreboardBridge.ensurePlayerMatchSnapshot(runningState, playerId);
         runningState.addRoomPlayer(playerId, targetTeam);
+        if (slot.room().lifecycleState() == RoomLifecycleState.RUNNING) {
+            matchStatisticsRuntimeService.trackRejoin(runningState, playerId, targetTeam, gameTick);
+        }
         if (ticket.squadLabel() != null && !ticket.squadLabel().isBlank() && targetTeam == ticket.teamId()) {
             slot.runtime().getSquadLabelsByPlayer().put(playerId, ticket.squadLabel());
             runningState.getSquadLabelsByPlayer().put(playerId, ticket.squadLabel());
@@ -2235,62 +2267,18 @@ public final class RoomCoreService {
         return Optional.of(new RoomJoinResult(RoomJoinResult.Kind.REJOIN_RUNNING, slot.room().roomId(), targetTeam));
     }
 
-    private int countRoomPlayersByTeam(RunningRuntimeState runningState, RoomTeamId team) {
-        int count = 0;
-        for (UUID memberId : runningState.getRoomPlayers()) {
-            if (runningState.getRoomTeams().get(memberId) == team) {
-                count++;
-            }
-        }
-        return count;
+    private boolean isExperimentalPlayerBalanceEnabled() {
+        return ConquestDataManager.of(server).serverConfig().isExperimentalPlayerBalanceEnabled();
     }
 
-    private void tickExperimentalBalance(RoomRuntimeSlot<RoomRuntimeState> slot, long gameTick) {
-        if (slot.room().lifecycleState() != RoomLifecycleState.RUNNING) {
+    private void rebalanceMatchingQueue(RoomRuntimeSlot<RoomRuntimeState> slot) {
+        if (slot == null) {
             return;
         }
-        RunningRuntimeState runningState = slot.runtime().getRunningState();
-        int countA = countRoomPlayersByTeam(runningState, RoomTeamId.CAMP_A);
-        int countB = countRoomPlayersByTeam(runningState, RoomTeamId.CAMP_B);
-        if (Math.abs(countA - countB) <= 1) {
-            runningState.setTopScorerBalanceTarget(null);
-            runningState.setTopScorerBalanceSinceTick(-1L);
-            return;
-        }
-        RoomTeamId largerTeam = countA > countB ? RoomTeamId.CAMP_A : RoomTeamId.CAMP_B;
-        UUID topScorerId = null;
-        float topScore = Float.NEGATIVE_INFINITY;
-        for (UUID playerId : runningState.getRoomPlayers()) {
-            if (runningState.getRoomTeams().get(playerId) != largerTeam) {
-                continue;
-            }
-            if (runningState.isInRespawnFlow(playerId)) {
-                continue;
-            }
-            float score = org.mods.gd656conquest.server.integration.KilliconScoreboardBridge
-                .getPlayerSnapshot(runningState, playerId).score();
-            if (score > topScore) {
-                topScore = score;
-                topScorerId = playerId;
-            }
-        }
-        if (topScorerId == null) {
-            runningState.setTopScorerBalanceTarget(null);
-            runningState.setTopScorerBalanceSinceTick(-1L);
-            return;
-        }
-        // 该玩家已有挂起的换队（之前已触发过自动平衡），等待换队完成再评估
-        if (runningState.getPendingTeamChanges().containsKey(topScorerId)) {
-            return;
-        }
-        if (!topScorerId.equals(runningState.getTopScorerBalanceTarget())) {
-            runningState.setTopScorerBalanceTarget(topScorerId);
-            runningState.setTopScorerBalanceSinceTick(gameTick);
-            return;
-        }
-        long elapsed = gameTick - runningState.getTopScorerBalanceSinceTick();
-        if (elapsed >= 600L) {
-            switchPlayerToOppositeTeam(slot.room().roomId(), topScorerId, "<实验性自动平衡>", gameTick);
+        MatchingRuntimeState state = slot.runtime().getMatchingState();
+        groupPlacementService.rebalanceMatchingQueue(slot.room(), slot.runtime());
+        for (UUID playerId : state.getQueuePlayers()) {
+            squadAssignmentService.assignMatchingPlayer(slot.runtime(), playerId, state.getQueueTeams().get(playerId));
         }
     }
 
@@ -2313,6 +2301,7 @@ public final class RoomCoreService {
         bindPlayerToRoom(playerId, slot.room().roomId());
         KilliconScoreboardBridge.resetPlayerMatchSnapshot(runningState, playerId);
         runningState.addRoomPlayer(playerId, teamId);
+        matchStatisticsRuntimeService.trackMidJoin(runningState, playerId, teamId, gameTick);
         squadAssignmentService.assignRunningPlayer(slot.runtime(), playerId, teamId);
         RoomMatchingActionBarService.clear(player);
         resultRuntimeService.clearPlayer(player);
@@ -2354,30 +2343,6 @@ public final class RoomCoreService {
         nametagVisibilityService.syncRunningRoom(slot.room(), runningState);
         hudSyncService.syncRunningRoom(slot.room(), runningState);
         return Optional.of(new RoomJoinResult(RoomJoinResult.Kind.MIDJOIN_ENDING, slot.room().roomId(), teamId));
-    }
-
-    private void applyPendingTeamChangeAfterDeath(RoomDefinition room, RunningRuntimeState state, UUID playerId) {
-        if (room == null || state == null || playerId == null) {
-            return;
-        }
-        Optional<RoomRuntimeSlot<RoomRuntimeState>> slotOptional = runtimeRepository.find(room.roomId());
-        if (slotOptional.isEmpty()) {
-            return;
-        }
-        RoomTeamSwitchService.TeamSwitchResult result = teamSwitchService.applyPendingTeamChangeAfterDeath(
-            room,
-            slotOptional.get().runtime(),
-            playerId
-        );
-        if (!result.changed()) {
-            return;
-        }
-        ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
-        if (player != null) {
-            ServerLogger.sendToClient(player, ClientMessageType.SUCCESS,
-                "你的队伍已切换为 %s，当前重生将按新队伍生效",
-                resolveTeamDisplayName(room, state, result.currentTeam()));
-        }
     }
 
     private String resolvePlayerName(ServerPlayer player, UUID playerId) {

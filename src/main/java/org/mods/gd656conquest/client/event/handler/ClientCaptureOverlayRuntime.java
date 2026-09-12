@@ -66,6 +66,13 @@ final class ClientCaptureOverlayRuntime {
         codec.syncCaptureOverlayState(state);
     }
 
+    void syncObjectiveSnapshotCache() {
+        if (!ensureWorldReady()) {
+            return;
+        }
+        codec.syncCaptureOverlayState(state);
+    }
+
     // GD656Mods: 临时观测，测完删除
     long debugPayloadParseCount() {
         return codec.payloadParseCount;
@@ -117,5 +124,97 @@ final class ClientCaptureOverlayRuntime {
             return ClientCaptureOverlayModel.TeamToken.CAMP_A;
         }
         return selfTeam;
+    }
+
+    java.util.List<ClientCaptureObjectiveWaypointSnapshot> objectiveWaypointSnapshots() {
+        return state.cachedObjectiveWaypointSnapshots;
+    }
+
+    ClientCaptureObjectiveWaypointSnapshot.TeamToken resolveObjectiveWaypointSelfTeam() {
+        ClientCaptureOverlayModel.TeamToken selfTeam = resolveEffectiveSelfTeam();
+        if (selfTeam == ClientCaptureOverlayModel.TeamToken.CAMP_A) {
+            return ClientCaptureObjectiveWaypointSnapshot.TeamToken.CAMP_A;
+        }
+        if (selfTeam == ClientCaptureOverlayModel.TeamToken.CAMP_B) {
+            return ClientCaptureObjectiveWaypointSnapshot.TeamToken.CAMP_B;
+        }
+        return ClientCaptureObjectiveWaypointSnapshot.TeamToken.NEUTRAL;
+    }
+
+    java.util.List<ClientCaptureBattleAreaPolygonSnapshot> battleAreaPolygonSnapshots() {
+        syncOverlayState();
+        java.util.List<ClientCaptureOverlayModel.BoundaryPolygon> polygons =
+            boundaryRenderer.resolveRenderablePolygons(state, resolveEffectiveSelfTeam(), ClientCaptureBoundaryRenderer.BoundaryDataSource.ROOM);
+        if (polygons.isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.List<ClientCaptureBattleAreaPolygonSnapshot> snapshots = new java.util.ArrayList<>(polygons.size());
+        for (ClientCaptureOverlayModel.BoundaryPolygon polygon : polygons) {
+            if (polygon == null || polygon.points() == null || polygon.points().size() < 2) {
+                continue;
+            }
+            java.util.List<ClientCaptureBattleAreaPolygonSnapshot.Point> points = new java.util.ArrayList<>(polygon.points().size());
+            for (ClientCaptureOverlayModel.BoundaryPoint point : polygon.points()) {
+                if (point == null) {
+                    continue;
+                }
+                points.add(new ClientCaptureBattleAreaPolygonSnapshot.Point(point.x(), point.z()));
+            }
+            if (!points.isEmpty()) {
+                snapshots.add(
+                    new ClientCaptureBattleAreaPolygonSnapshot(
+                        polygon.polygonId(),
+                        toBattleAreaTeam(polygon.team()),
+                        java.util.List.copyOf(points)
+                    )
+                );
+            }
+        }
+        return snapshots.isEmpty() ? java.util.List.of() : java.util.List.copyOf(snapshots);
+    }
+
+    java.util.List<ClientCaptureBattleAreaLineSnapshot> battleAreaLineSnapshots() {
+        syncOverlayState();
+        ClientCaptureBoundaryRenderer.ResolvedBoundarySegments segments =
+            boundaryRenderer.resolveRenderableSegments(state, resolveEffectiveSelfTeam(), ClientCaptureBoundaryRenderer.BoundaryDataSource.ROOM);
+        if (segments.isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.List<ClientCaptureBattleAreaLineSnapshot> snapshots = new java.util.ArrayList<>();
+        appendBattleAreaLines(snapshots, segments.selfSegments(), ClientCaptureBattleAreaLineSnapshot.LineKind.SELF);
+        appendBattleAreaLines(snapshots, segments.enemySegments(), ClientCaptureBattleAreaLineSnapshot.LineKind.ENEMY);
+        appendBattleAreaLines(snapshots, segments.neutralSegments(), ClientCaptureBattleAreaLineSnapshot.LineKind.NEUTRAL);
+        appendBattleAreaLines(snapshots, segments.sharedSegments(), ClientCaptureBattleAreaLineSnapshot.LineKind.SHARED);
+        return snapshots.isEmpty() ? java.util.List.of() : java.util.List.copyOf(snapshots);
+    }
+
+    ClientCaptureBattleAreaPolygonSnapshot.TeamToken resolveBattleAreaSelfTeam() {
+        return toBattleAreaTeam(resolveEffectiveSelfTeam());
+    }
+
+    private void appendBattleAreaLines(
+        java.util.List<ClientCaptureBattleAreaLineSnapshot> target,
+        java.util.List<ClientCaptureOverlayModel.LineSegment> segments,
+        ClientCaptureBattleAreaLineSnapshot.LineKind kind
+    ) {
+        if (segments == null || segments.isEmpty()) {
+            return;
+        }
+        for (ClientCaptureOverlayModel.LineSegment segment : segments) {
+            if (segment == null) {
+                continue;
+            }
+            target.add(new ClientCaptureBattleAreaLineSnapshot(segment.ax(), segment.az(), segment.bx(), segment.bz(), kind));
+        }
+    }
+
+    private ClientCaptureBattleAreaPolygonSnapshot.TeamToken toBattleAreaTeam(ClientCaptureOverlayModel.TeamToken teamToken) {
+        if (teamToken == ClientCaptureOverlayModel.TeamToken.CAMP_A) {
+            return ClientCaptureBattleAreaPolygonSnapshot.TeamToken.CAMP_A;
+        }
+        if (teamToken == ClientCaptureOverlayModel.TeamToken.CAMP_B) {
+            return ClientCaptureBattleAreaPolygonSnapshot.TeamToken.CAMP_B;
+        }
+        return ClientCaptureBattleAreaPolygonSnapshot.TeamToken.NEUTRAL;
     }
 }

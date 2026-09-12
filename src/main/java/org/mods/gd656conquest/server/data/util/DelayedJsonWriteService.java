@@ -18,11 +18,16 @@ public final class DelayedJsonWriteService {
     private final Map<Path, PendingWrite> pendingWrites = new LinkedHashMap<>();
 
     public synchronized void schedule(Path path, Object data, long gameTick) {
+        schedule(path, data, gameTick, DEFAULT_DELAY_TICKS);
+    }
+
+    public synchronized void schedule(Path path, Object data, long gameTick, long delayTicks) {
         if (path == null) {
             return;
         }
         Path normalized = normalize(path);
-        pendingWrites.put(normalized, new PendingWrite(normalized, data, Math.max(0L, gameTick) + DEFAULT_DELAY_TICKS));
+        long safeDelayTicks = Math.max(0L, delayTicks);
+        pendingWrites.put(normalized, new PendingWrite(normalized, data, Math.max(0L, gameTick) + safeDelayTicks));
     }
 
     public void flushDue(long gameTick) {
