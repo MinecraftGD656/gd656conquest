@@ -24,6 +24,7 @@ public final class RoomDeathFlowPacket {
     private static final int ACTION_MATCH_END_TRAVEL = 8;
     private static final int ACTION_OPEN_DEPLOY_INSTANT = 9;
     private static final int ACTION_OPEN_RESPAWN_WAIT = 10;
+    private static final int ACTION_BOUNDARY_ON_AIRCRAFT = 11;
     private final int action;
     private final double sourceX;
     private final double sourceY;
@@ -80,8 +81,25 @@ public final class RoomDeathFlowPacket {
         return new RoomDeathFlowPacket(ACTION_CLEAR, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, -1, 0, 0);
     }
 
+    /**
+     * GD656Mods: 出界惩罚开关。
+     *
+     * @param aircraftStyle 出界提示是否为空中载具乘员样式 —— 客户端据此决定是否降低视角饱和度
+     *                      (只有步兵出界才降饱和, 空中载具乘员出界不降)。
+     */
+    public static RoomDeathFlowPacket setBoundaryPenalty(boolean active, boolean aircraftStyle) {
+        if (!active) {
+            return new RoomDeathFlowPacket(ACTION_BOUNDARY_OFF, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, -1, 0, 0);
+        }
+        return new RoomDeathFlowPacket(
+            aircraftStyle ? ACTION_BOUNDARY_ON_AIRCRAFT : ACTION_BOUNDARY_ON,
+            0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, -1, 0, 0
+        );
+    }
+
+    /** GD656Mods: 关闭/清除出界惩罚(等价于步兵样式的关闭)。 */
     public static RoomDeathFlowPacket setBoundaryPenalty(boolean active) {
-        return new RoomDeathFlowPacket(active ? ACTION_BOUNDARY_ON : ACTION_BOUNDARY_OFF, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, -1, 0, 0);
+        return setBoundaryPenalty(active, false);
     }
 
     public static RoomDeathFlowPacket setMatchEndViewLock(boolean active) {
@@ -128,7 +146,9 @@ public final class RoomDeathFlowPacket {
         NetworkEvent.Context context = contextSupplier.get();
         context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
             // #region debug-point B:death-flow-packet-handle
-            if (message.action != ACTION_BOUNDARY_ON && message.action != ACTION_BOUNDARY_OFF) {
+            if (message.action != ACTION_BOUNDARY_ON
+                && message.action != ACTION_BOUNDARY_ON_AIRCRAFT
+                && message.action != ACTION_BOUNDARY_OFF) {
                 reportRedeployDebug(
                     "B",
                     "[DEBUG] client RoomDeathFlowPacket handle entry",
@@ -174,11 +194,16 @@ public final class RoomDeathFlowPacket {
                 return;
             }
             if (message.action == ACTION_BOUNDARY_ON) {
-                ClientDeathFlowState.setBoundaryPenaltyActive(true);
+                ClientDeathFlowState.setBoundaryPenaltyActive(true, false);
+                return;
+            }
+            if (message.action == ACTION_BOUNDARY_ON_AIRCRAFT) {
+                // GD656Mods: 空中载具乘员出界 —— 只换提示样式, 不降低视角饱和度。
+                ClientDeathFlowState.setBoundaryPenaltyActive(true, true);
                 return;
             }
             if (message.action == ACTION_BOUNDARY_OFF) {
-                ClientDeathFlowState.setBoundaryPenaltyActive(false);
+                ClientDeathFlowState.setBoundaryPenaltyActive(false, false);
                 return;
             }
             if (message.action == ACTION_MATCH_END_VIEW_LOCK_ON) {

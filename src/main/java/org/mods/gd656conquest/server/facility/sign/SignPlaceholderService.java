@@ -324,6 +324,7 @@ public final class SignPlaceholderService {
             case MATCHING -> ChatFormatting.YELLOW;
             case ENDING -> ChatFormatting.GOLD;
             case DISABLED, CLEANING, SAVING -> ChatFormatting.RED;
+            case LOCKED -> ChatFormatting.GOLD;
             case IDLE, MAINTENANCE -> ChatFormatting.GRAY;
         };
     }
@@ -341,6 +342,7 @@ public final class SignPlaceholderService {
             case IDLE -> "空闲";
             case SAVING -> "保存中";
             case CLEANING -> "清理中";
+            case LOCKED -> "已锁定";
         };
     }
 

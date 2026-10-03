@@ -3,14 +3,10 @@ package org.mods.gd656conquest.server.facility.parkour;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.suggestion.Suggestions;
-import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.SharedSuggestionProvider;
+import org.mods.gd656conquest.server.shared.command.PlayerNameSuggestions;
 import org.mods.gd656conquest.server.shared.text.CommandFeedbacks;
-
-import java.util.concurrent.CompletableFuture;
 
 public final class ParkourCommands {
     private ParkourCommands() {
@@ -21,7 +17,7 @@ public final class ParkourCommands {
             .requires(source -> source.hasPermission(2))
             .then(Commands.literal("del")
                 .then(Commands.argument("player", StringArgumentType.string())
-                    .suggests(ParkourCommands::suggestKnownPlayers)
+                    .suggests(PlayerNameSuggestions::suggestKnownPlayers)
                     .executes(ParkourCommands::executeDeleteRecord)));
     }
 
@@ -31,9 +27,5 @@ public final class ParkourCommands {
         return result.success()
             ? CommandFeedbacks.info(context.getSource(), result.message() + "，玩家=" + result.playerName())
             : CommandFeedbacks.failure(context.getSource(), result.message());
-    }
-
-    private static CompletableFuture<Suggestions> suggestKnownPlayers(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
-        return SharedSuggestionProvider.suggest(ParkourRuntimeManager.of(context.getSource().getServer()).suggestKnownPlayers(), builder);
     }
 }

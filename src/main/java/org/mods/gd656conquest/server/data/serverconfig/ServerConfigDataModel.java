@@ -31,6 +31,8 @@ public final class ServerConfigDataModel {
     private Integer groundSensorScanBonusCooldownSeconds = 10;
     private Boolean boolEnableExperimentalPlayerBalance = false;
     private Boolean boolMaintenanceMode = false;
+    /** GD656Mods: 玩家等级上限(默认 100, 可配置 1..1024)。 */
+    private Integer maxPlayerLevel = 100;
     private Integer droneBatteryDurationSeconds = 60;
     private Integer kamikazeDroneBatteryDurationSeconds = 30;
     // GD656Mods: 弹药包单次补给数量(自己用组: 拾取弹药包掉落物)
@@ -51,6 +53,8 @@ public final class ServerConfigDataModel {
     private Integer supportAmmoBagTaczMg = 20;
     private Integer supportAmmoBagTaczRpg = 1;
     private Integer supportAmmoBagSbw = 1;
+    /** GD656Mods: 最大活跃(进行中)房间数 —— 负数(默认 -1)表示不限制, 0 表示不允许任何对局。 */
+    private Integer maxActiveRooms = -1;
 
     public Boolean getBoolOverworldInvulnerable() {
         return boolOverworldInvulnerable;
@@ -90,6 +94,15 @@ public final class ServerConfigDataModel {
 
     public void setPassiveRegenStartDelaySeconds(Integer passiveRegenStartDelaySeconds) {
         this.passiveRegenStartDelaySeconds = passiveRegenStartDelaySeconds;
+    }
+
+    /** GD656Mods: 最大活跃(进行中)房间数; 0 表示不限制。 */
+    public Integer getMaxActiveRooms() {
+        return maxActiveRooms;
+    }
+
+    public void setMaxActiveRooms(Integer maxActiveRooms) {
+        this.maxActiveRooms = maxActiveRooms;
     }
 
     public Double getMaxScopePistol() {
@@ -274,6 +287,14 @@ public final class ServerConfigDataModel {
 
     public void setDroneBatteryDurationSeconds(Integer droneBatteryDurationSeconds) {
         this.droneBatteryDurationSeconds = droneBatteryDurationSeconds;
+    }
+
+    public Integer getMaxPlayerLevel() {
+        return maxPlayerLevel;
+    }
+
+    public void setMaxPlayerLevel(Integer maxPlayerLevel) {
+        this.maxPlayerLevel = maxPlayerLevel;
     }
 
     public Integer getKamikazeDroneBatteryDurationSeconds() {

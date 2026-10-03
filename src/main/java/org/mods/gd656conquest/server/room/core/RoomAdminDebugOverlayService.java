@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.room.core;
 
 import net.minecraft.server.level.ServerPlayer;
+import org.mods.gd656conquest.common.overlay.AdminDebugOverlayRowTable;
 import org.mods.gd656conquest.server.data.roomdefinition.RoomDefinitionRepository;
 import org.mods.gd656conquest.server.room.config.RoomConfigDescriptor;
 import org.mods.gd656conquest.server.room.config.RoomConfigDescriptorRegistry;
@@ -18,15 +19,28 @@ import org.mods.gd656conquest.server.room.objective.RoomObjectiveRuntimeProvider
 import org.mods.gd656conquest.server.room.objective.RoomObjectiveRuntimeView;
 import org.mods.gd656conquest.server.room.runtime.RoomHudPayloadCodec;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * GD656Mods: debug overlay 点表构建。
+ *
+ * <p>产出的是<strong>行表</strong>({@code 键 -> 旧格式点文本})而不是拼好的整串 payload:
+ * <ul>
+ *     <li>键用于增量协议定位(新增/变更/删除), 与客户端 {@code ClientAdminDebugOverlayStore} 一致;</li>
+ *     <li>值是该键对应的一个或多个 {@code ;} 分隔的点文本, 与原 payload 单行格式完全相同,
+ *         因此客户端拼串后下游解析器无需改动;</li>
+ *     <li>边界点以"整条多边形"(键含队别与多边形 id)为键, 顶点顺序由值内部顺序保持。</li>
+ * </ul>
+ *
+ * <p>旧实现把整张表拼成一个字符串并在单包内发送, 超长时静默截断丢点; 现在由
+ * {@code RoomAdminDebugOverlaySyncService} 负责分片/增量传输, 本类只管"权威点集是什么"。
+ */
 public final class RoomAdminDebugOverlayService {
-    private static final int MAX_PAYLOAD_BYTES = 32767;
     private final RoomRuntimeRepository<RoomRuntimeState> runtimeRepository;
     private final RoomDefinitionRepository roomDefinitionRepository;
 
@@ -38,7 +52,11 @@ public final class RoomAdminDebugOverlayService {
         this.roomDefinitionRepository = Objects.requireNonNull(roomDefinitionRepository, "roomDefinitionRepository");
     }
 
-    public Optional<String> buildPayloadForPlayer(ServerPlayer player) {
+    /**
+     * GD656Mods: 返回该玩家当前维度的调试覆盖层行表; 玩家所在维度没有房间时返回 empty。
+     * 每次调用都从房间定义与运行时重新构建, 因此房间配置更新后下一次同步自然带上新点集。
+     */
+    public Optional<Map<String, String>> buildRowTableForPlayer(ServerPlayer player) {
         if (player == null) {
             return Optional.empty();
         }
@@ -49,38 +67,27 @@ public final class RoomAdminDebugOverlayService {
         return runtimeRepository.list().stream()
             .filter(slot -> dimensionId.equalsIgnoreCase(slot.room().commonConfig().dimensionId()))
             .findFirst()
-            .map(slot -> buildPayload(
+            .map(slot -> buildRowTable(
                 roomDefinitionRepository.findByDimensionId(dimensionId).orElse(slot.room()),
                 slot.runtime()
             ));
     }
 
-    public String buildPayload(RoomDefinition room, RoomRuntimeState runtimeState) {
+    public Map<String, String> buildRowTable(RoomDefinition room, RoomRuntimeState runtimeState) {
+        Map<String, String> table = new LinkedHashMap<>();
         if (room == null || runtimeState == null) {
-            return "-";
+            return table;
         }
         String roomId = room.roomId();
         if (roomId == null || roomId.isBlank()) {
-            return "-";
+            return table;
         }
-        StringBuilder builder = new StringBuilder();
         RoomObjectiveRuntimeView captureState = resolveCaptureState(runtimeState);
-        // GD656Mods: 战斗区域边界(区域/阶段边界、公共边界、campA/B大本营边界、campA/B活动范围边界)
-        // 是最重要的信息, 必须最先 append —— payload 超长截断(MAX_PAYLOAD_BYTES=32767)发生在字符串
-        // 末尾, 若边界点排在最后, 标记点一多就会被截掉导致"渐渐不显示边界"。
-        appendBoundaryPoints(builder, room);
-        appendCaptureCenters(builder, room, captureState);
-        appendConfiguredCoordinateMarkers(builder, roomId, room);
-        String payload = builder.length() == 0 ? "-" : builder.toString();
-        if (!"-".equals(payload) && payload.length() > MAX_PAYLOAD_BYTES) {
-            int lastValidSemi = payload.lastIndexOf(';', MAX_PAYLOAD_BYTES);
-            if (lastValidSemi > 0) {
-                payload = payload.substring(0, lastValidSemi);
-            } else {
-                payload = payload.substring(0, MAX_PAYLOAD_BYTES);
-            }
-        }
-        return payload;
+        // GD656Mods: 构建顺序即客户端行表顺序(边界 → 据点中心 → 配置坐标), 与原实现保持一致。
+        appendBoundaryPoints(table, room);
+        appendCaptureCenters(table, room, captureState);
+        appendConfiguredCoordinateMarkers(table, roomId, room);
+        return table;
     }
 
     private RoomObjectiveRuntimeView resolveCaptureState(RoomRuntimeState runtimeState) {
@@ -94,8 +101,8 @@ public final class RoomAdminDebugOverlayService {
         return null;
     }
 
-    private void appendConfiguredCoordinateMarkers(StringBuilder builder, String roomId, RoomDefinition room) {
-        if (builder == null || roomId == null || roomId.isBlank() || room == null) {
+    private void appendConfiguredCoordinateMarkers(Map<String, String> table, String roomId, RoomDefinition room) {
+        if (table == null || roomId == null || roomId.isBlank() || room == null) {
             return;
         }
         Map<String, RoomConfigDescriptor> descriptorsByPath = new LinkedHashMap<>();
@@ -111,7 +118,7 @@ public final class RoomAdminDebugOverlayService {
             } catch (IllegalArgumentException exception) {
                 continue;
             }
-            appendResolvedCoordinateValue(builder, roomId, descriptor, resolved);
+            appendResolvedCoordinateValue(table, roomId, descriptor, resolved);
         }
     }
 
@@ -168,13 +175,13 @@ public final class RoomAdminDebugOverlayService {
         return false;
     }
 
-    private void appendResolvedCoordinateValue(StringBuilder builder, String roomId, RoomConfigDescriptor descriptor, Object resolved) {
+    private void appendResolvedCoordinateValue(Map<String, String> table, String roomId, RoomConfigDescriptor descriptor, Object resolved) {
         if (resolved == null || descriptor == null) {
             return;
         }
         if (resolved instanceof RoomPosition position) {
             appendDebugPoint(
-                builder,
+                table,
                 "D",
                 autoCode(roomId, descriptor.configId(), 0),
                 position.x(),
@@ -189,7 +196,7 @@ public final class RoomAdminDebugOverlayService {
         }
         if (resolved instanceof RoomViewPosition viewPosition) {
             appendDebugPoint(
-                builder,
+                table,
                 "D",
                 autoCode(roomId, descriptor.configId(), 0),
                 viewPosition.x(),
@@ -203,22 +210,22 @@ public final class RoomAdminDebugOverlayService {
             return;
         }
         if (resolved instanceof RoomSpawnGroupConfig spawnGroupConfig) {
-            appendSpawnGroupMarkers(builder, roomId, descriptor, spawnGroupConfig);
+            appendSpawnGroupMarkers(table, roomId, descriptor, spawnGroupConfig);
             return;
         }
         if (resolved instanceof List<?> list) {
-            appendPositionListMarkers(builder, roomId, descriptor, list);
+            appendPositionListMarkers(table, roomId, descriptor, list);
         }
     }
 
-    private void appendSpawnGroupMarkers(StringBuilder builder, String roomId, RoomConfigDescriptor descriptor, RoomSpawnGroupConfig spawnGroupConfig) {
+    private void appendSpawnGroupMarkers(Map<String, String> table, String roomId, RoomConfigDescriptor descriptor, RoomSpawnGroupConfig spawnGroupConfig) {
         if (spawnGroupConfig == null || !spawnGroupConfig.enabled()) {
             return;
         }
-        appendPositionListMarkers(builder, roomId, descriptor, spawnGroupConfig.spawns());
+        appendPositionListMarkers(table, roomId, descriptor, spawnGroupConfig.spawns());
     }
 
-    private void appendPositionListMarkers(StringBuilder builder, String roomId, RoomConfigDescriptor descriptor, List<?> values) {
+    private void appendPositionListMarkers(Map<String, String> table, String roomId, RoomConfigDescriptor descriptor, List<?> values) {
         if (values == null || values.isEmpty() || descriptor == null) {
             return;
         }
@@ -228,7 +235,7 @@ public final class RoomAdminDebugOverlayService {
                 continue;
             }
             appendDebugPoint(
-                builder,
+                table,
                 "D",
                 autoCode(roomId, descriptor.configId(), index),
                 position.x(),
@@ -265,7 +272,7 @@ public final class RoomAdminDebugOverlayService {
             : "CFG_" + normalizedRoomId + "_" + normalizedConfigId + "_" + index;
     }
 
-    private void appendCaptureCenters(StringBuilder builder, RoomDefinition room, RoomObjectiveRuntimeView captureState) {
+    private void appendCaptureCenters(Map<String, String> table, RoomDefinition room, RoomObjectiveRuntimeView captureState) {
         if (room == null || room.configuredObjectivePoints().isEmpty()) {
             return;
         }
@@ -277,7 +284,7 @@ public final class RoomAdminDebugOverlayService {
                 ? 50.0F
                 : (float) Math.max(0.0D, Math.min(100.0D, captureState.progressOf(captureCode)));
             appendDebugPoint(
-                builder,
+                table,
                 "C",
                 captureCode,
                 point.centerPosition().x(),
@@ -291,7 +298,7 @@ public final class RoomAdminDebugOverlayService {
         }
     }
 
-    private void appendTeamSpawnPoints(StringBuilder builder, String roomId, RoomSpawnGroupConfig group, String teamToken, String codePrefix, String labelPrefix) {
+    private void appendTeamSpawnPoints(Map<String, String> table, String roomId, RoomSpawnGroupConfig group, String teamToken, String codePrefix, String labelPrefix) {
         if (group == null || !group.enabled()) {
             return;
         }
@@ -300,13 +307,13 @@ public final class RoomAdminDebugOverlayService {
             if (spawn == null) {
                 continue;
             }
-            appendDebugPoint(builder, "D", codePrefix + "_" + roomId + "_" + index, spawn.x(), spawn.y(), spawn.z(), teamToken, "N", 100.0F, labelPrefix + "#" + index);
+            appendDebugPoint(table, "D", codePrefix + "_" + roomId + "_" + index, spawn.x(), spawn.y(), spawn.z(), teamToken, "N", 100.0F, labelPrefix + "#" + index);
             index++;
         }
     }
 
     private void appendCaptureSpawnGroups(
-        StringBuilder builder,
+        Map<String, String> table,
         String roomId,
         List<RoomCapturePointDefinition> points,
         RoomObjectiveRuntimeView captureState,
@@ -338,7 +345,7 @@ public final class RoomAdminDebugOverlayService {
                     continue;
                 }
                 appendDebugPoint(
-                    builder,
+                    table,
                     "D",
                     codePrefix + "_" + roomId + "_" + captureCode + "_" + index,
                     spawn.x(),
@@ -354,7 +361,7 @@ public final class RoomAdminDebugOverlayService {
         }
     }
 
-    private void appendBreakthroughViewPositions(StringBuilder builder, String roomId, RoomDefinition room) {
+    private void appendBreakthroughViewPositions(Map<String, String> table, String roomId, RoomDefinition room) {
         if (room == null) {
             return;
         }
@@ -363,11 +370,11 @@ public final class RoomAdminDebugOverlayService {
             if (position == null) {
                 continue;
             }
-            appendViewPosition(builder, roomId, "BV" + stageIndex, "N", position, "阶段" + stageLabel(stageIndex) + "部署视角");
+            appendViewPosition(table, roomId, "BV" + stageIndex, "N", position, "阶段" + stageLabel(stageIndex) + "部署视角");
         }
     }
 
-    private void appendRushViewPositions(StringBuilder builder, String roomId, RoomDefinition room) {
+    private void appendRushViewPositions(Map<String, String> table, String roomId, RoomDefinition room) {
         if (room == null) {
             return;
         }
@@ -376,11 +383,11 @@ public final class RoomAdminDebugOverlayService {
             if (position == null) {
                 continue;
             }
-            appendViewPosition(builder, roomId, "RV" + stageIndex, "N", position, "阶段" + stageLabel(stageIndex) + "部署视角");
+            appendViewPosition(table, roomId, "RV" + stageIndex, "N", position, "阶段" + stageLabel(stageIndex) + "部署视角");
         }
     }
 
-    private void appendRushBombPositions(StringBuilder builder, String roomId, RoomDefinition room) {
+    private void appendRushBombPositions(Map<String, String> table, String roomId, RoomDefinition room) {
         if (room == null || room.rushConfig().bombPositions().isEmpty()) {
             return;
         }
@@ -389,7 +396,7 @@ public final class RoomAdminDebugOverlayService {
             .filter(entry -> entry.getValue() != null)
             .sorted(Map.Entry.comparingByKey(String.CASE_INSENSITIVE_ORDER))
             .forEach(entry -> appendDebugPoint(
-                builder,
+                table,
                 "D",
                 "RSB_" + roomId + "_" + entry.getKey().trim().toUpperCase(Locale.ROOT),
                 entry.getValue().x(),
@@ -402,15 +409,15 @@ public final class RoomAdminDebugOverlayService {
             ));
     }
 
-    private void appendNamedPosition(StringBuilder builder, String roomId, String codePrefix, String teamToken, RoomPosition position, String label) {
+    private void appendNamedPosition(Map<String, String> table, String roomId, String codePrefix, String teamToken, RoomPosition position, String label) {
         if (position == null) {
             return;
         }
-        appendDebugPoint(builder, "D", codePrefix + "_" + roomId, position.x(), position.y(), position.z(), teamToken, "N", 100.0F, label);
+        appendDebugPoint(table, "D", codePrefix + "_" + roomId, position.x(), position.y(), position.z(), teamToken, "N", 100.0F, label);
     }
 
     private void appendViewPosition(
-        StringBuilder builder,
+        Map<String, String> table,
         String roomId,
         String codePrefix,
         String teamToken,
@@ -421,7 +428,7 @@ public final class RoomAdminDebugOverlayService {
             return;
         }
         appendDebugPoint(
-            builder,
+            table,
             "D",
             codePrefix + "_" + roomId,
             position.x(),
@@ -434,53 +441,63 @@ public final class RoomAdminDebugOverlayService {
         );
     }
 
-    private void appendEndViewPosition(StringBuilder builder, String roomId, RoomResultConfig resultConfig) {
+    private void appendEndViewPosition(Map<String, String> table, String roomId, RoomResultConfig resultConfig) {
         if (resultConfig == null) {
             return;
         }
-        appendViewPosition(builder, roomId, "EP", "N", resultConfig.endViewPosition(), "结束展示位");
+        appendViewPosition(table, roomId, "EP", "N", resultConfig.endViewPosition(), "结束展示位");
     }
 
-    private void appendBoundaryPoints(StringBuilder builder, RoomDefinition room) {
+    private void appendBoundaryPoints(Map<String, String> table, RoomDefinition room) {
         if (room == null) {
             return;
         }
         if (org.mods.gd656conquest.server.room.model.RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
-            appendBoundaryRows(builder, room.breakthroughConfig().campABaseBoundary(), "T", "bt_debug_camp_a_base");
-            appendBoundaryRows(builder, room.breakthroughConfig().campBBaseBoundary(), "S", "bt_debug_camp_b_base");
+            appendBoundaryRows(table, room.breakthroughConfig().campABaseBoundary(), "T", "bt_debug_camp_a_base");
+            appendBoundaryRows(table, room.breakthroughConfig().campBBaseBoundary(), "S", "bt_debug_camp_b_base");
             for (int stageIndex = 1; stageIndex <= 6; stageIndex++) {
-                appendBoundaryRows(builder, room.breakthroughConfig().stageBoundary(stageIndex), "N", "bt_debug_stage_" + stageIndex);
+                appendBoundaryRows(table, room.breakthroughConfig().stageBoundary(stageIndex), "N", "bt_debug_stage_" + stageIndex);
             }
             return;
         }
         if (org.mods.gd656conquest.server.room.model.RoomGameplayId.RUSH.equals(room.gameplayId())) {
-            appendBoundaryRows(builder, room.rushConfig().campABaseBoundary(), "T", "rs_debug_camp_a_base");
-            appendBoundaryRows(builder, room.rushConfig().campBBaseBoundary(), "S", "rs_debug_camp_b_base");
+            appendBoundaryRows(table, room.rushConfig().campABaseBoundary(), "T", "rs_debug_camp_a_base");
+            appendBoundaryRows(table, room.rushConfig().campBBaseBoundary(), "S", "rs_debug_camp_b_base");
             for (int stageIndex = 1; stageIndex <= room.rushConfig().stageCount(); stageIndex++) {
-                appendBoundaryRows(builder, room.rushConfig().stageBoundary(stageIndex), "N", "rs_debug_stage_" + stageIndex);
+                appendBoundaryRows(table, room.rushConfig().stageBoundary(stageIndex), "N", "rs_debug_stage_" + stageIndex);
             }
             return;
         }
         if (room.isArenaGameplay()) {
-            appendBoundaryRows(builder, room.arenaConfig().campABoundary(), "T", "arena_debug_camp_a");
-            appendBoundaryRows(builder, room.arenaConfig().campBBoundary(), "S", "arena_debug_camp_b");
+            appendBoundaryRows(table, room.arenaConfig().campABoundary(), "T", "arena_debug_camp_a");
+            appendBoundaryRows(table, room.arenaConfig().campBBoundary(), "S", "arena_debug_camp_b");
             return;
         }
-        appendBoundaryRows(builder, room.conquestConfig().sharedBoundary(), "N", "cq_debug_shared");
-        appendBoundaryRows(builder, room.conquestConfig().campABoundary(), "T", "cq_debug_camp_a");
-        appendBoundaryRows(builder, room.conquestConfig().campBBoundary(), "S", "cq_debug_camp_b");
+        appendBoundaryRows(table, room.conquestConfig().sharedBoundary(), "N", "cq_debug_shared");
+        appendBoundaryRows(table, room.conquestConfig().campABoundary(), "T", "cq_debug_camp_a");
+        appendBoundaryRows(table, room.conquestConfig().campBBoundary(), "S", "cq_debug_camp_b");
     }
 
-    private void appendBoundaryRows(StringBuilder builder, List<RoomPosition> positions, String teamToken, String polygonId) {
+    private void appendBoundaryRows(Map<String, String> table, List<RoomPosition> positions, String teamToken, String polygonId) {
         if (positions == null || positions.isEmpty()) {
             return;
         }
+        StringBuilder polygon = new StringBuilder();
         for (RoomPosition position : positions) {
             if (position == null) {
                 continue;
             }
-            appendDebugPoint(builder, "B", teamToken, position.x(), position.y(), position.z(), "N", "N", 0.0F, polygonId);
+            if (polygon.length() > 0) {
+                polygon.append(AdminDebugOverlayRowTable.ROW_SEPARATOR);
+            }
+            polygon.append(buildDebugPointRow("B", teamToken, position.x(), position.y(), position.z(), "N", "N", 0.0F, polygonId));
         }
+        if (polygon.length() == 0) {
+            return;
+        }
+        // GD656Mods: 边界以"整条多边形"为键 —— 顶点顺序由值内部顺序保持, 顶点数增减
+        // 也能通过一次 upsert 正确表达(逐点 diff 无法表达顺序与数量的变化)。
+        AdminDebugOverlayRowTable.putRow(table, "B|" + teamToken + "|" + polygonId, polygon.toString());
     }
 
     private String toDebugTeamToken(RoomTeamId teamId) {
@@ -505,18 +522,19 @@ public final class RoomAdminDebugOverlayService {
         };
     }
 
-    private void appendDebugPoint(StringBuilder builder, String kind, String code, double x, double y, double z, String owner, String driving, float progress, String label) {
-        if (builder.length() > 0) {
-            builder.append(';');
-        }
-        builder.append(kind).append(',')
-            .append(code).append(',')
-            .append((int) Math.round(x)).append(',')
-            .append((int) Math.round(y)).append(',')
-            .append((int) Math.round(z)).append(',')
-            .append(owner).append(',')
-            .append(driving).append(',')
-            .append(progress).append(',')
-            .append(RoomHudPayloadCodec.encodeText(label));
+    private void appendDebugPoint(Map<String, String> table, String kind, String code, double x, double y, double z, String owner, String driving, float progress, String label) {
+        AdminDebugOverlayRowTable.putRow(table, kind + "|" + code, buildDebugPointRow(kind, code, x, y, z, owner, driving, progress, label));
+    }
+
+    private String buildDebugPointRow(String kind, String code, double x, double y, double z, String owner, String driving, float progress, String label) {
+        return kind + ','
+            + code + ','
+            + (int) Math.round(x) + ','
+            + (int) Math.round(y) + ','
+            + (int) Math.round(z) + ','
+            + owner + ','
+            + driving + ','
+            + progress + ','
+            + RoomHudPayloadCodec.encodeText(label);
     }
 }

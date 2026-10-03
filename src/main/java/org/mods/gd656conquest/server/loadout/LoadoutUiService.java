@@ -2177,6 +2177,7 @@ public final class LoadoutUiService {
             case ENDING -> "结算中";
             case SAVING -> "保存中";
             case CLEANING -> "清理中";
+            case LOCKED -> "已锁定";
         };
     }
 

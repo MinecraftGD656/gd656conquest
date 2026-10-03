@@ -10,15 +10,23 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
+import org.mods.gd656conquest.server.shared.command.PlayerNameSuggestions;
 import org.mods.gd656conquest.server.shared.text.CommandFeedbacks;
 import org.mods.gd656conquest.server.shared.text.ServerText;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public final class PlayerTitleCommands {
+    /** GD656Mods: 多目标给称号时逐行结果最多显示多少条, 避免 @a 刷屏。 */
+    private static final int MAX_GIVE_DETAIL_LINES = 30;
+
     private PlayerTitleCommands() {
     }
 
@@ -46,13 +54,19 @@ public final class PlayerTitleCommands {
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.argument("titleId", StringArgumentType.string())
                     .suggests(PlayerTitleCommands::suggestTitleIds)
-                    .then(Commands.argument("player", StringArgumentType.string())
-                        .suggests(PlayerTitleCommands::suggestKnownPlayerNames)
+                    .then(Commands.argument("targets", EntityArgument.players())
                         .executes(PlayerTitleCommands::executeGive))))
+            .then(Commands.literal("offlinegive")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.argument("titleId", StringArgumentType.string())
+                    .suggests(PlayerTitleCommands::suggestTitleIds)
+                    .then(Commands.argument("player", StringArgumentType.string())
+                        .suggests(PlayerNameSuggestions::suggestKnownPlayers)
+                        .executes(PlayerTitleCommands::executeOfflineGive))))
             .then(Commands.literal("remove")
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.argument("player", StringArgumentType.string())
-                    .suggests(PlayerTitleCommands::suggestKnownPlayerNames)
+                    .suggests(PlayerNameSuggestions::suggestKnownPlayers)
                     .executes(PlayerTitleCommands::executeRemoveAll)
                     .then(Commands.argument("titleId", StringArgumentType.string())
                         .suggests(PlayerTitleCommands::suggestTitleIds)
@@ -164,10 +178,83 @@ public final class PlayerTitleCommands {
             : CommandFeedbacks.failure(context.getSource(), "未找到称号: " + PlayerTitleService.normalizeTitleId(titleId));
     }
 
-    private static int executeGive(CommandContext<CommandSourceStack> context) {
-        PlayerTitleService.GrantResult result = PlayerTitleService.of(context.getSource().getServer()).giveTitle(
+    /**
+     * GD656Mods: give 改为原版目标选择器(@a/@p/@r/玩家名), 因此只作用于<strong>在线</strong>玩家。
+     * 需要给离线玩家(或用 UUID 定位)时用 {@code offlinegive}。
+     */
+    private static int executeGive(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        String titleId = StringArgumentType.getString(context, "titleId");
+        Collection<ServerPlayer> targets = EntityArgument.getPlayers(context, "targets");
+        if (targets.isEmpty()) {
+            return CommandFeedbacks.failure(context.getSource(), "目标选择器没有匹配到在线玩家");
+        }
+        PlayerTitleService service = PlayerTitleService.of(context.getSource().getServer());
+        String giverName = context.getSource().getTextName();
+        if (targets.size() == 1) {
+            ServerPlayer target = targets.iterator().next();
+            PlayerTitleService.GrantResult result = service.giveTitleDirect(
+                target.getUUID(),
+                target.getScoreboardName(),
+                titleId,
+                giverName
+            );
+            return result.success()
+                ? CommandFeedbacks.info(context.getSource(), result.message() + "，玩家=" + result.playerName() + "，称号=" + result.titleId())
+                : CommandFeedbacks.failure(context.getSource(), result.message());
+        }
+        int successCount = 0;
+        int failureCount = 0;
+        List<String> details = new ArrayList<>();
+        for (ServerPlayer target : targets) {
+            PlayerTitleService.GrantResult result = service.giveTitleDirect(
+                target.getUUID(),
+                target.getScoreboardName(),
+                titleId,
+                giverName
+            );
+            if (result.success()) {
+                successCount++;
+            } else {
+                failureCount++;
+            }
+            if (details.size() < MAX_GIVE_DETAIL_LINES) {
+                details.add(result.playerName() + " - " + result.message());
+            }
+        }
+        for (String detail : details) {
+            CommandFeedbacks.line(context.getSource(), Component.literal(detail).withStyle(ChatFormatting.GRAY));
+        }
+        if (details.size() < targets.size()) {
+            CommandFeedbacks.line(
+                context.getSource(),
+                Component.literal("... 还有 " + (targets.size() - details.size()) + " 名玩家的结果未显示").withStyle(ChatFormatting.DARK_GRAY)
+            );
+        }
+        String summary = "已处理 " + targets.size()
+            + " 名在线玩家，成功=" + successCount
+            + "，失败=" + failureCount
+            + "，称号=" + PlayerTitleService.normalizeTitleId(titleId);
+        return failureCount == 0
+            ? CommandFeedbacks.info(context.getSource(), summary)
+            : CommandFeedbacks.failure(context.getSource(), summary);
+    }
+
+    /**
+     * GD656Mods: 与改造前的 {@code /gdc title give} 完全相同的行为 —— 目标是"玩家名 / UUID"文本,
+     * 因此可以给不在线的玩家发放称号。
+     */
+    private static int executeOfflineGive(CommandContext<CommandSourceStack> context) {
+        return grantTitleByName(
+            context,
             StringArgumentType.getString(context, "titleId"),
-            StringArgumentType.getString(context, "player"),
+            StringArgumentType.getString(context, "player")
+        );
+    }
+
+    private static int grantTitleByName(CommandContext<CommandSourceStack> context, String titleId, String playerNameOrUuid) {
+        PlayerTitleService.GrantResult result = PlayerTitleService.of(context.getSource().getServer()).giveTitle(
+            titleId,
+            playerNameOrUuid,
             context.getSource().getTextName()
         );
         return result.success()
@@ -232,10 +319,6 @@ public final class PlayerTitleCommands {
 
     private static CompletableFuture<Suggestions> suggestTitleIds(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         return SharedSuggestionProvider.suggest(PlayerTitleService.of(context.getSource().getServer()).suggestTitleIds(), builder);
-    }
-
-    private static CompletableFuture<Suggestions> suggestKnownPlayerNames(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
-        return SharedSuggestionProvider.suggest(PlayerTitleService.of(context.getSource().getServer()).suggestKnownPlayerNames(), builder);
     }
 
     private static CompletableFuture<Suggestions> suggestImportFiles(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {

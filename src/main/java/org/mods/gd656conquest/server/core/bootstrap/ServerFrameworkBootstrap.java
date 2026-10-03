@@ -9,6 +9,7 @@ import org.mods.gd656conquest.server.facility.parkour.ParkourServerModule;
 import org.mods.gd656conquest.server.facility.quickaccess.QuickAccessServerModule;
 import org.mods.gd656conquest.server.facility.range.RangeServerModule;
 import org.mods.gd656conquest.server.facility.sign.SignServerModule;
+import org.mods.gd656conquest.server.limit.PlayerLimitServerModule;
 import org.mods.gd656conquest.server.loadout.LoadoutServerModule;
 import org.mods.gd656conquest.server.maintenance.MaintenanceServerModule;
 import org.mods.gd656conquest.server.player.PlayerServerModule;
@@ -30,6 +31,7 @@ public final class ServerFrameworkBootstrap {
             new ServerModuleRegistry(List.of(
                 new DataServerModule(),
                 new MaintenanceServerModule(),
+                new PlayerLimitServerModule(),
                 new CaptureBoundaryBakeServerModule(),
                 new ConquestCommandModule(),
                 new TaczShellingServerModule(),

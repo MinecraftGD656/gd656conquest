@@ -1224,6 +1224,10 @@ public final class RoomCoreService {
         }
         if (lifecycleState == RoomLifecycleState.IDLE) {
             runtimeRepository.save(slot.room().withLifecycleState(RoomLifecycleState.MATCHING), RoomRuntimeState::new);
+            // GD656Mods: 房间被"活跃上限锁定"期间维度是卸载状态 —— 开始匹配时按需加载回来。
+            // 已加载时该调用是幂等的(reloadRoomDimension 检测到已有 level 会直接返回)。
+            org.mods.gd656conquest.server.room.runtime.RoomDimensionControlService
+                .reloadRoomDimension(server, slot.room());
             slot = requireRoomSlot(roomId);
         }
         MatchingRuntimeState state = slot.runtime().getMatchingState();
@@ -1299,6 +1303,9 @@ public final class RoomCoreService {
                     && slot.room().lifecycleState() == RoomLifecycleState.MATCHING) {
                     runtimeRepository.save(slot.room().withLifecycleState(RoomLifecycleState.IDLE), RoomRuntimeState::new);
                 }
+                // GD656Mods: 队列清空后重新评估活跃上限 —— 有空位则把锁定房间放回空闲
+                org.mods.gd656conquest.server.room.runtime.RoomActiveLimitService.of(server)
+                    .reevaluate(this, server.getTickCount());
             });
         playerSessionService.removePlayer(playerId);
     }
@@ -1391,7 +1398,26 @@ public final class RoomCoreService {
         runtimeRepository.save(slot.room().withLifecycleState(RoomLifecycleState.RUNNING), RoomRuntimeState::new);
         nametagVisibilityService.syncRunningRoom(slot.room(), slot.runtime().getRunningState());
         hudSyncService.syncRunningRoom(slot.room(), slot.runtime().getRunningState());
+        // GD656Mods: 活跃房间上限 —— 本局进入 RUNNING 后若已无空位, 锁定其余房间(不含正在对局/收尾的)
+        org.mods.gd656conquest.server.room.runtime.RoomActiveLimitService.of(server)
+            .onRoomEnteredRunning(this, slot.room().roomId(), gameTick);
         return Optional.of(runtime);
+    }
+
+    /**
+     * GD656Mods: 活跃上限锁定用 —— 直接改写房间生命周期状态(不触发对局流程)。
+     * 供 {@code RoomActiveLimitService} 在 LOCKED 与 IDLE 之间切换房间。
+     */
+    public boolean persistRoomLifecycleState(String roomId, RoomLifecycleState state) {
+        if (roomId == null || roomId.isBlank() || state == null) {
+            return false;
+        }
+        Optional<RoomRuntimeSlot<RoomRuntimeState>> slot = runtimeRepository.find(roomId);
+        if (slot.isEmpty()) {
+            return false;
+        }
+        runtimeRepository.save(slot.get().room().withLifecycleState(state), RoomRuntimeState::new);
+        return true;
     }
 
     public void tickGameplay(String roomId, long gameTick) {
@@ -1727,8 +1753,12 @@ public final class RoomCoreService {
             .orElse(false);
     }
 
-    public Optional<String> buildAdminDebugOverlayPayload(ServerPlayer player) {
-        return adminDebugOverlayService.buildPayloadForPlayer(player);
+    /**
+     * GD656Mods: debug overlay 行表(键 -> 旧格式点文本)。每次调用都重建, 因此房间配置更新
+     * 后下一次同步自然带上新点集; 传输层的分片与增量由 RoomAdminDebugOverlaySyncService 负责。
+     */
+    public Optional<Map<String, String>> buildAdminDebugOverlayRowTable(ServerPlayer player) {
+        return adminDebugOverlayService.buildRowTableForPlayer(player);
     }
 
     private Map<UUID, String> buildKilliconPlayerTeamsSnapshot(RunningRuntimeState runningState) {
@@ -1870,6 +1900,9 @@ public final class RoomCoreService {
                 && slot.room().lifecycleState() == RoomLifecycleState.MATCHING) {
                 runtimeRepository.save(slot.room().withLifecycleState(RoomLifecycleState.IDLE), RoomRuntimeState::new);
             }
+            // GD656Mods: 队列清空后重新评估活跃上限
+            org.mods.gd656conquest.server.room.runtime.RoomActiveLimitService.of(server)
+                .reevaluate(this, gameTick);
             return;
         }
 

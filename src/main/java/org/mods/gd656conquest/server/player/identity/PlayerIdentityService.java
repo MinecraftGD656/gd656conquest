@@ -5,6 +5,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
+import org.mods.gd656conquest.server.shared.command.PlayerNameSuggestions;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -113,7 +114,10 @@ public final class PlayerIdentityService {
         for (UUID knownPlayerId : playerDataStore.listKnownPlayerIds()) {
             playerDataStore.findLastKnownPlayerName(knownPlayerId).ifPresent(names::add);
         }
-        List<String> result = new ArrayList<>(names);
+        // GD656Mods: 名字缺失时写入端会用 UUID 兜底(见 PlayerTitleService.giveTitleDirect),
+        // 因此这里统一剔掉 UUID 形态的条目 —— 它是数据键不是玩家名, 出现在补全里只会让人误选。
+        // 清洗规则集中在 PlayerNameSuggestions, 所有玩家名补全共用同一处。
+        List<String> result = new ArrayList<>(PlayerNameSuggestions.sanitize(names));
         result.sort(String.CASE_INSENSITIVE_ORDER);
         return result;
     }

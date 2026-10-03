@@ -10,6 +10,7 @@ import org.mods.gd656conquest.common.block.ConquestBlocks;
 import org.mods.gd656conquest.server.data.ServerDataPaths;
 import org.mods.gd656conquest.server.data.util.DelayedJsonWriteService;
 import org.mods.gd656conquest.server.data.util.JsonDataStoreSupport;
+import org.mods.gd656conquest.server.room.config.RoomPositionPrecision;
 import org.mods.gd656conquest.server.room.model.RoomCaptureConfig;
 import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
 import org.mods.gd656conquest.server.room.model.RoomBreakthroughConfig;
@@ -208,6 +209,10 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
 
     private RoomDefinition validateAndNormalize(RoomDefinition definition) {
         RoomDefinition normalized = normalizeDefinition(definition);
+        // GD656Mods: 位置 y 精度归一化 —— 边界类取整为整数、出生点类保留 1 位小数。
+        // 所有加载/保存入口(initialize/readDefinition/saveDefinition/resetDefinition/
+        // reloadDefinitionFromFile)都经过这里, 因此历史小数数据会在加载时被自动修正并回写文件。
+        normalized = RoomPositionPrecision.normalize(normalized);
         RoomConfigValidationResult validation = RoomConfigValidator.validate(normalized);
         if (!validation.isComplete() && shouldForceDisabled(normalized.lifecycleState())) {
             normalized = normalized.withLifecycleState(RoomLifecycleState.DISABLED);

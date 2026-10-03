@@ -143,6 +143,8 @@ public final class ClientHudDebugState {
 
     public static void reset() {
         update("-", "未加入房间", "-", "-", "-", 0, 0, 0, "SCORE_TARGET", 0, 0, 0, 0, 0, true, "-", "-", "-", "-", "-");
+        // GD656Mods: 行表由增量协议维护, 重置时必须一并清掉, 否则会把上一局的行表带进新会话。
+        ClientAdminDebugOverlayStore.reset();
         adminDebugOverlay = "-";
     }
 }

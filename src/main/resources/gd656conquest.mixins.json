@@ -29,7 +29,9 @@
     "client.compat.explosionoverhaul.ExplosionOverhaulAmbientCaveDustDisableMixin",
     "client.compat.explosionoverhaul.ExplosionOverhaulBlockParticleGuardMixin",
     "client.compat.lrtactical.AttackKeysMixin",
-    "client.compat.curios.CuriosClientEventHandlerMixin"
+    "client.compat.curios.CuriosClientEventHandlerMixin",
+    "client.ChatComponentOffsetMixin",
+    "client.compat.xaero.XaeroMinimapProcessorMixin"
   ],
   "injectors": {
     "defaultRequire": 1

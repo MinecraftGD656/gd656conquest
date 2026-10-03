@@ -35,6 +35,7 @@ public final class SuperbWarfareVehicleCompatBridge {
     private static boolean reflectionResolved;
     private static boolean available;
     private static String availabilityDetail = "未初始化";
+    private static volatile List<String> cachedVehicleIds;
     private static Class<?> vehicleEntityClass;
     private static Class<?> vehicleContainerMenuClass;
     private static Method getHealthMethod;
@@ -76,15 +77,35 @@ public final class SuperbWarfareVehicleCompatBridge {
             : availabilityDetail;
     }
 
+    /**
+     * GD656Mods: 列出全部可部署的卓越前线载具 ID(含附属模组)。
+     * 判据是"实体实例为 sbw VehicleEntity 子类", 而不是"注册命名空间为 superbwarfare":
+     * 附属模组(例如 dragonrise_reforge)的载具注册在自己的命名空间下, 但同样继承 VehicleEntity,
+     * 必须一并列出, 否则这些载具无法被房间配置选中与部署。
+     * 探测需要实例化每个已注册实体类型才能判定, 而本方法还会被命令补全高频调用,
+     * 故结果在服务端生命周期内缓存(EntityType 注册表在服务器运行期间不再变化)。
+     */
     public static List<String> listVehicleIds(ServerLevel level) {
         if (!resolveReflection() || level == null) {
             return List.of();
         }
+        List<String> cached = cachedVehicleIds;
+        if (cached != null) {
+            return cached;
+        }
+        return scanVehicleIds(level);
+    }
+
+    private static synchronized List<String> scanVehicleIds(ServerLevel level) {
+        List<String> cached = cachedVehicleIds;
+        if (cached != null) {
+            return cached;
+        }
         List<String> values = new ArrayList<>();
         for (var entry : BuiltInRegistries.ENTITY_TYPE.entrySet()) {
             EntityType<?> type = entry.getValue();
-            ResourceLocation id = type == null ? null : BuiltInRegistries.ENTITY_TYPE.getKey(type);
-            if (id == null || type == null || !MOD_ID.equalsIgnoreCase(id.getNamespace())) {
+            ResourceLocation id = entry.getKey().location();
+            if (type == null || id == null) {
                 continue;
             }
             Entity probe = null;
@@ -100,8 +121,12 @@ public final class SuperbWarfareVehicleCompatBridge {
                 }
             }
         }
+        if (values.isEmpty()) {
+            return List.of();
+        }
         values.sort(Comparator.naturalOrder());
-        return values;
+        cachedVehicleIds = List.copyOf(values);
+        return cachedVehicleIds;
     }
 
     public static boolean isVehicleEntity(Entity entity) {

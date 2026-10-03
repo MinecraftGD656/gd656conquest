@@ -222,9 +222,15 @@ public final class RoomRuleRuntimeService {
                 outsideSince = state.getOutsideBoundarySinceTicks().computeIfAbsent(playerId, ignored -> gameTick);
             }
             boolean enteringPenalty = state.getBoundaryPenaltyVisualApplied().add(playerId);
-            if (enteringPenalty) {
-                NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setBoundaryPenalty(true));
-                boundaryPenaltyHudService.sendBoundaryTitle(player, effectiveCountdownSeconds, true, aircraftBoundaryPenalty);
+            Boolean lastAircraftStyle = state.getBoundaryPenaltyAircraftStyle().get(playerId);
+            boolean aircraftStyleChanged = lastAircraftStyle == null || lastAircraftStyle != aircraftBoundaryPenalty;
+            if (enteringPenalty || aircraftStyleChanged) {
+                // GD656Mods: 把"是否空中载具乘员样式"一并下发 —— 客户端只有步兵出界才降低视角饱和度。
+                // 样式在惩罚期间可能变化(出界后上/下飞机), 因此变化时必须重发: 既让饱和度跟上,
+                // 也重发提示(空中样式走 actionbar、步兵样式走 title, 只靠秒数变化刷新会残留旧样式的提示)。
+                NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setBoundaryPenalty(true, aircraftBoundaryPenalty));
+                state.getBoundaryPenaltyAircraftStyle().put(playerId, aircraftBoundaryPenalty);
+                boundaryPenaltyHudService.sendBoundaryTitle(player, effectiveCountdownSeconds, enteringPenalty, aircraftBoundaryPenalty);
                 state.getBoundaryPenaltyLastShownSeconds().put(playerId, effectiveCountdownSeconds);
             }
             long outsideTicks = gameTick - outsideSince;
@@ -308,6 +314,7 @@ public final class RoomRuleRuntimeService {
             state.getOutsideBoundarySinceTicks().remove(playerId);
             state.getBoundaryPenaltyLastShownSeconds().remove(playerId);
             state.getBoundaryPenaltyVisualApplied().remove(playerId);
+            state.getBoundaryPenaltyAircraftStyle().remove(playerId);
         }
         if (player != null) {
             NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setBoundaryPenalty(false));

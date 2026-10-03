@@ -45,9 +45,17 @@ public final class RoomTemplateRepository {
     }
 
     public Path resetRoomDimensionFromTemplate(RoomDefinition definition) {
+        return resetRoomDimensionFromTemplate(definition, true);
+    }
+
+    /**
+     * GD656Mods: {@code reloadAfter=false} 用于"活跃上限锁定" —— 重置地图但不重新加载维度,
+     * 让被锁定的房间不占内存。
+     */
+    public Path resetRoomDimensionFromTemplate(RoomDefinition definition, boolean reloadAfter) {
         Objects.requireNonNull(definition, "definition");
         Path templatePath = resolveTemplatePath(definition);
-        return dimensionResetService.resetDimensionFromTemplate(definition, templatePath);
+        return dimensionResetService.resetDimensionFromTemplate(definition, templatePath, reloadAfter);
     }
 
     private Path resolveTemplatePath(RoomDefinition definition) {

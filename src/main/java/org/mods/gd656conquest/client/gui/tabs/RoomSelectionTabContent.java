@@ -511,6 +511,7 @@ public class RoomSelectionTabContent implements ConfigScreenHeader.TabContent {
             case "DISABLED" -> "已禁用";
             case "SAVING" -> "保存中";
             case "CLEANING" -> "清理中";
+            case "LOCKED" -> "已锁定";
             default -> state;
         };
     }
@@ -523,6 +524,7 @@ public class RoomSelectionTabContent implements ConfigScreenHeader.TabContent {
             case "ENDING"     -> 0xFFFF6060;
             case "MAINTENANCE" -> 0xFFC080FF;
             case "DISABLED"   -> 0xFF666666;
+            case "LOCKED"     -> GuiConstants.COLOR_GOLD_ORANGE;
             default           -> 0xFF888888;
         };
     }

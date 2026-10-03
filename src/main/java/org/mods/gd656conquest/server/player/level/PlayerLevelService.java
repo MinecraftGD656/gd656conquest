@@ -2,6 +2,7 @@ package org.mods.gd656conquest.server.player.level;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
@@ -14,28 +15,40 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class PlayerLevelService {
-    public static final int MAX_LEVEL = 100;
+    /** GD656Mods: 未配置时的等级上限(保持原有 100 级行为)。 */
+    public static final int DEFAULT_MAX_LEVEL = 100;
+    /** GD656Mods: 等级上限允许配置到的最大值。 */
+    public static final int ABSOLUTE_MAX_LEVEL = 1024;
     private static final Set<UUID> XP_GRANT_BYPASS = ConcurrentHashMap.newKeySet();
 
     private PlayerLevelService() {
+    }
+
+    /** GD656Mods: 当前服务端配置的玩家等级上限(默认 100, 最高 1024)。 */
+    public static int resolveMaxLevel(MinecraftServer server) {
+        if (server == null) {
+            return DEFAULT_MAX_LEVEL;
+        }
+        return ConquestDataManager.of(server).serverConfig().getMaxPlayerLevel();
     }
 
     public static int getEffectiveLevel(ServerPlayer player) {
         if (player == null) {
             return 0;
         }
-        return Math.max(0, Math.min(MAX_LEVEL, player.experienceLevel));
+        return Math.max(0, Math.min(resolveMaxLevel(player.server), player.experienceLevel));
     }
 
     public static void clampPlayerLevel(ServerPlayer player) {
         if (player == null || player.server == null) {
             return;
         }
+        int maxLevel = resolveMaxLevel(player.server);
         PlayerDataStore handler = ConquestDataManager.of(player.server).playerData();
         PlayerDataModel data = handler.getPlayerData(player.getUUID());
-        int maxTotal = getTotalExperienceForLevel(MAX_LEVEL);
+        int maxTotal = getTotalExperienceForLevel(maxLevel, maxLevel);
         int total = Math.max(0, Math.min(maxTotal, data.getLevelExperience()));
-        int level = Math.max(0, Math.min(MAX_LEVEL, getLevelForTotalExperience(total)));
+        int level = Math.max(0, Math.min(maxLevel, getLevelForTotalExperience(total, maxLevel)));
         boolean changed = false;
         if (data.getLevelExperience() != total) {
             data.setLevelExperience(total);
@@ -55,8 +68,9 @@ public final class PlayerLevelService {
         if (player == null || player.server == null) {
             return;
         }
-        int clamped = Math.max(0, Math.min(MAX_LEVEL, level));
-        int total = getTotalExperienceForLevel(clamped);
+        int maxLevel = resolveMaxLevel(player.server);
+        int clamped = Math.max(0, Math.min(maxLevel, level));
+        int total = getTotalExperienceForLevel(clamped, maxLevel);
         PlayerDataStore handler = ConquestDataManager.of(player.server).playerData();
         PlayerDataModel data = handler.getPlayerData(player.getUUID());
         data.setLevel(clamped);
@@ -75,14 +89,15 @@ public final class PlayerLevelService {
         }
         PlayerDataStore handler = ConquestDataManager.of(player.server).playerData();
         PlayerDataModel data = handler.getPlayerData(player.getUUID());
-        int maxTotal = getTotalExperienceForLevel(MAX_LEVEL);
+        int maxLevel = resolveMaxLevel(player.server);
+        int maxTotal = getTotalExperienceForLevel(maxLevel, maxLevel);
         int beforeTotal = Math.max(0, Math.min(maxTotal, data.getLevelExperience()));
-        int beforeLevel = Math.max(0, Math.min(MAX_LEVEL, getLevelForTotalExperience(beforeTotal)));
+        int beforeLevel = Math.max(0, Math.min(maxLevel, getLevelForTotalExperience(beforeTotal, maxLevel)));
         Formula formula = computeFormula(stats, outcome);
         int delta = formula.total();
         int afterTotal = Math.max(0, Math.min(maxTotal, beforeTotal + delta));
         int gained = afterTotal - beforeTotal;
-        int afterLevel = Math.max(0, Math.min(MAX_LEVEL, getLevelForTotalExperience(afterTotal)));
+        int afterLevel = Math.max(0, Math.min(maxLevel, getLevelForTotalExperience(afterTotal, maxLevel)));
         if (afterTotal != beforeTotal || afterLevel != beforeLevel) {
             data.setLevel(afterLevel);
             data.setLevelExperience(afterTotal);
@@ -189,12 +204,13 @@ public final class PlayerLevelService {
         if (player == null) {
             return;
         }
-        int maxTotal = getTotalExperienceForLevel(MAX_LEVEL);
+        int maxLevel = resolveMaxLevel(player.server);
+        int maxTotal = getTotalExperienceForLevel(maxLevel, maxLevel);
         int total = Math.max(0, Math.min(maxTotal, totalExp));
-        int level = Math.max(0, Math.min(MAX_LEVEL, getLevelForTotalExperience(total)));
-        int intoLevel = Math.max(0, total - getTotalExperienceForLevel(level));
-        int needed = Math.max(1, getXpNeededForNextLevel(level));
-        float progress = level >= MAX_LEVEL ? 0.0F : Math.min(1.0F, intoLevel / (float) needed);
+        int level = Math.max(0, Math.min(maxLevel, getLevelForTotalExperience(total, maxLevel)));
+        int intoLevel = Math.max(0, total - getTotalExperienceForLevel(level, maxLevel));
+        int needed = Math.max(1, getXpNeededForNextLevel(level, maxLevel));
+        float progress = level >= maxLevel ? 0.0F : Math.min(1.0F, intoLevel / (float) needed);
         runWithGrantBypass(player.getUUID(), () -> {
             player.totalExperience = total;
             player.experienceLevel = level;
@@ -217,17 +233,17 @@ public final class PlayerLevelService {
         return new Formula(score, base, extra, rawTotal, total, outcome);
     }
 
-    private static int getLevelForTotalExperience(int totalExp) {
+    private static int getLevelForTotalExperience(int totalExp, int maxLevel) {
         int total = Math.max(0, totalExp);
         int level = 0;
-        while (level < MAX_LEVEL && getTotalExperienceForLevel(level + 1) <= total) {
+        while (level < maxLevel && getTotalExperienceForLevel(level + 1, maxLevel) <= total) {
             level++;
         }
         return level;
     }
 
-    private static int getXpNeededForNextLevel(int level) {
-        if (level >= MAX_LEVEL) {
+    private static int getXpNeededForNextLevel(int level, int maxLevel) {
+        if (level >= maxLevel) {
             return 1;
         }
         return getXpNeededForNextLevelUncapped(level);
@@ -243,10 +259,10 @@ public final class PlayerLevelService {
         return 2 * level + 7;
     }
 
-    private static int getTotalExperienceForLevel(int level) {
+    private static int getTotalExperienceForLevel(int level, int maxLevel) {
         int lv = Math.max(0, level);
-        if (lv > MAX_LEVEL) {
-            lv = MAX_LEVEL;
+        if (lv > maxLevel) {
+            lv = maxLevel;
         }
         return getTotalExperienceForLevelUncapped(lv);
     }

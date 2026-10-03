@@ -75,6 +75,42 @@ public final class VehicleCompatFacade {
         return isVehicleEntity(entity) && !isAircraftEntity(entity);
     }
 
+    /**
+     * GD656Mods: 玩家死亡时的强制下车。
+     *
+     * <p>背景: 玩家在载具上阵亡后仍能操作载具武器 —— 因为服务端只校验"是该载具的乘客/座位",
+     * 而死亡并不会让人下车, 于是"死亡 → 重生"之间存在可用武器的窗口。
+     *
+     * <p>为什么直接用原版 {@code stopRiding()}: 卓越前线与万众载具都通过
+     * {@code Player.wantsToStopRiding()} 恒返回 false 来禁止"主动下车"(它们要求走自己的换座/下车机制),
+     * 而 {@code Entity.stopRiding()} 内部走的是 {@code removeVehicle() → vehicle.removePassenger(this)},
+     * <b>不经过该判定</b>, 因此服务端强制下车对两个模组同样有效(也顺带绕过了卓越前线的座位级
+     * {@code allowEjection} 限制 —— 死亡必须离车, 不应被座位开关挡住)。
+     *
+     * <p>兜底说明: 这里没有可用的公开 API 再"强制"一次 —— {@code Entity.removePassenger} 是
+     * protected, 而 {@code ejectPassengers()} 会把车上所有人一起弹出(会连带踢掉仍在操作武器的车长/炮手),
+     * 因此只在未生效时记录具体车载类型, 便于定位是哪个模组改了下车路径。
+     *
+     * @return 调用后玩家是否已不在载具上
+     */
+    public static boolean forceDismountForDeath(ServerPlayer player) {
+        if (player == null || !player.isPassenger()) {
+            return false;
+        }
+        Entity vehicle = player.getVehicle();
+        player.stopRiding();
+        if (!player.isPassenger()) {
+            return true;
+        }
+        // 理论上不可达: 两个模组都只 mixin 了 wantsToStopRiding(拦"主动下车"), 未拦截 stopRiding/removeVehicle
+        org.mods.gd656conquest.server.shared.log.ServerLogger.failure(
+            "死亡强制下车未生效(载具模组拦截?): player=%s vehicle=%s",
+            player.getScoreboardName(),
+            vehicle == null ? "-" : vehicle.getClass().getName()
+        );
+        return false;
+    }
+
     public static boolean isAircraftEntity(Entity entity) {
         if (!isVehicleEntity(entity)) {
             return false;

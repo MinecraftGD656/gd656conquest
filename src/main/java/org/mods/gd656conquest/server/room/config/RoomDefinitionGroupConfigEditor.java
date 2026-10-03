@@ -54,7 +54,8 @@ public final class RoomDefinitionGroupConfigEditor {
             RoomPosition point = parsePosition(rawValue, editor);
             return replaceSupportPositionGroup(definition, canonical, point, false, false);
         }
-        RoomPosition position = parsePosition(rawValue, editor);
+        // GD656Mods: 出生点类配置 y 保留 1 位小数(贴合半砖/地毯高度, 取整会把玩家卡进方块)。
+        RoomPosition position = RoomPositionPrecision.spawn(parsePosition(rawValue, editor));
         return replaceSpawnGroup(definition, canonical, group -> addSpawn(group, position));
     }
 
@@ -1119,20 +1120,22 @@ public final class RoomDefinitionGroupConfigEditor {
             if (editor == null) {
                 throw new IllegalArgumentException("无法解析 here 坐标");
             }
-            return new RoomPosition(editor.getBlockX(), editor.getY(), editor.getBlockZ());
+            // GD656Mods: 边界 y 一律取整 —— here 取的是实体脚部坐标(带小数), 直接存会让同一条边界
+            // 在不同渲染通路上错开(debug overlay round / 部署界面 floor / 烘焙方块 floor(y-0.5))。
+            return RoomPositionPrecision.boundary(new RoomPosition(editor.getBlockX(), editor.getY(), editor.getBlockZ()));
         }
         String[] split = value.split(",");
         if (split.length == 2) {
             try {
                 int x = Integer.parseInt(split[0].trim());
                 int z = Integer.parseInt(split[1].trim());
-                return new RoomPosition(x, 0, z);
+                return RoomPositionPrecision.boundary(new RoomPosition(x, 0, z));
             } catch (Exception exception) {
                 throw new IllegalArgumentException("边界坐标格式错误，应为 x,z / x,y,z / here", exception);
             }
         }
         if (split.length == 3) {
-            return parsePosition(rawValue, editor);
+            return RoomPositionPrecision.boundary(parsePosition(rawValue, editor));
         }
         throw new IllegalArgumentException("边界坐标格式错误，应为 x,z / x,y,z / here");
     }

@@ -130,7 +130,13 @@ public final class RoomPlayerLaunchService {
     public Optional<ServerLevel> findRoomLevel(RoomDefinition room) {
         ResourceLocation location = resolveDimensionLocation(room);
         ResourceKey<net.minecraft.world.level.Level> key = ResourceKey.create(Registries.DIMENSION, location);
-        return Optional.ofNullable(server.getLevel(key));
+        ServerLevel level = server.getLevel(key);
+        if (level == null) {
+            // GD656Mods: 维度可能因"活跃上限锁定"被卸载 —— 传送前按需加载回来, 否则玩家会传送失败。
+            RoomDimensionControlService.reloadRoomDimension(server, key);
+            level = server.getLevel(key);
+        }
+        return Optional.ofNullable(level);
     }
 
     private RoomPosition resolveSpawn(RoomDefinition room, RoomTeamId teamId) {

@@ -5,8 +5,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
-import org.mods.gd656conquest.network.NetworkManager;
-import org.mods.gd656conquest.network.packet.AdminDebugOverlayPacket;
 import org.mods.gd656conquest.server.facility.support.SupportScoreService;
 import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
 import org.mods.gd656conquest.server.shared.log.ServerLogger;
@@ -38,10 +36,13 @@ public final class RoomCoreRuntimeManager {
 
     private final MinecraftServer server;
     private final Set<UUID> debugOverlayEnabledPlayers = new LinkedHashSet<>();
+    private final RoomAdminDebugOverlaySyncService adminDebugOverlaySync;
     private RoomCoreService coreService;
 
     private RoomCoreRuntimeManager(MinecraftServer server) {
         this.server = server;
+        // GD656Mods: debug overlay 改为"基线分片 + 增量 diff"传输, 会话状态随本管理器一起释放。
+        this.adminDebugOverlaySync = new RoomAdminDebugOverlaySyncService(server);
     }
 
     public static RoomCoreRuntimeManager of(MinecraftServer server) {
@@ -54,6 +55,9 @@ public final class RoomCoreRuntimeManager {
         ServerActionBarService.initialize(server);
         coreService = DefaultRoomCoreBootstrap.bootstrap(server);
         ServerLogger.info("房间服务已初始化，共装载 %d 个房间定义", coreService.listRooms().size());
+        // GD656Mods: 活跃上限是"派生状态" —— 启动时清掉上次运行遗留的 LOCKED, 并按当前活跃数重算
+        org.mods.gd656conquest.server.room.runtime.RoomActiveLimitService.of(server)
+            .recomputeOnStartup(coreService, server.getTickCount());
     }
 
     public void runStartupCleanRoomPass(long gameTick) {
@@ -689,8 +693,19 @@ public final class RoomCoreRuntimeManager {
         coreService.tickPlayerStates(gameTick);
         coreService.tickRooms(gameTick);
         syncAdminDebugOverlay(gameTick);
+        // GD656Mods: 活跃上限解锁兜底 —— "回到空闲"可能来自多条路径, 低频重算保证锁定不会卡住。
+        // 每 100 tick(5 秒)一次, 单次只是 32 个房间的内存比较, 开销可忽略。
+        if (gameTick % 100L == 0L) {
+            org.mods.gd656conquest.server.room.runtime.RoomActiveLimitService.of(server)
+                .reevaluate(coreService, gameTick);
+        }
     }
 
+    /**
+     * GD656Mods: 仅维护"该玩家是否开启调试"标记(不触发同步)。
+     * 开启/关闭请优先用 {@link #beginAdminDebugOverlay(ServerPlayer)} /
+     * {@link #endAdminDebugOverlay(ServerPlayer)} —— 它们会同时建立/销毁同步会话并下发基线或清空。
+     */
     public void setPlayerDebugOverlayEnabled(UUID playerId, boolean enabled) {
         if (playerId == null) {
             return;
@@ -706,22 +721,34 @@ public final class RoomCoreRuntimeManager {
         return playerId != null && debugOverlayEnabledPlayers.contains(playerId);
     }
 
+    /** GD656Mods: 开启调试覆盖层: 立即下发一次完整基线(自动分片), 不再等下一个同步周期。 */
+    public void beginAdminDebugOverlay(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        debugOverlayEnabledPlayers.add(player.getUUID());
+        adminDebugOverlaySync.beginForPlayer(player, coreService);
+    }
+
+    /** GD656Mods: 关闭调试覆盖层: 下发一次清空并销毁该玩家的同步会话。 */
+    public void endAdminDebugOverlay(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        debugOverlayEnabledPlayers.remove(player.getUUID());
+        adminDebugOverlaySync.endForPlayer(player);
+    }
+
     private void syncAdminDebugOverlay(long gameTick) {
         if (coreService == null || gameTick % 20L != 0L) {
             return;
         }
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (!isPlayerDebugOverlayEnabled(player.getUUID())) {
-                NetworkManager.sendToPlayer(player, new AdminDebugOverlayPacket("-"));
-                continue;
-            }
-            String payload = coreService.buildAdminDebugOverlayPayload(player).orElse("-");
-            NetworkManager.sendToPlayer(player, new AdminDebugOverlayPacket(payload));
-        }
+        adminDebugOverlaySync.tick(coreService, debugOverlayEnabledPlayers);
     }
 
     public void shutdown() {
         debugOverlayEnabledPlayers.clear();
+        adminDebugOverlaySync.reset();
         if (coreService != null) {
             coreService.shutdown();
         }

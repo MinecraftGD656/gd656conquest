@@ -86,6 +86,9 @@ public final class RunningRuntimeState {
     private final Map<UUID, Long> aircraftOutsideBoundarySinceTicks = new LinkedHashMap<>();
     private final Map<UUID, Integer> boundaryPenaltyLastShownSeconds = new LinkedHashMap<>();
     private final Set<UUID> boundaryPenaltyVisualApplied = new LinkedHashSet<>();
+    // GD656Mods: 记录上一次下发给该玩家的出界样式(是否空中载具乘员样式)。
+    // 出界期间玩家可能上/下飞机导致样式切换, 客户端需要重发才能跟上(否则饱和度会沿用旧样式)。
+    private final Map<UUID, Boolean> boundaryPenaltyAircraftStyle = new LinkedHashMap<>();
     private final Set<UUID> boundaryDeathPendingPlayers = new LinkedHashSet<>();
     private final Map<UUID, Long> boundaryHeightReportTicks = new LinkedHashMap<>();
     private final Set<UUID> boundaryPlayerMaxYReportedPlayers = new LinkedHashSet<>();
@@ -448,6 +451,11 @@ public final class RunningRuntimeState {
         return boundaryPenaltyVisualApplied;
     }
 
+    /** GD656Mods: 该玩家上一次收到的出界样式(是否空中载具乘员样式), 样式变化时需要重发。 */
+    public Map<UUID, Boolean> getBoundaryPenaltyAircraftStyle() {
+        return boundaryPenaltyAircraftStyle;
+    }
+
     public Set<UUID> getBoundaryDeathPendingPlayers() {
         return boundaryDeathPendingPlayers;
     }
@@ -691,6 +699,7 @@ public final class RunningRuntimeState {
         respawnCountdownLastShownSeconds.remove(playerId);
         boundaryPenaltyLastShownSeconds.remove(playerId);
         boundaryPenaltyVisualApplied.remove(playerId);
+        boundaryPenaltyAircraftStyle.remove(playerId);
         boundaryDeathPendingPlayers.remove(playerId);
         boundaryHeightReportTicks.remove(playerId);
         boundaryPlayerMaxYReportedPlayers.remove(playerId);
@@ -764,6 +773,7 @@ public final class RunningRuntimeState {
         outsideBoundarySinceTicks.clear();
         boundaryPenaltyLastShownSeconds.clear();
         boundaryPenaltyVisualApplied.clear();
+        boundaryPenaltyAircraftStyle.clear();
         boundaryDeathPendingPlayers.clear();
         aircraftOutsideBoundarySinceTicks.clear();
         boundaryHeightReportTicks.clear();
@@ -993,6 +1003,7 @@ public final class RunningRuntimeState {
         aircraftOutsideBoundarySinceTicks.remove(playerId);
         boundaryPenaltyLastShownSeconds.remove(playerId);
         boundaryPenaltyVisualApplied.remove(playerId);
+        boundaryPenaltyAircraftStyle.remove(playerId);
         boundaryDeathPendingPlayers.remove(playerId);
         boundaryHeightReportTicks.remove(playerId);
         boundaryPlayerMaxYReportedPlayers.remove(playerId);

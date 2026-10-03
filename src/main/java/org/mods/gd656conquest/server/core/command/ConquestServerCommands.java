@@ -21,7 +21,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.phys.Vec3;
 import org.mods.gd656conquest.network.NetworkManager;
-import org.mods.gd656conquest.network.packet.AdminDebugOverlayPacket;
 import org.mods.gd656conquest.network.packet.HudDebugPreviewPacket;
 import org.mods.gd656conquest.network.packet.MarkerDebugPreviewPacket;
 import org.mods.gd656conquest.network.packet.PlayerAnimatorDebugPacket;
@@ -40,6 +39,7 @@ import org.mods.gd656conquest.server.facility.range.RangeCommands;
 import org.mods.gd656conquest.server.facility.support.EquipmentSetCommands;
 import org.mods.gd656conquest.server.facility.support.HeroKitCommands;
 import org.mods.gd656conquest.server.facility.support.ShellingCommands;
+import org.mods.gd656conquest.server.limit.PlayerLimitCommands;
 import org.mods.gd656conquest.server.loadout.LoadoutCommands;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
 import org.mods.gd656conquest.server.player.lock.ServerPlayerLockService;
@@ -71,6 +71,7 @@ public final class ConquestServerCommands {
     private static final Map<String, Long> HUB_MIGRATION_CONFIRMATIONS = new ConcurrentHashMap<>();
     private static final List<String> SERVER_CONFIG_KEYS = List.of(
         "boolOverworldInvulnerable",
+        "maxActiveRooms",
         "boolRestrictConquestDimension",
         "boolNaturalRegeneration",
         "passiveRegenIntervalTicks",
@@ -97,6 +98,7 @@ public final class ConquestServerCommands {
         "groundSensorScanBonusCooldownSeconds",
         "boolEnableExperimentalPlayerBalance",
         "boolMaintenanceMode",
+        "maxPlayerLevel",
         "droneBatteryDurationSeconds",
         "kamikazeDroneBatteryDurationSeconds",
         "ammoBagTaczPistol",
@@ -139,6 +141,7 @@ public final class ConquestServerCommands {
         root.then(PartyCommands.buildTree());
         root.then(ActionCommands.buildTree());
         root.then(CaptureBoundaryBakeCommands.buildTree());
+        root.then(PlayerLimitCommands.buildTree());
 
         root.then(buildConfigAliasTree());
         root.then(buildDebugAliasTree());
@@ -288,7 +291,7 @@ public final class ConquestServerCommands {
                     .executes(ConquestServerCommands::executeLevelGet)))
             .then(Commands.literal("set")
                 .then(Commands.argument("targets", EntityArgument.players())
-                    .then(Commands.argument("level", IntegerArgumentType.integer(0, PlayerLevelService.MAX_LEVEL))
+                    .then(Commands.argument("level", IntegerArgumentType.integer(0, PlayerLevelService.ABSOLUTE_MAX_LEVEL))
                         .executes(ConquestServerCommands::executeLevelSet))));
     }
 
@@ -363,18 +366,19 @@ public final class ConquestServerCommands {
     private static int executeDebugOn(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
-        manager.setPlayerDebugOverlayEnabled(player.getUUID(), true);
-        String payload = manager.coreService().buildAdminDebugOverlayPayload(player).orElse("-");
-        NetworkManager.sendToPlayer(player, new AdminDebugOverlayPacket(payload));
+        boolean hasRows = manager.coreService().buildAdminDebugOverlayRowTable(player)
+            .map(rows -> !rows.isEmpty())
+            .orElse(false);
+        // GD656Mods: 开启时立即下发一次完整基线(自动分片), 之后每 20 tick 只发增量 diff。
+        manager.beginAdminDebugOverlay(player);
         manager.coreService().resyncPlayerPresentation(player, context.getSource().getServer().getTickCount());
-        return CommandFeedbacks.info(context.getSource(), "-".equals(payload) ? "调试覆盖层已开启，当前维度暂无可显示房间数据" : "调试覆盖层已开启");
+        return CommandFeedbacks.info(context.getSource(), hasRows ? "调试覆盖层已开启" : "调试覆盖层已开启，当前维度暂无可显示房间数据");
     }
 
     private static int executeDebugOff(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
         RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
-        manager.setPlayerDebugOverlayEnabled(player.getUUID(), false);
-        NetworkManager.sendToPlayer(player, new AdminDebugOverlayPacket("-"));
+        manager.endAdminDebugOverlay(player);
         manager.coreService().resyncPlayerPresentation(player, context.getSource().getServer().getTickCount());
         return CommandFeedbacks.info(context.getSource(), "调试覆盖层已关闭");
     }
@@ -544,6 +548,7 @@ public final class ConquestServerCommands {
         CommandFeedbacks.line(context.getSource(), ServerText.colored("groundSensorScanBonusCooldownSeconds=" + store.getGroundSensorScanBonusCooldownSeconds(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("boolEnableExperimentalPlayerBalance=" + store.isExperimentalPlayerBalanceEnabled(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("boolMaintenanceMode=" + store.isMaintenanceModeEnabled(), net.minecraft.ChatFormatting.AQUA));
+        CommandFeedbacks.line(context.getSource(), ServerText.colored("maxPlayerLevel=" + store.getMaxPlayerLevel(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("droneBatteryDurationSeconds=" + store.getDroneBatteryDurationSeconds(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("kamikazeDroneBatteryDurationSeconds=" + store.getKamikazeDroneBatteryDurationSeconds(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("ammoBagTaczPistol=" + store.getAmmoBagTaczPistol(), net.minecraft.ChatFormatting.AQUA));
@@ -604,6 +609,9 @@ public final class ConquestServerCommands {
             case "groundSensorScanBonusCooldownSeconds" -> config.setGroundSensorScanBonusCooldownSeconds(parsePositiveInt(rawValue));
             case "boolEnableExperimentalPlayerBalance" -> config.setBoolEnableExperimentalPlayerBalance(parseBooleanStrict(rawValue));
             case "boolMaintenanceMode" -> config.setBoolMaintenanceMode(parseBooleanStrict(rawValue));
+            // GD656Mods: 最大活跃(进行中)房间数 —— 负数(默认 -1)表示不限制, 0 表示不允许任何对局
+            case "maxActiveRooms" -> config.setMaxActiveRooms(parseMaxActiveRooms(rawValue));
+            case "maxPlayerLevel" -> config.setMaxPlayerLevel(parseMaxPlayerLevel(rawValue));
             case "droneBatteryDurationSeconds" -> config.setDroneBatteryDurationSeconds(parsePositiveInt(rawValue));
             case "kamikazeDroneBatteryDurationSeconds" -> config.setKamikazeDroneBatteryDurationSeconds(parsePositiveInt(rawValue));
             case "ammoBagTaczPistol" -> config.setAmmoBagTaczPistol(parseNonNegativeInt(rawValue));
@@ -684,6 +692,10 @@ public final class ConquestServerCommands {
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
             case "boolMaintenanceMode" ->
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
+            case "maxPlayerLevel" ->
+                SharedSuggestionProvider.suggest(List.of("100", "200", "500", "1024"), builder);
+            case "maxActiveRooms" ->
+                SharedSuggestionProvider.suggest(List.of("-1", "0", "1", "2", "3", "4"), builder);
             case "droneBatteryDurationSeconds" ->
                 SharedSuggestionProvider.suggest(List.of("30", "60", "90", "120"), builder);
             case "kamikazeDroneBatteryDurationSeconds" ->
@@ -748,6 +760,8 @@ public final class ConquestServerCommands {
             case "groundsensorscanbonuscooldownseconds", "groundsensorbonuscooldown", "sensorbonuscooldown" -> "groundSensorScanBonusCooldownSeconds";
             case "boolenableexperimentalplayerbalance", "experimentalplayerbalance", "playerbalance", "teambalance" -> "boolEnableExperimentalPlayerBalance";
             case "boolmaintenancemode", "maintenancemode", "maintenance" -> "boolMaintenanceMode";
+            case "maxplayerlevel", "maxlevel", "levelcap", "playerlevelcap" -> "maxPlayerLevel";
+            case "maxactiverooms", "maxactive", "activerooms", "maxrunningrooms", "maxrooms" -> "maxActiveRooms";
             case "dronebatterydurationseconds" -> "droneBatteryDurationSeconds";
             case "kamikazedronebatterydurationseconds" -> "kamikazeDroneBatteryDurationSeconds";
             case "ammobagtaczpistol", "taczpistolammo", "taczpistolammobag" -> "ammoBagTaczPistol";
@@ -800,6 +814,8 @@ public final class ConquestServerCommands {
             case "groundSensorScanBonusCooldownSeconds" -> String.valueOf(store.getGroundSensorScanBonusCooldownSeconds());
             case "boolEnableExperimentalPlayerBalance" -> String.valueOf(store.isExperimentalPlayerBalanceEnabled());
             case "boolMaintenanceMode" -> String.valueOf(store.isMaintenanceModeEnabled());
+            case "maxPlayerLevel" -> String.valueOf(store.getMaxPlayerLevel());
+            case "maxActiveRooms" -> String.valueOf(store.getMaxActiveRooms());
             case "droneBatteryDurationSeconds" -> String.valueOf(store.getDroneBatteryDurationSeconds());
             case "kamikazeDroneBatteryDurationSeconds" -> String.valueOf(store.getKamikazeDroneBatteryDurationSeconds());
             case "ammoBagTaczPistol" -> String.valueOf(store.getAmmoBagTaczPistol());
@@ -849,6 +865,40 @@ public final class ConquestServerCommands {
             return parsed;
         } catch (NumberFormatException exception) {
             throw new SimpleCommandExceptionType(Component.literal("配置值必须是正整数")).create();
+        }
+    }
+
+    /** GD656Mods: 等级上限, 允许 1..ABSOLUTE_MAX_LEVEL(1024)。 */
+    private static int parseMaxPlayerLevel(String value) throws CommandSyntaxException {
+        try {
+            int parsed = Integer.parseInt(value);
+            if (parsed < 1 || parsed > PlayerLevelService.ABSOLUTE_MAX_LEVEL) {
+                throw new SimpleCommandExceptionType(
+                    Component.literal("等级上限必须在 1.." + PlayerLevelService.ABSOLUTE_MAX_LEVEL + " 之间")
+                ).create();
+            }
+            return parsed;
+        } catch (NumberFormatException exception) {
+            throw new SimpleCommandExceptionType(Component.literal("等级上限必须是整数")).create();
+        }
+    }
+
+    /**
+     * GD656Mods: 最大活跃房间数解析 —— 负数一律归为 -1(禁用限制), 0 表示不允许任何对局, 上限 64。
+     * 不能复用 parseNonNegativeInt, 因为后者会拒绝 -1。
+     */
+    private static int parseMaxActiveRooms(String value) throws CommandSyntaxException {
+        try {
+            int parsed = Integer.parseInt(value == null ? "" : value.trim());
+            if (parsed < 0) {
+                return -1;
+            }
+            if (parsed > 64) {
+                throw new SimpleCommandExceptionType(Component.literal("最大活跃房间数不能大于 64")).create();
+            }
+            return parsed;
+        } catch (NumberFormatException exception) {
+            throw new SimpleCommandExceptionType(Component.literal("配置值必须是整数(-1 表示不限制)")).create();
         }
     }
 

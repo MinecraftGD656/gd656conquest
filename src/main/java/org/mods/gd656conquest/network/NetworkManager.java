@@ -41,7 +41,7 @@ import org.mods.gd656conquest.network.packet.RoomMarkerSyncPacket;
 import org.mods.gd656conquest.network.packet.RoomMatchResultPacket;
 import org.mods.gd656conquest.network.packet.RoomMatchLoadPacket;
 import org.mods.gd656conquest.network.packet.RoomTeamMirrorSyncPacket;
-import org.mods.gd656conquest.network.packet.AdminDebugOverlayPacket;
+import org.mods.gd656conquest.network.packet.AdminDebugOverlaySyncPacket;
 import org.mods.gd656conquest.network.packet.HudDebugPreviewPacket;
 import org.mods.gd656conquest.network.packet.MarkerDebugPreviewPacket;
 import org.mods.gd656conquest.network.packet.ClientLoopSoundPacket;
@@ -181,10 +181,10 @@ public final class NetworkManager {
         );
         CHANNEL.registerMessage(
                 packetId++,
-                AdminDebugOverlayPacket.class,
-                AdminDebugOverlayPacket::encode,
-                AdminDebugOverlayPacket::decode,
-                AdminDebugOverlayPacket::handle
+                AdminDebugOverlaySyncPacket.class,
+                AdminDebugOverlaySyncPacket::encode,
+                AdminDebugOverlaySyncPacket::decode,
+                AdminDebugOverlaySyncPacket::handle
         );
         CHANNEL.registerMessage(
                 packetId++,

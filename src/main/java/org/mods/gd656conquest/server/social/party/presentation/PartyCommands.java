@@ -10,7 +10,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.server.level.ServerPlayer;
-import org.mods.gd656conquest.server.player.identity.PlayerIdentityService;
+import org.mods.gd656conquest.server.shared.command.PlayerNameSuggestions;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -30,7 +30,7 @@ public final class PartyCommands {
             .then(Commands.literal("list").executes(PartyActionController::executeList))
             .then(Commands.literal("invite")
                 .then(Commands.argument("player", StringArgumentType.string())
-                    .suggests(PartyCommands::suggestKnownPlayerNames)
+                    .suggests(PlayerNameSuggestions::suggestKnownPlayers)
                     .executes(context -> PartyActionController.executeInvite(context, StringArgumentType.getString(context, "player")))))
             .then(Commands.literal("apply")
                 .then(Commands.argument("partyId", StringArgumentType.string())
@@ -53,10 +53,6 @@ public final class PartyCommands {
                         .executes(context -> PartyActionController.executeLeaderTransfer(context, StringArgumentType.getString(context, "player"))))));
     }
 
-    private static CompletableFuture<Suggestions> suggestKnownPlayerNames(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
-        return SharedSuggestionProvider.suggest(PlayerIdentityService.of(context.getSource().getServer()).suggestKnownPlayerNames(), builder);
-    }
-
     private static CompletableFuture<Suggestions> suggestPartyIds(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         return SharedSuggestionProvider.suggest(PartyUiFacade.of(context.getSource().getServer()).suggestPartyIds(), builder);
     }
@@ -72,6 +68,6 @@ public final class PartyCommands {
             .findCurrentParty(player)
             .map(description -> description.members().stream().map(member -> member.displayName()).sorted(String.CASE_INSENSITIVE_ORDER).toList())
             .orElse(List.of());
-        return SharedSuggestionProvider.suggest(suggestions, builder);
+        return PlayerNameSuggestions.suggest(suggestions, builder);
     }
 }

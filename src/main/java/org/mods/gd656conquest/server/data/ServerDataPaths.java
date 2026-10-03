@@ -18,6 +18,11 @@ public final class ServerDataPaths {
         return getModRoot(server).resolve("serverconfig.json");
     }
 
+    /** GD656Mods: 服务器人数限制配置(独立 json)。 */
+    public static Path getPlayerLimitFile(MinecraftServer server) {
+        return getModRoot(server).resolve("playerlimit.json");
+    }
+
     public static Path getPlayerDataDirectory(MinecraftServer server) {
         return getModRoot(server).resolve("playerdata");
     }

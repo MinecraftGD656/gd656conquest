@@ -365,8 +365,9 @@ public final class TacticalMarkerRenderer {
                 case OBSERVE_GROUND -> new MarkerVisual(MarkerShape.TRIANGLE, 0.96F, 0.54F, 0.12F, 0.90F, TRIANGLE_HALF_WIDTH, null, false, false, false);
                 case REQUEST_STRIKE -> new MarkerVisual(MarkerShape.DIAMOND, 0.96F, 0.54F, 0.12F, 0.95F, DIAMOND_HALF_DIAGONAL, null, false, false, false);
                 case ENEMY_GROUND -> new MarkerVisual(MarkerShape.DIAMOND, 0.84F, 0.20F, 0.20F, 0.90F, DIAMOND_HALF_DIAGONAL, null, false, false, false);
-                case ENEMY_TRACKED -> new MarkerVisual(MarkerShape.TRIANGLE, 0.84F, 0.20F, 0.20F, 0.90F, TRIANGLE_HALF_WIDTH, null, false, false, false);
-                case AUTO_ENEMY -> new MarkerVisual(MarkerShape.TRIANGLE, 0.84F, 0.20F, 0.20F, 0.60F, TRIANGLE_HALF_WIDTH, null, false, false, false);
+                // GD656Mods: 跟踪敌军实体 / 自动标记敌军实体取折中红(比地面标记深, 比纯深红浅)
+                case ENEMY_TRACKED -> new MarkerVisual(MarkerShape.TRIANGLE, 0.69F, 0.10F, 0.10F, 0.90F, TRIANGLE_HALF_WIDTH, null, false, false, false);
+                case AUTO_ENEMY -> new MarkerVisual(MarkerShape.TRIANGLE, 0.69F, 0.10F, 0.10F, 0.60F, TRIANGLE_HALF_WIDTH, null, false, false, false);
                 case ALLY_PERSISTENT -> new MarkerVisual(MarkerShape.CIRCLE, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.50F, ALLY_DOT_RADIUS, null, false, true, false);
                 case SQUAD_PERSISTENT -> new MarkerVisual(MarkerShape.CIRCLE, SQUAD_GREEN_RED, SQUAD_GREEN_GREEN, SQUAD_GREEN_BLUE, 0.50F, ALLY_DOT_RADIUS, null, false, true, true);
                 case DOWNED_ALLY -> new MarkerVisual(MarkerShape.CIRCLE, ALLY_CYAN_RED, ALLY_CYAN_GREEN, ALLY_CYAN_BLUE, 0.85F, DOWNED_RADIUS, TEX_DOWNED_MEDICAL, true, true, false);

@@ -111,6 +111,35 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         return value == null || value <= 0 ? 30 : value;
     }
 
+    /** GD656Mods: 玩家等级上限; 默认 100, 允许 1..1024。 */
+    public synchronized int getMaxPlayerLevel() {
+        return sanitizeMaxPlayerLevel(get().getMaxPlayerLevel());
+    }
+
+    /** GD656Mods: 等级上限取值约束。 */
+    public static int sanitizeMaxPlayerLevel(Integer value) {
+        if (value == null) {
+            return 100;
+        }
+        return Math.max(1, Math.min(1024, value));
+    }
+
+    /** GD656Mods: 最大活跃房间数; 0 = 不限制, 上限 64。 */
+    public synchronized int getMaxActiveRooms() {
+        return sanitizeMaxActiveRooms(get().getMaxActiveRooms());
+    }
+
+    /** GD656Mods: 最大活跃房间数取值约束 —— 负数一律视为"禁用限制"(-1), 0 表示不允许任何对局, 上限 64。 */
+    public static int sanitizeMaxActiveRooms(Integer value) {
+        if (value == null) {
+            return -1;
+        }
+        if (value < 0) {
+            return -1;
+        }
+        return Math.min(64, value);
+    }
+
     public synchronized int getAmmoBagTaczPistol() {
         Integer value = get().getAmmoBagTaczPistol();
         return value == null ? 6 : Math.max(0, value);
@@ -297,6 +326,10 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         if (model.getBoolMaintenanceMode() == null) {
             model.setBoolMaintenanceMode(false);
         }
+        // GD656Mods: 等级上限约束(默认 100, 1..1024)
+        model.setMaxPlayerLevel(sanitizeMaxPlayerLevel(model.getMaxPlayerLevel()));
+        // GD656Mods: 最大活跃房间数(0 = 不限制, 上限 64)
+        model.setMaxActiveRooms(sanitizeMaxActiveRooms(model.getMaxActiveRooms()));
         if (model.getDroneBatteryDurationSeconds() == null || model.getDroneBatteryDurationSeconds() <= 0) {
             model.setDroneBatteryDurationSeconds(60);
         }

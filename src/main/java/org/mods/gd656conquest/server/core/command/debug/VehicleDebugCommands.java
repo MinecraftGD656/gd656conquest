@@ -40,7 +40,7 @@ import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 public final class VehicleDebugCommands {
-    private static final int DEFAULT_LIST_LIMIT = 20;
+    private static final int DEFAULT_LIST_LIMIT = 50;
 
     private VehicleDebugCommands() {
     }
@@ -114,7 +114,10 @@ public final class VehicleDebugCommands {
             );
         }
         CommandFeedbacks.line(context.getSource(), ServerText.colored("========== 载具 ID 列表 ==========", ChatFormatting.GOLD));
-        CommandFeedbacks.line(context.getSource(), ServerText.colored("backend=" + backend.value(), ChatFormatting.AQUA));
+        CommandFeedbacks.line(
+            context.getSource(),
+            ServerText.colored("backend=" + backend.value() + " | total=" + vehicleIds.size(), ChatFormatting.AQUA)
+        );
         int limit = Math.min(DEFAULT_LIST_LIMIT, vehicleIds.size());
         for (int i = 0; i < limit; i++) {
             CommandFeedbacks.line(context.getSource(), ServerText.colored(vehicleIds.get(i), ChatFormatting.AQUA));

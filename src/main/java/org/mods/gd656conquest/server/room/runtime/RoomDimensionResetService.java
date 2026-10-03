@@ -61,6 +61,14 @@ public final class RoomDimensionResetService {
     }
 
     public Path resetDimensionFromTemplate(RoomDefinition definition, Path templatePath) {
+        return resetDimensionFromTemplate(definition, templatePath, true);
+    }
+
+    /**
+     * GD656Mods: {@code reloadAfter=false} 时只做"卸载维度 + 从模板重建存档", 不重新加载维度 ——
+     * 供"活跃上限锁定"使用: 被锁定的房间必须保持维度卸载状态。
+     */
+    public Path resetDimensionFromTemplate(RoomDefinition definition, Path templatePath, boolean reloadAfter) {
         Objects.requireNonNull(definition, "definition");
         Objects.requireNonNull(templatePath, "templatePath");
         ResourceKey<Level> dimensionKey = requireDimensionKey(definition);
@@ -73,8 +81,10 @@ public final class RoomDimensionResetService {
         try {
             replaceByTemplate(templateDataRoot, savePath);
         } finally {
-            reloadAndVerifyDimension(dimensionKey);
-            prepareLevelAfterReplacement(dimensionKey);
+            if (reloadAfter) {
+                reloadAndVerifyDimension(dimensionKey);
+                prepareLevelAfterReplacement(dimensionKey);
+            }
         }
         return savePath;
     }

@@ -89,6 +89,7 @@ public final class RoomListPresentationService {
             case DISABLED -> "禁用";
             case CLEANING -> "清理中";
             case SAVING -> "保存中";
+            case LOCKED -> "已锁定";
             case IDLE -> "空闲";
         };
     }
@@ -104,6 +105,7 @@ public final class RoomListPresentationService {
             case MAINTENANCE -> ChatFormatting.BLUE;
             case DISABLED -> ChatFormatting.DARK_GRAY;
             case CLEANING, SAVING -> ChatFormatting.RED;
+            case LOCKED -> ChatFormatting.GOLD;
             case IDLE -> ChatFormatting.WHITE;
         };
     }

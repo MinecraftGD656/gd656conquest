@@ -57,7 +57,7 @@ public final class ServerChatFormatService {
             if (!isViewerEligible(channel.scope, coreManager, viewer, roomId, senderTeamKey)) {
                 continue;
             }
-            ServerMessageSender.system(viewer, null, buildFormattedLine(sender, viewer, coreManager, roomId, senderTeamKey, channel, messageBody));
+            ServerMessageSender.rawSystem(viewer, buildFormattedLine(sender, viewer, coreManager, roomId, senderTeamKey, channel, messageBody));
         }
         if (channel == ChatChannel.TEAM) {
             ChatChannelNoticeService.handleTeamChannelMessage(sender);
@@ -79,7 +79,7 @@ public final class ServerChatFormatService {
             if (viewer == null) {
                 continue;
             }
-            ServerMessageSender.system(viewer, null, buildFormattedLine(sender, viewer, coreManager, roomId, senderTeamKey, ChatChannel.PARTY, messageBody));
+            ServerMessageSender.rawSystem(viewer, buildFormattedLine(sender, viewer, coreManager, roomId, senderTeamKey, ChatChannel.PARTY, messageBody));
         }
     }
 
@@ -205,9 +205,10 @@ public final class ServerChatFormatService {
         String roomToken = resolveRoomToken(coreManager, sender, senderRoomId);
         int senderLevel = PlayerLevelService.getEffectiveLevel(sender);
         MutableComponent line = Component.empty()
+                // GD656Mods: 频道字段提到最前; 玩家聊天不再带 [六五六大战场] 前缀(由发送方 rawSystem 保证)
+                .append(Component.literal("<" + channel.label + "> ").withStyle(channel.color))
                 .append(Component.literal("[" + roomToken + "] ").withStyle(style -> style.withColor(0x5FB4FF)))
-                .append(PlayerTitleService.of(sender.server).buildChatLevelPrefix(sender, senderLevel))
-                .append(Component.literal("<" + channel.label + "> ").withStyle(channel.color));
+                .append(PlayerTitleService.of(sender.server).buildChatLevelPrefix(sender, senderLevel));
         String senderTeamName = resolveTeamDisplayName(sender, coreManager);
         if (!senderRoomId.isBlank() && !senderTeamKey.isBlank()) {
             ChatFormatting relationColor = resolveRelationColor(coreManager, viewer, senderRoomId, senderTeamKey);

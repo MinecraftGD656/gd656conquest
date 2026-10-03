@@ -22,6 +22,10 @@ public final class RoomJoinAccessPolicy {
             return JoinCheckResult.denied("未找到房间", false);
         }
         RoomLifecycleState lifecycleState = room.lifecycleState();
+        if (lifecycleState == RoomLifecycleState.LOCKED) {
+            // GD656Mods: 活跃对局数量达到上限时的临时锁定
+            return JoinCheckResult.denied("加入失败，该房间已被锁定：服务器当前活跃对局数量已达上限", false);
+        }
         if (lifecycleState == RoomLifecycleState.DISABLED
             || lifecycleState == RoomLifecycleState.ENDING
             || lifecycleState == RoomLifecycleState.CLEANING

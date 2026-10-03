@@ -14,6 +14,7 @@ import org.mods.gd656conquest.server.data.roomtemplate.RoomTemplateRepository;
 import org.mods.gd656conquest.server.data.serverconfig.ServerConfigStore;
 import org.mods.gd656conquest.server.data.util.DelayedJsonWriteService;
 import org.mods.gd656conquest.server.data.vehicledata.VehicleConfigRepository;
+import org.mods.gd656conquest.server.limit.PlayerLimitDataStore;
 import org.mods.gd656conquest.server.title.PlayerTitleRegistryStore;
 
 import java.util.Map;
@@ -35,6 +36,7 @@ public final class ConquestDataManager {
     private final WeaponAttachmentDataStore weaponAttachmentDataStore;
     private final VehicleConfigRepository vehicleConfigRepository;
     private final ParkourDataStore parkourDataStore;
+    private final PlayerLimitDataStore playerLimitDataStore;
     private final DelayedJsonWriteService delayedJsonWriteService;
     private boolean initialized;
 
@@ -53,6 +55,7 @@ public final class ConquestDataManager {
         this.weaponAttachmentDataStore = new WeaponAttachmentDataStore(server, delayedJsonWriteService);
         this.vehicleConfigRepository = new VehicleConfigRepository(server, delayedJsonWriteService);
         this.parkourDataStore = new ParkourDataStore(server, delayedJsonWriteService);
+        this.playerLimitDataStore = new PlayerLimitDataStore(server, delayedJsonWriteService);
     }
 
     public static ConquestDataManager of(MinecraftServer server) {
@@ -86,6 +89,7 @@ public final class ConquestDataManager {
         weaponAttachmentDataStore.initialize();
         vehicleConfigRepository.initialize();
         parkourDataStore.initialize();
+        playerLimitDataStore.initialize();
         initialized = true;
     }
 
@@ -160,5 +164,11 @@ public final class ConquestDataManager {
     public ParkourDataStore parkourData() {
         initialize();
         return parkourDataStore;
+    }
+
+    /** GD656Mods: 服务器人数限制配置。 */
+    public PlayerLimitDataStore playerLimit() {
+        initialize();
+        return playerLimitDataStore;
     }
 }

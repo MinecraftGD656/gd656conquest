@@ -177,13 +177,18 @@ public final class ClientRoomMarkerState {
      * </ul>
      */
     public static List<ClientRoomMinimapMarkerSnapshot> snapshotMinimapMarkers() {
-        if (!isInRunningRoom() || markers.isEmpty()) {
+        if (!isInRunningRoom()) {
             return List.of();
         }
         Minecraft minecraft = Minecraft.getInstance();
         long gameTime = minecraft.level == null ? 0L : minecraft.level.getGameTime();
+        // GD656Mods: 与 3D 标记渲染共用同一数据源, 否则客户端扫描实体得到的弹药箱/医疗箱/信标标记不会进入小地图
+        List<ClientMarker> visibleMarkers = collectRenderableMarkers(minecraft, gameTime);
+        if (visibleMarkers.isEmpty()) {
+            return List.of();
+        }
         List<ClientRoomMinimapMarkerSnapshot> snapshots = new ArrayList<>();
-        for (ClientMarker marker : markers) {
+        for (ClientMarker marker : visibleMarkers) {
             if (marker == null || marker.kind() == null) {
                 continue;
             }
@@ -196,8 +201,7 @@ public final class ClientRoomMarkerState {
                 case AMMO_BOX, MEDICAL_BOX -> ClientRoomMinimapMarkerSnapshot.MarkerIconKind.SUPPLY_BOX;
                 case AMMO_BAG, MEDICAL_BAG -> ClientRoomMinimapMarkerSnapshot.MarkerIconKind.SUPPLY_BAG;
                 case BEACON_FRIENDLY -> ClientRoomMinimapMarkerSnapshot.MarkerIconKind.RESPAWN_BEACON;
-                case ALLY_PERSISTENT, SQUAD_PERSISTENT, DOWNED_ALLY, DOWNED_SQUAD, RESCUE_ALLY, RESCUE_SQUAD, NEED_AMMO_ALLY, NEED_AMMO_SQUAD ->
-                    ClientRoomMinimapMarkerSnapshot.MarkerIconKind.ALLY;
+                // GD656Mods: 友军/小队队友标记不再送小地图 —— Xaero 原生雷达已绘制队友图标(菱形), 否则会叠出重复的圆点
                 default -> null;
             };
             if (iconKind == null) {

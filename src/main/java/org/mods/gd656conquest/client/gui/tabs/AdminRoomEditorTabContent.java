@@ -495,7 +495,7 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
         return switch (state) {
             case DISABLED -> "禁用"; case MAINTENANCE -> "维护中"; case IDLE -> "空闲";
             case MATCHING -> "匹配中"; case RUNNING -> "进行中"; case ENDING -> "结算中";
-            case SAVING -> "保存中"; case CLEANING -> "清理中";
+            case SAVING -> "保存中"; case CLEANING -> "清理中"; case LOCKED -> "已锁定";
         };
     }
 

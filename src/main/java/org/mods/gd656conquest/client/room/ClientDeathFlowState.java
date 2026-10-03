@@ -92,6 +92,9 @@ public final class ClientDeathFlowState {
     private static float currentDeployIconAlpha;
     private static float targetDeployIconAlpha;
     private static boolean boundaryPenaltyActive;
+    // GD656Mods: 出界提示是否为空中载具乘员样式。饱和度只跟随步兵出界 ——
+    // 空中载具乘员出界只显示提示, 不降低视角饱和度。
+    private static boolean boundaryPenaltyAircraftStyle;
     private static float hurtFlashRemainSeconds;
     private static int lastHurtTime = -1;
     private static long lastVisualUpdateNanos = -1L;
@@ -568,6 +571,7 @@ public final class ClientDeathFlowState {
         currentDeployIconAlpha = 0.0F;
         targetDeployIconAlpha = 0.0F;
         boundaryPenaltyActive = false;
+        boundaryPenaltyAircraftStyle = false;
         hurtFlashRemainSeconds = 0.0F;
         lastHurtTime = -1;
         lastVisualUpdateNanos = -1L;
@@ -625,7 +629,19 @@ public final class ClientDeathFlowState {
     }
 
     public static void setBoundaryPenaltyActive(boolean activeFlag) {
+        setBoundaryPenaltyActive(activeFlag, false);
+    }
+
+    /**
+     * GD656Mods: 出界惩罚状态。
+     *
+     * @param aircraftStyle 出界提示是否为空中载具乘员样式。空中载具乘员出界不降低视角饱和度,
+     *                      因此该标志与"是否施加去饱和"绑定 —— 两者必须来自服务端的同一判定,
+     *                      否则会出现"提示已是空中样式, 饱和度还降着"的不一致。
+     */
+    public static void setBoundaryPenaltyActive(boolean activeFlag, boolean aircraftStyle) {
         boundaryPenaltyActive = activeFlag;
+        boundaryPenaltyAircraftStyle = activeFlag && aircraftStyle;
     }
 
     private static void updateVisualEffects(Minecraft minecraft, LocalPlayer player) {
@@ -640,7 +656,8 @@ public final class ClientDeathFlowState {
             downedEntryFadeElapsedSeconds = 0.0F;
         }
         targetDesaturation = (deathVisualsActive || phase == PHASE_DOWNED_HOLD) ? deathDesaturationTarget : 0.0F;
-        if (boundaryPenaltyActive) {
+        // GD656Mods: 只有步兵出界才降低视角饱和度; 空中载具乘员出界(提示为空中样式)不降饱和。
+        if (boundaryPenaltyActive && !boundaryPenaltyAircraftStyle) {
             targetDesaturation = Math.max(targetDesaturation, DEATH_DESATURATION_LEVEL);
         }
         boolean deployPhase = phase == PHASE_DEPLOY_TRAVEL || phase == PHASE_DEPLOY_OPEN;

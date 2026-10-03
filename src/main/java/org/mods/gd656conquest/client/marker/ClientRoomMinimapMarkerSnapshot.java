@@ -20,6 +20,8 @@ public record ClientRoomMinimapMarkerSnapshot(
 ) {
     public enum MarkerIconKind {
         ALLY,
+        ALLY_TEAM,
+        ALLY_SQUAD,
         MAP_MARKER,
         OBSERVE_GROUND,
         REQUEST_STRIKE,
