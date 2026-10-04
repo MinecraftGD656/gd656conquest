@@ -169,6 +169,8 @@ final class ClientCaptureOverlayCodec {
                 boolean stageObjectiveProxy = false;
                 VehicleHudState vehicleState = VehicleHudState.READY;
                 boolean vehicleLowHealth = false;
+                // GD656Mods: 服务端下发的"能否部署"标志(第 12 列)
+                boolean vehicleDeployable = false;
                 if (kind == IconKind.BOUNDARY) {
                     TeamToken boundaryTeam = TeamToken.from(cols[1]);
                     BoundaryPoint point = new BoundaryPoint(x, y, z, boundaryTeam);
@@ -185,6 +187,8 @@ final class ClientCaptureOverlayCodec {
                 if (kind == IconKind.VEHICLE) {
                     vehicleState = cols.length >= 10 ? VehicleHudState.from(cols[9]) : VehicleHudState.READY;
                     vehicleLowHealth = cols.length >= 11 && "1".equals(cols[10]);
+                    // GD656Mods: 老服务端不带该列时保持 false(不可部署), 避免误放开点击
+                    vehicleDeployable = cols.length >= 12 && "1".equals(cols[11]);
                 }
                 float normalized = kind == IconKind.TEAMMATE ? progress : Mth.clamp(progress, 0.0F, 100.0F);
                 CaptureIconEntry entry = new CaptureIconEntry(
@@ -200,7 +204,8 @@ final class ClientCaptureOverlayCodec {
                     teammateCombat,
                     stageObjectiveProxy,
                     vehicleState,
-                    vehicleLowHealth
+                    vehicleLowHealth,
+                    vehicleDeployable
                 );
                 if (dedupe.add(entry.renderId())) {
                     entries.add(entry);

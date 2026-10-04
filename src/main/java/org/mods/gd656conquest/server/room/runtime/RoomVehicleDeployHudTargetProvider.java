@@ -51,7 +51,10 @@ public final class RoomVehicleDeployHudTargetProvider implements RoomDeployHudTa
                 resolveHealthPercent(record),
                 resolveDisplayName(record),
                 VehicleDisplayStateTokenResolver.toToken(resolution.displayState()),
-                isLowHealth(record)
+                isLowHealth(record),
+                // GD656Mods: 显式下发"能否部署"(resolution.success()), 客户端图标据此判断是否可点击,
+                // 不再靠颜色猜 —— 见 RoomDeployHudElement.vehicle 的注释
+                resolution.success()
             ));
         }
     }

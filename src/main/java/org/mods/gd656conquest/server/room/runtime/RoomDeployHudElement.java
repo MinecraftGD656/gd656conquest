@@ -126,7 +126,8 @@ public record RoomDeployHudElement(
         double healthPercent,
         String note,
         String stateToken,
-        boolean lowHealth
+        boolean lowHealth,
+        boolean deployable
     ) {
         return new RoomDeployHudElement(
             RoomDeployHudElementKind.VEHICLE,
@@ -138,7 +139,10 @@ public record RoomDeployHudElement(
             toTeamToken(drivingTeam),
             healthPercent,
             note,
-            List.of(stateToken == null ? "" : stateToken, lowHealth ? "1" : "0")
+            // GD656Mods: 第 3 列 = 服务端权威的"该玩家能否部署到这台载具"。
+            // 不能只靠 stateToken 判断: TEAM(蓝色)既可能是"阵营友军驾驶但允许全员部署"(可部署),
+            // 也可能是"阵营友军驾驶且只允许小队"(不可部署), 两者颜色相同。
+            List.of(stateToken == null ? "" : stateToken, lowHealth ? "1" : "0", deployable ? "1" : "0")
         );
     }
 

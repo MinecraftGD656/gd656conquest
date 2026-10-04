@@ -190,10 +190,11 @@ final class ClientCaptureOverlayModel {
             };
         }
 
-        boolean deployable() {
-            return this == READY || this == EMPTY || this == SQUAD;
-        }
-
+        /**
+         * GD656Mods: 该枚举现在只用于"颜色/文案" —— 是否可部署改由服务端下发的
+         * {@code CaptureIconEntry.vehicleDeployable} 决定(原 deployable() 已删除, 因为它无法区分
+         * "友军驾驶但全员可部署"与"友军驾驶且不可部署"这两种同为 TEAM 的情况)。
+         */
         String label() {
             return switch (this) {
                 case READY -> "\u53ef\u90e8\u7f72";
@@ -220,7 +221,9 @@ final class ClientCaptureOverlayModel {
         boolean teammateCombat,
         boolean stageObjectiveProxy,
         VehicleHudState vehicleState,
-        boolean vehicleLowHealth
+        boolean vehicleLowHealth,
+        /** GD656Mods: 服务端下发的"该玩家能否部署到这台载具"(权威值, 无颜色歧义)。 */
+        boolean vehicleDeployable
     ) {
         String renderId() {
             return kind.name() + ":" + code;
@@ -231,7 +234,12 @@ final class ClientCaptureOverlayModel {
                 return false;
             }
             if (isVehicleMarker()) {
-                return vehicleState != null && vehicleState.deployable();
+                // GD656Mods: 采用服务端下发的权威标志, 而不是从颜色推断。
+                // 载具图标是蓝色(TEAM)时可能是两种情况:
+                //   1. 载具被阵营友军(非本小队)驾驶, 但该载具注册为"所有人可部署" -> 应当可点击;
+                //   2. 载具被阵营友军驾驶且未开放全员部署 -> 仍应不可点击(保持原状)。
+                // 两者的 stateToken 都是 TEAM, 因此必须靠 vehicleDeployable 区分。
+                return vehicleDeployable;
             }
             if (owner != selfTeam) {
                 return false;
