@@ -1078,6 +1078,15 @@ public final class RoomPlayerRespawnService {
         if (room == null || state == null || reviver == null || !reviver.isAlive() || reviver.isSpectator() || state.isPlayerDowned(reviver.getUUID()) || state.isInRespawnFlow(reviver.getUUID())) {
             return false;
         }
+        // GD656Mods: 已经在救援中就直接返回, 不重新解析目标。
+        // 客户端在"可救援目标发生变化"时会重发 revive_start(见 ClientReviveState.tick),
+        // 而这里原先每次都会重新挑一个"最近的可救援目标"并 state.startRevive(...) 覆盖,
+        // 连带把 reviveStartTicksByReviver 重置 —— 表现出来就是:
+        // "救援途中冒出新目标时, 当前救援被异常打断, 转而去救中途插进来的那个玩家"。
+        // 想中途换人应当是"松开 F 再按"的语义(会先发 revive_stop)。
+        if (state.getReviveTargetByReviver().containsKey(reviver.getUUID())) {
+            return true;
+        }
         // GD656Mods: 拆弹/装弹(Rush)优先于救援 —— 正在执行优先操作(如拆弹/装弹)的玩家不接受救援开始请求
         if (state.getGameplayRuntime()
             .filter(runtime -> runtime.isPerformingPriorityAction(reviver.getUUID()))
@@ -1841,8 +1850,12 @@ public final class RoomPlayerRespawnService {
         String viewerSquad = state.getSquadLabelsByPlayer().get(viewerId);
         boolean viewerIsAssault = resolvePlayerClassType(viewer) == PlayerClassType.ASSAULT;
         ServerPlayer bestTarget = null;
-        boolean bestSquadMate = false;
         double bestDistanceSqr = Double.MAX_VALUE;
+        // GD656Mods: "主次"修正 —— 优先在"可救援的目标"里取最近; 只有完全没有可救援目标时,
+        // 才退回用最近的一个来展示"需要突击兵种"的提示。原实现只看"最近的", 若最近的是
+        // 非小队的友军而自己又不是突击兵, 就会直接判定不可救援, 从而漏掉更远处真正能救的队友。
+        ServerPlayer nearestAnyTarget = null;
+        double nearestAnyDistanceSqr = Double.MAX_VALUE;
         for (UUID targetId : state.getDownedExpireTicks().keySet()) {
             if (targetId == null || targetId.equals(viewerId) || state.getRoomTeams().get(targetId) != viewerTeam) {
                 continue;
@@ -1855,21 +1868,37 @@ public final class RoomPlayerRespawnService {
                 continue;
             }
             double distanceSqr = viewer.distanceToSqr(target);
-            if (distanceSqr > DOWNED_RESCUE_HINT_DISTANCE_SQR || distanceSqr >= bestDistanceSqr) {
+            if (distanceSqr > DOWNED_RESCUE_HINT_DISTANCE_SQR) {
+                continue;
+            }
+            if (distanceSqr < nearestAnyDistanceSqr) {
+                nearestAnyTarget = target;
+                nearestAnyDistanceSqr = distanceSqr;
+            }
+            boolean squadMate = isSameSquad(viewerSquad, state.getSquadLabelsByPlayer().get(targetId));
+            if (!viewerIsAssault && !squadMate) {
+                continue;
+            }
+            if (distanceSqr >= bestDistanceSqr) {
                 continue;
             }
             bestTarget = target;
-            bestSquadMate = isSameSquad(viewerSquad, state.getSquadLabelsByPlayer().get(targetId));
             bestDistanceSqr = distanceSqr;
         }
         if (bestTarget == null) {
-            return null;
+            if (nearestAnyTarget == null) {
+                return null;
+            }
+            return new DownedRescueHint(
+                nearestAnyTarget.getUUID(),
+                nearestAnyTarget.getScoreboardName(),
+                "§7需要 §6突击 §7兵种得以救援",
+                false,
+                viewerIsAssault
+            );
         }
-        boolean canRevive = viewerIsAssault || bestSquadMate;
-        String prompt = canRevive
-            ? "§6长按[F]急救"
-            : "§7需要 §6突击 §7兵种得以救援";
-        return new DownedRescueHint(bestTarget.getUUID(), bestTarget.getScoreboardName(), prompt, canRevive, viewerIsAssault);
+        String prompt = "§6长按[F]急救";
+        return new DownedRescueHint(bestTarget.getUUID(), bestTarget.getScoreboardName(), prompt, true, viewerIsAssault);
     }
 
     private void clearDownedRescueHint(ServerPlayer player) {

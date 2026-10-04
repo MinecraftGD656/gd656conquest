@@ -13,9 +13,17 @@ import java.util.UUID;
 
 public final class ClientReviveState {
     private static final double MAX_RESCUE_DISTANCE_SQR = 3.5D * 3.5D;
+    /**
+     * GD656Mods: 救援期间的"保活重发"间隔。
+     * 服务端在救援进行中会忽略重复的开始请求(见 RoomPlayerRespawnService.startReviveAttempt —— 这样
+     * 新出现的可救援目标不会打断当前救援); 但当前目标被救完之后, 服务端的救援状态会被清空,
+     * 此时的这一次重发就会被当作一次新的开始请求 —— 于是"按住 F 不放"能救完一个自动接下一个。
+     */
+    private static final long REVIVE_KEEPALIVE_RESEND_MILLIS = 500L;
 
     private static boolean reviveHeld;
     private static UUID activeTargetId;
+    private static long lastReviveStartSentMillis;
     private static boolean forceCrouchMovementLock;
 
     private ClientReviveState() {
@@ -38,11 +46,21 @@ public final class ClientReviveState {
             && candidateId != null
             && !bombPriority;
         if (shouldHold) {
-            if (!reviveHeld || !candidateId.equals(activeTargetId)) {
+            long now = System.currentTimeMillis();
+            boolean targetChanged = !reviveHeld || !candidateId.equals(activeTargetId);
+            // GD656Mods: 除"候选目标变化"外, 救援期间还定期重发一次开始请求。
+            // 服务端在救援进行中忽略重复(避免被打断), 而当前目标救完后其救援状态会被清空,
+            // 这一次重发就会被当作新的开始请求 —— 即"救完自动接下一个"。
+            boolean keepAliveDue = reviveHeld && now - lastReviveStartSentMillis >= REVIVE_KEEPALIVE_RESEND_MILLIS;
+            if (targetChanged || keepAliveDue) {
                 NetworkManager.getChannel().sendToServer(RoomDownedActionPacket.reviveStart());
-                self.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+                if (targetChanged) {
+                    // 保活重发不额外挥手, 只有真正切换目标/起手时才挥手
+                    self.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+                }
                 reviveHeld = true;
                 activeTargetId = candidateId;
+                lastReviveStartSentMillis = now;
             }
             forceCrouchMovementLock = candidate != null && candidate.forceCrouchLock();
             return;
