@@ -63,6 +63,8 @@ final class ClientRoomSessionController {
     private String lastTeamColorRoomPrefix = "";
     private boolean wasDeployUiOpen;
     private GDButton deployLoadoutButton;
+    /** GD656Mods: 快速打开载具部署界面(位于"切换阵营"与"打开配装界面"两键之间)。 */
+    private GDButton deployVehicleButton;
     private GDButton deployTeamSwitchButton;
     private GDButton matchEndExitButton;
     private boolean deployFovActive;
@@ -908,16 +910,27 @@ final class ClientRoomSessionController {
             if (deployLoadoutButton == null) {
                 deployLoadoutButton = new GDButton(0, 0, UI_BUTTON_WIDTH, UI_BUTTON_HEIGHT, Component.translatable("gd656conquest.client.gui.deploy.open_loadout"), btn -> loadoutUiController.requestOpenConfigScreen());
             }
+            if (deployVehicleButton == null) {
+                // GD656Mods: 复用载具部署界面已有的标题键, 与配装界面内那个入口文案保持一致
+                deployVehicleButton = new GDButton(0, 0, UI_BUTTON_WIDTH, UI_BUTTON_HEIGHT, Component.translatable("gd656conquest.client.gui.loadout.vehicle.button"), btn -> loadoutUiController.requestOpenVehicleDeployScreen());
+            }
             deployTeamSwitchButton.setMessage(Component.translatable("gd656conquest.client.gui.deploy.switch_team", switchState.targetDisplayName()));
             deployTeamSwitchButton.setTextColor(switchState.textColor());
             deployTeamSwitchButton.active = switchState.clickable();
-            deployTeamSwitchButton.setX(width - UI_BUTTON_WIDTH - UI_BUTTON_MARGIN);
-            deployTeamSwitchButton.setY(height - UI_BUTTON_HEIGHT - UI_BUTTON_MARGIN - UI_BUTTON_HEIGHT - UI_BUTTON_GAP);
-            deployLoadoutButton.setX(width - UI_BUTTON_WIDTH - UI_BUTTON_MARGIN);
-            deployLoadoutButton.setY(height - UI_BUTTON_HEIGHT - UI_BUTTON_MARGIN);
+            // GD656Mods: 右下角三个按钮自下而上堆叠, 尺寸与间距保持一致:
+            //   最下 = 打开配装界面(位置不变) / 中间 = 载具部署(新增) / 最上 = 切换阵营(上移一格)
+            int buttonRight = width - UI_BUTTON_WIDTH - UI_BUTTON_MARGIN;
+            int bottomY = height - UI_BUTTON_HEIGHT - UI_BUTTON_MARGIN;
+            deployLoadoutButton.setX(buttonRight);
+            deployLoadoutButton.setY(bottomY);
+            deployVehicleButton.setX(buttonRight);
+            deployVehicleButton.setY(bottomY - (UI_BUTTON_HEIGHT + UI_BUTTON_GAP));
+            deployTeamSwitchButton.setX(buttonRight);
+            deployTeamSwitchButton.setY(bottomY - 2 * (UI_BUTTON_HEIGHT + UI_BUTTON_GAP));
             if (switchState.visible()) {
                 deployTeamSwitchButton.render(guiGraphics, mouseX, mouseY, partialTick);
             }
+            deployVehicleButton.render(guiGraphics, mouseX, mouseY, partialTick);
             deployLoadoutButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
         if (ending) {
@@ -928,7 +941,8 @@ final class ClientRoomSessionController {
             matchEndExitButton.setX(width - UI_BUTTON_WIDTH - UI_BUTTON_MARGIN);
             int y = height - UI_BUTTON_HEIGHT - UI_BUTTON_MARGIN;
             if (deployOpen) {
-                y -= UI_BUTTON_HEIGHT + UI_BUTTON_GAP;
+                // GD656Mods: 部署态下右下角共有 3 个按钮(配装/载具部署/切换阵营), 需要整体让开
+                y -= 3 * (UI_BUTTON_HEIGHT + UI_BUTTON_GAP);
             }
             matchEndExitButton.setY(y);
             matchEndExitButton.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -944,6 +958,9 @@ final class ClientRoomSessionController {
         boolean deployOpen = ClientRoomLockState.isDeployUiActive() && !ending;
         CampSwitchButtonState switchState = resolveCampSwitchButtonState(minecraft);
         if (deployOpen && switchState.visible() && deployTeamSwitchButton != null && deployTeamSwitchButton.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        if (deployOpen && deployVehicleButton != null && deployVehicleButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
         if (deployOpen && deployLoadoutButton != null && deployLoadoutButton.mouseClicked(mouseX, mouseY, button)) {
