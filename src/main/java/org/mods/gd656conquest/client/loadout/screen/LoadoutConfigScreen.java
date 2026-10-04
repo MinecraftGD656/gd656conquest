@@ -1134,13 +1134,19 @@ public class LoadoutConfigScreen extends Screen {
     private static final int VEHICLE_ROW_HEIGHT = 46;
     private static final int VEHICLE_ROW_GAP = 6;
     private static final int VEHICLE_BUTTON_W = 86;
+    /**
+     * GD656Mods: 载具部署内嵌页的列表顶部偏移(相对 contentTop)。
+     * 渲染 / 滚轮 / 行按钮必须共用这一个常量 —— 之前滚轮处理里手写的是 +4 而渲染是 +24,
+     * 导致滚动视口高度被多算 20px, 玩家滚到底时最后一行只显示小半行。
+     */
+    private static final int VEHICLE_LIST_TOP_OFFSET = 24;
 
     private void renderVehicleDeployPage(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int contentTop) {
         if (minecraft == null || minecraft.player == null || minecraft.level == null) return;
 
         final int left = LEFT;
         final int right = this.width - RIGHT;
-        final int listTop = contentTop + 24;
+        final int listTop = contentTop + VEHICLE_LIST_TOP_OFFSET;
         final int listBottom = this.height - GuiConstants.SCREEN_EDGE_DISTANCE;
 
         // Back button — right edge aligned with list right edge
@@ -1223,7 +1229,7 @@ public class LoadoutConfigScreen extends Screen {
     private void syncVehicleButtons(List<ClientLoadoutUiState.VehicleEntryState> entries, int contentTop) {
         final int right = this.width - RIGHT;
         int buttonX = right - VEHICLE_BUTTON_W - 8;
-        final int listTop = contentTop + 24;
+        final int listTop = contentTop + VEHICLE_LIST_TOP_OFFSET;
         for (int i = 0; i < entries.size(); i++) {
             ClientLoadoutUiState.VehicleEntryState entry = entries.get(i);
             int rowY = listTop + i * (VEHICLE_ROW_HEIGHT + VEHICLE_ROW_GAP) - (int) Math.round(vehicleDeployScroll.scrollY());
@@ -1268,7 +1274,9 @@ public class LoadoutConfigScreen extends Screen {
 
     private boolean mouseScrolledVehicleDeployPage(double mouseX, double mouseY, double delta) {
         final int left = LEFT, right = this.width - RIGHT;
-        final int listTop = getContentTop() + 4, listBottom = this.height - GuiConstants.SCREEN_EDGE_DISTANCE;
+        // GD656Mods: 与 renderVehicleDeployPage 共用同一个 listTop 偏移。
+        // 原来这里手写 +4(渲染是 +24), 视口高度被多算 20px -> 滚到底时最后一行只显示半行。
+        final int listTop = getContentTop() + VEHICLE_LIST_TOP_OFFSET, listBottom = this.height - GuiConstants.SCREEN_EDGE_DISTANCE;
         if (mouseX >= left && mouseX <= right && mouseY >= listTop && mouseY <= listBottom)
             return vehicleDeployScroll.mouseScrolled(delta, listBottom - listTop, sortedVehicleEntries().size() * (VEHICLE_ROW_HEIGHT + VEHICLE_ROW_GAP));
         return false;
