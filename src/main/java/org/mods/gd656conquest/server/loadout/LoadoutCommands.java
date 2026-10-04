@@ -36,7 +36,9 @@ import org.mods.gd656conquest.server.loadout.application.WeaponAttachmentService
 import org.mods.gd656conquest.server.loadout.domain.CustomLoadoutSlot;
 import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.player.level.PlayerLevelService;
+import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
+import org.mods.gd656conquest.server.room.runtime.RoomFixedLoadoutRules;
 import org.mods.gd656conquest.server.shared.text.CommandFeedbacks;
 import org.mods.gd656conquest.server.shared.text.ServerMessageSender;
 
@@ -778,6 +780,18 @@ public final class LoadoutCommands {
         return replyInfo(context.getSource(), "已切换当前兵种: " + classType.getDisplayName() + " (" + classType.getKey() + ")");
     }
 
+    /**
+     * GD656Mods: 玩家当前所在房间是否开启"忽略枪械等级" —— 命令行与配装 GUI 共用同一判据。
+     */
+    private static boolean roomAllowsLockedWeaponTrial(ServerPlayer player) {
+        if (player == null || player.server == null) {
+            return false;
+        }
+        return RoomFixedLoadoutRules.ignoresGunLevel(
+            RoomCoreRuntimeManager.of(player.server).findPlayerRoom(player.getUUID())
+        );
+    }
+
     private static int executeSelectSet(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
         PlayerClassType classType = parseClassTypeInput(StringArgumentType.getString(context, "type"));
@@ -795,7 +809,9 @@ public final class LoadoutCommands {
             throw new SimpleCommandExceptionType(Component.literal("该装备当前兵种不可用")).create();
         }
         int level = PlayerLevelService.getEffectiveLevel(player);
-        if (!CustomLoadoutService.isEntryUnlocked(entry, level)) {
+        // GD656Mods: 房间开启"忽略枪械等级"时, 武器槽允许选未解锁装备(与配装 GUI 行为一致)
+        boolean trialAllowed = CustomLoadoutService.isWeaponSlot(slot) && roomAllowsLockedWeaponTrial(player);
+        if (!trialAllowed && !CustomLoadoutService.isEntryUnlocked(entry, level)) {
             throw new SimpleCommandExceptionType(Component.literal("你的等级不足，当前装备解锁等级为 " + entry.getUnlockLevel())).create();
         }
         PlayerDataStore playerDataHandler = ConquestDataManager.of(context.getSource().getServer()).playerData();
@@ -1046,6 +1062,10 @@ public final class LoadoutCommands {
             return builder.buildFuture();
         }
         int level = defaultOnly ? Integer.MAX_VALUE : PlayerLevelService.getEffectiveLevel(player);
+        // GD656Mods: 房间开启"忽略枪械等级"时, 未解锁的武器槽装备也应出现在补全候选里(与 GUI 一致)
+        boolean trialAllowed = !defaultOnly
+            && CustomLoadoutService.isWeaponSlot(slot)
+            && roomAllowsLockedWeaponTrial(player);
         EquipmentDataModel data = getEquipmentDataStore(context).getData();
         List<EquipmentDataModel.EquipmentEntry> entries = new ArrayList<>();
         for (EquipmentDataModel.EquipmentEntry entry : CustomLoadoutService.listEntriesByClassAndSlot(data, classType, slot)) {
@@ -1053,7 +1073,7 @@ public final class LoadoutCommands {
                 if (entry.getUnlockLevel() != 0) {
                     continue;
                 }
-            } else if (!CustomLoadoutService.isEntryUnlocked(entry, level)) {
+            } else if (!trialAllowed && !CustomLoadoutService.isEntryUnlocked(entry, level)) {
                 continue;
             }
             entries.add(entry);

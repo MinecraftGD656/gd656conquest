@@ -745,36 +745,6 @@ public final class RoomPlayerLoadoutService {
         return new LoadoutAmmoContext(slot, targetAmmo, ammoMeta, buildSlotRange(preferredStart, preferredEnd));
     }
 
-    private EquipmentDataModel.EquipmentEntry resolveEffectiveLoadoutEntry(
-            EquipmentDataModel equipmentData,
-            PlayerDataModel playerData,
-            PlayerClassType classType,
-            CustomLoadoutSlot slot,
-            int playerLevel
-    ) {
-        if (equipmentData == null || playerData == null || classType == null || slot == null) {
-            return null;
-        }
-        String selectedId = CustomLoadoutService.getSelectedIdForClassSlot(playerData, classType, slot);
-        EquipmentDataModel.EquipmentEntry selectedEntry = equipmentData.getEquipmentById().get(selectedId);
-        boolean valid = selectedEntry != null
-                && selectedEntry.getSlot() == slot.getIndex()
-                && CustomLoadoutService.isEntryUnlocked(selectedEntry, playerLevel)
-                && CustomLoadoutService.isEntryAvailableForClass(selectedEntry, classType);
-        if (valid) {
-            return selectedEntry;
-        }
-        String fallbackId = CustomLoadoutService.resolveFallbackIdForClassSlot(equipmentData, classType, slot, playerLevel);
-        if (fallbackId == null || fallbackId.isBlank()) {
-            return null;
-        }
-        EquipmentDataModel.EquipmentEntry fallbackEntry = equipmentData.getEquipmentById().get(fallbackId);
-        if (fallbackEntry == null || fallbackEntry.getSlot() != slot.getIndex()) {
-            return null;
-        }
-        return fallbackEntry;
-    }
-
     private ActiveLoadoutSelection resolveActiveLoadoutSelection(
         RoomRuntimeContext roomContext,
         EquipmentDataModel equipmentData,

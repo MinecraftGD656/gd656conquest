@@ -130,6 +130,20 @@ public final class RoomCoreRuntimeManager {
         return coreService.findRoom(roomId);
     }
 
+    /**
+     * GD656Mods: 玩家当前所在房间的配置 —— "玩家 -> 当前房间"的唯一入口。
+     * 原本 LoadoutUiService / PlayerSessionStateService / LoadoutCommands 各处都在重复
+     * 组合 findPlayerRoomId + findRoom, 这里收敛成一处(含初始化保护)。
+     *
+     * @return 不在房间内 / 未初始化 / 房间不存在时返回 null
+     */
+    public RoomDefinition findPlayerRoom(UUID playerId) {
+        if (playerId == null || !isInitialized()) {
+            return null;
+        }
+        return findPlayerRoomId(playerId).flatMap(this::findRoom).orElse(null);
+    }
+
     public Optional<RunningRuntimeState> findRunningState(String roomId) {
         if (coreService == null) {
             return Optional.empty();

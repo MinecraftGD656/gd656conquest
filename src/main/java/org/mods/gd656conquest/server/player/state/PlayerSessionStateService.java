@@ -88,14 +88,10 @@ public final class PlayerSessionStateService {
         if (player == null || player.server == null) {
             return false;
         }
-        RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(player.server);
-        if (!roomManager.isInitialized()) {
-            return false;
-        }
-        return roomManager.findPlayerRoomId(player.getUUID())
-            .flatMap(roomManager::findRoom)
-            .map(RoomFixedLoadoutRules::ignoresGunLevel)
-            .orElse(false);
+        // GD656Mods: 统一走 RoomCoreRuntimeManager.findPlayerRoom(内部已做初始化保护, 不在房间则为 null)
+        return RoomFixedLoadoutRules.ignoresGunLevel(
+            RoomCoreRuntimeManager.of(player.server).findPlayerRoom(player.getUUID())
+        );
     }
 
     private static void clearStandaloneSessionArtifacts(ServerPlayer player) {

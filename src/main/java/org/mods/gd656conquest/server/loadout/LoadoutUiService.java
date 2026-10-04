@@ -1202,12 +1202,8 @@ public final class LoadoutUiService {
         if (player == null || player.server == null) {
             return null;
         }
-        RoomCoreRuntimeManager manager = RoomCoreRuntimeManager.of(player.server);
-        String roomId = manager.findPlayerRoomId(player.getUUID()).orElse(null);
-        if (roomId == null || roomId.isBlank()) {
-            return null;
-        }
-        return manager.findRoom(roomId).orElse(null);
+        // GD656Mods: 统一走 RoomCoreRuntimeManager.findPlayerRoom(命令行侧也复用同一入口)
+        return RoomCoreRuntimeManager.of(player.server).findPlayerRoom(player.getUUID());
     }
 
     /** 是否为修改配装的动作(兵种/槽位/配件选择) */
