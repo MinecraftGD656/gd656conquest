@@ -141,7 +141,7 @@ public final class RoomPlayerLoadoutService {
             return;
         }
         int playerLevel = PlayerLevelService.getEffectiveLevel(player);
-        if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false)) {
+        if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false, allowsLockedWeaponTrial(player))) {
             equipmentData = equipmentDataHandler.getData();
         }
         PlayerDataModel playerData = playerDataHandler.getPlayerData(player.getUUID());
@@ -216,6 +216,15 @@ public final class RoomPlayerLoadoutService {
         player.containerMenu.broadcastChanges();
     }
 
+    /**
+     * GD656Mods: 当前房间是否开启"忽略枪械等级" —— 决定房间内是否允许玩家试用未解锁武器。
+     * 这里只做判断, 不做修正; 修正统一走 {@link CustomLoadoutService#sanitizePlayerSelection}。
+     */
+    private boolean allowsLockedWeaponTrial(ServerPlayer player) {
+        RoomRuntimeContext context = resolveRoomRuntimeContext(player);
+        return context != null && RoomFixedLoadoutRules.ignoresGunLevel(context.room());
+    }
+
     private AmmoBoxBlockedState snapshotAmmoBoxBlockedState(ServerPlayer player) {
         if (player == null || player.server == null) {
             return AmmoBoxBlockedState.empty();
@@ -225,7 +234,7 @@ public final class RoomPlayerLoadoutService {
         if (equipmentData == null) {
             return AmmoBoxBlockedState.empty();
         }
-        if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false)) {
+        if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false, allowsLockedWeaponTrial(player))) {
             equipmentData = dataManager.equipmentData().getData();
         }
         PlayerDataModel playerData = dataManager.playerData().getPlayerData(player.getUUID());
@@ -330,7 +339,7 @@ public final class RoomPlayerLoadoutService {
         if (equipmentData == null) {
             return Map.of();
         }
-        if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false)) {
+        if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false, allowsLockedWeaponTrial(player))) {
             equipmentData = equipmentDataHandler.getData();
         }
         PlayerDataModel playerData = playerDataHandler.getPlayerData(player.getUUID());
@@ -429,7 +438,7 @@ public final class RoomPlayerLoadoutService {
         if (equipmentData == null) {
             return AmmoSupplyResult.EMPTY;
         }
-        if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false)) {
+        if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false, allowsLockedWeaponTrial(player))) {
             equipmentData = equipmentDataHandler.getData();
         }
         PlayerDataModel playerData = playerDataHandler.getPlayerData(player.getUUID());
@@ -702,7 +711,7 @@ public final class RoomPlayerLoadoutService {
         if (equipmentData == null) {
             return null;
         }
-        if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false)) {
+        if (CustomLoadoutService.sanitizePlayerSelection(player, equipmentData, null, false, allowsLockedWeaponTrial(player))) {
             equipmentData = equipmentDataHandler.getData();
         }
         PlayerDataModel playerData = playerDataHandler.getPlayerData(player.getUUID());
@@ -788,7 +797,9 @@ public final class RoomPlayerLoadoutService {
             playerData,
             selectedClassType,
             playerLevel,
-            false
+            false,
+            // GD656Mods: 本房间开启"忽略枪械等级"时, 手动配装也允许未解锁的武器槽装备
+            RoomFixedLoadoutRules.ignoresGunLevel(roomContext == null ? null : roomContext.room())
         );
         return applyRoomLoadoutRestrictions(roomContext, equipmentData, player, teamId, selection, notifyPlayer);
     }
@@ -798,7 +809,8 @@ public final class RoomPlayerLoadoutService {
         PlayerDataModel playerData,
         PlayerClassType classType,
         int playerLevel,
-        boolean classForcedByRoom
+        boolean classForcedByRoom,
+        boolean allowLockedWeapons
     ) {
         if (equipmentData == null || classType == null) {
             return new ActiveLoadoutSelection(PlayerClassType.defaultType(), Map.of(), false, false, classForcedByRoom);
@@ -808,9 +820,11 @@ public final class RoomPlayerLoadoutService {
         for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
             String selectedId = CustomLoadoutService.getSelectedIdForClassSlot(playerData, classType, slot);
             EquipmentDataModel.EquipmentEntry selectedEntry = equipmentData.getEquipmentById().get(selectedId);
+            // GD656Mods: 房间开启"忽略枪械等级"时武器槽的未解锁装备照常发放(否则玩家选了"试用"武器仍会被换成默认)
+            boolean lockedAllowed = allowLockedWeapons && CustomLoadoutService.isWeaponSlot(slot);
             boolean valid = selectedEntry != null
                 && selectedEntry.getSlot() == slot.getIndex()
-                && CustomLoadoutService.isEntryUnlocked(selectedEntry, playerLevel)
+                && (lockedAllowed || CustomLoadoutService.isEntryUnlocked(selectedEntry, playerLevel))
                 && CustomLoadoutService.isEntryAvailableForClass(selectedEntry, classType);
             if (!valid) {
                 String fallbackId = CustomLoadoutService.resolveFallbackIdForClassSlot(equipmentData, classType, slot, playerLevel);
@@ -1009,9 +1023,13 @@ public final class RoomPlayerLoadoutService {
                         : resolveRoomRestrictionFallback(roomContext, player, teamId, classType, slot, equipmentData, playerLevel, false);
                 }
                 EquipmentDataModel.EquipmentEntry roomSelectedEntry = equipmentData.getEquipmentById().get(roomSelectedId);
+                // GD656Mods: 房间开启"忽略枪械等级"时, 武器槽的未解锁装备也算有效选择
+                boolean lockedAllowed = RoomFixedLoadoutRules.ignoresGunLevel(room) && CustomLoadoutService.isWeaponSlot(slot);
                 if (roomSelectedEntry != null
                     && roomSelectedEntry.getSlot() == slot.getIndex()
-                    && CustomLoadoutService.isEntryUnlocked(roomSelectedEntry, playerLevel)
+                    && (lockedAllowed || CustomLoadoutService.isEntryUnlocked(roomSelectedEntry, playerLevel))
+                    // GD656Mods: 房间关掉"忽略兵种限制"时, 手动选的房间配装同样要受兵种约束
+                    && RoomFixedLoadoutRules.allowsEntryForClass(room, roomSelectedEntry, classType)
                     && RoomFixedLoadoutRules.allowsEntryId(room, teamId, slot, roomSelectedId)) {
                     return roomSelectedEntry;
                 }
@@ -1019,7 +1037,10 @@ public final class RoomPlayerLoadoutService {
             }
         }
         String currentId = currentEntry == null ? "" : CustomLoadoutService.normalizeEquipmentId(currentEntry.getId());
-        if (!currentId.isBlank() && RoomFixedLoadoutRules.allowsEntryId(room, teamId, slot, currentId)) {
+        if (!currentId.isBlank()
+            // GD656Mods: 沿用当前装备时同样要满足兵种可见性
+            && RoomFixedLoadoutRules.allowsEntryForClass(room, currentEntry, classType)
+            && RoomFixedLoadoutRules.allowsEntryId(room, teamId, slot, currentId)) {
             return currentEntry;
         }
         return resolveRoomRestrictionFallback(roomContext, player, teamId, classType, slot, equipmentData, playerLevel, randomizedSelection);
@@ -1036,7 +1057,7 @@ public final class RoomPlayerLoadoutService {
         boolean ignoreUnlockLevel
     ) {
         RoomDefinition room = roomContext == null ? null : roomContext.room();
-        EquipmentDataModel.EquipmentEntry fallbackEntry = RoomFixedLoadoutRules.resolveFallbackEntry(room, equipmentData, teamId, slot, playerLevel, ignoreUnlockLevel);
+        EquipmentDataModel.EquipmentEntry fallbackEntry = RoomFixedLoadoutRules.resolveFallbackEntry(room, equipmentData, teamId, slot, playerLevel, ignoreUnlockLevel, classType);
         if (fallbackEntry != null) {
             return fallbackEntry;
         }
@@ -1061,7 +1082,9 @@ public final class RoomPlayerLoadoutService {
                     continue;
                 }
                 EquipmentDataModel.EquipmentEntry entry = equipmentData.getEquipmentById().get(CustomLoadoutService.normalizeEquipmentId(allowedId));
-                if (entry != null && entry.getSlot() == slot.getIndex()) {
+                // GD656Mods: 限定槽位默认忽略兵种限制(历史行为); 房间关掉该开关时才按兵种过滤
+                if (entry != null && entry.getSlot() == slot.getIndex()
+                    && RoomFixedLoadoutRules.allowsEntryForClass(roomContext.room(), entry, classType)) {
                     ids.add(CustomLoadoutService.normalizeEquipmentId(entry.getId()));
                 }
             }

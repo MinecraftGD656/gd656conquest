@@ -326,7 +326,27 @@ public final class CustomLoadoutService {
         return null;
     }
 
+    /** GD656Mods: 该槽位是否属于"枪械" —— 只有武器槽受房间 ignoreGunLevel 影响, 道具/配件仍按等级限制。 */
+    public static boolean isWeaponSlot(CustomLoadoutSlot slot) {
+        return slot == CustomLoadoutSlot.PRIMARY_WEAPON
+            || slot == CustomLoadoutSlot.SECONDARY_WEAPON
+            || slot == CustomLoadoutSlot.MELEE;
+    }
+
     public static boolean sanitizePlayerSelection(ServerPlayer player, EquipmentDataModel data, String deletedId, boolean notifyPlayer) {
+        // GD656Mods: 旧签名保留(等价于"不允许未解锁武器" = 原行为)
+        return sanitizePlayerSelection(player, data, deletedId, notifyPlayer, false);
+    }
+
+    /**
+     * GD656Mods: 校验并修正玩家"选中了不该选的装备"的情况 —— 全项目唯一的修正入口:
+     * 选中项不存在 / 槽位不符 / 未解锁 / 兵种不适用时, 回退成该兵种的初始默认武器
+     * (见 {@link #resolveFallbackIdForClassSlot})。
+     *
+     * @param allowLockedWeapons 房间开启"忽略枪械等级"时传 true —— 此时武器槽的"未解锁"不再算失效,
+     *                           玩家可在房间内试用; 离开房间 / 登录时传 false, 未解锁武器会被换回默认武器。
+     */
+    public static boolean sanitizePlayerSelection(ServerPlayer player, EquipmentDataModel data, String deletedId, boolean notifyPlayer, boolean allowLockedWeapons) {
         if (player == null || player.server == null || data == null) {
             return false;
         }
@@ -348,9 +368,11 @@ public final class CustomLoadoutService {
                     continue;
                 }
                 EquipmentDataModel.EquipmentEntry selectedEntry = data.getEquipmentById().get(selectedId);
+                // GD656Mods: 房间开启"忽略枪械等级"时, 武器槽的未解锁不再视为失效(道具/配件不受影响)
+                boolean lockedAllowed = allowLockedWeapons && isWeaponSlot(slot);
                 boolean invalid = selectedEntry == null
                     || selectedEntry.getSlot() != slot.getIndex()
-                    || !isEntryUnlocked(selectedEntry, playerLevel)
+                    || (!lockedAllowed && !isEntryUnlocked(selectedEntry, playerLevel))
                     || !isEntryAvailableForClass(selectedEntry, classType);
                 if (!invalid) {
                     continue;

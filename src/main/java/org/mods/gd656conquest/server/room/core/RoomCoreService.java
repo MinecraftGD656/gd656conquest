@@ -513,7 +513,7 @@ public final class RoomCoreService {
             matchingState.getQueueTeams().put(targetPlayerId, targetTeam);
             matchingState.setLastPrimaryActionBarTick(-1L);
             matchingState.setLastSecondaryActionBarTick(-1L);
-            squadAssignmentService.assignMatchingPlayer(slot.runtime(), targetPlayerId, targetTeam);
+            squadAssignmentService.assignPlayer(slot.runtime(), targetPlayerId, targetTeam, false);
             hudSyncService.syncMatchingRoom(room, slot.runtime(), gameTick);
             ServerPlayer targetPlayer = playerLaunchService.findOnlinePlayer(targetPlayerId);
             if (targetPlayer != null) {
@@ -1243,7 +1243,7 @@ public final class RoomCoreService {
                 // Intercept: use match-loading phase instead of direct queue teleport
                 playerRejoinService.clearPlayerTickets(playerId);
                 bindPlayerToRoom(playerId, roomId);
-                squadAssignmentService.assignMatchingPlayer(slot.runtime(), playerId, state.getQueueTeams().get(playerId));
+                squadAssignmentService.assignPlayer(slot.runtime(), playerId, state.getQueueTeams().get(playerId), false);
                 matchLoadService.beginMatchLoad(
                     player, slot.room(), slot.runtime().getRunningState(), gameTick,
                     RoomMatchLoadService.EntryKind.MATCHING, state.getQueueTeams().get(playerId));
@@ -1262,7 +1262,7 @@ public final class RoomCoreService {
         }
         playerRejoinService.clearPlayerTickets(playerId);
         bindPlayerToRoom(playerId, roomId);
-        squadAssignmentService.assignMatchingPlayer(slot.runtime(), playerId, state.getQueueTeams().get(playerId));
+        squadAssignmentService.assignPlayer(slot.runtime(), playerId, state.getQueueTeams().get(playerId), false);
         if (player != null) {
             playerStateService.applyMatchingState(slot.room(), player);
             RoomMatchingActionBarService.showQueueStatus(player, slot.room().commonConfig().matchingConfig(), state);
@@ -2311,7 +2311,7 @@ public final class RoomCoreService {
         MatchingRuntimeState state = slot.runtime().getMatchingState();
         groupPlacementService.rebalanceMatchingQueue(slot.room(), slot.runtime());
         for (UUID playerId : state.getQueuePlayers()) {
-            squadAssignmentService.assignMatchingPlayer(slot.runtime(), playerId, state.getQueueTeams().get(playerId));
+            squadAssignmentService.assignPlayer(slot.runtime(), playerId, state.getQueueTeams().get(playerId), false);
         }
     }
 
@@ -2335,7 +2335,7 @@ public final class RoomCoreService {
         KilliconScoreboardBridge.resetPlayerMatchSnapshot(runningState, playerId);
         runningState.addRoomPlayer(playerId, teamId);
         matchStatisticsRuntimeService.trackMidJoin(runningState, playerId, teamId, gameTick);
-        squadAssignmentService.assignRunningPlayer(slot.runtime(), playerId, teamId);
+        squadAssignmentService.assignPlayer(slot.runtime(), playerId, teamId, true);
         RoomMatchingActionBarService.clear(player);
         resultRuntimeService.clearPlayer(player);
         if (RoomMatchLoadService.isEnabled(slot.room())) {
@@ -2370,7 +2370,7 @@ public final class RoomCoreService {
         bindPlayerToRoom(playerId, slot.room().roomId());
         KilliconScoreboardBridge.resetPlayerMatchSnapshot(runningState, playerId);
         runningState.addRoomPlayer(playerId, teamId);
-        squadAssignmentService.assignRunningPlayer(slot.runtime(), playerId, teamId);
+        squadAssignmentService.assignPlayer(slot.runtime(), playerId, teamId, true);
         RoomMatchingActionBarService.clear(player);
         resultRuntimeService.syncLateJoinedPlayer(slot.room(), runningState, player, gameTick);
         nametagVisibilityService.syncRunningRoom(slot.room(), runningState);

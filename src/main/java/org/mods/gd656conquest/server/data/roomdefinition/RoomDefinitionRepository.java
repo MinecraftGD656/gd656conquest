@@ -289,7 +289,9 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().campAEquipmentSetId(),
             base.commonConfig().campBEquipmentSetId(),
             base.commonConfig().mapName(),
-            base.commonConfig().roomDescription()
+            base.commonConfig().roomDescription(),
+            base.commonConfig().ignoreClassLimitOnRestriction(),
+            base.commonConfig().ignoreGunLevel()
         );
         org.mods.gd656conquest.server.room.model.IRoomGameplayConfig gameplayConfig;
         if (base.gameplayConfig() instanceof RoomConquestConfig conquest) {
@@ -453,7 +455,11 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             "",
             "",
             "",
-            ""
+            "",
+            // GD656Mods: ignoreClassLimitOnRestriction —— 默认 true(保持历史行为)
+            true,
+            // GD656Mods: ignoreGunLevel —— 默认 false
+            false
         );
         return new RoomDefinition(
             normalized,

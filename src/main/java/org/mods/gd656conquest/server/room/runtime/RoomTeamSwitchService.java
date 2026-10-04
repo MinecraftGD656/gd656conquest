@@ -118,7 +118,7 @@ public final class RoomTeamSwitchService {
         deploySelectionService.replaceSelectionWithTeamFallback(state, playerId, targetTeam);
         runtimeState.getSquadLabelsByPlayer().remove(playerId);
         state.getSquadLabelsByPlayer().remove(playerId);
-        squadAssignmentService.assignRunningPlayer(runtimeState, playerId, targetTeam);
+        squadAssignmentService.assignPlayer(runtimeState, playerId, targetTeam, true);
         nametagVisibilityService.syncRunningRoom(room, state);
         hudSyncService.syncRunningRoom(room, state);
         return TeamSwitchResult.changed(currentTeam, targetTeam);

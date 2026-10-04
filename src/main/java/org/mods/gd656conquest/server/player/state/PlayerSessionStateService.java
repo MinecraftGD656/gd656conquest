@@ -16,6 +16,7 @@ import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.facility.quickaccess.QuickAccessInventoryPolicyService;
 import org.mods.gd656conquest.server.loadout.application.CustomLoadoutService;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
+import org.mods.gd656conquest.server.room.runtime.RoomFixedLoadoutRules;
 import org.mods.gd656conquest.server.room.runtime.RoomResultRuntimeService;
 import org.mods.gd656conquest.server.shared.inventory.PlayerInventorySanitizer;
 
@@ -75,8 +76,26 @@ public final class PlayerSessionStateService {
             player,
             ConquestDataManager.of(player.server).equipmentData().getData(),
             null,
-            false
+            false,
+            // GD656Mods: 玩家仍在该房间内(例如重连回同一房间)时, 开启"忽略枪械等级"的房间不该把他的试用武器清掉;
+            // 本方法同样在"离开房间回到大厅"的过渡里被调用, 那时这里自动变回 false, 未解锁武器被换回兵种默认武器。
+            roomAllowsLockedWeaponTrial(player)
         );
+    }
+
+    /** GD656Mods: 玩家当前所在房间是否开启"忽略枪械等级"。 */
+    private static boolean roomAllowsLockedWeaponTrial(ServerPlayer player) {
+        if (player == null || player.server == null) {
+            return false;
+        }
+        RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(player.server);
+        if (!roomManager.isInitialized()) {
+            return false;
+        }
+        return roomManager.findPlayerRoomId(player.getUUID())
+            .flatMap(roomManager::findRoom)
+            .map(RoomFixedLoadoutRules::ignoresGunLevel)
+            .orElse(false);
     }
 
     private static void clearStandaloneSessionArtifacts(ServerPlayer player) {

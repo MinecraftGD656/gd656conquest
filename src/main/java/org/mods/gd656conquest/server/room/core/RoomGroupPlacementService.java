@@ -140,7 +140,7 @@ public final class RoomGroupPlacementService {
             return Optional.of(new RoomGroupPlacementPlan(
                 lifecycleState,
                 teamId,
-                squadAssignmentService.allocateMatchingSquadLabel(slot.runtime(), teamId)
+                squadAssignmentService.allocateSquadLabel(slot.runtime(), teamId, groupSize, false)
             ));
         }
         if (lifecycleState == RoomLifecycleState.RUNNING || lifecycleState == RoomLifecycleState.ENDING) {
@@ -151,7 +151,7 @@ public final class RoomGroupPlacementService {
             return Optional.of(new RoomGroupPlacementPlan(
                 lifecycleState,
                 teamId,
-                squadAssignmentService.allocateRunningSquadLabel(slot.runtime(), teamId)
+                squadAssignmentService.allocateSquadLabel(slot.runtime(), teamId, groupSize, true)
             ));
         }
         return Optional.empty();
@@ -187,9 +187,9 @@ public final class RoomGroupPlacementService {
         }
         RoomLifecycleState lifecycleState = slot.room().lifecycleState();
         if (lifecycleState == RoomLifecycleState.RUNNING || lifecycleState == RoomLifecycleState.ENDING) {
-            return Optional.of(squadAssignmentService.allocateRunningSquadLabel(slot.runtime(), teamId));
+            return Optional.of(squadAssignmentService.allocateSquadLabel(slot.runtime(), teamId, 1, true));
         }
-        return Optional.of(squadAssignmentService.allocateMatchingSquadLabel(slot.runtime(), teamId));
+        return Optional.of(squadAssignmentService.allocateSquadLabel(slot.runtime(), teamId, 1, false));
     }
 
     public boolean canFitGroupInTeam(String roomId, RoomTeamId teamId, int requiredSlots) {
@@ -234,7 +234,7 @@ public final class RoomGroupPlacementService {
             }
             matchingState.setLastPrimaryActionBarTick(-1L);
             matchingState.setLastSecondaryActionBarTick(-1L);
-            squadAssignmentService.assignMatchingSquad(slot.runtime(), playerId, squadLabel);
+            squadAssignmentService.assignSquad(slot.runtime(), playerId, matchingState.getQueueTeams().get(playerId), squadLabel, false);
             ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
             if (player != null) {
                 presentationSync.resync(player, gameTick);
@@ -257,7 +257,7 @@ public final class RoomGroupPlacementService {
                 deploySelectionService.replaceSelectionWithTeamFallback(runningState, playerId, targetTeam);
             }
         }
-        squadAssignmentService.assignRunningSquad(slot.runtime(), playerId, squadLabel);
+        squadAssignmentService.assignSquad(slot.runtime(), playerId, runningState.getRoomTeams().get(playerId), squadLabel, true);
         nametagVisibilityService.syncRunningRoom(slot.room(), runningState);
         hudSyncService.syncRunningRoom(slot.room(), runningState);
         return true;
@@ -295,11 +295,12 @@ public final class RoomGroupPlacementService {
             if (teamId == null) {
                 continue;
             }
+            // GD656Mods: 不再沿用 unit 里的旧 squadLabel —— 它可能已过期或与其它 unit 指向同一个小队,
+            // 那样会在重排时把两队合并进一个小队造成超员。统一按"本组人数"重新分配。
+            String squadLabel = squadAssignmentService.allocateSquadLabel(runtimeState, teamId, unit.playerIds().size(), false);
             for (UUID playerId : unit.playerIds()) {
                 matchingState.getQueueTeams().put(playerId, teamId);
-                if (unit.squadLabel() != null && !unit.squadLabel().isBlank()) {
-                    runtimeState.getSquadLabelsByPlayer().put(playerId, unit.squadLabel());
-                }
+                squadAssignmentService.assignSquad(runtimeState, playerId, teamId, squadLabel, false);
             }
             countByTeam.put(teamId, countByTeam.getOrDefault(teamId, 0) + unit.playerIds().size());
             strengthByTeam.put(teamId, strengthByTeam.getOrDefault(teamId, 0.0D) + unit.totalStrength());

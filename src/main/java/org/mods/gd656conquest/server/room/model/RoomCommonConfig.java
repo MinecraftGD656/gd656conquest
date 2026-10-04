@@ -58,7 +58,23 @@ public record RoomCommonConfig(
     String campAEquipmentSetId,
     String campBEquipmentSetId,
     String mapName,
-    String roomDescription
+    String roomDescription,
+    /**
+     * GD656Mods: 限定槽位是否忽略兵种限制 —— 默认 true, 即保持历史行为:
+     * 某槽位一旦配置了限定列表, 该槽位就无视兵种(availableClasses)限制, 全兵种可用(含跨兵种道具)。
+     * 关掉它则限定列表内仍按兵种过滤。
+     * 刻意使用包装类型: 老房间配置里没有该字段, 反序列化得到 null;
+     * 若用基本类型 boolean, Gson 会填成 false, 导致升级后默认行为静默反转。
+     */
+    Boolean ignoreClassLimitOnRestriction,
+    /**
+     * GD656Mods: 房间所用武器是否忽略枪械等级 —— 默认 false(保持原行为)。
+     * 开启后玩家在本房间可选用"未解锁"的武器槽装备(配装 GUI 里标作试用);
+     * 一旦离开本房间(或登录时已不在本房间), 由 {@code CustomLoadoutService.sanitizePlayerSelection}
+     * 统一把"选中了未解锁武器"回退成该兵种的初始默认武器。
+     * 用基本类型即可: 默认值就是 false, 老配置缺失该字段时 Gson 也填 false, 与默认一致(不像默认 true 的项必须用包装类型)。
+     */
+    boolean ignoreGunLevel
 ) {
     public RoomCommonConfig {
         matchingConfig = matchingConfig == null ? RoomMatchingConfig.defaults() : matchingConfig;
@@ -100,6 +116,13 @@ public record RoomCommonConfig(
         campBEquipmentSetId = normalizeEquipmentSetId(campBEquipmentSetId);
         mapName = normalizeMapName(mapName);
         roomDescription = normalizeRoomDescription(roomDescription);
+        // GD656Mods: 默认 true = 保持"限定槽位无视兵种限制"的历史行为
+        ignoreClassLimitOnRestriction = ignoreClassLimitOnRestriction == null ? Boolean.TRUE : ignoreClassLimitOnRestriction;
+    }
+
+    /** GD656Mods: 对外暴露为 boolean —— 未配置时按 true(保持历史行为)处理。 */
+    public boolean ignoresClassLimitOnRestriction() {
+        return !Boolean.FALSE.equals(ignoreClassLimitOnRestriction);
     }
 
     public static RoomCommonConfig defaults() {
@@ -154,7 +177,11 @@ public record RoomCommonConfig(
             "",
             "",
             "",
-            ""
+            "",
+            // GD656Mods: ignoreClassLimitOnRestriction —— 默认 true(保持历史行为)
+            true,
+            // GD656Mods: ignoreGunLevel —— 默认 false
+            false
         );
     }
 

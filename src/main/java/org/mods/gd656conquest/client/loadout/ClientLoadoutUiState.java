@@ -57,7 +57,8 @@ public final class ClientLoadoutUiState {
                             Math.max(0, entryPayload.unlockLevel()),
                             entryPayload.unlocked(),
                             entryPayload.roomEnabled(),
-                            entryPayload.itemSnbt() == null ? "" : entryPayload.itemSnbt()
+                            entryPayload.itemSnbt() == null ? "" : entryPayload.itemSnbt(),
+                            entryPayload.trial()
                     ));
                 }
                 slots.put(slotPayload.slotIndex(), new SlotState(
@@ -304,7 +305,8 @@ public final class ClientLoadoutUiState {
         }
     }
 
-    public record EntryState(String id, String displayName, int unlockLevel, boolean unlocked, boolean roomEnabled, String itemSnbt) {
+    /** GD656Mods: {@code trial} = 未解锁但在本房间可试用的武器, 选择器会标"试用"并允许选中。 */
+    public record EntryState(String id, String displayName, int unlockLevel, boolean unlocked, boolean roomEnabled, String itemSnbt, boolean trial) {
     }
 
     public record AdminEquipmentState(

@@ -1495,7 +1495,9 @@ public final class RoomCommands {
             common.campAEquipmentSetId(),
             common.campBEquipmentSetId(),
             common.mapName(),
-            common.roomDescription()
+            common.roomDescription(),
+            common.ignoreClassLimitOnRestriction(),
+            common.ignoreGunLevel()
         );
 
         RoomDefinition updated = new RoomDefinition(

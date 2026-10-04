@@ -119,6 +119,10 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "enableRandomAttachments", "启用房间随机配件", "commonConfig.enableRandomAttachments", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomAttachments");
         common(descriptors, RoomConfigCategory.RULES, "disableUndyingTotem", "是否禁用不死图腾", "commonConfig.disableUndyingTotem", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolDisableUndyingTotem");
         common(descriptors, RoomConfigCategory.RULES, "allowPlayerCampSwitch", "是否允许玩家切换阵营", "commonConfig.allowPlayerCampSwitch", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
+        // GD656Mods: 限定槽位是否忽略兵种限制(默认 true = 保持"限定后全兵种可用"的原行为)
+        common(descriptors, RoomConfigCategory.RULES, "ignoreClassLimitOnRestriction", "限定配装是否忽略兵种限制", "commonConfig.ignoreClassLimitOnRestriction", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
+        // GD656Mods: 房间武器是否忽略枪械等级(默认 false); 开启后本房间可选用未解锁武器, 离开房间自动回退兵种默认武器
+        common(descriptors, RoomConfigCategory.RULES, "ignoreGunLevel", "房间所用武器忽略枪械等级", "commonConfig.ignoreGunLevel", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
         common(descriptors, RoomConfigCategory.RULES, "enableParachute", "启用对局降落伞", "commonConfig.enableParachute", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableParachute");
         common(descriptors, RoomConfigCategory.RULES, "enableDeathSupportDrop", "启用死亡掉落补给包", "commonConfig.enableDeathSupportDrop", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
         common(descriptors, RoomConfigCategory.RULES, "enableGiveArrow", "是否给予玩家箭矢", "commonConfig.enableGiveArrow", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
@@ -289,6 +293,8 @@ public final class RoomConfigDescriptorRegistry {
         gunmasterGroup(descriptors, RoomConfigCategory.EQUIPMENT, "gmMiddleWeaponPool", "枪王模式中段武器池", "gunmasterConfig.middleWeaponPool", RoomConfigValueType.DATA_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.EQUIPMENT, "gmFinalWeaponPool", "枪王模式末段武器池", "gunmasterConfig.finalWeaponPool", RoomConfigValueType.DATA_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.TRANSPORT, "gmMedicalBoxPositions", "枪王模式对局医疗箱数据组", "gunmasterConfig.medicalBoxPositions", RoomConfigValueType.POSITION_GROUP);
+        // GD656Mods: 枪王模式此前没有弹药箱配置入口(字段存在但无 descriptor), 补上以与其它模式一致
+        gunmasterGroup(descriptors, RoomConfigCategory.TRANSPORT, "gmAmmoBoxPositions", "枪王模式对局弹药箱数据组", "gunmasterConfig.ammoBoxPositions", RoomConfigValueType.POSITION_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.RULES, "gmCampABoundary", "枪王模式团队A活动范围", "gunmasterConfig.campABoundary", RoomConfigValueType.POSITION_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.RULES, "gmCampBBoundary", "枪王模式团队B活动范围", "gunmasterConfig.campBBoundary", RoomConfigValueType.POSITION_GROUP);
         gunmasterGroup(descriptors, RoomConfigCategory.TRANSPORT, "gmCampASpawnGroup", "枪王模式团队A出生组", "gunmasterConfig.campASpawnGroup", RoomConfigValueType.DATA_GROUP);

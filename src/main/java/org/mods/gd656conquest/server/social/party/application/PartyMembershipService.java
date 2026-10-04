@@ -32,7 +32,9 @@ public final class PartyMembershipService {
         UUID resolvedPlayerId = requirePlayerId(playerId);
         PartyAggregate party = repository.findByPlayerId(resolvedPlayerId)
             .orElseThrow(() -> new PartyError("该玩家当前不在任何队伍中"));
-        party.ensureUnlockedForMembershipChange();
+        // GD656Mods: 主动离开队伍不受"成员结构锁定"限制 —— 组队进入对局后队伍会被 lockMembership,
+        // 若这里继续校验锁, 玩家在对局中就永远无法退出队伍。锁定只用于防止"邀请/加入"造成的结构变化,
+        // 退出不会破坏对局状态(该玩家的小队归属在进入对局时已经写入)。
         if (party.isLeader(resolvedPlayerId)) {
             repository.delete(party.partyId());
             return new LeavePartyResult(party.partyId(), true);

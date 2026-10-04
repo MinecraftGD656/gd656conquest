@@ -135,6 +135,7 @@ public final class LoadoutUiOpenPacket {
                     buffer.writeBoolean(entry.unlocked());
                     buffer.writeBoolean(entry.roomEnabled());
                     buffer.writeUtf(entry.itemSnbt());
+                    buffer.writeBoolean(entry.trial());
                 }
             }
         }
@@ -255,7 +256,8 @@ public final class LoadoutUiOpenPacket {
                         buffer.readInt(),
                         buffer.readBoolean(),
                         buffer.readBoolean(),
-                        buffer.readUtf()
+                        buffer.readUtf(),
+                        buffer.readBoolean()
                     ));
                 }
                 slots.add(new SlotPayload(index, slotKey, slotLabel, selectedId, roomRestricted, entries));
@@ -420,7 +422,11 @@ public final class LoadoutUiOpenPacket {
     public record SlotPayload(int slotIndex, String slotKey, String slotLabel, String selectedId, boolean roomRestricted, List<EntryPayload> entries) {
     }
 
-    public record EntryPayload(String id, String displayName, int unlockLevel, boolean unlocked, boolean roomEnabled, String itemSnbt) {
+    /**
+     * GD656Mods: {@code trial} = 该装备是"未解锁但可在本房间试用"(仅武器槽, 房间需开启 commonConfig.ignoreGunLevel)。
+     * 客户端据此在选择器单行后方标出试用标记。
+     */
+    public record EntryPayload(String id, String displayName, int unlockLevel, boolean unlocked, boolean roomEnabled, String itemSnbt, boolean trial) {
     }
 
     public record AdminEquipmentPayload(

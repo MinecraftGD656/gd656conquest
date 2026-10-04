@@ -254,7 +254,9 @@ public final class RoomDefinitionGroupConfigEditor {
             common.campAEquipmentSetId(),
             common.campBEquipmentSetId(),
             common.mapName(),
-            common.roomDescription()
+            common.roomDescription(),
+            common.ignoreClassLimitOnRestriction(),
+            common.ignoreGunLevel()
         );
         return new RoomDefinition(
             definition.roomId(),
@@ -911,7 +913,8 @@ public final class RoomDefinitionGroupConfigEditor {
             || "dmammoboxpositions".equals(canonical)
             || "dmmedicalboxpositions".equals(canonical)
             || "gmsolospawnpositions".equals(canonical)
-            || "gmmedicalboxpositions".equals(canonical);
+            || "gmmedicalboxpositions".equals(canonical)
+            || "gmammoboxpositions".equals(canonical);
     }
 
     private static RoomDefinition replaceArenaBoundary(
@@ -1072,6 +1075,8 @@ public final class RoomDefinitionGroupConfigEditor {
             case "conquestammoboxpositions" -> "conquestConfig.ammoBoxPositions";
             case "medicalboxpositions" -> "conquestConfig.medicalBoxPositions";
             case "conquestmedicalboxpositions" -> "conquestConfig.medicalBoxPositions";
+            // GD656Mods: 枪王模式弹药箱数据组(新配置项; switch 顺序不影响语义)
+            case "gmammoboxpositions" -> "gunmasterConfig.ammoBoxPositions";
             case "btammoboxpositions" -> "breakthroughConfig.ammoBoxPositions";
             case "btmedicalboxpositions" -> "breakthroughConfig.medicalBoxPositions";
             case "rsammoboxpositions" -> "rushConfig.ammoBoxPositions";

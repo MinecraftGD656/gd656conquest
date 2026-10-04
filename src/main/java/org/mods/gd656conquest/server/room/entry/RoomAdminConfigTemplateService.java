@@ -177,7 +177,9 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.campAEquipmentSetId(),
             sourceCommon.campBEquipmentSetId(),
             sourceCommon.mapName(),
-            sourceCommon.roomDescription()
+            sourceCommon.roomDescription(),
+            sourceCommon.ignoreClassLimitOnRestriction(),
+            sourceCommon.ignoreGunLevel()
         );
         return new RoomDefinition(
             target.roomId(),

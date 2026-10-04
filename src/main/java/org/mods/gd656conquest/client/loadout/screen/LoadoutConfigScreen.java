@@ -769,14 +769,20 @@ public class LoadoutConfigScreen extends Screen {
         List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
         for (ClientLoadoutUiState.EntryState entry : slotState.sortedEntries()) {
             String display = entry.displayName().isBlank() ? entry.id() : entry.displayName();
-            String lockSuffix = entry.unlocked() ? "" : ("  Lv." + entry.unlockLevel() + "未解锁");
+            // GD656Mods: 未解锁但在本房间可试用的武器 —— 单行后方标"试用", 并按可选样式显示
+            boolean trial = entry.trial();
+            String lockSuffix = entry.unlocked() || trial ? "" : ("  Lv." + entry.unlockLevel() + "未解锁");
+            if (trial) {
+                lockSuffix = "  \u00a7e[试用]";
+            }
             boolean roomEnabled = entry.roomEnabled();
-            String prefix = !roomEnabled ? "\u00a78" : entry.unlocked() ? "\u00a7f" : "\u00a77";
+            String prefix = !roomEnabled ? "\u00a78" : entry.unlocked() || trial ? "\u00a7f" : "\u00a77";
             String label = prefix + display + " \u00a78[" + entry.id() + "]" + (lockSuffix.isBlank() ? "" : " \u00a77" + lockSuffix);
             choices.add(new FixedChoiceConfigEntry.Choice(entry.id(), label));
             ChoiceListDialog.RowIcon icon = buildItemIcon(entry.itemSnbt());
             if (icon != null && !icon.isEmpty()) iconByEntryId.put(entry.id(), icon);
-            if (!entry.unlocked()) lockedIds.add(entry.id());
+            // GD656Mods: 可试用的未解锁武器不算"锁定", 否则选择器会禁止选中它
+            if (!entry.unlocked() && !trial) lockedIds.add(entry.id());
             if (!roomEnabled) roomDisabledIds.add(entry.id());
         }
 

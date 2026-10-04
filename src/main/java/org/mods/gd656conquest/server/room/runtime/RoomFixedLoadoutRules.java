@@ -3,6 +3,7 @@ package org.mods.gd656conquest.server.room.runtime;
 import org.mods.gd656conquest.server.data.equipment.EquipmentDataModel;
 import org.mods.gd656conquest.server.loadout.application.CustomLoadoutService;
 import org.mods.gd656conquest.server.loadout.domain.CustomLoadoutSlot;
+import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.room.model.RoomCommonConfig;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
@@ -23,6 +24,44 @@ public final class RoomFixedLoadoutRules {
 
     public static boolean hasRestriction(RoomDefinition room, RoomTeamId teamId, CustomLoadoutSlot slot) {
         return !idsForTeamSlot(room, teamId, slot).isEmpty();
+    }
+
+    /**
+     * GD656Mods: 限定槽位是否忽略"兵种可用性"(EquipmentEntry.availableClasses)。
+     *
+     * <p>历史行为: 某个槽位一旦配置了限定列表, 该槽位就无视兵种限制 —— 全兵种都能拿到该槽位的装备,
+     * 包括本该属于特定兵种的道具。这被保留为默认行为, 由房间配置
+     * {@code commonConfig.ignoreClassLimitOnRestriction} 控制(默认 true = 保持历史行为);
+     * 关掉它则会在此后的限定分支里追加兵种过滤。
+     */
+    public static boolean ignoresClassLimitOnRestriction(RoomDefinition room) {
+        if (room == null || room.commonConfig() == null) {
+            return true;
+        }
+        return room.commonConfig().ignoresClassLimitOnRestriction();
+    }
+
+    /** GD656Mods: 房间是否开启"武器忽略枪械等级"(默认 false)。 */
+    public static boolean ignoresGunLevel(RoomDefinition room) {
+        return room != null && room.commonConfig() != null && room.commonConfig().ignoreGunLevel();
+    }
+
+    /**
+     * GD656Mods: 限定分支里的兵种可见性判定 —— 统一入口, 避免每个调用点各写一遍 if。
+     * 房间配置为"忽略"时恒为 true(保持历史行为)。
+     */
+    public static boolean allowsEntryForClass(
+        RoomDefinition room,
+        EquipmentDataModel.EquipmentEntry entry,
+        PlayerClassType classType
+    ) {
+        if (entry == null) {
+            return false;
+        }
+        if (ignoresClassLimitOnRestriction(room)) {
+            return true;
+        }
+        return classType == null || CustomLoadoutService.isEntryAvailableForClass(entry, classType);
     }
 
     public static boolean allowsEmpty(RoomDefinition room, RoomTeamId teamId, CustomLoadoutSlot slot) {
@@ -117,6 +156,23 @@ public final class RoomFixedLoadoutRules {
         int playerLevel,
         boolean ignoreUnlockLevel
     ) {
+        // GD656Mods: 旧签名保留(等价于不按兵种过滤 = 历史行为); 需要兵种过滤的调用请用带 classType 的重载
+        return resolveFallbackEntry(room, equipmentData, teamId, slot, playerLevel, ignoreUnlockLevel, null);
+    }
+
+    /**
+     * GD656Mods: 带兵种信息的兜底项解析 —— 房间关掉"限定槽位忽略兵种限制"时,
+     * 兜底项也只会挑该兵种可用的装备。
+     */
+    public static EquipmentDataModel.EquipmentEntry resolveFallbackEntry(
+        RoomDefinition room,
+        EquipmentDataModel equipmentData,
+        RoomTeamId teamId,
+        CustomLoadoutSlot slot,
+        int playerLevel,
+        boolean ignoreUnlockLevel,
+        PlayerClassType classType
+    ) {
         if (room == null || equipmentData == null || teamId == null || slot == null || !hasRestriction(room, teamId, slot)) {
             return null;
         }
@@ -124,6 +180,7 @@ public final class RoomFixedLoadoutRules {
             .filter(id -> !CustomLoadoutService.isReservedEmptyEquipmentId(id))
             .map(id -> equipmentData.getEquipmentById().get(CustomLoadoutService.normalizeEquipmentId(id)))
             .filter(entry -> entry != null && entry.getSlot() == slot.getIndex())
+            .filter(entry -> allowsEntryForClass(room, entry, classType))
             .filter(entry -> ignoreUnlockLevel || CustomLoadoutService.isEntryUnlocked(entry, playerLevel))
             .sorted(Comparator.comparingInt(EquipmentDataModel.EquipmentEntry::getUnlockLevel)
                 .thenComparing(EquipmentDataModel.EquipmentEntry::getId, String.CASE_INSENSITIVE_ORDER))

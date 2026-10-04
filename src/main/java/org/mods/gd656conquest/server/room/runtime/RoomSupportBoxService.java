@@ -94,6 +94,29 @@ public final class RoomSupportBoxService {
     private final Map<UUID, Map<UUID, Long>> medicalBoxInfoPriorityUntilTickByBox = new HashMap<>();
     private final Map<String, Set<UUID>> permanentMedicalBoxIdsByRoom = new HashMap<>();
 
+    // GD656Mods: 地图配置的永久箱改为"配置点驱动" —— 判定/显示/使用只看坐标, 完全不依赖实体是否加载。
+    // 背景: 原来每 tick 用 findEntityByUuid 反查实体, 而 ServerLevel.getEntity 只命中"已加载"实体,
+    // 大地图远处箱子在开局时区块未加载 → 被误判为已移除并从追踪表剔除 → 玩家走过去看得见却用不了。
+    // 投掷箱(位置随实体)仍走 activeAmmoBoxIds 那套实体驱动逻辑, 两条链互不干扰。
+    private final Map<String, List<PermanentBoxPoint>> permanentAmmoPointsByRoom = new HashMap<>();
+    private final Map<String, List<PermanentBoxPoint>> permanentMedicalPointsByRoom = new HashMap<>();
+    /** GD656Mods: 永久箱的每玩家冷却/提示状态, key = {@link #permanentBoxKey}(与实体无关, 实体重建也不丢)。 */
+    private final Map<String, Map<UUID, Long>> permanentAmmoCooldownUntilTickByBox = new HashMap<>();
+    private final Map<String, Map<UUID, Long>> permanentAmmoInfoPriorityUntilTickByBox = new HashMap<>();
+    private final Map<String, Map<UUID, Long>> permanentAmmoLastNotifyTickByBox = new HashMap<>();
+    private final Map<String, Map<UUID, Long>> permanentMedicalCooldownUntilTickByBox = new HashMap<>();
+    private final Map<String, Map<UUID, Long>> permanentMedicalInfoPriorityUntilTickByBox = new HashMap<>();
+    private final Map<String, Map<UUID, Long>> permanentMedicalLastNotifyTickByBox = new HashMap<>();
+
+    /** GD656Mods: 永久箱的配置点(索引 + 已含 0.5 偏移的箱心坐标)。 */
+    private record PermanentBoxPoint(int index, double x, double y, double z) {
+    }
+
+    /** GD656Mods: 永久箱的稳定身份 —— 房间 + 配置点索引。 */
+    private static String permanentBoxKey(String roomId, int index) {
+        return "p|" + (roomId == null ? "" : roomId) + "|" + index;
+    }
+
     public RoomSupportBoxService(
         MinecraftServer server,
         RoomRuntimeRepository<RoomRuntimeState> runtimeRepository,
@@ -111,6 +134,11 @@ public final class RoomSupportBoxService {
     public void tick(long gameTick) {
         processPendingMedicalBoxThrows();
         processPendingAmmoBoxThrows();
+        // GD656Mods: 靠近提示/自动触发不需要 20Hz —— 每 2 tick(10Hz)一次, 延迟 <=100ms 玩家无感,
+        // 开销减半(该判定原本是每 tick 全箱子扫描)。
+        if (gameTick % 2L != 0L) {
+            return;
+        }
         processMedicalBoxAura(gameTick);
         processAmmoBoxAura(gameTick);
     }
@@ -128,6 +156,9 @@ public final class RoomSupportBoxService {
             if (position == null) {
                 continue;
             }
+            // GD656Mods: 把配置点登记为"坐标驱动的永久箱"(判定不再依赖实体)
+            List<PermanentBoxPoint> ammoPoints = permanentAmmoPointsByRoom.computeIfAbsent(room.roomId(), ignored -> new ArrayList<>());
+            ammoPoints.add(new PermanentBoxPoint(ammoPoints.size(), position.x() + 0.5D, position.y(), position.z() + 0.5D));
             AmmoBoxEntity ammoBox = new AmmoBoxEntity(ConquestEntities.AMMO_BOX.get(), level);
             ammoBox.setPos(position.x() + 0.5D, position.y(), position.z() + 0.5D);
             ammoBox.setYRot(0.0F);
@@ -144,6 +175,9 @@ public final class RoomSupportBoxService {
             if (position == null) {
                 continue;
             }
+            // GD656Mods: 同弹药箱 —— 登记为坐标驱动的永久箱
+            List<PermanentBoxPoint> medicalPoints = permanentMedicalPointsByRoom.computeIfAbsent(room.roomId(), ignored -> new ArrayList<>());
+            medicalPoints.add(new PermanentBoxPoint(medicalPoints.size(), position.x() + 0.5D, position.y(), position.z() + 0.5D));
             MedicalBoxEntity medicalBox = new MedicalBoxEntity(ConquestEntities.MEDICAL_BOX.get(), level);
             medicalBox.setPos(position.x() + 0.5D, position.y(), position.z() + 0.5D);
             medicalBox.setYRot(0.0F);
@@ -170,6 +204,27 @@ public final class RoomSupportBoxService {
         }
         permanentAmmoBoxIdsByRoom.remove(roomId);
         permanentMedicalBoxIdsByRoom.remove(roomId);
+        // GD656Mods: 一并清理坐标驱动的永久箱状态(点数表 + 每玩家冷却/提示)
+        for (PermanentBoxPoint point : permanentAmmoPointsByRoom.getOrDefault(roomId, List.of())) {
+            clearPermanentAmmoBoxState(permanentBoxKey(roomId, point.index()));
+        }
+        for (PermanentBoxPoint point : permanentMedicalPointsByRoom.getOrDefault(roomId, List.of())) {
+            clearPermanentMedicalBoxState(permanentBoxKey(roomId, point.index()));
+        }
+        permanentAmmoPointsByRoom.remove(roomId);
+        permanentMedicalPointsByRoom.remove(roomId);
+    }
+
+    private void clearPermanentAmmoBoxState(String boxKey) {
+        permanentAmmoCooldownUntilTickByBox.remove(boxKey);
+        permanentAmmoInfoPriorityUntilTickByBox.remove(boxKey);
+        permanentAmmoLastNotifyTickByBox.remove(boxKey);
+    }
+
+    private void clearPermanentMedicalBoxState(String boxKey) {
+        permanentMedicalCooldownUntilTickByBox.remove(boxKey);
+        permanentMedicalInfoPriorityUntilTickByBox.remove(boxKey);
+        permanentMedicalLastNotifyTickByBox.remove(boxKey);
     }
 
     public boolean tryUseAmmoBoxItem(ServerPlayer player, InteractionHand hand) {
@@ -379,6 +434,9 @@ public final class RoomSupportBoxService {
                 shownPlayers.add(player.getUUID());
             }
         }
+        // GD656Mods: 追加"配置点驱动"的永久箱 —— 零实体访问, 与投掷箱共用同一追踪表;
+        // 放在投掷箱之后, 因此永久箱提示会覆盖投掷箱提示(地图箱优先)。
+        shownPlayers.addAll(processPermanentAmmoBoxAura(gameTick));
         syncAmmoBoxActionbarTracking(shownPlayers);
         if (!stale.isEmpty()) {
             for (UUID boxId : stale) {
@@ -390,6 +448,10 @@ public final class RoomSupportBoxService {
     public boolean tryUseNearbyAmmoBox(ServerPlayer player, long gameTick) {
         if (player == null) {
             return false;
+        }
+        // GD656Mods: 先尝试"配置点驱动"的永久箱 —— 不依赖实体/区块加载, 这是"看得见却用不了"的修复点。
+        if (tryUseNearbyPermanentAmmoBox(player, gameTick)) {
+            return true;
         }
         AmmoBoxCandidate candidate = resolveBestAmmoBoxCandidate(player, gameTick);
         if (candidate == null) {
@@ -433,6 +495,8 @@ public final class RoomSupportBoxService {
                 }
             }
         }
+        // GD656Mods: 追加"配置点驱动"的永久医疗箱 —— 零实体访问
+        processPermanentMedicalBoxAura(gameTick);
         if (!stale.isEmpty()) {
             for (UUID boxId : stale) {
                 removeTrackedMedicalBox(boxId, false);
@@ -869,8 +933,11 @@ public final class RoomSupportBoxService {
         if (room == null) {
             return List.of();
         }
+        // GD656Mods: 枪王模式有自己的配置项(gunmasterConfig.ammoBoxPositions) —— 不能走下面的
+        // isArenaGameplay() 分支: 那条路会读到团队死斗(arenaConfig)的配置, 表现为"配置项能填却不生效"。
         if (gunmasterLoadoutService.isGunmasterRoom(room)) {
-            return List.of();
+            org.mods.gd656conquest.server.room.model.RoomGunmasterConfig gunmaster = room.gunmasterConfig();
+            return gunmaster == null ? List.of() : gunmaster.ammoBoxPositions();
         }
         if (room.isArenaGameplay()) {
             return room.arenaConfig().ammoBoxPositions();
@@ -879,8 +946,10 @@ public final class RoomSupportBoxService {
             RoomBreakthroughConfig breakthrough = room.breakthroughConfig();
             return breakthrough == null ? List.of() : breakthrough.ammoBoxPositions();
         }
+        // GD656Mods: 突袭模式同样有配置项(rushConfig.ammoBoxPositions), 原本被硬编码忽略
         if (RoomGameplayId.RUSH.equals(room.gameplayId())) {
-            return List.of();
+            org.mods.gd656conquest.server.room.model.RoomRushConfig rush = room.rushConfig();
+            return rush == null ? List.of() : rush.ammoBoxPositions();
         }
         RoomConquestConfig conquest = room.conquestConfig();
         return conquest == null ? List.of() : conquest.ammoBoxPositions();
@@ -890,6 +959,12 @@ public final class RoomSupportBoxService {
         if (room == null) {
             return List.of();
         }
+        // GD656Mods: 枪王模式的医疗箱(gmMedicalBoxPositions)必须在这里分派 —— 否则 isArenaGameplay()
+        // 会把枪王也算作 arena, 读到团队死斗的配置。
+        if (gunmasterLoadoutService.isGunmasterRoom(room)) {
+            org.mods.gd656conquest.server.room.model.RoomGunmasterConfig gunmaster = room.gunmasterConfig();
+            return gunmaster == null ? List.of() : gunmaster.medicalBoxPositions();
+        }
         if (room.isArenaGameplay()) {
             return room.arenaConfig().medicalBoxPositions();
         }
@@ -897,14 +972,277 @@ public final class RoomSupportBoxService {
             RoomBreakthroughConfig breakthrough = room.breakthroughConfig();
             return breakthrough == null ? List.of() : breakthrough.medicalBoxPositions();
         }
+        // GD656Mods: 突袭模式医疗箱配置(rsMedicalBoxPositions)原本被硬编码忽略
         if (RoomGameplayId.RUSH.equals(room.gameplayId())) {
-            return List.of();
+            org.mods.gd656conquest.server.room.model.RoomRushConfig rush = room.rushConfig();
+            return rush == null ? List.of() : rush.medicalBoxPositions();
         }
         RoomConquestConfig conquest = room.conquestConfig();
         return conquest == null ? List.of() : conquest.medicalBoxPositions();
     }
 
     private record RunningPlayerContext(RoomDefinition room, RunningRuntimeState state, RoomTeamId teamId) {
+    }
+
+    // ==================== GD656Mods: 永久箱(配置点驱动) ====================
+    // 地图配置的弹药箱/医疗箱以"配置点"为身份: 判定、显示、使用全部只看坐标, 不查实体。
+    // 实体仍然生成(仅用于玩家可见性), 因此"区块未加载 / 实体被重建 / 维度重载"都不再影响功能。
+
+    /** GD656Mods: 按房间取维度 —— 每 2 tick 一次, findRoom 与 getLevel 都是 O(1), 无遍历。 */
+    private ServerLevel resolveRoomLevelByRoomId(String roomId) {
+        if (roomId == null || roomId.isBlank()) {
+            return null;
+        }
+        org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager manager =
+            org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager.of(server);
+        if (!manager.isInitialized()) {
+            return null;
+        }
+        RoomDefinition room = manager.findRoom(roomId).orElse(null);
+        return room == null ? null : resolveRoomLevel(room);
+    }
+
+    private static boolean isWithinBoxReach(ServerPlayer player, double x, double y, double z, int radius) {
+        if (player == null) {
+            return false;
+        }
+        return player.distanceToSqr(x, y, z) <= (radius * (double) radius + 0.25D);
+    }
+
+    /** GD656Mods: 永久弹药箱的靠近提示 —— 返回"本轮已显示提示"的玩家, 供共用追踪表清理。 */
+    private Set<UUID> processPermanentAmmoBoxAura(long gameTick) {
+        if (permanentAmmoPointsByRoom.isEmpty()) {
+            return Set.of();
+        }
+        Set<UUID> shown = new HashSet<>();
+        for (Map.Entry<String, List<PermanentBoxPoint>> entry : permanentAmmoPointsByRoom.entrySet()) {
+            String roomId = entry.getKey();
+            ServerLevel level = resolveRoomLevelByRoomId(roomId);
+            if (level == null) {
+                continue;
+            }
+            // 只遍历该维度在线玩家(玩家数远小于世界范围), 不做任何世界查询
+            List<ServerPlayer> players = List.copyOf(level.players());
+            for (PermanentBoxPoint point : entry.getValue()) {
+                String boxKey = permanentBoxKey(roomId, point.index());
+                for (ServerPlayer player : players) {
+                    if (!player.isAlive() || player.isSpectator()) {
+                        continue;
+                    }
+                    if (!isWithinBoxReach(player, point.x(), point.y(), point.z(), AMMO_BOX_RADIUS)) {
+                        continue;
+                    }
+                    if (showPermanentAmmoBoxActionbarForPlayer(boxKey, player, gameTick)) {
+                        shown.add(player.getUUID());
+                    }
+                }
+            }
+        }
+        return shown;
+    }
+
+    /** GD656Mods: 永久医疗箱靠近即自动触发。 */
+    private void processPermanentMedicalBoxAura(long gameTick) {
+        if (permanentMedicalPointsByRoom.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, List<PermanentBoxPoint>> entry : permanentMedicalPointsByRoom.entrySet()) {
+            String roomId = entry.getKey();
+            ServerLevel level = resolveRoomLevelByRoomId(roomId);
+            if (level == null) {
+                continue;
+            }
+            List<ServerPlayer> players = List.copyOf(level.players());
+            for (PermanentBoxPoint point : entry.getValue()) {
+                String boxKey = permanentBoxKey(roomId, point.index());
+                for (ServerPlayer player : players) {
+                    if (!player.isAlive() || player.isSpectator()) {
+                        continue;
+                    }
+                    if (!isWithinBoxReach(player, point.x(), point.y(), point.z(), MEDICAL_BOX_RADIUS)) {
+                        continue;
+                    }
+                    tryTriggerPermanentMedicalBox(boxKey, player, gameTick);
+                }
+            }
+        }
+    }
+
+    /** GD656Mods: 按键使用 —— 就近取一个"可用(不在冷却中)"的永久弹药箱。 */
+    private boolean tryUseNearbyPermanentAmmoBox(ServerPlayer player, long gameTick) {
+        String roomId = resolveRunningRoomId(player.getUUID());
+        if (roomId == null) {
+            return false;
+        }
+        List<PermanentBoxPoint> points = permanentAmmoPointsByRoom.get(roomId);
+        if (points == null || points.isEmpty()) {
+            return false;
+        }
+        String bestKey = null;
+        double bestDistance = Double.MAX_VALUE;
+        boolean bestAvailable = false;
+        for (PermanentBoxPoint point : points) {
+            if (!isWithinBoxReach(player, point.x(), point.y(), point.z(), AMMO_BOX_RADIUS)) {
+                continue;
+            }
+            String boxKey = permanentBoxKey(roomId, point.index());
+            double distance = player.distanceToSqr(point.x(), point.y(), point.z());
+            boolean available = isPermanentAmmoBoxAvailable(boxKey, player);
+            if (bestKey == null
+                || (available && !bestAvailable)
+                || (available == bestAvailable && distance < bestDistance)) {
+                bestKey = boxKey;
+                bestDistance = distance;
+                bestAvailable = available;
+            }
+        }
+        if (bestKey == null) {
+            return false;
+        }
+        return tryConsumePermanentAmmoBox(bestKey, player, gameTick);
+    }
+
+    private boolean isPermanentAmmoBoxAvailable(String boxKey, ServerPlayer player) {
+        Map<UUID, Long> cooldown = permanentAmmoCooldownUntilTickByBox.get(boxKey);
+        if (cooldown == null) {
+            return true;
+        }
+        return cooldown.getOrDefault(player.getUUID(), 0L) <= server.getTickCount();
+    }
+
+    /** GD656Mods: 永久弹药箱的实际补给 —— 与投掷箱同样的补给链路, 但跳过"扣次数/销毁/给放下者计分"(它没有实体与所属者)。 */
+    private boolean tryConsumePermanentAmmoBox(String boxKey, ServerPlayer player, long gameTick) {
+        RunningPlayerContext context = findRunningPlayerContext(player.getUUID());
+        if (context == null || gunmasterLoadoutService.isGunmasterRoom(context.room())) {
+            return false;
+        }
+        UUID playerId = player.getUUID();
+        Map<UUID, Long> cooldownUntilTick = permanentAmmoCooldownUntilTickByBox.computeIfAbsent(boxKey, key -> new HashMap<>());
+        Map<UUID, Long> lastNotifyTick = permanentAmmoLastNotifyTickByBox.computeIfAbsent(boxKey, key -> new HashMap<>());
+        Map<UUID, Long> infoPriorityUntilTick = permanentAmmoInfoPriorityUntilTickByBox.computeIfAbsent(boxKey, key -> new HashMap<>());
+        if (cooldownUntilTick.getOrDefault(playerId, 0L) > gameTick) {
+            showPermanentAmmoBoxActionbarForPlayer(boxKey, player, gameTick);
+            return false;
+        }
+        if (!HeroKitSupportService.canRefillFromAmmoBox(context.state(), playerId)) {
+            ServerActionBarService.showText(player, ACTIONBAR_SOURCE_AMMO_BOX_INTERACT, "精英兵暂时无法进行补给", 30);
+            return false;
+        }
+        if (!playerLoadoutService.tryRefillLoadoutByAmmoBox(context.teamId(), player)) {
+            return false;
+        }
+        player.serverLevel().playSound(
+            null,
+            player.getX(),
+            player.getY(),
+            player.getZ(),
+            SoundEvent.createVariableRangeEvent(AMMO_BAG_PICKUP_SOUND_ID),
+            SoundSource.PLAYERS,
+            1.0F,
+            1.0F
+        );
+        cooldownUntilTick.put(playerId, gameTick + PERMANENT_SUPPORT_BOX_PER_PLAYER_CD_TICKS);
+        infoPriorityUntilTick.put(playerId, gameTick + AMMO_BOX_INFO_PRIORITY_TICKS);
+        lastNotifyTick.put(playerId, gameTick);
+        ServerActionBarService.showComponent(
+            player,
+            ACTIONBAR_SOURCE_AMMO_BOX_INTERACT,
+            buildPermanentSupportBoxInfoActionbar("房间弹药箱所属者: "),
+            AMMO_BOX_INFO_PRIORITY_TICKS
+        );
+        playersWithAmmoBoxActionbar.add(playerId);
+        return true;
+    }
+
+    private boolean tryTriggerPermanentMedicalBox(String boxKey, ServerPlayer player, long gameTick) {
+        if (findRunningPlayerContext(player.getUUID()) == null) {
+            return false;
+        }
+        UUID playerId = player.getUUID();
+        Map<UUID, Long> cooldownUntilTick = permanentMedicalCooldownUntilTickByBox.computeIfAbsent(boxKey, key -> new HashMap<>());
+        Map<UUID, Long> lastNotifyTick = permanentMedicalLastNotifyTickByBox.computeIfAbsent(boxKey, key -> new HashMap<>());
+        Map<UUID, Long> infoPriorityUntilTick = permanentMedicalInfoPriorityUntilTickByBox.computeIfAbsent(boxKey, key -> new HashMap<>());
+        long untilTick = cooldownUntilTick.getOrDefault(playerId, 0L);
+        if (untilTick > gameTick) {
+            long nextNotifyTick = lastNotifyTick.getOrDefault(playerId, -100L) + 20L;
+            if (gameTick >= nextNotifyTick) {
+                if (infoPriorityUntilTick.getOrDefault(playerId, -1L) > gameTick) {
+                    ServerMessageSender.rawActionBar(player, buildPermanentSupportBoxInfoActionbar("房间医疗箱所属者: "));
+                } else {
+                    int remainSeconds = Math.max(1, (int) Math.ceil((untilTick - gameTick) / 20.0D));
+                    ServerMessageSender.rawActionBar(player, ServerActionBarService.Templates.cooldownSeconds("房间医疗箱冷却中: ", remainSeconds));
+                }
+                lastNotifyTick.put(playerId, gameTick);
+            }
+            return false;
+        }
+        player.addEffect(new MobEffectInstance(
+            MobEffects.REGENERATION,
+            MEDICAL_BOX_REGEN_DURATION_TICKS,
+            MEDICAL_BOX_REGEN_AMPLIFIER,
+            false,
+            true,
+            true
+        ));
+        cooldownUntilTick.put(playerId, gameTick + PERMANENT_SUPPORT_BOX_PER_PLAYER_CD_TICKS);
+        infoPriorityUntilTick.put(playerId, gameTick + MEDICAL_BOX_INFO_PRIORITY_TICKS);
+        lastNotifyTick.put(playerId, gameTick);
+        ServerMessageSender.rawActionBar(player, buildPermanentSupportBoxInfoActionbar("房间医疗箱所属者: "));
+        return true;
+    }
+
+    private boolean showPermanentAmmoBoxActionbarForPlayer(String boxKey, ServerPlayer player, long gameTick) {
+        if (findRunningPlayerContext(player.getUUID()) == null) {
+            return false;
+        }
+        UUID playerId = player.getUUID();
+        Map<UUID, Long> cooldownUntilTick = permanentAmmoCooldownUntilTickByBox.computeIfAbsent(boxKey, key -> new HashMap<>());
+        Map<UUID, Long> lastNotifyTick = permanentAmmoLastNotifyTickByBox.computeIfAbsent(boxKey, key -> new HashMap<>());
+        Map<UUID, Long> infoPriorityUntilTick = permanentAmmoInfoPriorityUntilTickByBox.computeIfAbsent(boxKey, key -> new HashMap<>());
+        long infoUntilTick = infoPriorityUntilTick.getOrDefault(playerId, -1L);
+        if (infoUntilTick > gameTick) {
+            ServerActionBarService.showComponent(player, ACTIONBAR_SOURCE_AMMO_BOX_INTERACT, buildPermanentSupportBoxInfoActionbar("房间弹药箱所属者: "), 25);
+            lastNotifyTick.put(playerId, gameTick);
+            return true;
+        }
+        long untilTick = cooldownUntilTick.getOrDefault(playerId, 0L);
+        if (untilTick > gameTick) {
+            int remainSeconds = Math.max(1, (int) Math.ceil((untilTick - gameTick) / 20.0D));
+            ServerActionBarService.showComponent(
+                player,
+                ACTIONBAR_SOURCE_AMMO_BOX_INTERACT,
+                ServerActionBarService.Templates.cooldownSeconds("房间弹药箱冷却中: ", remainSeconds),
+                25
+            );
+            lastNotifyTick.put(playerId, gameTick);
+            return true;
+        }
+        ServerActionBarService.showComponent(player, ACTIONBAR_SOURCE_AMMO_BOX_INTERACT, buildAmmoBoxPromptActionbar(), 25);
+        lastNotifyTick.put(playerId, gameTick);
+        return true;
+    }
+
+    /**
+     * GD656Mods: 永久支援箱(坐标驱动)的通用信息条 —— 弹药箱与医疗箱原本是两份逐字重复的方法,
+     * 唯一差别就是开头那一段所属者标签, 这里收敛成一个带标签参数的实现。
+     */
+    private MutableComponent buildPermanentSupportBoxInfoActionbar(String ownerLabel) {
+        return ServerActionBarService.Templates.labeledPair(
+            ownerLabel,
+            "地图补给",
+            ChatFormatting.AQUA,
+            ChatFormatting.GOLD,
+            "剩余使用次数: ",
+            "∞",
+            ChatFormatting.AQUA,
+            ChatFormatting.LIGHT_PURPLE
+        );
+    }
+
+    /** GD656Mods: 该玩家当前所在房间 id(用于把配置点定位到房间)。 */
+    private String resolveRunningRoomId(UUID playerId) {
+        RunningPlayerContext context = findRunningPlayerContext(playerId);
+        return context == null || context.room() == null ? null : context.room().roomId();
     }
 
     private record AmmoBoxCandidate(AmmoBoxEntity ammoBox, double sqrDistance, boolean availableNow) {
