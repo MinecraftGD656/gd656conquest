@@ -22,11 +22,13 @@ import org.mods.gd656conquest.server.compat.tacz.TaczShellingImpactEventEntrypoi
 import org.mods.gd656conquest.server.compat.ywzjvehicle.YwzjVehicleDeployMountGuard;
 import org.mods.gd656conquest.server.core.lifecycle.ServerLifecycleCoordinator;
 import org.mods.gd656conquest.server.vehicle.DroneLifecycleService;
+import org.mods.gd656conquest.server.smoke.ServerSmokeCloudTracker;
 
 import java.util.Objects;
 
 public final class ServerEventEntrypoint {
     private final ServerLifecycleCoordinator lifecycleCoordinator;
+    private final ServerSmokeCloudTracker smokeCloudTracker = new ServerSmokeCloudTracker();
 
     public ServerEventEntrypoint(ServerLifecycleCoordinator lifecycleCoordinator) {
         this.lifecycleCoordinator = Objects.requireNonNull(lifecycleCoordinator, "lifecycleCoordinator");
@@ -42,6 +44,7 @@ public final class ServerEventEntrypoint {
     public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase == TickEvent.Phase.END && event.getServer() != null) {
             lifecycleCoordinator.onServerTick(event.getServer(), event.getServer().getTickCount());
+            smokeCloudTracker.tick(event.getServer());
         }
     }
 
@@ -51,6 +54,7 @@ public final class ServerEventEntrypoint {
             lifecycleCoordinator.onServerStopped(event.getServer());
         }
         PlayerAnimatorDebugDimensionsState.resetAll();
+        smokeCloudTracker.reset();
     }
 
     @SubscribeEvent
@@ -71,6 +75,7 @@ public final class ServerEventEntrypoint {
     @SubscribeEvent
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            smokeCloudTracker.sendSnapshot(player);
             lifecycleCoordinator.onPlayerLogin(player);
         }
     }

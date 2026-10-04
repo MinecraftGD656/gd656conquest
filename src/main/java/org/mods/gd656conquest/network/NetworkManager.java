@@ -65,10 +65,11 @@ import org.mods.gd656conquest.network.packet.SupportUiRequestPacket;
 import org.mods.gd656conquest.network.packet.SupportUiSnapshotPacket;
 import org.mods.gd656conquest.network.packet.ServerboundBoundaryHeightStatePacket;
 import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
+import org.mods.gd656conquest.network.packet.SmokeCloudSyncPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "106";
+    private static final String PROTOCOL_VERSION = "107";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -494,6 +495,13 @@ public final class NetworkManager {
                 CaptureBoundaryDebugScanPacket::decode,
                 CaptureBoundaryDebugScanPacket::handle
         );
+        CHANNEL.registerMessage(
+                packetId++,
+                SmokeCloudSyncPacket.class,
+                SmokeCloudSyncPacket::encode,
+                SmokeCloudSyncPacket::decode,
+                SmokeCloudSyncPacket::handle
+        );
     }
 
     public static void sendToPlayer(ServerPlayer player, Object packet) {
@@ -502,6 +510,10 @@ public final class NetworkManager {
 
     public static void sendToServer(Object packet) {
         CHANNEL.sendToServer(packet);
+    }
+
+    public static void sendToAll(Object packet) {
+        CHANNEL.send(PacketDistributor.ALL.noArg(), packet);
     }
 
     public static SimpleChannel getChannel() {

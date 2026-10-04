@@ -40,6 +40,8 @@ import org.mods.gd656conquest.client.room.ClientDownedState;
 import org.mods.gd656conquest.client.room.ClientReviveState;
 import org.mods.gd656conquest.client.room.ClientRoomLockState;
 import org.mods.gd656conquest.client.room.ClientRoomTeamMirror;
+import org.mods.gd656conquest.client.smoke.ClientSmokeCloudRenderer;
+import org.mods.gd656conquest.client.smoke.ClientSmokeCloudStore;
 import org.mods.gd656conquest.common.audio.AudioManager;
 import org.mods.gd656conquest.common.block.ConquestBlocks;
 import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
@@ -135,6 +137,7 @@ public final class ClientEventHandler {
     }
 
     public void handleRenderLevel(RenderLevelStageEvent event) {
+        ClientSmokeCloudRenderer.render(event);
         if (!captureOverlayController.shouldRenderCaptureLinesForStage(event.getStage())) {
             return;
         }
@@ -297,6 +300,7 @@ public final class ClientEventHandler {
         ClientRoomMarkerState.reset();
         ClientMarkerDebugPreviewState.reset();
         ClientHudDebugPreviewState.reset();
+        ClientSmokeCloudStore.reset();
         ClientPlayerAnimatorDebugState.reset();
         TaczClientInputCompat.resetSuppression();
         superbWarfareShellingHook.reset();
@@ -311,6 +315,7 @@ public final class ClientEventHandler {
         String roomId = ClientHudDebugState.getRoomId();
         if (roomId != null && !roomId.isBlank() && !"-".equals(roomId)) {
             ClientDeployDeathMarkerState.clear();
+            ClientSmokeCloudStore.reset();
             captureOverlayController.clearRenderCaches();
             ClientCaptureBakeState.reset();
             captureOutlineController.clear();
