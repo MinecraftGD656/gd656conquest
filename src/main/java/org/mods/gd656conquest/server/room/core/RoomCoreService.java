@@ -1232,6 +1232,9 @@ public final class RoomCoreService {
         }
         MatchingRuntimeState state = slot.runtime().getMatchingState();
         if (!matchingCoordinator.joinQueue(state, playerId, gameTick, slot.room().commonConfig().matchingConfig())) {
+            // GD656Mods: joinQueue 的失败只有两种 —— 队列已达 totalMaxPlayers, 或两队都满导致无法分配阵营,
+            // 两者都等价于"对局已满"。原来这里静默返回, 玩家看不到任何原因。
+            notifyRoomFull(player);
             return Optional.empty();
         }
         if (isExperimentalPlayerBalanceEnabled()) {
@@ -2245,6 +2248,22 @@ public final class RoomCoreService {
             target);
     }
 
+    /** GD656Mods: 对局满员导致无法进入时的统一文案。 */
+    private static final String ENTER_DENIED_ROOM_FULL = "进入失败：对局已满";
+
+    /**
+     * GD656Mods: 对局满员时的统一提示。
+     *
+     * <p>原来满员是**静默**被忽略的: {@code joinQueue} 返回 false、{@code resolveRunningJoinTeam}
+     * 返回 null 之后都直接 {@code Optional.empty()}, 玩家点"加入对局"没有任何反馈。
+     */
+    private void notifyRoomFull(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        ServerLogger.sendToClient(player, ClientMessageType.FAILURE, ENTER_DENIED_ROOM_FULL);
+    }
+
     private Optional<RoomJoinResult> tryRejoinRunningMatch(
         RoomRuntimeSlot<RoomRuntimeState> slot,
         ServerPlayer player,
@@ -2327,6 +2346,8 @@ public final class RoomCoreService {
         RunningRuntimeState runningState = slot.runtime().getRunningState();
         RoomTeamId teamId = groupPlacementService.resolveRunningJoinTeam(slot.room(), runningState, playerId);
         if (teamId == null) {
+            // GD656Mods: 两队都已满时 resolveRunningJoinTeam 返回 null —— 原来静默, 现在明确提示满员
+            notifyRoomFull(player);
             return Optional.empty();
         }
         inventorySnapshotService.backupAndClear(player, slot.runtime());
@@ -2363,6 +2384,8 @@ public final class RoomCoreService {
         RunningRuntimeState runningState = slot.runtime().getRunningState();
         RoomTeamId teamId = groupPlacementService.resolveRunningJoinTeam(slot.room(), runningState, playerId);
         if (teamId == null) {
+            // GD656Mods: 同上 —— 结束阶段的中途加入同样会在满员时被拒, 需要明确提示
+            notifyRoomFull(player);
             return Optional.empty();
         }
         inventorySnapshotService.backupAndClear(player, slot.runtime());
