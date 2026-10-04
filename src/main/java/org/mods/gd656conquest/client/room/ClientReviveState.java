@@ -19,7 +19,7 @@ public final class ClientReviveState {
      * 新出现的可救援目标不会打断当前救援); 但当前目标被救完之后, 服务端的救援状态会被清空,
      * 此时的这一次重发就会被当作一次新的开始请求 —— 于是"按住 F 不放"能救完一个自动接下一个。
      */
-    private static final long REVIVE_KEEPALIVE_RESEND_MILLIS = 500L;
+    private static final long REVIVE_KEEPALIVE_RESEND_MILLIS = 100L;
 
     private static boolean reviveHeld;
     private static UUID activeTargetId;
