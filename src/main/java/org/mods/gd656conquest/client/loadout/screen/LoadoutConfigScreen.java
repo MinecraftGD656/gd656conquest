@@ -1141,6 +1141,18 @@ public class LoadoutConfigScreen extends Screen {
      */
     private static final int VEHICLE_LIST_TOP_OFFSET = 24;
 
+    /**
+     * GD656Mods: 载具列表的内容高度 = 最后一行的底边(不含其后的行间距)。
+     * 若用"行数 ×(行高+行间距)", 会多算一个行间距, 滚到底时列表底部留下空隙;
+     * 用这个值可以让最后一行正好贴住裁剪底边。
+     */
+    private static int vehicleListContentHeight(int rowCount) {
+        if (rowCount <= 0) {
+            return 0;
+        }
+        return (rowCount - 1) * (VEHICLE_ROW_HEIGHT + VEHICLE_ROW_GAP) + VEHICLE_ROW_HEIGHT;
+    }
+
     private void renderVehicleDeployPage(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int contentTop) {
         if (minecraft == null || minecraft.player == null || minecraft.level == null) return;
 
@@ -1162,7 +1174,7 @@ public class LoadoutConfigScreen extends Screen {
 
         List<ClientLoadoutUiState.VehicleEntryState> entries = sortedVehicleEntries();
         int viewHeight = Math.max(1, listBottom - listTop);
-        int contentHeight = entries.size() * (VEHICLE_ROW_HEIGHT + VEHICLE_ROW_GAP);
+        int contentHeight = vehicleListContentHeight(entries.size());
         vehicleDeployScroll.update(mouseY, viewHeight, contentHeight);
 
         if (entries.isEmpty()) {
@@ -1278,7 +1290,7 @@ public class LoadoutConfigScreen extends Screen {
         // 原来这里手写 +4(渲染是 +24), 视口高度被多算 20px -> 滚到底时最后一行只显示半行。
         final int listTop = getContentTop() + VEHICLE_LIST_TOP_OFFSET, listBottom = this.height - GuiConstants.SCREEN_EDGE_DISTANCE;
         if (mouseX >= left && mouseX <= right && mouseY >= listTop && mouseY <= listBottom)
-            return vehicleDeployScroll.mouseScrolled(delta, listBottom - listTop, sortedVehicleEntries().size() * (VEHICLE_ROW_HEIGHT + VEHICLE_ROW_GAP));
+            return vehicleDeployScroll.mouseScrolled(delta, listBottom - listTop, vehicleListContentHeight(sortedVehicleEntries().size()));
         return false;
     }
 

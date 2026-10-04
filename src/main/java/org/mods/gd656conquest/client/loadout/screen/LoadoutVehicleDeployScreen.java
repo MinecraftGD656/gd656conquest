@@ -101,7 +101,7 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         int listY1 = TOP;
         int listY2 = this.height - 36;
         int viewHeight = Math.max(1, listY2 - listY1);
-        int contentHeight = sortedEntries().size() * (ROW_HEIGHT + ROW_GAP);
+        int contentHeight = vehicleListContentHeight();
         listScrollState.update(mouseY, viewHeight, contentHeight);
 
         syncVehicleButtons();
@@ -158,10 +158,23 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
+    /**
+     * GD656Mods: 载具列表的内容高度 = 最后一行的底边(不含其后的行间距)。
+     * 用"行数 ×(行高+行间距)"会多算一个行间距, 滚到底时底部留空隙;
+     * 用这个值可以做到最后一行贴底。
+     */
+    private int vehicleListContentHeight() {
+        int rowCount = sortedEntries().size();
+        if (rowCount <= 0) {
+            return 0;
+        }
+        return (rowCount - 1) * (ROW_HEIGHT + ROW_GAP) + ROW_HEIGHT;
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         if (mouseX >= LEFT && mouseX <= this.width - 18 && mouseY >= TOP && mouseY <= this.height - 36) {
-            return listScrollState.mouseScrolled(delta, this.height - 36 - TOP, sortedEntries().size() * (ROW_HEIGHT + ROW_GAP));
+            return listScrollState.mouseScrolled(delta, this.height - 36 - TOP, vehicleListContentHeight());
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
     }
