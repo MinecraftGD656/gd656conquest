@@ -172,7 +172,7 @@ public final class RoomMarkerRuntimeService {
             return null;
         }
         ServerPlayer target = server.getPlayerList().getPlayer(targetPlayerId);
-        if (target == null || !target.isAlive() || target.isSpectator()) {
+        if (!isMarkerTargetValid(target)) {
             return null;
         }
         if (!state.isPlayerDowned(targetPlayerId) && !state.isPlayerPendingDowned(targetPlayerId)) {
@@ -257,7 +257,7 @@ public final class RoomMarkerRuntimeService {
             return false;
         }
         ServerPlayer target = server.getPlayerList().getPlayer(targetPlayerId);
-        if (target == null || !target.isAlive()) {
+        if (!isMarkerTargetValid(target)) {
             return false;
         }
         RunningRuntimeState.TeamScopedTacticalMarker nextMarker = new RunningRuntimeState.TeamScopedTacticalMarker(
@@ -435,7 +435,7 @@ public final class RoomMarkerRuntimeService {
                 continue;
             }
             ServerPlayer targetPlayer = server.getPlayerList().getPlayer(targetPlayerId);
-            if (targetPlayer == null || !targetPlayer.isAlive() || !playerNeedsAmmoMarker(targetPlayer)) {
+            if (!isMarkerTargetValid(targetPlayer) || !playerNeedsAmmoMarker(targetPlayer)) {
                 continue;
             }
             boolean sameSquad = isSameSquad(viewerSquadLabel, state.getSquadLabelsByPlayer().get(targetPlayerId));
@@ -675,12 +675,23 @@ public final class RoomMarkerRuntimeService {
         return squadLabel == null ? "" : squadLabel.trim();
     }
 
+    /**
+     * GD656Mods: 标记的目标玩家是否仍然"可以带标记"。
+     *
+     * <p>必须显式排除旁观者 —— 旁观者的血量并未清零, 实体仍然存活的语义下
+     * {@code isAlive()} 依旧返回 true, 只判断 isAlive 会让队伍标记继续附着在
+     * 已进入旁观者模式的玩家身上。
+     */
+    private static boolean isMarkerTargetValid(ServerPlayer target) {
+        return target != null && target.isAlive() && !target.isSpectator();
+    }
+
     private ServerPlayer resolveDirectEnemyTarget(RunningRuntimeState state, ServerPlayer owner, UUID targetPlayerId) {
         if (state == null || owner == null || targetPlayerId == null) {
             return null;
         }
         ServerPlayer target = server.getPlayerList().getPlayer(targetPlayerId);
-        if (target == null || !target.isAlive() || !state.getRoomPlayers().contains(targetPlayerId)) {
+        if (!isMarkerTargetValid(target) || !state.getRoomPlayers().contains(targetPlayerId)) {
             return null;
         }
         RoomTeamId ownerTeam = state.getRoomTeams().get(owner.getUUID());
@@ -790,7 +801,7 @@ public final class RoomMarkerRuntimeService {
             return marker.blockPos();
         }
         ServerPlayer target = server.getPlayerList().getPlayer(marker.targetPlayerId());
-        if (target == null || !target.isAlive()) {
+        if (!isMarkerTargetValid(target)) {
             return marker.blockPos();
         }
         return target.blockPosition().immutable();
@@ -896,7 +907,7 @@ public final class RoomMarkerRuntimeService {
             if ((marker.kind() == RunningRuntimeState.MarkerKind.DIRECT_ENEMY || marker.kind() == RunningRuntimeState.MarkerKind.AUTO_ENEMY)
                 && marker.targetPlayerId() != null) {
                 ServerPlayer target = server.getPlayerList().getPlayer(marker.targetPlayerId());
-                if (target == null || !target.isAlive()) {
+                if (!isMarkerTargetValid(target)) {
                     markerMap.remove(entry.getKey());
                     changed = true;
                 }
@@ -921,7 +932,7 @@ public final class RoomMarkerRuntimeService {
                 boolean expired = marker == null || marker.expireTick() <= gameTick;
                 if (!expired && marker.kind() == RunningRuntimeState.MarkerKind.DIRECT_ENEMY && marker.targetPlayerId() != null) {
                     ServerPlayer target = server.getPlayerList().getPlayer(marker.targetPlayerId());
-                    expired = target == null || !target.isAlive();
+                    expired = !isMarkerTargetValid(target);
                 }
                 if (expired) {
                     ownedMarkers.remove(targetEntry.getKey());
@@ -949,7 +960,7 @@ public final class RoomMarkerRuntimeService {
                 continue;
             }
             ServerPlayer target = server.getPlayerList().getPlayer(targetPlayerId);
-            if (target == null || !target.isAlive()) {
+            if (!isMarkerTargetValid(target)) {
                 markerMap.remove(entry.getKey());
                 changed = true;
             }
