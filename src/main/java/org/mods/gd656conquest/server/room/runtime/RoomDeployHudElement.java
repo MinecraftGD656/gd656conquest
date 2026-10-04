@@ -86,7 +86,15 @@ public record RoomDeployHudElement(
         );
     }
 
-    public static RoomDeployHudElement teammate(UUID teammateId, RoomPosition position, RoomTeamId ownerTeam, float yaw, String note, boolean teammateCombat) {
+    public static RoomDeployHudElement teammate(
+        UUID teammateId,
+        RoomPosition position,
+        RoomTeamId ownerTeam,
+        float yaw,
+        String note,
+        boolean teammateCombat,
+        boolean teammateCreative
+    ) {
         return new RoomDeployHudElement(
             RoomDeployHudElementKind.TEAMMATE,
             teammateId == null ? "" : teammateId.toString(),
@@ -97,7 +105,8 @@ public record RoomDeployHudElement(
             "N",
             yaw,
             note,
-            List.of(teammateCombat ? "1" : "0")
+            // GD656Mods: 第 1 列 = 战斗中(不可部署), 第 2 列 = 创造模式(不可部署, 客户端显示红色 + 小字"创造模式")
+            List.of(teammateCombat ? "1" : "0", teammateCreative ? "1" : "0")
         );
     }
 

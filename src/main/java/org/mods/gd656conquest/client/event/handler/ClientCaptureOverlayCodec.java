@@ -166,6 +166,8 @@ final class ClientCaptureOverlayCodec {
                 float progress = Float.parseFloat(cols[7]);
                 String note = cols.length >= 9 ? decodeHudText(cols[8]) : "";
                 boolean teammateCombat = false;
+                // GD656Mods: 队友是否为创造模式(不可部署, 客户端显示红色 + 小字提示)
+                boolean teammateCreative = false;
                 boolean stageObjectiveProxy = false;
                 VehicleHudState vehicleState = VehicleHudState.READY;
                 boolean vehicleLowHealth = false;
@@ -180,6 +182,7 @@ final class ClientCaptureOverlayCodec {
                 }
                 if (kind == IconKind.TEAMMATE) {
                     teammateCombat = cols.length >= 10 && "1".equals(cols[9]);
+                    teammateCreative = cols.length >= 11 && "1".equals(cols[10]);
                 }
                 if (kind == IconKind.SPAWN) {
                     stageObjectiveProxy = cols.length >= 10 && "BT_STAGE_PROXY".equalsIgnoreCase(cols[9]);
@@ -202,6 +205,7 @@ final class ClientCaptureOverlayCodec {
                     normalized,
                     note,
                     teammateCombat,
+                    teammateCreative,
                     stageObjectiveProxy,
                     vehicleState,
                     vehicleLowHealth,

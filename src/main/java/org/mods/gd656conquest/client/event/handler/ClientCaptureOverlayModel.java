@@ -219,6 +219,8 @@ final class ClientCaptureOverlayModel {
         float progress,
         String note,
         boolean teammateCombat,
+        /** GD656Mods: 该队友处于创造模式 —— 不可作为部署落点(与旁观者不同, 仍需显示图标并提示)。 */
+        boolean teammateCreative,
         boolean stageObjectiveProxy,
         VehicleHudState vehicleState,
         boolean vehicleLowHealth,
@@ -244,7 +246,8 @@ final class ClientCaptureOverlayModel {
             if (owner != selfTeam) {
                 return false;
             }
-            return !isTeammateMarker() || !teammateCombat;
+            // GD656Mods: 战斗中 / 创造模式的队友都不作为部署落点
+            return !isTeammateMarker() || (!teammateCombat && !teammateCreative);
         }
 
         DeployTargetAction resolveDeployTarget() {

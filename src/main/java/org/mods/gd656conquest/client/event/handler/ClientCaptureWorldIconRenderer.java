@@ -429,7 +429,9 @@ final class ClientCaptureWorldIconRenderer {
     private String buildHoverText(CaptureIconEntry entry) {
         if (entry.isTeammateMarker()) {
             String name = entry.note() == null ? "" : entry.note().trim();
-            return name.isBlank() ? "\u961f\u53cb" : name;
+            String base = name.isBlank() ? "队友" : name;
+            // GD656Mods: 创造模式队友在名字后追加提示(与载具图标"名字 · 状态"的写法一致)
+            return entry.teammateCreative() ? base + " · 创造模式" : base;
         }
         if (entry.isBeaconMarker()) {
             String ownerName = entry.note() == null ? "" : entry.note().trim();
@@ -472,7 +474,10 @@ final class ClientCaptureWorldIconRenderer {
         if (entry.isVehicleMarker()) {
             return resolveVehicleLabelRgb(entry);
         }
-        return entry.isTeammateMarker() && entry.teammateCombat() ? 0x00FF8E8E : 0x00E6EEF8;
+        // GD656Mods: 创造模式队友与"战斗中"同色(红), 表示不可部署
+        return entry.isTeammateMarker() && (entry.teammateCombat() || entry.teammateCreative())
+            ? 0x00FF8E8E
+            : 0x00E6EEF8;
     }
 
     private float resolveDisplayProgress(ClientCaptureOverlayState state, CaptureIconEntry entry, TeamToken selfTeam) {
@@ -549,14 +554,15 @@ final class ClientCaptureWorldIconRenderer {
             100.0F,
             alpha,
             "ALLY",
-            entry.teammateCombat() ? "ENEMY" : "NEUTRAL",
+            // GD656Mods: 创造模式队友复用"战斗中"的红色样式
+            entry.teammateCombat() || entry.teammateCreative() ? "ENEMY" : "NEUTRAL",
             ClientCaptureOverlayModel.WORLD_LABEL_SCALE * 0.72F,
             0.5F,
             selected,
             hovered,
             textBufferSource
         );
-        int symbolRgb = entry.teammateCombat() ? 0x00FF6B6B : 0x008FC4FF;
+        int symbolRgb = entry.teammateCombat() || entry.teammateCreative() ? 0x00FF6B6B : 0x008FC4FF;
         CaptureDiamondRenderer.drawCenteredHudText(gui, minecraft.font, "\u25BD", 0.0F, -2.3F, symbolRgb, alpha, true, 0.75F, textBufferSource);
         gui.pose().popPose();
     }

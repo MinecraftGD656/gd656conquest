@@ -2,6 +2,7 @@ package org.mods.gd656conquest.server.room.runtime;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.GameType;
 import org.mods.gd656conquest.server.compat.vehicle.VehicleCompatFacade;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
@@ -43,13 +44,17 @@ public final class RoomTeammateDeployHudTargetProvider implements RoomDeployHudT
                 continue;
             }
             boolean teammateCombat = context.state().isPlayerInCombat(teammateId, gameTick);
+            // GD656Mods: 创造模式玩家仍然下发(要让玩家看到红色图标 + "创造模式"小字), 但作为不可部署目标。
+            // 注意不要把它加进 isDeployableTeammate 的过滤条件 —— 那样图标会直接消失, 无法给出提示。
+            boolean teammateCreative = isCreativeMode(teammate);
             elements.add(RoomDeployHudElement.teammate(
                 teammateId,
                 new RoomPosition(Mth.floor(teammate.getX()), Mth.floor(teammate.getY()), Mth.floor(teammate.getZ())),
                 selfTeam,
                 teammate.getYRot(),
                 teammate.getGameProfile().getName(),
-                teammateCombat
+                teammateCombat,
+                teammateCreative
             ));
             appended++;
             if (appended >= MAX_TEAMMATE_ROWS) {
@@ -72,6 +77,11 @@ public final class RoomTeammateDeployHudTargetProvider implements RoomDeployHudT
             && !context.state().isInRespawnFlow(teammateId)
             && !context.state().isPlayerDowned(teammateId)
             && !context.state().isPlayerPendingDowned(teammateId);
+    }
+
+    /** GD656Mods: 创造模式玩家不能作为部署落点 —— 但仍要下发图标, 供客户端显示红色与提示。 */
+    private static boolean isCreativeMode(ServerPlayer player) {
+        return player != null && player.gameMode.getGameModeForPlayer() == GameType.CREATIVE;
     }
 
     private boolean isSameSquad(org.mods.gd656conquest.server.room.core.RunningRuntimeState state, UUID selfId, UUID teammateId) {

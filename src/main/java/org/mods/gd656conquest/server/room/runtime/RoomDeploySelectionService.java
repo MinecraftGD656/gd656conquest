@@ -449,6 +449,10 @@ public final class RoomDeploySelectionService {
         if (state.isPlayerInCombat(teammateId, gameTick)) {
             return TeammateSelectionResult.failure("该队友正在战斗中，无法部署到其位置");
         }
+        // GD656Mods: 创造模式玩家不作为部署落点
+        if (teammate.gameMode.getGameModeForPlayer() == net.minecraft.world.level.GameType.CREATIVE) {
+            return TeammateSelectionResult.failure("该队友处于创造模式，无法部署到其位置");
+        }
         return TeammateSelectionResult.success(teammateId, teammate);
     }
 
