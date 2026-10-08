@@ -62,6 +62,7 @@ public final class RoomHudSyncService {
         if (renderer == null) {
             return;
         }
+        renderer.prepareRoomSnapshot(room, state);
         TeamMirrorSnapshot mirrorSnapshot = buildRunningTeamMirrorPacket(room, state);
 
         for (UUID playerId : state.getRoomPlayers()) {
@@ -88,6 +89,7 @@ public final class RoomHudSyncService {
         if (renderer == null) {
             return false;
         }
+        renderer.prepareRoomSnapshot(room, state);
         RoomHudSyncPacket packet = renderer.buildPacket(room, state, player);
         if (packet == null) {
             return false;

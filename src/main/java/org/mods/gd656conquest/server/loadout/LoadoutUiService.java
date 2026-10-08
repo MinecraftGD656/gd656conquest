@@ -59,6 +59,8 @@ import org.mods.gd656conquest.server.room.runtime.RoomGunmasterWeaponPoolRules;
 import java.util.*;
 
 public final class LoadoutUiService {
+    private static final Map<UUID, CachedSnapshot> SNAPSHOT_CACHE = new HashMap<>();
+
     private LoadoutUiService() {
     }
 
@@ -78,7 +80,16 @@ public final class LoadoutUiService {
         if (player == null || player.server == null) {
             return;
         }
-        NetworkManager.sendToPlayer(player, buildSnapshot(player, openPanel, targetTabIndex));
+        LoadoutVehiclePageSnapshotBuilder.Snapshot vehicleSnapshot = LoadoutVehiclePageSnapshotBuilder.build(player);
+        CachedSnapshot cached = forceSend ? null : SNAPSHOT_CACHE.get(player.getUUID());
+        if (cached != null && cached.server() == player.server) {
+            NetworkManager.sendToPlayer(player, cached.toPacket(openPanel, targetTabIndex, vehicleSnapshot));
+            return;
+        }
+
+        LoadoutUiOpenPacket snapshot = buildSnapshot(player, openPanel, targetTabIndex, vehicleSnapshot);
+        SNAPSHOT_CACHE.put(player.getUUID(), new CachedSnapshot(player.server, snapshot));
+        NetworkManager.sendToPlayer(player, snapshot);
     }
 
     public static void handleAction(ServerPlayer player, String action, String classKey, int slotIndex, String itemId) {
@@ -1353,7 +1364,12 @@ public final class LoadoutUiService {
         return true;
     }
 
-    private static LoadoutUiOpenPacket buildSnapshot(ServerPlayer player, boolean openPanel, int targetTabIndex) {
+    private static LoadoutUiOpenPacket buildSnapshot(
+        ServerPlayer player,
+        boolean openPanel,
+        int targetTabIndex,
+        LoadoutVehiclePageSnapshotBuilder.Snapshot vehiclePageSnapshot
+    ) {
         ConquestDataManager dataManager = ConquestDataManager.of(player.server);
         EquipmentDataModel equipmentData = dataManager.equipmentData().getData();
         WeaponAttachmentDataModel attachmentData = dataManager.weaponAttachments().getData();
@@ -1372,7 +1388,6 @@ public final class LoadoutUiService {
             .map(definition -> definition.text() == null ? "" : definition.text())
             .orElse("");
         boolean isAdmin = player.hasPermissions(2);
-        LoadoutVehiclePageSnapshotBuilder.Snapshot vehiclePageSnapshot = LoadoutVehiclePageSnapshotBuilder.build(player);
         TaczAttachmentCompatService compatService = TaczAttachmentCompatService.getInstance();
         boolean playerDataChanged = false;
 
@@ -1548,6 +1563,35 @@ public final class LoadoutUiService {
             attachmentPanels,
             vehiclePageSnapshot.entries()
         );
+    }
+
+    /**
+     * The vehicle page is the only part refreshed when another player changes
+     * vehicle availability. Reuse the expensive player/loadout payload and
+     * replace only that dynamic section.
+     */
+    private record CachedSnapshot(MinecraftServer server, LoadoutUiOpenPacket packet) {
+        private LoadoutUiOpenPacket toPacket(
+            boolean openPanel,
+            int targetTabIndex,
+            LoadoutVehiclePageSnapshotBuilder.Snapshot vehicleSnapshot
+        ) {
+            return new LoadoutUiOpenPacket(
+                packet.getPlayerLevel(),
+                packet.getPlayerTitleText(),
+                packet.getCurrentClassKey(),
+                openPanel,
+                targetTabIndex,
+                packet.isAdmin(),
+                vehicleSnapshot.available(),
+                packet.getClasses(),
+                packet.getAdminEquipment(),
+                packet.getAdminAttachments(),
+                packet.getRoomStatistics(),
+                packet.getAttachmentPanels(),
+                vehicleSnapshot.entries()
+            );
+        }
     }
 
     private static LoadoutUiOpenPacket.WeaponAttachmentPanelPayload buildAttachmentPanelPayload(

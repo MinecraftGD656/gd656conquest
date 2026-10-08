@@ -328,8 +328,16 @@ public final class RoomResultRuntimeService {
         player.sendSystemMessage(labelValueLine("对局用时：", ChatFormatting.WHITE, formatDuration(durationSeconds), ChatFormatting.GOLD));
         player.sendSystemMessage(labelValueLine("房间地图：", ChatFormatting.WHITE, mapId, ChatFormatting.YELLOW));
         player.sendSystemMessage(labelValueLine("当前阵营：", ChatFormatting.WHITE, currentTeam, ChatFormatting.GREEN));
-        player.sendSystemMessage(labelValueLine("分数加成：", ChatFormatting.WHITE, formatRewardValue(rewardFeedback.baseScoreReward()), ChatFormatting.AQUA, ChatFormatting.GREEN));
-        player.sendSystemMessage(labelValueLine("额外加成：", ChatFormatting.WHITE, String.valueOf(rewardFeedback.extraReward()), ChatFormatting.BLUE, ChatFormatting.GREEN));
+        // GD656Mods: 经验加成活动生效(倍率 != 1)时, 在这两行后追加 "(<活动介绍> ×倍率)" 后缀
+        MutableComponent scoreLine = Component.empty().append(labelValueLine("分数加成：", ChatFormatting.WHITE, formatRewardValue(rewardFeedback.baseScoreReward()), ChatFormatting.AQUA, ChatFormatting.GREEN));
+        MutableComponent extraLine = Component.empty().append(labelValueLine("额外加成：", ChatFormatting.WHITE, String.valueOf(rewardFeedback.extraReward()), ChatFormatting.BLUE, ChatFormatting.GREEN));
+        MutableComponent bonusSuffix = buildExperienceBonusSuffix(player);
+        if (bonusSuffix != null) {
+            scoreLine.append(bonusSuffix);
+            extraLine.append(bonusSuffix);
+        }
+        player.sendSystemMessage(scoreLine);
+        player.sendSystemMessage(extraLine);
         player.sendSystemMessage(buildLevelChangeLine(rewardFeedback.levelBefore(), rewardFeedback.levelAfter()));
         player.sendSystemMessage(Component.literal(""));
         player.sendSystemMessage(Component.empty()
@@ -387,7 +395,7 @@ public final class RoomResultRuntimeService {
             return new MatchRewardFeedback(snapshot, result.formula(), result.levelBefore(), result.levelAfter());
         }
         int currentLevel = PlayerLevelService.getEffectiveLevel(player);
-        return new MatchRewardFeedback(snapshot, PlayerLevelService.previewFormula(stats, outcome), currentLevel, currentLevel);
+        return new MatchRewardFeedback(snapshot, PlayerLevelService.previewFormula(stats, outcome, resolveExperienceMultiplier(player)), currentLevel, currentLevel);
     }
 
     private PlayerLevelService.MatchOutcome resolveMatchOutcome(MatchResultType resultType) {
@@ -490,8 +498,47 @@ public final class RoomResultRuntimeService {
         return line;
     }
 
-    private Component buildLevelChangeLine(int levelBefore, int levelAfter) {
-        return Component.empty()
+    /** GD656Mods: 服务器配置的"玩家经验加成倍率"(默认 1.0)。 */
+    private static double resolveExperienceMultiplier(ServerPlayer player) {
+        if (player == null || player.server == null) {
+            return 1.0D;
+        }
+        return org.mods.gd656conquest.server.data.ConquestDataManager.of(player.server)
+            .serverConfig()
+            .getPlayerExperienceMultiplier();
+    }
+
+    /**
+     * GD656Mods: "经验加成活动"后缀 —— 倍率为 1(或未配置)时返回 null, 即不显示该后缀。
+     * 文本取自服务器配置的「经验加成活动介绍」; 介绍为空时括号内只显示倍率。
+     */
+    private MutableComponent buildExperienceBonusSuffix(ServerPlayer player) {
+        if (player == null || player.server == null) {
+            return null;
+        }
+        org.mods.gd656conquest.server.data.serverconfig.ServerConfigStore store =
+            org.mods.gd656conquest.server.data.ConquestDataManager.of(player.server).serverConfig();
+        double multiplier = store.getPlayerExperienceMultiplier();
+        if (Math.abs(multiplier - 1.0D) < 1.0E-6D) {
+            return null;
+        }
+        String description = store.getExperienceBonusEventDescription();
+        String factorText = formatMultiplier(multiplier);
+        String inner = description == null || description.isBlank()
+            ? "×" + factorText
+            : description + " ×" + factorText;
+        return Component.literal(" (" + inner + ")").withStyle(ChatFormatting.GOLD);
+    }
+
+    /** GD656Mods: 倍率显示 —— 整数不带小数点, 否则保留两位小数。 */
+    private static String formatMultiplier(double multiplier) {
+        if (Math.abs(multiplier - Math.rint(multiplier)) < 1.0E-6D) {
+            return String.valueOf((long) Math.rint(multiplier));
+        }
+        return String.format(java.util.Locale.ROOT, "%.2f", multiplier);
+    }
+
+    private Component buildLevelChangeLine(int levelBefore, int levelAfter) {        return Component.empty()
             .append(Component.literal("等级变化：").withStyle(ChatFormatting.WHITE))
             .append(levelComponent(levelBefore))
             .append(Component.literal(" --> ").withStyle(ChatFormatting.GRAY))

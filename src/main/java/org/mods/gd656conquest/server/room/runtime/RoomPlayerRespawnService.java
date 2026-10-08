@@ -848,6 +848,7 @@ public final class RoomPlayerRespawnService {
         }
 
         List<UUID> finalizeDone = new ArrayList<>();
+        boolean vehicleAvailabilityChanged = false;
         for (var entry : new ArrayList<>(state.getRespawnFinalizeTicks().entrySet())) {
             UUID playerId = entry.getKey();
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
@@ -865,7 +866,7 @@ public final class RoomPlayerRespawnService {
             if (player != null && player.isAlive()) {
                 if (finalizeRespawn(room, state, player, gameTick)) {
                     finalizeDone.add(playerId);
-                    refreshVehicleLoadoutSnapshots(state);
+                    vehicleAvailabilityChanged = true;
                 }
                 continue;
             }
@@ -873,6 +874,9 @@ public final class RoomPlayerRespawnService {
         }
         for (UUID playerId : finalizeDone) {
             state.clearRespawnFlow(playerId);
+        }
+        if (vehicleAvailabilityChanged) {
+            refreshVehicleLoadoutSnapshots(state);
         }
 
         syncInitialMovementLock(room, state, gameTick);
@@ -2613,9 +2617,12 @@ public final class RoomPlayerRespawnService {
             return;
         }
         for (UUID playerId : state.getRoomPlayers()) {
+            if (!state.isInDeployFlow(playerId)) {
+                continue;
+            }
             ServerPlayer roomPlayer = server.getPlayerList().getPlayer(playerId);
             if (roomPlayer != null) {
-                LoadoutUiService.sendSnapshot(roomPlayer, false, true);
+                LoadoutUiService.sendSnapshot(roomPlayer, false, false);
             }
         }
     }

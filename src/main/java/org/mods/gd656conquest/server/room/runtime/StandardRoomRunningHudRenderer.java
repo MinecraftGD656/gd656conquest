@@ -54,6 +54,12 @@ public final class StandardRoomRunningHudRenderer implements RoomRunningHudRende
     }
 
     @Override
+    public void prepareRoomSnapshot(RoomDefinition room, RunningRuntimeState state) {
+        runningHudPayloadBuilder.prepareRoomSnapshot(room, state);
+        deployHudPayloadBuilder.prepareRoomSnapshot(room, state);
+    }
+
+    @Override
     public RoomHudSyncPacket buildPacket(RoomDefinition room, RunningRuntimeState state, ServerPlayer player) {
         if (room == null || state == null || player == null) {
             return null;

@@ -18,6 +18,15 @@ public final class RoomDeployHudPayloadBuilder {
         this.targetProviders = List.copyOf(targetProviders);
     }
 
+    public void prepareRoomSnapshot(RoomDefinition room, RunningRuntimeState state) {
+        if (room == null || state == null) {
+            return;
+        }
+        for (RoomDeployHudTargetProvider targetProvider : targetProviders) {
+            targetProvider.prepareRoomSnapshot(server, room, state);
+        }
+    }
+
     public String build(RoomDefinition room, RunningRuntimeState state, UUID playerId, RoomTeamId selfTeam) {
         return build(room, state, playerId, selfTeam, true);
     }

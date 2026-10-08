@@ -76,14 +76,32 @@ public final class RoomVehicleRuntimeService {
         List<VehicleConfigEntry> configuredEntries = vehicleConfigRepository.getEntries(roomId, gameplayId, backend);
         RoomVehicleRuntimeState runtimeState = getOrCreateRoomState(roomId);
         Set<String> activeEntryIds = new LinkedHashSet<>();
+        // GD656Mods: 服务器在线人数超过阈值时, 把全部载具当作"未启用"处理 ——
+        // 与把每台载具配置里的 enabled 改成 false 效果完全一致(不进运行时记录 => 列表不显示、不可部署),
+        // 且人数回落后自动恢复: tickRoom 每 20 tick 会重新调用本方法。
+        boolean globallyDisabled = isVehicleDeployGloballyDisabled();
         for (VehicleConfigEntry entry : configuredEntries) {
-            if (entry == null || !entry.isEnabled() || entry.getEntryId().isBlank()) {
+            if (entry == null || globallyDisabled || !entry.isEnabled() || entry.getEntryId().isBlank()) {
                 continue;
             }
             activeEntryIds.add(entry.getEntryId());
             upsertRecord(roomId, entry);
         }
         runtimeState.getRecordsByEntryId().keySet().removeIf(entryId -> !activeEntryIds.contains(entryId));
+    }
+
+    /**
+     * GD656Mods: 是否因在线人数超过配置阈值而"禁用全部载具"。
+     *
+     * <p>阈值 -1(默认)或任何负数表示不限制; 设为 x 时, 服务器在线人数 > x 即返回 true。
+     * 判据是<b>服务器在线人数</b>(全局), 与具体房间无关。
+     */
+    public boolean isVehicleDeployGloballyDisabled() {
+        int threshold = ConquestDataManager.of(server).serverConfig().getDisableAllVehiclesPlayerThreshold();
+        if (threshold < 0) {
+            return false;
+        }
+        return server.getPlayerList().getPlayerCount() > threshold;
     }
 
     public void tickRoom(RoomDefinition room, RunningRuntimeState state, long gameTick) {

@@ -140,6 +140,36 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         return Math.min(64, value);
     }
 
+    /** GD656Mods: 玩家经验加成倍率; 非法/非正数一律回落到 1.0(= 不加成), 上限 100。 */
+    public synchronized double getPlayerExperienceMultiplier() {
+        return sanitizeExperienceMultiplier(get().getPlayerExperienceMultiplier());
+    }
+
+    public static double sanitizeExperienceMultiplier(Double value) {
+        if (value == null || !Double.isFinite(value) || value <= 0.0D) {
+            return 1.0D;
+        }
+        return Math.min(100.0D, value);
+    }
+
+    /** GD656Mods: 经验加成活动介绍文本; null 归一为空串。 */
+    public synchronized String getExperienceBonusEventDescription() {
+        String value = get().getExperienceBonusEventDescription();
+        return value == null ? "" : value.trim();
+    }
+
+    /** GD656Mods: 禁用全部载具的人数阈值; -1(或任何负数)表示不限制。 */
+    public synchronized int getDisableAllVehiclesPlayerThreshold() {
+        return sanitizeDisableAllVehiclesPlayerThreshold(get().getDisableAllVehiclesPlayerThreshold());
+    }
+
+    public static int sanitizeDisableAllVehiclesPlayerThreshold(Integer value) {
+        if (value == null || value < 0) {
+            return -1;
+        }
+        return value;
+    }
+
     public synchronized int getAmmoBagTaczPistol() {
         Integer value = get().getAmmoBagTaczPistol();
         return value == null ? 6 : Math.max(0, value);
@@ -330,6 +360,13 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         model.setMaxPlayerLevel(sanitizeMaxPlayerLevel(model.getMaxPlayerLevel()));
         // GD656Mods: 最大活跃房间数(0 = 不限制, 上限 64)
         model.setMaxActiveRooms(sanitizeMaxActiveRooms(model.getMaxActiveRooms()));
+        // GD656Mods: 经验加成倍率(非法/非正 -> 1.0, 上限 100)与活动介绍文本
+        model.setPlayerExperienceMultiplier(sanitizeExperienceMultiplier(model.getPlayerExperienceMultiplier()));
+        if (model.getExperienceBonusEventDescription() == null) {
+            model.setExperienceBonusEventDescription("");
+        }
+        // GD656Mods: 禁用全部载具的人数阈值(负数一律归一为 -1 = 不限制)
+        model.setDisableAllVehiclesPlayerThreshold(sanitizeDisableAllVehiclesPlayerThreshold(model.getDisableAllVehiclesPlayerThreshold()));
         if (model.getDroneBatteryDurationSeconds() == null || model.getDroneBatteryDurationSeconds() <= 0) {
             model.setDroneBatteryDurationSeconds(60);
         }

@@ -80,7 +80,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 public final class RoomCoreService {
-    private static final long RUNNING_HUD_SYNC_INTERVAL_TICKS = 2L;
+    // The HUD payload is content-deduplicated but still expensive to construct.
+    // Five ticks keeps gameplay information responsive while avoiding ten full
+    // room payload builds per second.
+    private static final long RUNNING_HUD_SYNC_INTERVAL_TICKS = 5L;
     private static final long RUNNING_NAMETAG_SYNC_INTERVAL_TICKS = 10L;
     private final MinecraftServer server;
     private final RoomRuntimeRepository<RoomRuntimeState> runtimeRepository;

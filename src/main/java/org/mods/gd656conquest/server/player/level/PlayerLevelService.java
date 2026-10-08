@@ -93,7 +93,7 @@ public final class PlayerLevelService {
         int maxTotal = getTotalExperienceForLevel(maxLevel, maxLevel);
         int beforeTotal = Math.max(0, Math.min(maxTotal, data.getLevelExperience()));
         int beforeLevel = Math.max(0, Math.min(maxLevel, getLevelForTotalExperience(beforeTotal, maxLevel)));
-        Formula formula = computeFormula(stats, outcome);
+        Formula formula = computeFormula(stats, outcome, resolveExperienceMultiplier(player));
         int delta = formula.total();
         int afterTotal = Math.max(0, Math.min(maxTotal, beforeTotal + delta));
         int gained = afterTotal - beforeTotal;
@@ -128,11 +128,25 @@ public final class PlayerLevelService {
         return previewFormula(stats, victory ? MatchOutcome.WIN : MatchOutcome.LOSE);
     }
 
+    /** GD656Mods: 带经验加成倍率的预览 —— 与 awardMatchExperience 用同一倍率, 保证预览与实际发放一致。 */
+    public static Formula previewFormula(MatchStats stats, MatchOutcome outcome, double multiplier) {
+        return computeFormula(stats, outcome, multiplier);
+    }
+
+    /** GD656Mods: 服务器配置的"玩家经验加成倍率"(默认 1.0)。 */
+    private static double resolveExperienceMultiplier(ServerPlayer player) {
+        if (player == null || player.server == null) {
+            return 1.0D;
+        }
+        return ConquestDataManager.of(player.server).serverConfig().getPlayerExperienceMultiplier();
+    }
+
     public static Formula previewFormula(MatchStats stats, MatchOutcome outcome) {
         if (stats == null) {
             return null;
         }
-        return computeFormula(stats, outcome);
+        // GD656Mods: 无倍率信息的旧入口按 1.0 处理; 需要与实际发放一致请用带 multiplier 的重载
+        return computeFormula(stats, outcome, 1.0D);
     }
 
     public static boolean shouldBlockVanillaExperience(ServerPlayer player) {
@@ -219,7 +233,13 @@ public final class PlayerLevelService {
         });
     }
 
-    private static Formula computeFormula(MatchStats stats, MatchOutcome outcome) {
+    /**
+     * GD656Mods: 结算公式。multiplier = 服务器配置的"玩家经验加成倍率"(默认 1.0)。
+     *
+     * <p>倍率只作用于最终结算值 —— 显示出来的 base / extra 保持原样,
+     * 由结束总结里追加的「(&lt;活动介绍&gt; ×y)」后缀说明, 因此 total 与等级变化会按倍率缩放。
+     */
+    private static Formula computeFormula(MatchStats stats, MatchOutcome outcome, double multiplier) {
         int score = Math.max(0, stats.score());
         double base = score * 0.005D;
         // GD656Mods: 结果额外分(胜7/败4/平4) + 对局运行器提供的附加额外分(如枪神名次加成)
@@ -228,7 +248,8 @@ public final class PlayerLevelService {
             case DRAW, LOSE -> 4;
         };
         int extra = outcomeExtra + Math.max(0, stats.extraScore());
-        double rawTotal = base + extra;
+        double factor = multiplier > 0.0D && Double.isFinite(multiplier) ? multiplier : 1.0D;
+        double rawTotal = (base + extra) * factor;
         int total = Math.max(0, (int) Math.round(rawTotal));
         return new Formula(score, base, extra, rawTotal, total, outcome);
     }

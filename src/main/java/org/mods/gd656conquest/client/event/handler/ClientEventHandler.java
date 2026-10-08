@@ -40,8 +40,8 @@ import org.mods.gd656conquest.client.room.ClientDownedState;
 import org.mods.gd656conquest.client.room.ClientReviveState;
 import org.mods.gd656conquest.client.room.ClientRoomLockState;
 import org.mods.gd656conquest.client.room.ClientRoomTeamMirror;
-import org.mods.gd656conquest.client.smoke.ClientSmokeCloudRenderer;
-import org.mods.gd656conquest.client.smoke.ClientSmokeCloudStore;
+import org.mods.gd656conquest.client.smoke.SmokeCloudRenderer;
+import org.mods.gd656conquest.client.smoke.SmokeCloudStore;
 import org.mods.gd656conquest.common.audio.AudioManager;
 import org.mods.gd656conquest.common.block.ConquestBlocks;
 import org.mods.gd656conquest.common.entity.PlayerAnimatorDebugDimensionsState;
@@ -59,6 +59,7 @@ public final class ClientEventHandler {
     private final ClientCaptureOutlineController captureOutlineController = new ClientCaptureOutlineController();
     private final ClientRoomSessionController roomSessionController = new ClientRoomSessionController(loadoutUiController);
     private final ClientSuperbWarfareShellingHook superbWarfareShellingHook = new ClientSuperbWarfareShellingHook();
+    private final SmokeCloudRenderer smokeCloudRenderer = new SmokeCloudRenderer();
 
     public static ClientEventHandler getInstance() {
         return INSTANCE;
@@ -109,6 +110,7 @@ public final class ClientEventHandler {
             ClientParkourRuntimeState.clear();
             ClientParkourLeaderboardState.clear();
             ClientDeployDeathMarkerState.clear();
+            SmokeCloudStore.reset();
             captureOverlayController.handleClientLogout();
             captureOutlineController.clear();
             return;
@@ -137,7 +139,8 @@ public final class ClientEventHandler {
     }
 
     public void handleRenderLevel(RenderLevelStageEvent event) {
-        ClientSmokeCloudRenderer.render(event);
+        // This renderer has its own stage gate and must not inherit capture-line early returns.
+        smokeCloudRenderer.render(event);
         if (!captureOverlayController.shouldRenderCaptureLinesForStage(event.getStage())) {
             return;
         }
@@ -300,7 +303,6 @@ public final class ClientEventHandler {
         ClientRoomMarkerState.reset();
         ClientMarkerDebugPreviewState.reset();
         ClientHudDebugPreviewState.reset();
-        ClientSmokeCloudStore.reset();
         ClientPlayerAnimatorDebugState.reset();
         TaczClientInputCompat.resetSuppression();
         superbWarfareShellingHook.reset();
@@ -308,14 +310,15 @@ public final class ClientEventHandler {
         captureOverlayController.handleClientLogout();
         ClientCaptureBakeState.reset();
         captureOutlineController.clear();
+        SmokeCloudStore.reset();
     }
 
     public void handleClientDimensionChange(ClientPlayerNetworkEvent.Clone event) {
         ClientMatchLoadState.clear();
+        SmokeCloudStore.reset();
         String roomId = ClientHudDebugState.getRoomId();
         if (roomId != null && !roomId.isBlank() && !"-".equals(roomId)) {
             ClientDeployDeathMarkerState.clear();
-            ClientSmokeCloudStore.reset();
             captureOverlayController.clearRenderCaches();
             ClientCaptureBakeState.reset();
             captureOutlineController.clear();

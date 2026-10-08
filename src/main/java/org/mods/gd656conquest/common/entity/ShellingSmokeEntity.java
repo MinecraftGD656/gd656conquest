@@ -19,8 +19,8 @@ public class ShellingSmokeEntity extends Entity {
         this.durationTicks = ticks;
     }
 
-    public int remainingTicks() {
-        return Math.max(1, this.durationTicks - this.tickCount);
+    public int getRemainingDurationTicks() {
+        return Math.max(0, durationTicks - tickCount);
     }
 
     @Override
@@ -55,6 +55,6 @@ public class ShellingSmokeEntity extends Entity {
             return;
         }
 
-        // Smoke is rendered by the conquest LOD renderer from server-synced metadata.
+        // GD656Conquest's full-distance smoke renderer owns this visual.
     }
 }

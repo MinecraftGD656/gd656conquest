@@ -143,22 +143,43 @@ public final class RoomSupportBoxService {
         processAmmoBoxAura(gameTick);
     }
 
+    /**
+     * GD656Mods: 登记"坐标驱动"的永久箱点 —— 与维度无关, 只依赖房间配置。
+     *
+     * <p>坐标已按实体生成规则补上 +0.5 偏移, 保证判定点与实体位置一致。
+     */
+    private void registerPermanentPoints(String roomId, List<RoomPosition> positions, Map<String, List<PermanentBoxPoint>> target) {
+        for (RoomPosition position : positions) {
+            if (position == null) {
+                continue;
+            }
+            List<PermanentBoxPoint> points = target.computeIfAbsent(roomId, ignored -> new ArrayList<>());
+            points.add(new PermanentBoxPoint(points.size(), position.x() + 0.5D, position.y(), position.z() + 0.5D));
+        }
+    }
+
     public void spawnPermanentSupportBoxes(RoomDefinition room) {
         if (room == null || room.roomId() == null || room.roomId().isBlank()) {
             return;
         }
         clearPermanentSupportBoxes(room.roomId());
+        List<RoomPosition> ammoPositions = resolvePermanentAmmoBoxPositions(room);
+        List<RoomPosition> medicalPositions = resolvePermanentMedicalBoxPositions(room);
+        // GD656Mods: 配置点登记必须在解析维度【之前】完成 —— 登记本身不需要 ServerLevel。
+        // 否则当生成那一刻房间维度尚未加载(大地图按需加载、活跃上限锁定卸载维度等)时会直接
+        // return 掉, 连"坐标驱动"的数据都没建立, 永久箱在整局里彻底失效: 玩家会看到
+        // "实体(随维度加载出现)就在眼前、靠近却毫无反应/按键无效"。
+        registerPermanentPoints(room.roomId(), ammoPositions, permanentAmmoPointsByRoom);
+        registerPermanentPoints(room.roomId(), medicalPositions, permanentMedicalPointsByRoom);
+        // 实体只负责"可见性": 维度没加载就跳过生成, 不影响上面的坐标驱动判定。
         ServerLevel level = resolveRoomLevel(room);
         if (level == null) {
             return;
         }
-        for (RoomPosition position : resolvePermanentAmmoBoxPositions(room)) {
+        for (RoomPosition position : ammoPositions) {
             if (position == null) {
                 continue;
             }
-            // GD656Mods: 把配置点登记为"坐标驱动的永久箱"(判定不再依赖实体)
-            List<PermanentBoxPoint> ammoPoints = permanentAmmoPointsByRoom.computeIfAbsent(room.roomId(), ignored -> new ArrayList<>());
-            ammoPoints.add(new PermanentBoxPoint(ammoPoints.size(), position.x() + 0.5D, position.y(), position.z() + 0.5D));
             AmmoBoxEntity ammoBox = new AmmoBoxEntity(ConquestEntities.AMMO_BOX.get(), level);
             ammoBox.setPos(position.x() + 0.5D, position.y(), position.z() + 0.5D);
             ammoBox.setYRot(0.0F);
@@ -171,13 +192,10 @@ public final class RoomSupportBoxService {
             activeAmmoBoxIds.add(ammoBox.getUUID());
             permanentAmmoBoxIdsByRoom.computeIfAbsent(room.roomId(), ignored -> new HashSet<>()).add(ammoBox.getUUID());
         }
-        for (RoomPosition position : resolvePermanentMedicalBoxPositions(room)) {
+        for (RoomPosition position : medicalPositions) {
             if (position == null) {
                 continue;
             }
-            // GD656Mods: 同弹药箱 —— 登记为坐标驱动的永久箱
-            List<PermanentBoxPoint> medicalPoints = permanentMedicalPointsByRoom.computeIfAbsent(room.roomId(), ignored -> new ArrayList<>());
-            medicalPoints.add(new PermanentBoxPoint(medicalPoints.size(), position.x() + 0.5D, position.y(), position.z() + 0.5D));
             MedicalBoxEntity medicalBox = new MedicalBoxEntity(ConquestEntities.MEDICAL_BOX.get(), level);
             medicalBox.setPos(position.x() + 0.5D, position.y(), position.z() + 0.5D);
             medicalBox.setYRot(0.0F);

@@ -31,6 +31,19 @@ public final class ServerConfigDataModel {
     private Integer groundSensorScanBonusCooldownSeconds = 10;
     private Boolean boolEnableExperimentalPlayerBalance = false;
     private Boolean boolMaintenanceMode = false;
+    /**
+     * GD656Mods: 玩家经验加成倍率 —— 对局结束结算经验时按此倍率乘算, 默认 1.0(不加成)。
+     * 不是 1 时会在结束总结的「分数加成」「额外加成」两行后追加「(<活动介绍> ×倍率)」。
+     */
+    private Double playerExperienceMultiplier = 1.0D;
+    /** GD656Mods: 经验加成活动介绍 —— 结束总结里那段「(<text> ×y)」的文本; 留空则括号内只显示倍率。 */
+    private String experienceBonusEventDescription = "";
+    /**
+     * GD656Mods: 禁用全部载具的人数阈值 —— -1(默认)表示不限制。
+     * 设为 x 时, 服务器在线人数 > x 会让所有房间的载具一律被视为"未启用"
+     * (效果等同把载具配置的 enabled 切成 false: 不建运行时记录、列表不显示、不可部署)。
+     */
+    private Integer disableAllVehiclesPlayerThreshold = -1;
     /** GD656Mods: 玩家等级上限(默认 100, 可配置 1..1024)。 */
     private Integer maxPlayerLevel = 100;
     private Integer droneBatteryDurationSeconds = 60;
@@ -431,5 +444,32 @@ public final class ServerConfigDataModel {
 
     public void setSupportAmmoBagSbw(Integer supportAmmoBagSbw) {
         this.supportAmmoBagSbw = supportAmmoBagSbw;
+    }
+
+    /** GD656Mods: 玩家经验加成倍率(默认 1.0)。 */
+    public Double getPlayerExperienceMultiplier() {
+        return playerExperienceMultiplier;
+    }
+
+    public void setPlayerExperienceMultiplier(Double playerExperienceMultiplier) {
+        this.playerExperienceMultiplier = playerExperienceMultiplier;
+    }
+
+    /** GD656Mods: 经验加成活动介绍(用于结束总结的括号文本)。 */
+    public String getExperienceBonusEventDescription() {
+        return experienceBonusEventDescription;
+    }
+
+    public void setExperienceBonusEventDescription(String experienceBonusEventDescription) {
+        this.experienceBonusEventDescription = experienceBonusEventDescription;
+    }
+
+    /** GD656Mods: 禁用全部载具的人数阈值(-1 = 不限制)。 */
+    public Integer getDisableAllVehiclesPlayerThreshold() {
+        return disableAllVehiclesPlayerThreshold;
+    }
+
+    public void setDisableAllVehiclesPlayerThreshold(Integer disableAllVehiclesPlayerThreshold) {
+        this.disableAllVehiclesPlayerThreshold = disableAllVehiclesPlayerThreshold;
     }
 }

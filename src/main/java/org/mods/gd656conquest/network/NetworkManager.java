@@ -512,10 +512,6 @@ public final class NetworkManager {
         CHANNEL.sendToServer(packet);
     }
 
-    public static void sendToAll(Object packet) {
-        CHANNEL.send(PacketDistributor.ALL.noArg(), packet);
-    }
-
     public static SimpleChannel getChannel() {
         return CHANNEL;
     }

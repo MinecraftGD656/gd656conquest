@@ -1,20 +1,51 @@
 package org.mods.gd656conquest.server.room.runtime;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.MinecraftServer;
+import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayVehicleDeployRuleProvider;
+import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.vehicle.VehicleDisplayStateTokenResolver;
 import org.mods.gd656conquest.server.room.vehicle.VehicleDeployResolution;
 import org.mods.gd656conquest.server.room.vehicle.VehicleRuntimeRecord;
 import org.mods.gd656conquest.server.room.vehicle.VehicleRuntimeTeamResolver;
 
+import java.util.EnumMap;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public final class RoomVehicleDeployHudTargetProvider implements RoomDeployHudTargetProvider {
     private static final float LOW_HEALTH_RATIO = 0.35F;
+    private RunningRuntimeState preparedState;
+    private String preparedRoomId = "";
+    private Map<RoomTeamId, List<VehicleRuntimeRecord>> preparedRecordsByTeam = Map.of();
+
+    @Override
+    public void prepareRoomSnapshot(MinecraftServer server, RoomDefinition room, RunningRuntimeState state) {
+        if (server == null || room == null || state == null) {
+            clearPreparedSnapshot();
+            return;
+        }
+        RoomCoreRuntimeManager runtimeManager = RoomCoreRuntimeManager.of(server);
+        if (!runtimeManager.isInitialized()) {
+            clearPreparedSnapshot();
+            return;
+        }
+        Map<RoomTeamId, List<VehicleRuntimeRecord>> recordsByTeam = new EnumMap<>(RoomTeamId.class);
+        for (RoomTeamId teamId : RoomTeamId.values()) {
+            recordsByTeam.put(teamId, runtimeManager.coreService().vehicleRuntimeService().getRecords(room.roomId()).stream()
+                .filter(record -> VehicleRuntimeTeamResolver.resolveConfiguredTeam(record) == teamId)
+                .sorted(Comparator.comparing(VehicleRuntimeRecord::getEntryId, String.CASE_INSENSITIVE_ORDER))
+                .toList());
+        }
+        preparedState = state;
+        preparedRoomId = room.roomId();
+        preparedRecordsByTeam = recordsByTeam;
+    }
 
     @Override
     public void collectElements(List<RoomDeployHudElement> elements, RoomDeployHudBuildContext context) {
@@ -32,12 +63,11 @@ public final class RoomVehicleDeployHudTargetProvider implements RoomDeployHudTa
             return;
         }
         RoomGameplayVehicleDeployRuleProvider gameplayRules = RoomGameplayVehicleDeployRuleProvider.resolve(context.state());
-        List<VehicleRuntimeRecord> records = runtimeManager.coreService().vehicleRuntimeService().getRecords(context.room().roomId()).stream()
-            .filter(record -> VehicleRuntimeTeamResolver.resolveConfiguredTeam(record) == selfTeam)
-            .filter(record -> gameplayRules == null || gameplayRules.shouldDisplayVehicleDeployEntry(context.room(), context.state(), viewer, selfTeam, record))
-            .sorted(Comparator.comparing(VehicleRuntimeRecord::getEntryId, String.CASE_INSENSITIVE_ORDER))
-            .toList();
+        List<VehicleRuntimeRecord> records = resolvePreparedRecords(context, selfTeam, runtimeManager);
         for (VehicleRuntimeRecord record : records) {
+            if (gameplayRules != null && !gameplayRules.shouldDisplayVehicleDeployEntry(context.room(), context.state(), viewer, selfTeam, record)) {
+                continue;
+            }
             VehicleDeployResolution resolution = runtimeManager.coreService()
                 .deploySelectionService()
                 .resolveVehicleSelection(context.room(), context.state(), playerId, selfTeam, record.getEntryId());
@@ -52,11 +82,30 @@ public final class RoomVehicleDeployHudTargetProvider implements RoomDeployHudTa
                 resolveDisplayName(record),
                 VehicleDisplayStateTokenResolver.toToken(resolution.displayState()),
                 isLowHealth(record),
-                // GD656Mods: 显式下发"能否部署"(resolution.success()), 客户端图标据此判断是否可点击,
-                // 不再靠颜色猜 —— 见 RoomDeployHudElement.vehicle 的注释
                 resolution.success()
             ));
         }
+    }
+
+    private List<VehicleRuntimeRecord> resolvePreparedRecords(
+        RoomDeployHudBuildContext context,
+        RoomTeamId selfTeam,
+        RoomCoreRuntimeManager runtimeManager
+    ) {
+        if (context.state() == preparedState
+            && context.room().roomId().equals(preparedRoomId)) {
+            return preparedRecordsByTeam.getOrDefault(selfTeam, List.of());
+        }
+        return runtimeManager.coreService().vehicleRuntimeService().getRecords(context.room().roomId()).stream()
+            .filter(record -> VehicleRuntimeTeamResolver.resolveConfiguredTeam(record) == selfTeam)
+            .sorted(Comparator.comparing(VehicleRuntimeRecord::getEntryId, String.CASE_INSENSITIVE_ORDER))
+            .toList();
+    }
+
+    private void clearPreparedSnapshot() {
+        preparedState = null;
+        preparedRoomId = "";
+        preparedRecordsByTeam = Map.of();
     }
 
     private static double resolveAnchorX(VehicleRuntimeRecord record) {

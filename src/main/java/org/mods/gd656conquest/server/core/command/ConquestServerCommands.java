@@ -98,6 +98,9 @@ public final class ConquestServerCommands {
         "groundSensorScanBonusCooldownSeconds",
         "boolEnableExperimentalPlayerBalance",
         "boolMaintenanceMode",
+        "playerExperienceMultiplier",
+        "experienceBonusEventDescription",
+        "disableAllVehiclesPlayerThreshold",
         "maxPlayerLevel",
         "droneBatteryDurationSeconds",
         "kamikazeDroneBatteryDurationSeconds",
@@ -611,6 +614,11 @@ public final class ConquestServerCommands {
             case "boolMaintenanceMode" -> config.setBoolMaintenanceMode(parseBooleanStrict(rawValue));
             // GD656Mods: 最大活跃(进行中)房间数 —— 负数(默认 -1)表示不限制, 0 表示不允许任何对局
             case "maxActiveRooms" -> config.setMaxActiveRooms(parseMaxActiveRooms(rawValue));
+            // GD656Mods: 经验加成倍率 + 活动介绍文本
+            case "playerExperienceMultiplier" -> config.setPlayerExperienceMultiplier(parseExperienceMultiplier(rawValue));
+            case "experienceBonusEventDescription" -> config.setExperienceBonusEventDescription(rawValue == null ? "" : rawValue.trim());
+            // GD656Mods: 禁用全部载具的人数阈值(-1 = 不限制)
+            case "disableAllVehiclesPlayerThreshold" -> config.setDisableAllVehiclesPlayerThreshold(parseThresholdInt(rawValue));
             case "maxPlayerLevel" -> config.setMaxPlayerLevel(parseMaxPlayerLevel(rawValue));
             case "droneBatteryDurationSeconds" -> config.setDroneBatteryDurationSeconds(parsePositiveInt(rawValue));
             case "kamikazeDroneBatteryDurationSeconds" -> config.setKamikazeDroneBatteryDurationSeconds(parsePositiveInt(rawValue));
@@ -692,6 +700,12 @@ public final class ConquestServerCommands {
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
             case "boolMaintenanceMode" ->
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
+            case "playerExperienceMultiplier" ->
+                SharedSuggestionProvider.suggest(List.of("1", "1.5", "2", "3"), builder);
+            case "experienceBonusEventDescription" ->
+                SharedSuggestionProvider.suggest(List.of("双倍经验活动", "周末双倍", "周年庆双倍"), builder);
+            case "disableAllVehiclesPlayerThreshold" ->
+                SharedSuggestionProvider.suggest(List.of("-1", "10", "20", "30", "40", "60"), builder);
             case "maxPlayerLevel" ->
                 SharedSuggestionProvider.suggest(List.of("100", "200", "500", "1024"), builder);
             case "maxActiveRooms" ->
@@ -760,6 +774,9 @@ public final class ConquestServerCommands {
             case "groundsensorscanbonuscooldownseconds", "groundsensorbonuscooldown", "sensorbonuscooldown" -> "groundSensorScanBonusCooldownSeconds";
             case "boolenableexperimentalplayerbalance", "experimentalplayerbalance", "playerbalance", "teambalance" -> "boolEnableExperimentalPlayerBalance";
             case "boolmaintenancemode", "maintenancemode", "maintenance" -> "boolMaintenanceMode";
+            case "playerexperiencemultiplier", "expmultiplier", "xpmultiplier", "experiencemultiplier" -> "playerExperienceMultiplier";
+            case "disableallvehiclesplayerthreshold", "vehiclethreshold", "disablevehicles", "nocars" -> "disableAllVehiclesPlayerThreshold";
+            case "experiencebonuseventdescription", "expbonusdesc", "experiencebonusdesc" -> "experienceBonusEventDescription";
             case "maxplayerlevel", "maxlevel", "levelcap", "playerlevelcap" -> "maxPlayerLevel";
             case "maxactiverooms", "maxactive", "activerooms", "maxrunningrooms", "maxrooms" -> "maxActiveRooms";
             case "dronebatterydurationseconds" -> "droneBatteryDurationSeconds";
@@ -813,7 +830,10 @@ public final class ConquestServerCommands {
             case "groundSensorMarkDurationSeconds" -> String.valueOf(store.getGroundSensorMarkDurationSeconds());
             case "groundSensorScanBonusCooldownSeconds" -> String.valueOf(store.getGroundSensorScanBonusCooldownSeconds());
             case "boolEnableExperimentalPlayerBalance" -> String.valueOf(store.isExperimentalPlayerBalanceEnabled());
+            case "disableAllVehiclesPlayerThreshold" -> String.valueOf(store.getDisableAllVehiclesPlayerThreshold());
             case "boolMaintenanceMode" -> String.valueOf(store.isMaintenanceModeEnabled());
+            case "playerExperienceMultiplier" -> String.valueOf(store.getPlayerExperienceMultiplier());
+            case "experienceBonusEventDescription" -> store.getExperienceBonusEventDescription();
             case "maxPlayerLevel" -> String.valueOf(store.getMaxPlayerLevel());
             case "maxActiveRooms" -> String.valueOf(store.getMaxActiveRooms());
             case "droneBatteryDurationSeconds" -> String.valueOf(store.getDroneBatteryDurationSeconds());
@@ -883,10 +903,36 @@ public final class ConquestServerCommands {
         }
     }
 
+    /** GD656Mods: 人数阈值解析 —— 允许负数(负数一律归一为 -1 = 不限制)。 */
+    private static int parseThresholdInt(String value) throws CommandSyntaxException {
+        try {
+            int parsed = Integer.parseInt(value == null ? "" : value.trim());
+            return parsed < 0 ? -1 : parsed;
+        } catch (NumberFormatException exception) {
+            throw new SimpleCommandExceptionType(Component.literal("人数阈值必须是整数")).create();
+        }
+    }
+
     /**
      * GD656Mods: 最大活跃房间数解析 —— 负数一律归为 -1(禁用限制), 0 表示不允许任何对局, 上限 64。
      * 不能复用 parseNonNegativeInt, 因为后者会拒绝 -1。
      */
+    /** GD656Mods: 经验加成倍率解析 —— 必须为正数, 上限 100。 */
+    private static double parseExperienceMultiplier(String value) throws CommandSyntaxException {
+        try {
+            double parsed = Double.parseDouble(value == null ? "" : value.trim());
+            if (!Double.isFinite(parsed) || parsed <= 0.0D) {
+                throw new SimpleCommandExceptionType(Component.literal("经验加成倍率必须大于 0")).create();
+            }
+            if (parsed > 100.0D) {
+                throw new SimpleCommandExceptionType(Component.literal("经验加成倍率不能大于 100")).create();
+            }
+            return parsed;
+        } catch (NumberFormatException exception) {
+            throw new SimpleCommandExceptionType(Component.literal("经验加成倍率必须是数字")).create();
+        }
+    }
+
     private static int parseMaxActiveRooms(String value) throws CommandSyntaxException {
         try {
             int parsed = Integer.parseInt(value == null ? "" : value.trim());
