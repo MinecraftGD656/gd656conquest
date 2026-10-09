@@ -1,7 +1,45 @@
-# 项目排除路径
+# Gradle caches and generated build output
 /.gradle/
-/.idea/
+/.gradle-user-home/
 /build/
-/build/classes/java/main/
+/.build-logs/
+
+# IDE metadata and output
+/.idea/
+/.vscode/
+/.settings/
+/.classpath
+/.project
+/bin/
+/out/
+*.iml
+*.ipr
+*.iws
+*.launch
+
+# Local binary dependencies (keep libs/README.md)
+/libs/*.jar
+
+# Development game instances, saves, logs and native libraries
+/run/
+/run-data/
+/run-baseline-client/
+/run-baseline-server/
+/logs/
+/crash-reports/
+/.lwjgl/
+
+# Local logs, JVM crash reports and editor temporary files
+*.log
+hs_err_pid*.log
+replay_pid*.log
+*.hprof
+*.jfr
+*.tmp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
 
 /gradle_compile_output.txt
