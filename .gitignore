@@ -1,0 +1,7 @@
+# 项目排除路径
+/.gradle/
+/.idea/
+/build/
+/build/classes/java/main/
+
+/gradle_compile_output.txt
