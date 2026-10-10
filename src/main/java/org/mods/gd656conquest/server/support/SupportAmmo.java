@@ -48,6 +48,21 @@ public final class SupportAmmo {
         if(a.getItem()!=b.getItem())return false;
         return !ModList.get().isLoaded("tacz") || Tacz.same(a,b);
     }
+    public static int bag(ServerPlayer p) {
+        var c=SupportContext.of(p);
+        if(c==null || org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(c.room().gameplayId())
+            || !org.mods.gd656conquest.server.facility.support.HeroKitSupportService.canRefillFromAmmoBox(c.state(),p.getUUID()))return 0;
+        List<Target> all=targets(p);
+        List<Target> guns=new ArrayList<>();
+        for(var t:all)if(!t.slow)guns.add(t);
+        int held=p.getInventory().selected;
+        guns.sort(Comparator.comparingInt(t->t.item.hotbarSlot()==held ? -1 : t.item.hotbarSlot()));
+        for(var t:guns) {
+            int added=t.add(p,SupportRules.ammoBurst(t.magazine(),true));
+            if(added>0){sync(p);SupportRuntime.ammoSupplied(p);return added;}
+        }
+        return 0;
+    }
     public static void sync(ServerPlayer p) { p.getInventory().setChanged(); p.containerMenu.broadcastChanges(); }
     public static final class Target {
         public final RoomPlayerLoadoutService.ResolvedLoadoutItem item;

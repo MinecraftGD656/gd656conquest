@@ -35,10 +35,10 @@ Minecraft 1.20.1 / Forge 47.4.18 / official 1.20.1 映射。
 
 ## 输出
 
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.9.jar`：本轮迁移的默认完整模组，网络协议为 `bf1-0.0.8`，六项客户端 bypass 开关均为 false。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.9-bypass.jar`：原工程已有的客户端绕过配置变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.9-nores.jar`：原工程已有的无 assets 变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.9-resources.zip`：原工程已有的 assets 资源包。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.10.jar`：本轮迁移的默认完整模组，网络协议为 `bf1-0.0.8`，六项客户端 bypass 开关均为 false。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.10-bypass.jar`：原工程已有的客户端绕过配置变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.10-nores.jar`：原工程已有的无 assets 变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.10-resources.zip`：原工程已有的 assets 资源包。
 
 JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装选择没有变体后缀的主 JAR。
 构建日志保存在 `.build-logs/build.log`。
@@ -136,7 +136,7 @@ LWJGL/native 与 vanilla blit 从本工程 Gradle 缓存读取，临时文件进
 真实 Forge EventBus 注册及可选元数据扩展失败隔离、ChatComponent/ChatScreen/CommandSuggestions
 三类的真实 Mixin 与服务器侧隔离、服务端门槛及退出清理的静态调用顺序。
 不会使用旧世界夹具，不等于游戏中的击杀者快照/爆头/多人完整流程验收。
-第六、七轮的范围脚本绑定各自阶段；0.0.8 的范围审计与卡片/滤镜回归使用下述第八轮脚本；0.0.9 的范围审计使用第九轮脚本。
+第六、七轮的范围脚本绑定各自阶段；0.0.8 的范围审计与卡片/滤镜回归使用下述第八轮脚本；0.0.9 的范围审计使用第九轮脚本；0.0.10 使用第十轮脚本。
 
 第八轮统一出界、配置和载具验证（该脚本的范围检查绑定 0.0.8）：
 
@@ -153,7 +153,7 @@ GPU 检查编译当前产物 GLSL 并读回像素；压制 uniform 值本轮固�
 同一脚本回归死亡/复活滤镜、卡片、手动部署与元数据扩展；死亡归属、镜头检查仍可运行上面的专用脚本。
 第八轮复用旧包槽位传输出界剩余 tick/乘坐类型，协议语义变更为 `bf1-0.0.8`，客户端和服务端一起更新。
 
-第九轮部署发弹与储备上限验证：
+第九轮部署发弹与储备上限验证（范围检查绑定 0.0.9）：
 
 ```powershell
 .\tools\verify-ammo-reserves.ps1 -JavaHome $env:JAVA_HOME
@@ -168,6 +168,22 @@ GPU 检查编译当前产物 GLSL 并读回像素；压制 uniform 值本轮固�
 测试适配器不打包，也不等于实际 TACZ/Superb Warfare 枪械或 Minecraft 多人玩法验收。
 本轮版本 `0.0.9`，没有数据包变化，协议保持 `bf1-0.0.8`。
 新箱包光环、权限/投包/死亡掉包、医疗与私人音效仍按 P5 后续批次迁入；当前旧包数量规则和公共补给声音暂保留。
+
+第十轮箱包运行时、医疗与成功音效验证：
+
+```powershell
+.\tools\verify-support.ps1 -JavaHome $env:JAVA_HOME
+```
+
+保留 `build/libs/gd656conquest-0.9.3-bf1-0.0.9.jar` 作为范围审计输入。
+脚本读取当前主 JAR 和本工程 Forge SRG/依赖导出，验证箱包定时规则、真实 Gson/配置编辑/
+仓库重载/模板和分组复制、发弹上限回归、实际 Forge 声音事件与播放通道、Minecraft 原生私人声音 API。
+使用实际 Mixin 引擎和当前 refmap 检查 Q/容器丢弃钩子、真实 SoundEngine accessor 和服务端客户端隔离。
+权限、投包/拾取、医疗中断、箱子容量、补给进度、寿命、充值与自然回血成功音效使用
+成品方法字节码及引擎/背包/枪械元数据/运输适配器验证；适配器不进入业务 JAR，也不等于游戏实机验收。
+本轮版本 `0.0.10`，数据包与协议保持 `bf1-0.0.8`，两端安装当前 JAR 可获得完整本轮表现。
+压制及新的全局/房间自然回血参数留待 P6；当前自然回血量/等待/间隔保留原规则，仅接入治疗期间暂停、
+成功后私人起始音效和状态清理。
 
 ## 本次环境修复
 

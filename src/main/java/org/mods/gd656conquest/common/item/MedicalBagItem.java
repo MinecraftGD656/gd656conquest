@@ -36,82 +36,15 @@ public class MedicalBagItem extends ConquestGeoItem {
 
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-        ItemStack stack = player.getItemInHand(hand);
-        if (player.getCooldowns().isOnCooldown(this)) {
-            return InteractionResultHolder.fail(stack);
-        }
-        if (player instanceof ServerPlayer serverPlayer) {
-            if (!serverPlayer.getAbilities().instabuild) {
-                stack.shrink(1);
-            }
-            applyHealEffect(serverPlayer);
-            serverPlayer.serverLevel().playSound(
-                    null,
-                    serverPlayer.getX(),
-                    serverPlayer.getY(),
-                    serverPlayer.getZ(),
-                    SoundEvent.createVariableRangeEvent(AMMO_BAG_THROW_SOUND_ID),
-                    SoundSource.PLAYERS,
-                    1.0F,
-                    1.0F
-            );
-            serverPlayer.getCooldowns().addCooldown(this, ITEM_COOLDOWN_TICKS);
-            serverPlayer.displayClientMessage(Component.literal("你使用了一个医疗包").withStyle(ChatFormatting.GREEN), true);
-        }
-        return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), level.isClientSide);
+        return org.mods.gd656conquest.server.support.SupportRuntime.useBag(level, player, hand);
     }
 
     @Override
     public InteractionResult interactLivingEntity(ItemStack stack, Player user, LivingEntity target, InteractionHand hand) {
-        if (!(user instanceof ServerPlayer giver) || !(target instanceof ServerPlayer receiver)) {
-            return InteractionResult.PASS;
-        }
-        if (giver.getCooldowns().isOnCooldown(this)) {
-            return InteractionResult.FAIL;
-        }
-        if (!isSameCampPlayer(giver, receiver)) {
-            return InteractionResult.PASS;
-        }
-        if (receiver.getHealth() >= receiver.getMaxHealth() - 0.001F) {
-            return InteractionResult.FAIL;
-        }
-        if (!giver.getAbilities().instabuild) {
-            stack.shrink(1);
-        }
-        applyHealEffect(receiver);
-        giver.serverLevel().playSound(
-                null,
-                giver.getX(),
-                giver.getY(),
-                giver.getZ(),
-                SoundEvent.createVariableRangeEvent(AMMO_BAG_THROW_SOUND_ID),
-                SoundSource.PLAYERS,
-                1.0F,
-                1.0F
-        );
-        giver.getCooldowns().addCooldown(this, ITEM_COOLDOWN_TICKS);
-        giver.swing(hand, true);
-        MutableComponent actionbar = Component.literal(giver.getGameProfile().getName())
-                .withStyle(ChatFormatting.GOLD)
-                .append(Component.literal(" 给了你一个医疗包").withStyle(ChatFormatting.AQUA));
-        receiver.displayClientMessage(actionbar, true);
-        giver.displayClientMessage(
-                Component.literal("你给了 ").withStyle(ChatFormatting.GREEN)
-                        .append(Component.literal(receiver.getGameProfile().getName()).withStyle(ChatFormatting.GOLD))
-                        .append(Component.literal(" 一个医疗包").withStyle(ChatFormatting.GREEN)),
-                true
-        );
-        if (!playGiveMedkitVoice(giver)) {
-            FrontlineVoiceBridge.playCue(giver, RoomThirdPersonAudioCueRegistry.PLAYER_THROW_MEDKIT);
-        }
-        FrontlineVoiceBridge.playCue(receiver, RoomThirdPersonAudioCueRegistry.PLAYER_THANKS);
-        KilliconScoreboardBridge.tryAwardConquestBonus(giver, "HEALING", 1.0F, "");
-        return InteractionResult.SUCCESS;
+        return org.mods.gd656conquest.server.support.SupportRuntime.interactBag(stack, user, target, hand);
     }
 
-    private static void applyHealEffect(ServerPlayer player) {
-        player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, EFFECT_DURATION_TICKS, EFFECT_AMPLIFIER, false, true, true));
-    }
+
 
     private static boolean playGiveMedkitVoice(ServerPlayer giver) {
         String voicePack = FrontlineVoiceGdcqCompatApi.resolveVoicePack(giver);

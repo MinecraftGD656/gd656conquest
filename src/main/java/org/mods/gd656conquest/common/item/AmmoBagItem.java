@@ -31,62 +31,12 @@ public class AmmoBagItem extends ConquestGeoItem {
 
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-        ItemStack stack = player.getItemInHand(hand);
-        if (player.getCooldowns().isOnCooldown(this)) {
-            return InteractionResultHolder.fail(stack);
-        }
-        if (player instanceof ServerPlayer serverPlayer) {
-            RoomPlayerLoadoutService.AmmoSupplyResult supplyResult = resolveAmmoSupply(serverPlayer, serverPlayer);
-            if (supplyResult.totalAdded() <= 0) {
-                serverPlayer.displayClientMessage(Component.literal("弹药包使用失败：当前无可补给弹药").withStyle(ChatFormatting.RED), true);
-                return InteractionResultHolder.fail(stack);
-            }
-            if (!serverPlayer.getAbilities().instabuild) {
-                stack.shrink(1);
-            }
-            serverPlayer.getCooldowns().addCooldown(this, ITEM_COOLDOWN_TICKS);
-            serverPlayer.displayClientMessage(buildSelfUseMessage(supplyResult), true);
-        }
-        return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), level.isClientSide);
+        return org.mods.gd656conquest.server.support.SupportRuntime.useBag(level, player, hand);
     }
 
     @Override
     public InteractionResult interactLivingEntity(ItemStack stack, Player user, LivingEntity target, InteractionHand hand) {
-        if (!(user instanceof ServerPlayer giver) || !(target instanceof ServerPlayer receiver)) {
-            return InteractionResult.PASS;
-        }
-        if (giver.getCooldowns().isOnCooldown(this)) {
-            return InteractionResult.FAIL;
-        }
-        if (!isSameCampPlayer(giver, receiver)) {
-            return InteractionResult.PASS;
-        }
-        RoomPlayerLoadoutService.AmmoSupplyResult supplyResult = resolveAmmoSupply(giver, receiver);
-        if (supplyResult.totalAdded() <= 0) {
-            giver.displayClientMessage(Component.literal("目标当前无可补给弹药").withStyle(ChatFormatting.RED), true);
-            return InteractionResult.FAIL;
-        }
-        if (!giver.getAbilities().instabuild) {
-            stack.shrink(1);
-        }
-        giver.getCooldowns().addCooldown(this, ITEM_COOLDOWN_TICKS);
-        giver.swing(hand, true);
-        giver.serverLevel().playSound(
-                null,
-                giver.getX(),
-                giver.getY(),
-                giver.getZ(),
-                SoundEvent.createVariableRangeEvent(AMMO_BAG_THROW_SOUND_ID),
-                SoundSource.PLAYERS,
-                1.0F,
-                1.0F
-        );
-        receiver.displayClientMessage(buildReceiverMessage(giver, supplyResult), true);
-        giver.displayClientMessage(buildGiverMessage(receiver, supplyResult), true);
-        FrontlineVoiceBridge.playCue(giver, RoomThirdPersonAudioCueRegistry.PLAYER_THROW_AMMO);
-        FrontlineVoiceBridge.playCue(receiver, RoomThirdPersonAudioCueRegistry.PLAYER_THANKS);
-        KilliconScoreboardBridge.tryAwardConquestBonus(giver, "AMMO_SUPPLY", 1.0F, "");
-        return InteractionResult.SUCCESS;
+        return org.mods.gd656conquest.server.support.SupportRuntime.interactBag(stack, user, target, hand);
     }
 
     private static RoomPlayerLoadoutService.AmmoSupplyResult resolveAmmoSupply(ServerPlayer contextPlayer, ServerPlayer targetPlayer) {

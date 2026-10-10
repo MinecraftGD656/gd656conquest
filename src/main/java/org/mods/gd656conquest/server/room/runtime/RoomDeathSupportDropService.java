@@ -84,6 +84,7 @@ public final class RoomDeathSupportDropService {
         );
         dropEntity.setPickUpDelay(0);
         dropEntity.getPersistentData().putUUID(DEATH_SUPPORT_DROP_OWNER_UUID, killerId);
+        org.mods.gd656conquest.server.support.SupportRuntime.markDeathReward(dropEntity, victim);
         victim.level().addFreshEntity(dropEntity);
     }
 

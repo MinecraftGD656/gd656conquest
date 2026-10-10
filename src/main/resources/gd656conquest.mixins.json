@@ -18,11 +18,13 @@
     "server.EntityMixin",
     "server.MinecraftServerMixin",
     "server.PlayerListMixin",
+    "server.SupportDropMixin",
     "server.ServerPlayerDeathMixin",
     "server.KillCommandMixin",
     "server.ServerGamePacketListenerImplMixin"
   ],
   "client": [
+    "client.AmmoSupplySoundAccessor",
     "client.KillerCardChatAccessor",
     "client.RoomChatMixin",
     "client.RoomChatScreenMixin",

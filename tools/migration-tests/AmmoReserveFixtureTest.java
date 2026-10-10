@@ -33,6 +33,7 @@ public final class AmmoReserveFixtureTest {
         public Item m_41720_(){return item;}
         public void m_41764_(int n){count=n;}
         public void m_41769_(int n){count+=n;}
+        public void m_41774_(int n){count-=n;}
         public CompoundTag m_41783_(){return tag;}
         public CompoundTag m_41784_(){if(tag==null)tag=new CompoundTag();return tag;}
         public Stack m_41777_(){

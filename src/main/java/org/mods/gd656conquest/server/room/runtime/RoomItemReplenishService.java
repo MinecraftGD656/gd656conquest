@@ -63,48 +63,6 @@ public final class RoomItemReplenishService {
         long gameTick,
         Map<Integer, Long> lastReplenishTickBySlot
     ) {
-        if (player == null || item == null || item.entry() == null || item.hotbarSlot() < 0 || item.hotbarSlot() >= player.getInventory().items.size()) {
-            return false;
-        }
-        int replenishSeconds = item.entry().getReplenishSeconds();
-        if (replenishSeconds <= 0) {
-            return false;
-        }
-        ItemStack configuredStack = item.configuredStack();
-        if (configuredStack == null || configuredStack.isEmpty() || loadoutService.isAmmoManagedGunItem(configuredStack)) {
-            return false;
-        }
-        if (configuredStack.is(Items.TOTEM_OF_UNDYING)) {
-            return false;
-        }
-        long intervalTicks = (long) replenishSeconds * 20L;
-        if (intervalTicks <= 0L) {
-            return false;
-        }
-        int slotKey = item.slot().getIndex();
-        long lastTick = lastReplenishTickBySlot.computeIfAbsent(slotKey, ignored -> gameTick);
-        if (gameTick - lastTick < intervalTicks) {
-            return false;
-        }
-        int targetCount = Math.max(1, Math.min(configuredStack.getCount(), configuredStack.getMaxStackSize()));
-        ItemStack currentStack = player.getInventory().getItem(item.hotbarSlot());
-        if (currentStack.isEmpty() || !ItemStack.isSameItemSameTags(currentStack, configuredStack)) {
-            ItemStack restored = configuredStack.copy();
-            restored.setCount(1);
-            player.getInventory().setItem(item.hotbarSlot(), restored);
-            lastReplenishTickBySlot.put(slotKey, gameTick);
-            return true;
-        }
-        if (currentStack.getCount() >= targetCount) {
-            lastReplenishTickBySlot.put(slotKey, gameTick); // 修复：物品满时持续重置计时器，确保消耗后才开始计算冷却
-            return false;
-        }
-        currentStack.grow(1);
-        if (currentStack.getCount() > targetCount) {
-            currentStack.setCount(targetCount);
-        }
-        player.getInventory().setItem(item.hotbarSlot(), currentStack);
-        lastReplenishTickBySlot.put(slotKey, gameTick);
-        return true;
+        return org.mods.gd656conquest.server.support.SupportRuntime.recharge(player, item, gameTick, lastReplenishTickBySlot);
     }
 }

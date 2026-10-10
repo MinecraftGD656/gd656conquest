@@ -23,6 +23,7 @@
 | `0.0.7` | P3 元数据/卡片/部署输入/聊天：致命前装备与生命快照、爆头/对决、五列卡片、普通死亡手动部署与倒地点按、原生聊天适配 | `9d189a1` 卡片/武器快照，`6cb882b` 爆头/最终布局/手动部署/聊天；按最终来源 `955b76d` 核对 | 2026-10-11，离线 build 成功 |
 | `0.0.8` | P4 出界核心：统一玩家截止 tick、飞行缓冲、原生载具爆炸乘员快照、对应配置复制与警告 UI | `1e2a975` 出界重构，`07f0824` 载具修正；按最终来源 `955b76d` 核对，仅迁入边界部分 | 2026-10-11，离线 build 成功 |
 | `0.0.9` | P5-A：两轮部署发弹、实际储备 NBT 上限、同弹池合并和现有箱包入口的限额补给 | `9556c5a` 储备目标、`770bbe4` 两轮发弹/实际上限；按最终来源 `955b76d` 核对，箱包完整运行时留到后续 | 2026-10-11，离线 build 成功 |
+| `0.0.10` | P5-B：箱包投放/拾取权限、受赠者光环进度、直接 HP 医疗、包库存恢复与成功私人音效 | `9556c5a` 箱包运行时，`770bbe4` 补给成功音效，`955b76d` 医疗音效与最终修正；压制/自然回血参数留到 P6 | 2026-10-11，离线 build 成功 |
 
 ## 0.0.1：明确救援目标
 
@@ -389,3 +390,48 @@ Gradle test 为 NO-SOURCE。夹具隔离引擎/原生枪械元数据，不等于
 
 剩余 P5：新箱包光环/频率、包两弹匣规则、所有者/敌方权限、Q/整组/容器丢弃限制、死亡包寿命、医疗与只发给接受者的成功音效及客户端通道保护。
 旧包 maxRounds 与公共补给声音暂保留；四个共享字段和压制/自然回血按 P5/P6 继续迁入。
+
+
+## 0.0.10：箱包运行时、医疗与成功私人音效
+
+从用户提交的 `0b7383f`（0.0.9）继续，来源固定为干净的
+`955b76d8adc264703eb49141bdb99b06e84cba46`。本轮完成 P5-B 独立箱包运行时，定为 **0.0.10**；
+对应 `9556c5a` 的箱包/规则、`770bbe4` 的成功弹药音效以及 `955b76d` 的医疗音效最终修正。
+不将压制或全局/房间自然回血参数视为已迁入，不表示整个历史提交或最终 `.24` 等价。
+
+| 功能 | 固定反编译源码对应位置 | 本轮接入 |
+| --- | --- | --- |
+| 归属/跨房间/阵营/敌方开关 | [SupportContext](../../../gd656conquest/org/mods/gd656conquest/server/support/SupportContext.java)，of/available/stamp/allowed，stamp 第 27 行、allowed 第 34 行 | 同名新类与真实 Manager 状态；普通补给必须有房间和所有者，常驻箱公共、仍限当前房间；死亡奖励继续使用原击杀者拾取权 |
+| 投包/拾取/寿命 | [SupportRuntime](../../../gd656conquest/org/mods/gd656conquest/server/support/SupportRuntime.java)，useBag 第 151 行、pickup 第 191 行、toss 第 230 行、markDeathReward 第 249 行 | 两种原物品的 use/interact 委托；两个事件入口提前接管并停止旧路径；共享投放/拾取冷却，创造自己投包同样等待 10 tick；同种普通地面包最多三个，独立 UUID 防合并、600 tick 寿命 |
+| Q 和背包/容器丢弃限制 | SupportDropGuard、mixin/server/SupportDropMixin | 新类与 official/refmap Mixin；两处原生 drop 调用重定向，单个 Q 使用 ThreadLocal finally 作用域；阻止 Ctrl+Q 和容器 THROW/外部点击丢包，退款失败进入真实待退还队列 |
+| 两包初始库存/独立恢复 | SupportRuntime.prepareLoadoutStack 第 246 行、recharge 第 342 行 | 原 placeLoadoutItem 接入初始 2 包；原 RoomItemReplenishService 改为仅补包，每 120 tick 恢复一个至 2；其他普通消耗品交给弹药箱 |
+| 弹药箱/包储备事务 | SupportRuntime.boxes 第 269 行、debitAmmo；SupportAmmo.bag 第 51 行；SupportRules.ammoBurst/Progress | 原两种 aura 入口委托，三个格内取最近合法箱；每秒最多一把普通枪轮转；包一次只补一把且优先手持，补量 max(两弹匣,4)；配备/投掷物按受赠者目标累计进度，离开暂停、满额清零、失败保留；沿用 0.0.9 实际部署上限和原禁补/英雄/枪械大师规则 |
+| 直接 HP 医疗/容量 | SupportRuntime.heal 第 137 行、tick/boxes/pickup | 包立即及每秒 2.5 HP、真实受伤终止；箱每 10 tick 1 HP，按实际 HP 扣普通箱 100 池；普通弹药箱 20 次成功事务，常驻无限；原箱初始化携带房间/归属，关闭旧交互、药水与医疗提示路径 |
+| 成功私人声音与客户端通道 | SupportRuntime.ammoSupplied 第 328 行、medicalSupplied；[ClientAmmoSupplySound](../../../gd656conquest/org/mods/gd656conquest/client/room/ClientAmmoSupplySound.java) filter 第 27 行；AmmoSupplySoundAccessor | 成功后通过真实 ServerPlayer.playNotifySound 向接受者发送一次原声音；服务端两音效分别合并同 tick；客户端分别读取真实通道，活动/待分配时合并、不打断/排队，通道结束后允许下次播放；退出/音频重载清理 |
+| 医疗冷却和配置复制 | RoomCommonConfig；描述注册与数字编辑；仓库/分组/模板/RoomCommands | 增加 nullable allowEnemySupportResupply（缺失 true）与 medicalBoxDamageCooldownSeconds（缺失/无效 3，0–60 秒），保留旧 49/51 参数构造器；四处实际复制构造传入全部已迁入四字段 |
+| 自然回血接入 | 来源旧构建 support.passiveRegen/regen.privateSound 接入；实际 PassiveRegenService | 有效医疗箱/包治疗时暂停，reset 同步清理补给状态；起始音效改为私人发送。本轮另检查 heal 前后实际 HP，外部取消回血时不播放成功音效；原回血量/等待/间隔保留 |
+
+新逻辑分布在 **七个新类/Mixin**（四个 server/support 类、客户端声音类及两个 Mixin），**16 个已有 Java 文件**只接入机制替换、配置/生命周期和成功声音。
+正常源码构建，无 ASM 成品补丁。[导入工具](../../tools/migrate_support.py) 固定来源，转换 official，拒绝覆盖新类；
+[调用接入工具](../../tools/migrate_support_hooks.py) 绑定提交的 0.0.9，拒绝重复激活。
+客户端声音 accessor 改用 official `instanceToChannel`，Q/容器入口、shadow/drop 描述符由 APT 生成 refmap，保留全部既有映射。
+
+分阶段边界：SupportRuntime/SupportRules 暂不导入 Suppression 状态、网络、近失弹和治疗阻断方法；
+医疗箱目前按实际受伤冷却暂停，自然回血按有效箱包治疗暂停。P6 接入真实压制时再组合公共阻断，未添加假服务或占位返回。
+现有 `SupportAmmoRefill` 兼容 API 保留，旧 maxRounds 调用仍受部署上限且成功声音改为私人；正常包/箱已经使用新运行时。
+
+构建与验证（2026-10-11）：
+
+- 命令：`./build.ps1 -Offline`；Java 17.0.19、Gradle 8.8、ForgeGradle 6.0.54、MC 1.20.1 / Forge 47.4.18、official 映射与离线缓存。
+- 最终 **BUILD SUCCESSFUL in 50s**；22 个任务，16 执行、6 up-to-date；源码、APT/refmap 与 reobfJar 完成。Gradle test 为 NO-SOURCE。
+- 主产物：[gd656conquest-0.9.3-bf1-0.0.10.jar](../../build/libs/gd656conquest-0.9.3-bf1-0.0.10.jar)，**14,357,730 字节**。
+- SHA-256：`2cd602ed0cdeab30ad33021860fae39aaa444a3ab9717206111e0c853c63b153`。
+- mods.toml/manifest：`0.9.3-bf1-0.0.10`；消息注册/格式及协议保持 `bf1-0.0.8`，六项普通 bypass 为 false。
+- [验证入口](../../tools/verify-support.ps1)：**100** 项实际 burst/进度/伤害时限与 Gson/编辑/仓库重载/模板/分组；**45** 项成品方法字节码的权限/拾取/治疗/光环/寿命/库存/Q 与自然回血成功音效夹具；**69** 项真实 Forge PlaySoundEvent/播放通道与实际 Minecraft 私人声音 API 检查。
+- 实际 Mixin 引擎在当前 Forge SRG 上应用 ServerGamePacketListenerImpl 与 SoundEngine：CLIENT/SERVER 各 **3** 项，`require=2` 的 Q 重定向及容器 Inject 成功，SoundEngine accessor 命中，服务器不应用客户端 accessor。
+- **4177** 项 0.0.9 → 0.0.10 成品范围/调用/四处扩展构造检查：预期方法以外保留原指令、字段和注解；只规范化调试信息、外部 inner 元数据及 javac 重编号的 lambda，lambda 实际指令继续比较；其他生产类、网络/协议和既有资源原字节保留。refmap 全部旧条目保持，仅追加两个本轮目标。
+- 本轮 JAR 上回归 0.0.9：发弹/NBT/接入 **473** 项，实际储备事务夹具 **33** 项通过。ZIP 完整、Java 17 major 61、版本正确；无测试/运输/背包适配器和第三方类进入业务产物。来源工作区保持干净。
+
+夹具保留实际产物规则方法，但隔离游戏引擎、背包/房间、枪械元数据、音效发送和奖励运输；不等于实际实体/原生枪械/多人游戏验收。
+未启动 Minecraft 或专用服务器/联机；实机需检查投包、死亡奖励权、存档加载、GUI 丢弃、长音频与第三方声音/治疗事件交互。
+下一轮进入 P6 的真实火力压制、世界暗角与全局/房间自然回血参数和剩余两配置复制链。本轮未自动提交。

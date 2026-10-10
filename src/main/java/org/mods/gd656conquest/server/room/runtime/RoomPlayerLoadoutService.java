@@ -396,12 +396,7 @@ public final class RoomPlayerLoadoutService {
     public AmmoSupplyResult trySupplyAmmoByBag(ServerPlayer player, int maxRounds) {
         int added = org.mods.gd656conquest.server.support.SupportAmmoRefill.bag(player, maxRounds);
         if (added <= 0) return AmmoSupplyResult.EMPTY;
-        player.serverLevel().playSound(
-            null,
-            player.getX(), player.getY(), player.getZ(),
-            SoundEvent.createVariableRangeEvent(AMMO_BAG_PICKUP_SOUND_ID),
-            SoundSource.PLAYERS, 1.0F, 1.0F
-        );
+        org.mods.gd656conquest.server.support.SupportRuntime.ammoSupplied(player);
         return new AmmoSupplyResult(added);
     }
 
@@ -917,6 +912,7 @@ public final class RoomPlayerLoadoutService {
     }
 
     private ItemStack placeLoadoutItem(ServerPlayer player, CustomLoadoutSlot slot, ItemStack stack) {
+        org.mods.gd656conquest.server.support.SupportRuntime.prepareLoadoutStack(stack);
         if (player == null || slot == null || stack == null || stack.isEmpty()) {
             return ItemStack.EMPTY;
         }

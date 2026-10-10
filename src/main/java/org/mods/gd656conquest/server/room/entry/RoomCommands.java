@@ -1341,7 +1341,9 @@ public final class RoomCommands {
             common.mapName(),
             common.roomDescription(),
             common.flightVehicleOutsideBoundaryDeathSeconds(),
-            common.flightBoundaryPaddingBlocks()
+            common.flightBoundaryPaddingBlocks(),
+            common.allowEnemySupportResupply(),
+            common.medicalBoxDamageCooldownSeconds()
         );
 
         RoomDefinition updated = new RoomDefinition(

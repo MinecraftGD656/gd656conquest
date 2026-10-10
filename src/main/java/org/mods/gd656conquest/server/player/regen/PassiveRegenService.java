@@ -31,6 +31,7 @@ public final class PassiveRegenService {
     }
 
     public static void onPlayerTick(ServerPlayer player, long gameTick, int startDelaySeconds, int healIntervalTicks) {
+        if (org.mods.gd656conquest.server.support.SupportRuntime.pausePassive(player)) return;
         if (player == null || gameTick < 0L || !player.isAlive() || player.isSpectator()) {
             return;
         }
@@ -49,24 +50,21 @@ public final class PassiveRegenService {
         if (gameTick - lastHealTick < safeIntervalTicks) {
             return;
         }
+        float healthBefore = player.getHealth();
         player.heal(HEAL_AMOUNT);
+        if (player.getHealth() <= healthBefore) {
+            return;
+        }
         if (player.serverLevel() != null && !Boolean.TRUE.equals(REGEN_STARTED_SOUND_PLAYED_BY_PLAYER.get(playerId))) {
-            player.serverLevel().playSound(
-                null,
-                player.getX(),
-                player.getY(),
-                player.getZ(),
-                SoundEvent.createVariableRangeEvent(PLAYER_HEAL_SOUND_ID),
-                SoundSource.PLAYERS,
-                1.0F,
-                1.0F
-            );
+            player.playNotifySound(SoundEvent.createVariableRangeEvent(PLAYER_HEAL_SOUND_ID),
+                SoundSource.PLAYERS, 1.0F, 1.0F);
             REGEN_STARTED_SOUND_PLAYED_BY_PLAYER.put(playerId, true);
         }
         LAST_HEAL_TICK_BY_PLAYER.put(playerId, gameTick);
     }
 
     public static void resetPlayer(ServerPlayer player) {
+        org.mods.gd656conquest.server.support.SupportRuntime.reset(player);
         if (player == null) {
             return;
         }

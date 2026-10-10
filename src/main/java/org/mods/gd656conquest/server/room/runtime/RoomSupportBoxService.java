@@ -53,7 +53,7 @@ import java.util.UUID;
 
 public final class RoomSupportBoxService {
     private static final String ACTIONBAR_SOURCE_AMMO_BOX_INTERACT = "room_ammo_box_interact";
-    private static final int AMMO_BOX_MAX_USE_COUNT = 16;
+    private static final int AMMO_BOX_MAX_USE_COUNT = 20;
     private static final int AMMO_BOX_PER_PLAYER_CD_TICKS = 30 * 20;
     private static final int PERMANENT_SUPPORT_BOX_PER_PLAYER_CD_TICKS = 60 * 20;
     private static final int AMMO_BOX_RADIUS = 2;
@@ -62,7 +62,7 @@ public final class RoomSupportBoxService {
     private static final String AMMO_BOX_OWNER_TAG = "gd656_ammo_box_owner";
     private static final ResourceLocation AMMO_BAG_PICKUP_SOUND_ID = ResourceLocation.fromNamespaceAndPath("gd656conquest", "sfx.ammo_bag_pickup");
 
-    private static final int MEDICAL_BOX_MAX_USE_COUNT = 16;
+    private static final int MEDICAL_BOX_MAX_USE_COUNT = 100;
     private static final int MEDICAL_BOX_PER_PLAYER_CD_TICKS = 30 * 20;
     private static final int MEDICAL_BOX_RADIUS = 2;
     private static final int MEDICAL_BOX_REGEN_DURATION_TICKS = 5 * 20;
@@ -132,6 +132,7 @@ public final class RoomSupportBoxService {
             ammoBox.setPos(position.x() + 0.5D, position.y(), position.z() + 0.5D);
             ammoBox.setYRot(0.0F);
             ammoBox.setOwnerUuid(null);
+            org.mods.gd656conquest.server.support.SupportRuntime.initializeBox(ammoBox, null, room);
             ammoBox.setPermanentSupport(true);
             ammoBox.setUseRemaining(Integer.MAX_VALUE);
             ammoBox.setInvulnerable(true);
@@ -148,6 +149,7 @@ public final class RoomSupportBoxService {
             medicalBox.setPos(position.x() + 0.5D, position.y(), position.z() + 0.5D);
             medicalBox.setYRot(0.0F);
             medicalBox.setOwnerUuid(null);
+            org.mods.gd656conquest.server.support.SupportRuntime.initializeBox(medicalBox, null, room);
             medicalBox.setPermanentSupport(true);
             medicalBox.setUseRemaining(Integer.MAX_VALUE);
             medicalBox.setInvulnerable(true);
@@ -198,6 +200,7 @@ public final class RoomSupportBoxService {
         CompoundTag data = dropped.getPersistentData();
         data.putBoolean(AMMO_BOX_THROW_TAG, true);
         data.putUUID(AMMO_BOX_OWNER_TAG, player.getUUID());
+        org.mods.gd656conquest.server.support.SupportRuntime.stampBoxThrow(dropped, player);
         player.level().addFreshEntity(dropped);
         pendingAmmoBoxThrows.add(dropped.getUUID());
         player.swing(hand, true);
@@ -226,6 +229,7 @@ public final class RoomSupportBoxService {
         CompoundTag data = dropped.getPersistentData();
         data.putBoolean(MEDICAL_BOX_THROW_TAG, true);
         data.putUUID(MEDICAL_BOX_OWNER_TAG, player.getUUID());
+        org.mods.gd656conquest.server.support.SupportRuntime.stampBoxThrow(dropped, player);
         player.level().addFreshEntity(dropped);
         pendingMedicalBoxThrows.add(dropped.getUUID());
         player.swing(hand, true);
@@ -296,6 +300,7 @@ public final class RoomSupportBoxService {
         ammoBox.setPos(itemEntity.getX(), itemEntity.getY(), itemEntity.getZ());
         ammoBox.setYRot(itemEntity.getYRot());
         ammoBox.setOwnerUuid(ownerId);
+        org.mods.gd656conquest.server.support.SupportRuntime.initializeBox(ammoBox, ownerId, itemEntity);
         ammoBox.setUseRemaining(AMMO_BOX_MAX_USE_COUNT);
         ammoBox.setHealth(100.0F);
         level.addFreshEntity(ammoBox);
@@ -324,6 +329,7 @@ public final class RoomSupportBoxService {
         medicalBox.setPos(itemEntity.getX(), itemEntity.getY(), itemEntity.getZ());
         medicalBox.setYRot(itemEntity.getYRot());
         medicalBox.setOwnerUuid(ownerId);
+        org.mods.gd656conquest.server.support.SupportRuntime.initializeBox(medicalBox, ownerId, itemEntity);
         medicalBox.setUseRemaining(MEDICAL_BOX_MAX_USE_COUNT);
         medicalBox.setHealth(100.0F);
         level.addFreshEntity(medicalBox);
@@ -339,105 +345,15 @@ public final class RoomSupportBoxService {
     }
 
     private void processAmmoBoxAura(long gameTick) {
-        if (activeAmmoBoxIds.isEmpty()) {
-            clearAmmoBoxActionbars();
-            return;
-        }
-        List<UUID> stale = new ArrayList<>();
-        Map<UUID, AmmoBoxCandidate> bestCandidateByPlayer = new HashMap<>();
-        for (UUID boxId : activeAmmoBoxIds) {
-            Entity raw = findEntityByUuid(boxId);
-            if (!(raw instanceof AmmoBoxEntity ammoBox) || !ammoBox.isAlive()) {
-                stale.add(boxId);
-                continue;
-            }
-            if (!(ammoBox.level() instanceof ServerLevel level)) {
-                continue;
-            }
-            if (ammoBox.getUseRemaining() <= 0) {
-                ammoBox.discard();
-                stale.add(boxId);
-                continue;
-            }
-            AABB area = ammoBox.getBoundingBox().inflate(AMMO_BOX_RADIUS, 1.0D, AMMO_BOX_RADIUS);
-            List<ServerPlayer> players = level.getEntitiesOfClass(ServerPlayer.class, area, player -> player != null && player.isAlive() && !player.isSpectator());
-            for (ServerPlayer player : players) {
-                double sqrDistance = player.distanceToSqr(ammoBox);
-                if (sqrDistance > (AMMO_BOX_RADIUS * AMMO_BOX_RADIUS + 0.25D)) {
-                    continue;
-                }
-                considerAmmoBoxCandidate(bestCandidateByPlayer, ammoBox, player, gameTick, sqrDistance);
-            }
-        }
-        Set<UUID> shownPlayers = new HashSet<>();
-        for (Map.Entry<UUID, AmmoBoxCandidate> entry : bestCandidateByPlayer.entrySet()) {
-            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-            if (player == null) {
-                continue;
-            }
-            if (showAmmoBoxActionbarForPlayer(entry.getValue().ammoBox(), player, gameTick)) {
-                shownPlayers.add(player.getUUID());
-            }
-        }
-        syncAmmoBoxActionbarTracking(shownPlayers);
-        if (!stale.isEmpty()) {
-            for (UUID boxId : stale) {
-                removeTrackedAmmoBox(boxId, false);
-            }
-        }
+        org.mods.gd656conquest.server.support.SupportRuntime.boxes(server, activeAmmoBoxIds, gameTick, false);
     }
 
     public boolean tryUseNearbyAmmoBox(ServerPlayer player, long gameTick) {
-        if (player == null) {
-            return false;
-        }
-        AmmoBoxCandidate candidate = resolveBestAmmoBoxCandidate(player, gameTick);
-        if (candidate == null) {
-            ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_AMMO_BOX_INTERACT);
-            playersWithAmmoBoxActionbar.remove(player.getUUID());
-            return false;
-        }
-        return tryConsumeAmmoBoxForPlayer(candidate.ammoBox(), player, gameTick);
+        return false; // Replaced by the recipient-owned aura runtime.
     }
 
     private void processMedicalBoxAura(long gameTick) {
-        if (activeMedicalBoxIds.isEmpty()) {
-            return;
-        }
-        List<UUID> stale = new ArrayList<>();
-        for (UUID boxId : activeMedicalBoxIds) {
-            Entity raw = findEntityByUuid(boxId);
-            if (!(raw instanceof MedicalBoxEntity medicalBox) || !medicalBox.isAlive()) {
-                stale.add(boxId);
-                continue;
-            }
-            if (!(medicalBox.level() instanceof ServerLevel level)) {
-                continue;
-            }
-            if (medicalBox.getUseRemaining() <= 0) {
-                medicalBox.discard();
-                stale.add(boxId);
-                continue;
-            }
-            AABB area = medicalBox.getBoundingBox().inflate(MEDICAL_BOX_RADIUS, 1.0D, MEDICAL_BOX_RADIUS);
-            List<ServerPlayer> players = level.getEntitiesOfClass(ServerPlayer.class, area, player -> player != null && player.isAlive() && !player.isSpectator());
-            for (ServerPlayer player : players) {
-                double sqrDistance = player.distanceToSqr(medicalBox);
-                if (sqrDistance > (MEDICAL_BOX_RADIUS * MEDICAL_BOX_RADIUS + 0.25D)) {
-                    continue;
-                }
-                if (tryTriggerMedicalBoxForPlayer(medicalBox, player, gameTick) && medicalBox.getUseRemaining() <= 0) {
-                    medicalBox.discard();
-                    stale.add(boxId);
-                    break;
-                }
-            }
-        }
-        if (!stale.isEmpty()) {
-            for (UUID boxId : stale) {
-                removeTrackedMedicalBox(boxId, false);
-            }
-        }
+        org.mods.gd656conquest.server.support.SupportRuntime.boxes(server, activeMedicalBoxIds, gameTick, true);
     }
 
     private boolean tryConsumeAmmoBoxForPlayer(AmmoBoxEntity ammoBox, ServerPlayer player, long gameTick) {
@@ -526,36 +442,7 @@ public final class RoomSupportBoxService {
     }
 
     private boolean tryTriggerMedicalBoxForPlayer(MedicalBoxEntity medicalBox, ServerPlayer player, long gameTick) {
-        if (findRunningPlayerContext(player.getUUID()) == null) {
-            return false;
-        }
-        UUID boxId = medicalBox.getUUID();
-        UUID playerId = player.getUUID();
-        Map<UUID, Long> cooldownUntilTick = medicalBoxCooldownUntilTickByBox.computeIfAbsent(boxId, key -> new HashMap<>());
-        Map<UUID, Long> lastNotifyTick = medicalBoxLastNotifyTickByBox.computeIfAbsent(boxId, key -> new HashMap<>());
-        Map<UUID, Long> infoPriorityUntilTick = medicalBoxInfoPriorityUntilTickByBox.computeIfAbsent(boxId, key -> new HashMap<>());
-        long untilTick = cooldownUntilTick.getOrDefault(playerId, 0L);
-        if (untilTick > gameTick) {
-            long nextNotifyTick = lastNotifyTick.getOrDefault(playerId, -100L) + 20L;
-            if (gameTick >= nextNotifyTick) {
-                long infoUntilTick = infoPriorityUntilTick.getOrDefault(playerId, -1L);
-                if (infoUntilTick > gameTick) {
-                    ServerMessageSender.rawActionBar(player, buildMedicalBoxInfoActionbar(medicalBox));
-                } else {
-                    int remainSeconds = Math.max(1, (int) Math.ceil((untilTick - gameTick) / 20.0D));
-                    ServerMessageSender.rawActionBar(player, ServerActionBarService.Templates.cooldownSeconds("房间医疗箱冷却中: ", remainSeconds));
-                }
-                lastNotifyTick.put(playerId, gameTick);
-            }
-            return false;
-        }
-        player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, MEDICAL_BOX_REGEN_DURATION_TICKS, MEDICAL_BOX_REGEN_AMPLIFIER, false, true, true));
-        cooldownUntilTick.put(playerId, gameTick + resolveMedicalBoxCooldownTicks(medicalBox));
-        infoPriorityUntilTick.put(playerId, gameTick + MEDICAL_BOX_INFO_PRIORITY_TICKS);
-        lastNotifyTick.put(playerId, gameTick);
-        medicalBox.consumeOneAndGetRemaining();
-        ServerMessageSender.rawActionBar(player, buildMedicalBoxInfoActionbar(medicalBox));
-        return true;
+        return false; // The old potion and notification mechanism has been replaced.
     }
 
     private MutableComponent buildAmmoBoxInfoActionbar(AmmoBoxEntity ammoBox) {

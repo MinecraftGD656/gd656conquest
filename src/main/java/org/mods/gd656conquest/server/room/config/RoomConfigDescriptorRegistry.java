@@ -155,6 +155,8 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "outsideBoundaryDeathSeconds", "玩家出界死亡秒数", "commonConfig.outsideBoundaryDeathSeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "aircraftOutsideBoundaryCleanupSeconds", "地面载具出界死亡秒数", "commonConfig.aircraftOutsideBoundaryCleanupSeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "flightVehicleOutsideBoundaryDeathSeconds", "飞行载具出界死亡秒数", "commonConfig.flightVehicleOutsideBoundaryDeathSeconds", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "allowEnemySupportResupply", "可通过敌方箱包回复", "commonConfig.allowEnemySupportResupply", RoomConfigValueType.BOOLEAN, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "medicalBoxDamageCooldownSeconds", "医疗箱受伤后回复冷却秒数", "commonConfig.medicalBoxDamageCooldownSeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "flightBoundaryPaddingBlocks", "飞行载具边界缓冲距离", "commonConfig.flightBoundaryPaddingBlocks", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "playerMaxY", "玩家最大Y轴", "commonConfig.playerMaxY", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "aircraftPassengerMaxY", "空中载具乘员最大Y轴", "commonConfig.aircraftPassengerMaxY", RoomConfigValueType.NUMBER, List.of());

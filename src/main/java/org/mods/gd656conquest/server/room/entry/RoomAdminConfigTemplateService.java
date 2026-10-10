@@ -176,7 +176,9 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.mapName(),
             sourceCommon.roomDescription(),
             sourceCommon.flightVehicleOutsideBoundaryDeathSeconds(),
-            sourceCommon.flightBoundaryPaddingBlocks()
+            sourceCommon.flightBoundaryPaddingBlocks(),
+            sourceCommon.allowEnemySupportResupply(),
+            sourceCommon.medicalBoxDamageCooldownSeconds()
         );
         return new RoomDefinition(
             target.roomId(),

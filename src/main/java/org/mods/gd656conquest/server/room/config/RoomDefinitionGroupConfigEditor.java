@@ -237,7 +237,9 @@ public final class RoomDefinitionGroupConfigEditor {
             common.mapName(),
             common.roomDescription(),
             common.flightVehicleOutsideBoundaryDeathSeconds(),
-            common.flightBoundaryPaddingBlocks()
+            common.flightBoundaryPaddingBlocks(),
+            common.allowEnemySupportResupply(),
+            common.medicalBoxDamageCooldownSeconds()
         );
         return new RoomDefinition(
             definition.roomId(),

@@ -25,6 +25,7 @@ public final class PlayerItemInteractionService {
     }
 
     public static void handlePlayerItemToss(ItemTossEvent event) {
+        if (event != null && org.mods.gd656conquest.server.support.SupportRuntime.toss(event)) return;
         if (event == null || !(event.getPlayer() instanceof ServerPlayer player) || event.getEntity() == null) {
             return;
         }
@@ -60,6 +61,7 @@ public final class PlayerItemInteractionService {
     }
 
     public static void handleEntityItemPickup(EntityItemPickupEvent event) {
+        if (event != null && org.mods.gd656conquest.server.support.SupportRuntime.pickup(event)) return;
         if (event == null || !(event.getEntity() instanceof ServerPlayer player) || event.getItem() == null) {
             return;
         }
@@ -81,7 +83,7 @@ public final class PlayerItemInteractionService {
             return;
         }
         if (item == ConquestItems.MEDIC_BAG.get()) {
-            handleMedicalBagPickup(event, player, itemEntity, stack);
+            // All support bags are handled by SupportRuntime before the legacy path.
         }
     }
 
@@ -100,20 +102,7 @@ public final class PlayerItemInteractionService {
         event.setCanceled(true);
     }
 
-    private static void handleMedicalBagPickup(EntityItemPickupEvent event, ServerPlayer player, ItemEntity itemEntity, ItemStack stack) {
-        stack.shrink(1);
-        player.addEffect(new MobEffectInstance(
-            MobEffects.REGENERATION,
-            PICKUP_USE_MEDICAL_DURATION_TICKS,
-            PICKUP_USE_MEDICAL_AMPLIFIER,
-            false,
-            true,
-            true
-        ));
-        ServerMessageSender.actionBar(player, "房间", Component.literal("拾取并直接使用了医疗包").withStyle(ChatFormatting.GREEN));
-        cleanupPickedItemEntity(itemEntity);
-        event.setCanceled(true);
-    }
+
 
     private static boolean isCoreRoomPlayer(ServerPlayer player) {
         return player != null
