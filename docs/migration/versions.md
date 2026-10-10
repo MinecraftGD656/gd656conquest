@@ -18,6 +18,7 @@
 | `0.0.2` | P1-B 第一段：完整 Forge 事件派发后接管房间死亡；强制部署成功判断 | `2f8ad09` 的派发机制及 `f8272a0` 的部署保护；按最终来源 `955b76d` 核对 | 2026-10-11，离线 build 成功 |
 | `0.0.3` | P1-B 身体：新鲜尸体提升/生成、代理、两端救援距离、动量、代次同步、订阅及生命周期清理 | `f8272a0` 身体基础，`c741614` 动量，`e12682c/a80a286/a3e8666` 替换/缓存，`93c8a97/d96cdce` 同步优化；按最终来源 `955b76d` 核对 | 2026-10-11，离线 build 成功 |
 | `0.0.4` | P3 死亡原因层：火焰归属、精确 /kill、一次性原因快照、共享归属/跳过救援、原因横幅 | `31a5dae` 死亡原因基础；最终来源 `955b76d` 的界外致命前快照与救援旁路；边界几何复用原机制 | 2026-10-11，离线 build 成功 |
+| `0.0.5` | P2 镜头/姿态：固定/自动镜头、普通尸体观察、视角交接、复活趴姿及 TACZ 解除 | `86e6bb6` 镜头/趴姿基础、`461721a` 普通死亡、`ac874ab` 复活解除/归位；按最终来源 `955b76d` 核对 | 2026-10-11，离线 build 成功 |
 
 ## 0.0.1：明确救援目标
 
@@ -182,3 +183,47 @@ RoomServerModule 先解析并保存快照，再将同一击杀者用于原标记
 - Gradle test 为 `NO-SOURCE`；上述独立 Java 检查不构造游戏实体，不证明实际计分、火焰事件或联网行为。未启动 Minecraft/专用服务器，也未执行多人实机验证。改动留在工作区，未自动提交。
 
 下一轮接入死亡/倒地观察镜头与复活姿态的完整生命周期及真实依赖；击杀者卡片与手动部署继续按计划迁入。
+
+## 0.0.5：固定/自动镜头与复活趴姿
+
+本轮在已提交的 `b9eb58e`（累计 0.0.1～0.0.4）上接入独立观察服务与控制器。新增 13 个来源类及 DownedViewNetwork 注册类；原业务类只接入配置、镜头生命周期、输入门禁、救援顺序和部署交接。来源固定为 `955b76d`，不修改反编译项目，也不使用 prepared JAR、成品 ASM 业务替换或镜头/姿态占位类。
+
+服务器配置 `gd656conquest-downed-server.toml` 的 `deathCameraMode` 默认为 `FIXED`，可设为 `AUTOMATIC`，模式在单次会话开始时冻结。FIXED 使用有效身体的原生 HEAD 附着，普通死亡无身体时保留固定视角；AUTOMATIC 接入受击、身体落地、拉远构图、击杀者跟踪、屏幕边缘跟随与碰撞裁剪。击杀者移除、死亡或重新进入部署后停止追踪，不跟随复用的实体 ID。
+
+普通不可救援死亡观察原生尸体，不创建救援状态、不更改原部署倒计时、不删除原生尸体；原竞技玩法立即复活保持原调用分支。服务端将正在观察的原生尸体加入强制订阅。客户端核对身体身份、UUID、发布快照、新鲜程度与位置，缺少可用身体时由实际镜头控制器提供回退。
+
+两个倒地入口均先记录倒地前朝向，再生成身体及应用旧倒地状态。成功救援依次执行 PREPARE_REVIVE 捕获视角 → 停止身体并按真实 SWIMMING 尺寸查找碰撞安全位置 → 清理旧救援/动画/死亡状态 → 广播清理 → 完成趴姿与 REVIVED 交接。归位耗时 0.28 秒，终点为原生插值后的趴姿眼睛位置，朝向恢复倒地前 yaw；缺少可选布娃娃时仍完成趴姿。替换并移除上一轮仅供站立归位的 ReviveBodyPlacement。
+
+趴姿以玩家实体身份管理，支持独立服务器与客户端实例。成功救援前已按住跳跃不会立即站起；新按跳跃或 TACZ 爬行键/控制器解除趴姿，客户端只发送自己的 session，服务端核对玩家身份与当前会话。只在本次同步解除作用域内绕过 TACZ 非枪械/爬行冷却限制，原生下一 tick 不再恢复趴姿；普通 TACZ 操作仍执行原门槛。旧动画清理不能覆盖仍有效的复活趴姿。
+
+镜头包使用递增 session/sequence、实体 ID 和维度拒绝旧会话/错维度数据；服务器 heartbeat 与客户端 lease 处理持续状态。离开房间、房间结束、重新部署、断线、维度切换和停服接入原归一化及清理路径。普通死亡打开部署时，先将最后显示的姿态传给真实 adoptCameraPose，再解除观察镜头，保留原部署移动流程。
+
+| 功能 | 固定反编译来源 | 目标实现 |
+| --- | --- | --- |
+| 服务器模式与注册 | server/compat/ragdoll/DownedCameraConfig；Gd656conquest 构造器 | 同名新配置类，原模组构造器新增注册 |
+| 会话、死亡观察、救援与清理 | server/compat/ragdoll/DownedViewService 的 start/startDeath/prepareRevive/completeRevive/releaseProne/tick/end | 同名新服务；RoomPlayerRespawnService 两个倒地入口、普通死亡、救援及两个退出入口；RoomServerModule、RoomPlayerStateService 清理 |
+| 原生尸体观察与订阅 | ClientDownedRagdollState 的 deathSnapshot/Camera 系列；RagdollSubscriptions.mandatory | 恢复 0.0.3 阶段有意延后的真实观察部分和强制订阅 |
+| 客户端镜头与输入 | client/room/ClientDownedCamera、DownedCameraMath；client.DownedCameraAccessor | 同名新类；Accessor 使用 official 名称，经当前注解处理器生成生产 refmap |
+| 趴姿与 TACZ | common/player/RevivedPronePose；三个 RevivedProne*Mixin | 同名新类与可选 @Pseudo Mixin；DownedRagdollClientHooks 保留有效趴姿 |
+| 服务端／客户端消息 | DownedViewPacket、RevivedProneReleasePacket | 同名新包；DownedViewNetwork 追加 S2C/C2S 注册，前序 ID 保持顺序 |
+| 部署交接 | ClientDeathFlowState.adoptCameraPose、三个部署/出生过渡入口；ClientRoomLockState | 新增真实方法及必要调用，旧镜头让出位置和旋转所有权 |
+| 归位时间线 | client/room/ReviveTransition（ac874ab，最终 f97cc63 参数） | 同名纯数学类；本轮只消费镜头归位，保留后续滤镜参数和读取接口 |
+
+版本判断：本轮完成镜头/复活姿态这一可构建增量，定为 `0.0.5`。对应历史 `86e6bb6`、`461721a`、`ac874ab` 的相关子功能，并采用最终来源的数学与身份/输入修正；未迁入这些提交的全部滤镜/UI 功能，不能称为完整历史版本或最终 `.24` 等价。
+
+阶段边界：世界去色、击杀者高亮、复活白光、曝光/bloom 与渲染资源管理尚未迁入，旧黑幕/受伤闪烁/去色继续走当前实现。只移除成功救援时的旧失明调用，部署和出生的失明逻辑保留。ReviveTransition 的 1.40 秒 pulse 是后续真实滤镜的时间线接口，目前没有 GPU 消费，不声称本轮已显示白光。ClientDownedCamera 中仅移除尚未接入的卡片隐藏消费入口，不建立卡片空类；既有死亡原因提示随新镜头状态显示并在准备救援/结束时隐藏。
+
+构建与验证（2026-10-11）：
+
+- 命令：`./build.ps1 -Offline`；Java 17.0.19、Gradle 8.8、Forge 47.4.18、official 1.20.1，复用工作区离线缓存。
+- 结果：`BUILD SUCCESSFUL in 41s`；22 个任务，18 执行、4 up-to-date，包含源码编译、资源处理、当前 refmap 生成及 reobfJar。25 个弃用告警，不影响构建。
+- 主 JAR：`build/libs/gd656conquest-0.9.3-bf1-0.0.5.jar`，14,188,505 字节；保留先前各轮产物。
+- SHA-256：`de3a1726213ead8891bf06727245cf4b717bbf6c94d331daacd59706f1b85a04`。
+- mod/manifest：`0.9.3-bf1-0.0.5`；追加镜头和趴姿解除包，协议 `bf1-0.0.5`，两端应一起更新。
+- [本轮验证入口](../../tools/verify-downed-view.ps1)：224 项实际生产镜头构图/运动/0.28 秒归位检查，含 4:3/16:9/21:9 视野、短角插值、碰撞回调、跟随加速度、30/120 FPS 位置与速度一致性；97 项实际数据包往返与非法字段拒绝。
+- 24 项当前主 JAR 的生产字节码顺序检查，覆盖倒地前快照、PREPARE→身体清理→旧状态清理→REVIVED、部署姿态捕获以及退房/断线/维度清理。这是静态调用审计，不冒充实际多人游戏行为。
+- 使用当前主 JAR、生成 refmap、实际 Forge SRG 和原始 TACZ 1.1.8 JAR 应用真实 Mixin：CLIENT 5 个目标（Camera/MouseHandler/两种 Crawl/CrawlKey）、SERVER 1 个目标；TACZ 缺席场景通过。Camera 的三个 accessor 均成功生成。
+- 当前 0.0.5 上回归上一轮：121 项身体/同步/播放/替换检查和 CLIENT 13 / SERVER 9 个原生 Mixin 目标、可选布娃娃缺席；155/35/15 项死亡原因规则/包/接口检查及两个 Forge 钩子；5 个救援选择、61 项死亡协调器和 4 个真实 EventBus 场景，全部通过。
+- Gradle test 仍为 NO-SOURCE；未启动 Minecraft、专用服务器或多人联机。本轮没有运行旧世界夹具中的完整 DownedViewTest，也不声称已动态验证真实实体中的趴姿解除/碰撞搜寻/控制器全流程。
+
+下一轮可继续 P2 的死亡/复活世界滤镜与渲染资源链，之后接入击杀者卡片和部署输入。本轮改动未自动提交。

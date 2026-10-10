@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_17",
   "refmap": "gd656conquest.refmap.json",
   "mixins": [
+    "compat.tacz.RevivedProneCrawlMixin",
     "compat.ragdoll.ServerRagdollHitCacheMixin",
     "compat.ragdoll.RagdollDeathMomentumMixin",
     "compat.ragdoll.RagdollPacketScopeMixin",
@@ -20,6 +21,9 @@
     "server.ServerGamePacketListenerImplMixin"
   ],
   "client": [
+    "client.DownedCameraAccessor",
+    "client.compat.tacz.RevivedProneInputMixin",
+    "client.compat.tacz.RevivedProneReleaseMixin",
     "client.compat.ragdoll.ClientRagdollHitCacheMixin",
     "client.compat.ragdoll.RagdollSpawnMomentumMixin",
     "client.compat.ragdoll.ClientRagdollReplacementMixin",

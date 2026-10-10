@@ -32,6 +32,10 @@ public final class ClientDownedRagdollState {
     private static boolean cameraAttached;
     private static int cameraEntityId = -1;
     private static Object lastLevel;
+    private static int observedDeathId = -1;
+    private static UUID observedDeathOwner;
+    private static Vec3 observedDeathOrigin;
+    private static Object observedDeathBody;
 
     private ClientDownedRagdollState() {}
 
@@ -94,10 +98,38 @@ public final class ClientDownedRagdollState {
 
     public static boolean hasCameraOverride() {
         Minecraft mc = Minecraft.getInstance();
-        return cameraAttached && mc.player != null && ClientDownedState.isActive()
-            && isBodyReady(mc.player.getUUID());
+        return cameraAttached && mc.player != null && (ClientDownedCamera.observingDeath() && deathSnapshot()!=null
+            || ClientDownedState.isActive() && isBodyReady(mc.player.getUUID()));
+    }
+    public static void beginDeathObservation(int id, UUID owner, Vec3 origin) {
+        Object level=Minecraft.getInstance().level;
+        if(lastLevel!=level){reset();lastLevel=level;}
+        endDeathObservation();resolve();observedDeathId=id;observedDeathOwner=owner;observedDeathOrigin=origin;
+    }
+    public static void endDeathObservation() {
+        if (cameraAttached && cameraEntityId==observedDeathId) detachCamera();
+        observedDeathId=-1;observedDeathOwner=null;observedDeathOrigin=null;observedDeathBody=null;
     }
     /** Reads native published snapshots only. Ordinary corpses are never replaced or made live. */
+    private static Object deathSnapshot() {
+        if (api==null || observedDeathId<0 || !ClientDownedCamera.observingDeath()) return null;
+        Object body=invoke(api.get,observedDeathId);
+        if (body==null || observedDeathBody!=null && observedDeathBody!=body
+            || !observedDeathOwner.equals(invokeOn(api.playerUuid,body))
+            || !Boolean.FALSE.equals(invokeOn(api.destroyed,body))) return null;
+        Object snapshot=invokeOn(api.snapshot,body);
+        if(snapshot==null)return null;
+        try {
+            SnapshotFields fields=SNAPSHOT_FIELDS.get(snapshot.getClass());
+            if(fields.destroyed.getBoolean(snapshot))return null;
+            Object p=fields.position.get(snapshot);
+            Vec3 position=new Vec3(fields.x.getFloat(p),fields.y.getFloat(p),fields.z.getFloat(p));
+            if(!finite(position))return null;
+            if(observedDeathBody==null && (position.distanceToSqr(observedDeathOrigin)>144
+                || snapshot.getClass().getField("ageTicks").getInt(snapshot)>80))return null;
+            observedDeathBody=body;return snapshot;
+        } catch(ReflectiveOperationException | IllegalArgumentException error){return null;}
+    }
 
     public static double distanceSquared(Player viewer, Player target) {
         Entry entry = ENTRIES.get(target.getUUID());
@@ -137,7 +169,9 @@ public final class ClientDownedRagdollState {
             if (mc.player != null && entry.playerId.equals(mc.player.getUUID())
                 && ClientDownedState.isActive()) {
                 attachForSelf = true;
-                if (!cameraAttached || cameraEntityId != entry.entityId) {
+                if (ClientDownedCamera.ownsCamera()) {
+                    if (cameraAttached) detachCamera();
+                } else if (!cameraAttached || cameraEntityId != entry.entityId) {
                     Object result = invoke(api.attach, entry.entityId, api.head, api.cameraOptions);
                     cameraAttached = Boolean.TRUE.equals(result);
                     cameraEntityId = entry.entityId;
@@ -146,10 +180,17 @@ public final class ClientDownedRagdollState {
                 ClientDeathFlowState.enterDownedView();
             }
         }
+        if (ClientDownedCamera.usesFixedDeathCamera() && deathSnapshot()!=null) {
+            attachForSelf=true;
+            if (!cameraAttached || cameraEntityId!=observedDeathId)
+                cameraAttached=Boolean.TRUE.equals(invoke(api.attach,observedDeathId,api.head,api.cameraOptions));
+            if(cameraAttached)cameraEntityId=observedDeathId;
+        }
         if (!attachForSelf && cameraAttached) detachCamera();
     }
 
     public static void reset() {
+        endDeathObservation();
         for (Entry entry : ENTRIES.values()) release(entry);
         ENTRIES.clear();
         RagdollSyncScope.resetClient();
@@ -230,7 +271,13 @@ public final class ClientDownedRagdollState {
     public static Vec3 cameraAnchor() {
         Minecraft mc = Minecraft.getInstance();
         Entry entry = mc.player == null ? null : ENTRIES.get(mc.player.getUUID());
-        return entry != null && ready(entry) ? entry.anchor : null;
+        if (!ClientDownedCamera.observingDeath() && entry!=null && ready(entry))return entry.anchor;
+        Object snapshot=deathSnapshot();
+        if(snapshot==null)return null;
+        try {
+            SnapshotFields fields=SNAPSHOT_FIELDS.get(snapshot.getClass());Object p=fields.position.get(snapshot);
+            return new Vec3(fields.x.getFloat(p),fields.y.getFloat(p),fields.z.getFloat(p));
+        }catch(ReflectiveOperationException error){return null;}
     }
 
     /** Only the published head position is sampled; worker rotations are never read here. */
@@ -238,8 +285,8 @@ public final class ClientDownedRagdollState {
         Minecraft mc = Minecraft.getInstance();
         Entry entry = mc.player == null ? null : ENTRIES.get(mc.player.getUUID());
         if (headIndex < 0) return null;
-        Object body = entry != null && ready(entry) ? invoke(api.get, entry.entityId) : null;
-        Object snapshot = body == null ? null : invokeOn(api.snapshot, body);
+        Object body = !ClientDownedCamera.observingDeath() && entry != null && ready(entry) ? invoke(api.get, entry.entityId) : null;
+        Object snapshot = body == null ? deathSnapshot() : invokeOn(api.snapshot, body);
         if (snapshot == null) return null;
         try {
             BoundsFields fields = BOUNDS_FIELDS.get(snapshot.getClass());
@@ -255,8 +302,8 @@ public final class ClientDownedRagdollState {
     public static AABB cameraBounds() {
         Minecraft mc = Minecraft.getInstance();
         Entry entry = mc.player == null ? null : ENTRIES.get(mc.player.getUUID());
-        Object body = entry != null && ready(entry) ? invoke(api.get, entry.entityId) : null;
-        Object snapshot = body == null ? null : invokeOn(api.snapshot, body);
+        Object body = !ClientDownedCamera.observingDeath() && entry != null && ready(entry) ? invoke(api.get, entry.entityId) : null;
+        Object snapshot = body == null ? deathSnapshot() : invokeOn(api.snapshot, body);
         if (snapshot == null) return null;
         try {
             BoundsFields fields = BOUNDS_FIELDS.get(snapshot.getClass());

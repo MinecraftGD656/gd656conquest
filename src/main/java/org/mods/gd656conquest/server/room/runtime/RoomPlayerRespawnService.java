@@ -181,6 +181,7 @@ public final class RoomPlayerRespawnService {
                 player,
                 RoomDeathFlowPacket.startDeath(deathPosition.x(), deathPosition.y(), deathPosition.z(), killerEntityId)
             );
+            org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.startDeath(server, state, playerId, deathPosition);
         }
     }
 
@@ -217,6 +218,7 @@ public final class RoomPlayerRespawnService {
         HeroKitSupportService.endHeroKitState(server, state, playerId, gameTick);
         long expireTick = gameTick + DOWNED_DURATION_TICKS;
         state.markPlayerDowned(playerId, deathPosition, gameTick, expireTick, killerEntityId);
+        org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.start(player, state);
         DownedRagdollBridge.start(player, state);
         notifyNearbyTeammatesManDown(state, playerId, deathPosition, killerEntityId, true);
         prepareRespawnAnchor(room, state, player);
@@ -1001,6 +1003,7 @@ public final class RoomPlayerRespawnService {
         int killerEntityId = state.getDeathKillerEntityIdOrDefault(playerId);
         long expireTick = gameTick + DOWNED_DURATION_TICKS;
         state.markPlayerDowned(playerId, deathPosition, gameTick, expireTick, killerEntityId);
+        org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.start(player, state);
         DownedRagdollBridge.start(player, state);
         playerStateService.applyDownedState(room, player);
         sendDownedStart(player, state, deathPosition, killerEntityId, expireTick - gameTick);
@@ -1115,6 +1118,7 @@ public final class RoomPlayerRespawnService {
         int killerEntityId = state.getDeathKillerEntityIdOrDefault(playerId);
         int deployDelayTicks = resolveDeployDelayTicksFromDowned(room, state, playerId, gameTick);
         DownedRagdollBridge.stop(player, false);
+        org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.end(player);
         clearRevivePresentation(reviver, player);
         releaseForcedReviveCrouch(reviver);
         state.clearRespawnFlow(playerId);
@@ -1147,6 +1151,7 @@ public final class RoomPlayerRespawnService {
         int killerEntityId = state.getDeathKillerEntityIdOrDefault(playerId);
         int deployDelayTicks = resolveDeployDelayTicksFromDowned(room, state, playerId, gameTick);
         DownedRagdollBridge.stop(player, false);
+        org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.end(player);
         state.clearReviveState(playerId);
         state.clearRespawnFlow(playerId);
         broadcastPlayerAnimatorState(state, playerId, 0, false);
@@ -1705,6 +1710,7 @@ public final class RoomPlayerRespawnService {
         }
         UUID targetId = target.getUUID();
         boolean revivedByAssault = resolvePlayerClassType(reviver) == PlayerClassType.ASSAULT;
+        org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.prepareRevive(target);
         DownedRagdollBridge.stop(target, true);
         clearRevivePresentation(reviver, target);
         releaseForcedReviveCrouch(reviver);
@@ -1716,7 +1722,6 @@ public final class RoomPlayerRespawnService {
             applyRespawnLoadout(room, state, target);
         }
         target.setDeltaMovement(0.0D, 0.0D, 0.0D);
-        applyReviveBlindEffect(target);
         boolean revivedCuePlayed = FrontlineVoiceBridge.playCue(target, "REVIVED");
         if (!revivedCuePlayed) {
             NetworkManager.sendToPlayer(target, ClientShortSoundPacket.oneShot("gd656conquest:sfx.revive_first_person", 1.0F, 1.0F));
@@ -1734,6 +1739,7 @@ public final class RoomPlayerRespawnService {
             audioRuntimeService.emitPlayerThirdPersonCue(room, state, target, RoomThirdPersonAudioCueRegistry.PLAYER_REVIVED);
         }
         broadcastPlayerAnimatorState(state, targetId, 0, false);
+        org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.completeRevive(target);
         KilliconScoreboardBridge.tryAddReviveStat(reviver, 1);
         KilliconScoreboardBridge.tryAwardConquestBonus(reviver, "REVIVE", 1.0F, "");
     }

@@ -71,7 +71,8 @@ public final class RagdollSubscriptions {
         return record!=null&&wanted(p,track(record,p.server));
     }
     private static boolean mandatory(ServerPlayer p,Track t) {
-        return p.getUUID().equals(t.view.owner)||(t.view.live&&p.getUUID().equals(t.view.victim));
+        return p.getUUID().equals(t.view.owner)||(t.view.live&&p.getUUID().equals(t.view.victim))
+            || DownedViewService.observesCorpse(p,t.record);
     }
     private static boolean wanted(ServerPlayer p,Track t) {
         if(!p.level().dimension().equals(t.view.dimension))return false;

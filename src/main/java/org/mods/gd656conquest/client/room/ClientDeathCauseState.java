@@ -67,7 +67,7 @@ public final class ClientDeathCauseState {
         long now = System.nanoTime();
         float elapsed = lastFrame == 0 ? 0 : Math.max(0, (now - lastFrame) / 1e9F);
         lastFrame = now;
-        BANNER.advance(elapsed, ClientDeathFlowState.isDeathObservationPhase() || ClientDownedState.isActive());
+        BANNER.advance(elapsed, ClientDownedCamera.deathFilterActive() || ClientDeathFlowState.isDeathObservationPhase() || ClientDownedState.isActive());
         float alpha = BANNER.alpha();
         if (alpha <= .01F || mc.options.hideGui) return;
         String text = label(BANNER.cause());

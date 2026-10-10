@@ -17,6 +17,10 @@ public final class DownedRagdollClientHooks {
         if (mc.level == null || playerId == null) return;
         Player player = mc.level.getPlayerByUUID(playerId);
         if (player == null) return;
+        if (org.mods.gd656conquest.common.player.RevivedPronePose.active(player)) {
+            org.mods.gd656conquest.common.player.RevivedPronePose.apply(player);
+            return;
+        }
         PlayerAnimatorDebugDimensionsState.clearPlayer(player);
         // On an integrated server the shared APPLIED_PLAYERS set may already have been cleared
         // by the server entity. The client entity still needs its own forced pose released.

@@ -55,7 +55,7 @@ public final class ClientRoomLockState {
     }
 
     public static boolean shouldBlockLookInput() {
-        return snapshot.lockLook() && !snapshot.releaseMouse();
+        return ClientDownedCamera.blocksLook() || (snapshot.lockLook() && !snapshot.releaseMouse());
     }
 
     public static boolean shouldReleaseMouse() {

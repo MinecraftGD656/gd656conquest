@@ -247,9 +247,11 @@ public final class DownedRagdollBridge {
         RagdollSyncScope.endServer(body.entityId, body.generation);
         if (player != null && player.getId() == body.entityId) {
             if (revive && player.level().dimension().equals(body.dimension)) {
-                Vec3 prone = ReviveBodyPlacement.safePosition(player, body.anchor, body.origin);
+                Vec3 prone = DownedViewService.safePronePosition(player, body.anchor, body.origin);
+                player.setForcedPose(Pose.SWIMMING);
+                player.setPose(Pose.SWIMMING);
                 player.teleportTo(player.serverLevel(), prone.x, prone.y, prone.z,
-                    body.yaw, 0.0F);
+                    DownedViewService.reviveYaw(player), 0.0F);
             }
             player.noPhysics = body.previousNoPhysics;
             player.setNoGravity(body.previousNoGravity);
@@ -421,7 +423,6 @@ public final class DownedRagdollBridge {
         final long generation;
         final ResourceKey<Level> dimension;
         final Vec3 origin;
-        final float yaw;
         final boolean previousNoPhysics;
         final boolean previousNoGravity;
         Vec3 anchor;
@@ -442,7 +443,6 @@ public final class DownedRagdollBridge {
             this.generation = generation;
             this.dimension = player.level().dimension();
             this.origin = player.position();
-            this.yaw = player.getYRot();
             this.anchor = origin;
             this.previousNoPhysics = player.noPhysics;
             this.previousNoGravity = player.isNoGravity();

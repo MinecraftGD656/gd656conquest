@@ -21,6 +21,7 @@ public class Gd656conquest {
     @SuppressWarnings("removal")
     public Gd656conquest() {
         GeckoLib.initialize();
+        org.mods.gd656conquest.server.compat.ragdoll.DownedCameraConfig.register();
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         modEventBus.addListener(this::onCommonSetup);
         ConquestBlocks.register(modEventBus);

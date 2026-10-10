@@ -148,6 +148,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void openDeploySequence(double sourceX, double sourceY, double sourceZ, double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int deployDelayTicks) {
+        ClientDownedCamera.handoffToDeployment();
         DownedRagdollClientHooks.onDeployTransition();
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
@@ -194,6 +195,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void startRespawnTransition(double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int transitionTicks) {
+        ClientDownedCamera.handoffToDeployment();
         if (!active) {
             return;
         }
@@ -223,6 +225,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void openDeployInstant(double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int deployDelayTicks) {
+        ClientDownedCamera.handoffToDeployment();
         DownedRagdollClientHooks.onDeployTransition();
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
@@ -341,7 +344,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void applyCameraOverride(Camera camera, float partialTick) {
-        if (!active || camera == null || ClientDownedRagdollState.hasCameraOverride()) {
+        if (!active || camera == null || ClientDownedCamera.ownsCamera() || ClientDownedRagdollState.hasCameraOverride()) {
             return;
         }
         if (phase == PHASE_DOWNED_HOLD) {
@@ -362,7 +365,7 @@ public final class ClientDeathFlowState {
     }
 
     public static boolean hasActiveCameraOverride() {
-        return active;
+        return active && !ClientDownedCamera.ownsCamera() && !ClientDownedRagdollState.hasCameraOverride();
     }
 
     public static boolean shouldRenderDeployBoundaries() {
@@ -384,11 +387,11 @@ public final class ClientDeathFlowState {
     }
 
     public static boolean shouldHideFirstPersonHands() {
-        return false;
+        return ClientDownedCamera.hideHands();
     }
 
     public static void enterDownedView() {
-        if (ClientDownedRagdollState.hasCameraOverride() && active && phase == PHASE_DOWNED_HOLD) {
+        if (active && phase == PHASE_DOWNED_HOLD) {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
@@ -401,7 +404,7 @@ public final class ClientDeathFlowState {
         phase = PHASE_DOWNED_HOLD;
         phaseTicks = 0L;
         downedEntryFadeElapsedSeconds = 0.0F;
-        if (!ClientDownedRagdollState.hasCameraOverride()) {
+        if (!ClientDownedCamera.ownsCamera() && !ClientDownedRagdollState.hasCameraOverride()) {
             player.setYRot(currentCameraYaw);
             player.setYHeadRot(currentCameraYaw);
             player.setXRot(currentCameraPitch);
@@ -450,6 +453,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void clear() {
+        ClientDownedCamera.onDeathFlowCleared();
         ClientDeathCauseState.hide();
         Minecraft minecraft = Minecraft.getInstance();
         TaczClientInputCompat.suppressCombatInputUntilRelease(minecraft);
@@ -508,6 +512,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void startMatchEndTransition(double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int transitionTicks) {
+        ClientDownedCamera.onDeathFlowCleared();
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null) {
@@ -733,6 +738,11 @@ public final class ClientDeathFlowState {
             return minecraft.player == null ? currentCameraPitch : minecraft.player.getXRot();
         }
         return Mth.lerp(Mth.clamp(partialTick, 0.0F, 1.0F), previousCameraPitch, currentCameraPitch);
+    }
+
+    public static void adoptCameraPose(double x, double y, double z, float yaw, float pitch) {
+        active = true;
+        setCameraPose(x, y, z, yaw, pitch, true);
     }
 
     private static void setCameraPose(double x, double y, double z, float yaw, float pitch, boolean initialize) {

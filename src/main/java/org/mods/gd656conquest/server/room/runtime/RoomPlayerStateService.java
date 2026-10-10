@@ -148,6 +148,7 @@ public final class RoomPlayerStateService {
             return;
         }
         DownedRagdollBridge.stop(player, false);
+        org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.end(player);
         org.mods.gd656conquest.server.room.entry.RoomDeathCauseService.forget(player);
         clearTransientItemUseState(player);
         if (player.isPassenger()) {

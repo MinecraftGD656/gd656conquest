@@ -29,6 +29,7 @@ public final class RoomServerModule implements ServerModule {
         RoomCoreRuntimeManager.of(server).onServerTick(gameTick);
         RoomDeathCauseService.tick(server);
         DownedRagdollBridge.tick(server);
+        org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.tick(server);
         RoomResetRecoveryService.of(server).syncPendingResetsFromRooms(RoomCoreRuntimeManager.of(server).listRooms());
     }
 
@@ -36,6 +37,7 @@ public final class RoomServerModule implements ServerModule {
     public void onServerStopped(MinecraftServer server) {
         RoomResetRecoveryService.of(server).syncPendingResetsFromRooms(RoomCoreRuntimeManager.of(server).listRooms());
         DownedRagdollBridge.clear(server);
+        org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.clear(server);
         RoomDeathCauseService.clear(server);
         RoomCoreRuntimeManager.of(server).shutdown();
         RoomResetRecoveryService.forget(server);
@@ -47,6 +49,7 @@ public final class RoomServerModule implements ServerModule {
             return;
         }
         DownedRagdollBridge.stop(player, false);
+        org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.end(player);
         RoomDeathCauseService.forget(player);
         RoomCoreRuntimeManager.of(player.server).handlePlayerLogout(player.getUUID(), player.server.getTickCount());
     }
@@ -54,6 +57,7 @@ public final class RoomServerModule implements ServerModule {
     @Override
     public void onPlayerChangedDimension(ServerPlayer player) {
         DownedRagdollBridge.stop(player, false);
+        org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.end(player);
         RoomDeathCauseService.forget(player);
         RoomPlayerDimensionStabilityService.onPlayerChangedDimension(player);
     }
