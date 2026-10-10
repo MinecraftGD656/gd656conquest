@@ -137,10 +137,12 @@ public final class RoomDeathCauseService {
     }
     public static void clear(MinecraftServer server) {
         KillerIntelService.clear(server);
+        org.mods.gd656conquest.server.compat.vehicle.BoundaryVehicleDestruction.clear(server);
         DEATHS.values().removeIf(death -> death.victim().server == server);
     }
     public static void tick(MinecraftServer server) {
         KillerIntelService.tick(server);
+        org.mods.gd656conquest.server.compat.vehicle.BoundaryVehicleDestruction.tick(server);
         DEATHS.values().removeIf(death -> {
             ServerPlayer player = death.victim();
             if (player.server != server) return false;

@@ -7,9 +7,9 @@ import java.util.Locale;
 import java.util.Set;
 
 public enum PlayerClassType {
-    ASSAULT(1, "assault", "突击兵"),
+    ASSAULT(1, "assault", "医护兵"),
     SUPPORT(2, "support", "支援兵"),
-    ENGINEER(3, "engineer", "工程兵"),
+    ENGINEER(3, "engineer", "突击兵"),
     RECON(4, "recon", "侦察兵");
 
     private final int digit;

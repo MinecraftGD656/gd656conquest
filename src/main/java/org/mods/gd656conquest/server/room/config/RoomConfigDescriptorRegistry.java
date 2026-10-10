@@ -153,7 +153,9 @@ public final class RoomConfigDescriptorRegistry {
             "disableInventoryEdit"
         );
         common(descriptors, RoomConfigCategory.RULES, "outsideBoundaryDeathSeconds", "玩家出界死亡秒数", "commonConfig.outsideBoundaryDeathSeconds", RoomConfigValueType.NUMBER, List.of());
-        common(descriptors, RoomConfigCategory.RULES, "aircraftOutsideBoundaryCleanupSeconds", "载具出界清理秒数", "commonConfig.aircraftOutsideBoundaryCleanupSeconds", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "aircraftOutsideBoundaryCleanupSeconds", "地面载具出界死亡秒数", "commonConfig.aircraftOutsideBoundaryCleanupSeconds", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "flightVehicleOutsideBoundaryDeathSeconds", "飞行载具出界死亡秒数", "commonConfig.flightVehicleOutsideBoundaryDeathSeconds", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "flightBoundaryPaddingBlocks", "飞行载具边界缓冲距离", "commonConfig.flightBoundaryPaddingBlocks", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "playerMaxY", "玩家最大Y轴", "commonConfig.playerMaxY", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "aircraftPassengerMaxY", "空中载具乘员最大Y轴", "commonConfig.aircraftPassengerMaxY", RoomConfigValueType.NUMBER, List.of());
         conquest(descriptors, RoomConfigCategory.TRANSPORT, "teamDeployIconCampA", "阵营A部署图标", "conquestConfig.teamDeployIcons[CAMP_A]", RoomConfigValueType.POSITION, List.of("here"), "campADeployIconPosition");

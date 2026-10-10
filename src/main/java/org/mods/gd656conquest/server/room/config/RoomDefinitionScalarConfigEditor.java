@@ -184,6 +184,8 @@ public final class RoomDefinitionScalarConfigEditor {
     }
 
     private static Object parseNumberValue(RoomConfigDescriptor descriptor, String rawValue) {
+        Object boundaryValue = BoundaryConfigNumbers.parse(descriptor.configId(), rawValue);
+        if (boundaryValue != null) return boundaryValue;
         String configId = normalizedConfigId(descriptor);
         if ("progressspeed".equals(configId)) {
             return parsePositiveDouble(rawValue);

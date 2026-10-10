@@ -24,25 +24,7 @@ public final class VehicleBoundaryPenaltyService {
     }
 
     public boolean handleBoundaryTimeout(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long gameTick) {
-        if (room == null || state == null || player == null) {
-            return false;
-        }
-        Entity vehicle = player.getVehicle();
-        if (!VehicleCompatFacade.isManagedVehicleEntity(vehicle)) {
-            return false;
-        }
-        if (VehicleCompatFacade.isAircraftEntity(vehicle)) {
-            state.getAircraftOutsideBoundarySinceTicks().putIfAbsent(vehicle.getUUID(), gameTick);
-            return false;
-        }
-        if (!shouldCurrentPlayerDestroyVehicle(state, player, vehicle)) {
-            return false;
-        }
-        UUID vehicleUuid = vehicle.getUUID();
-        state.getAircraftOutsideBoundarySinceTicks().remove(vehicleUuid);
-        boolean destroyed = VehicleCompatFacade.destroyManagedVehicleNow(vehicle);
-        vehicleRuntimeService.markVehicleDestroyed(room, state, vehicleUuid, gameTick);
-        return destroyed;
+        return player != null && org.mods.gd656conquest.server.compat.vehicle.BoundaryVehicleDestruction.destroy(player.getVehicle(), room, state);
     }
 
     public void updateAircraftBoundaryState(
@@ -53,68 +35,11 @@ public final class VehicleBoundaryPenaltyService {
         boolean outsideAllowedBoundary,
         long gameTick
     ) {
-        if (room == null || state == null || player == null) {
-            return;
-        }
-        Entity vehicle = player.getVehicle();
-        if (!VehicleCompatFacade.isManagedVehicleEntity(vehicle) || !VehicleCompatFacade.isAircraftEntity(vehicle)) {
-            clearTrackedAircraft(state, vehicle);
-            return;
-        }
-        if (playerTeam == null || !outsideAllowedBoundary) {
-            clearTrackedAircraft(state, vehicle);
-            return;
-        }
-        state.getAircraftOutsideBoundarySinceTicks().putIfAbsent(vehicle.getUUID(), gameTick);
+        // Player deadlines are maintained by UnifiedBoundaryService for every mounted state.
     }
 
     public void processAircraftBoundaryTimeouts(RoomDefinition room, RunningRuntimeState state, long gameTick) {
-        if (room == null || state == null) {
-            return;
-        }
-        int cleanupSeconds = room.gameplayAircraftBoundaryCleanupSeconds();
-        if (cleanupSeconds <= 0) {
-            state.getAircraftOutsideBoundarySinceTicks().clear();
-            return;
-        }
-        RoomGameplayBoundaryPolicyProvider boundaryPolicyProvider = RoomGameplayBoundaryPolicyProvider.resolve(state);
-        boolean hasConfiguredBoundary = boundaryPolicyProvider == null
-            ? room.conquestConfig().hasAnyBoundaryConfigured()
-            : boundaryPolicyProvider.hasConfiguredBoundary(room, state);
-        if (!hasConfiguredBoundary) {
-            state.getAircraftOutsideBoundarySinceTicks().clear();
-            return;
-        }
-        long cleanupTicks = cleanupSeconds * 20L;
-        for (UUID vehicleUuid : new ArrayList<>(state.getAircraftOutsideBoundarySinceTicks().keySet())) {
-            Entity vehicle = vehicleRuntimeService.findEntity(vehicleUuid).orElse(null);
-            if (!VehicleCompatFacade.isManagedVehicleEntity(vehicle) || !VehicleCompatFacade.isAircraftEntity(vehicle)) {
-                state.getAircraftOutsideBoundarySinceTicks().remove(vehicleUuid);
-                continue;
-            }
-            RoomTeamId vehicleTeam = resolveBoundaryTeam(state, vehicle);
-            if (vehicleTeam == null) {
-                state.getAircraftOutsideBoundarySinceTicks().remove(vehicleUuid);
-                continue;
-            }
-            List<List<RoomPosition>> allowedBoundaries = boundaryPolicyProvider == null
-                ? room.conquestConfig().allowedBoundariesForTeam(vehicleTeam)
-                : boundaryPolicyProvider.resolveAllowedBoundaries(room, state, vehicleTeam);
-            if (!RoomBoundaryRuleEvaluator.isOutsideAllBoundaries(vehicle.getX(), vehicle.getZ(), allowedBoundaries)) {
-                state.getAircraftOutsideBoundarySinceTicks().remove(vehicleUuid);
-                continue;
-            }
-            long outsideSince = state.getAircraftOutsideBoundarySinceTicks().getOrDefault(vehicleUuid, gameTick);
-            if (gameTick - outsideSince < cleanupTicks) {
-                continue;
-            }
-            boolean destroyed = VehicleCompatFacade.destroyManagedVehicleNow(vehicle);
-            vehicleRuntimeService.markVehicleDestroyed(room, state, vehicleUuid, gameTick);
-            state.getAircraftOutsideBoundarySinceTicks().remove(vehicleUuid);
-            if (!destroyed && !vehicle.isRemoved()) {
-                vehicle.discard();
-            }
-        }
+        if (state != null) state.getAircraftOutsideBoundarySinceTicks().clear();
     }
 
     private boolean shouldCurrentPlayerDestroyVehicle(RunningRuntimeState state, ServerPlayer player, Entity vehicle) {

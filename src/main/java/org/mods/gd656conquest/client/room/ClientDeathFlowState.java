@@ -488,6 +488,7 @@ public final class ClientDeathFlowState {
         currentDeployIconAlpha = 0.0F;
         targetDeployIconAlpha = 0.0F;
         boundaryPenaltyActive = false;
+        ClientBoundaryState.setActive(false);
         hurtFlashRemainSeconds = 0.0F;
         lastHurtTime = -1;
         lastVisualUpdateNanos = -1L;
@@ -547,6 +548,7 @@ public final class ClientDeathFlowState {
 
     public static void setBoundaryPenaltyActive(boolean activeFlag) {
         boundaryPenaltyActive = activeFlag;
+        ClientBoundaryState.setActive(activeFlag);
     }
 
     private static void updateVisualEffects(Minecraft minecraft, LocalPlayer player) {

@@ -1,0 +1,8 @@
+{
+  "targets": ["boundary_world_swap"],
+  "passes": [
+    {"name": "gd656conquest:boundary_world", "intarget": "minecraft:main", "outtarget": "boundary_world_swap"},
+    {"name": "gd656conquest:boundary_world", "intarget": "boundary_world_swap", "outtarget": "minecraft:main",
+      "uniforms": [{"name": "BoundaryStrength", "values": [0]}]}
+  ]
+}

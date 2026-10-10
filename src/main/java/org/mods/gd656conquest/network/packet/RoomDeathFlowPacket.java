@@ -80,6 +80,11 @@ public final class RoomDeathFlowPacket {
         return new RoomDeathFlowPacket(ACTION_CLEAR, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, -1, 0, 0);
     }
 
+    /** Reuses the existing boundary action and payload slots: remaining ticks and mounted kind. */
+    public static RoomDeathFlowPacket boundaryUpdate(int remainingTicks, int mountedKind) {
+        return new RoomDeathFlowPacket(ACTION_BOUNDARY_ON, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, mountedKind, remainingTicks, 0);
+    }
+
     public static RoomDeathFlowPacket setBoundaryPenalty(boolean active) {
         return new RoomDeathFlowPacket(active ? ACTION_BOUNDARY_ON : ACTION_BOUNDARY_OFF, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, -1, 0, 0);
     }
@@ -165,7 +170,7 @@ public final class RoomDeathFlowPacket {
                 return;
             }
             if (message.action == ACTION_BOUNDARY_ON) {
-                ClientDeathFlowState.setBoundaryPenaltyActive(true);
+                org.mods.gd656conquest.client.room.ClientBoundaryState.accept(message.deployCountdownTicks, message.killerEntityId);
                 return;
             }
             if (message.action == ACTION_BOUNDARY_OFF) {

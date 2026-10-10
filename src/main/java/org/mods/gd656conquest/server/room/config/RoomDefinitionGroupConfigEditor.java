@@ -235,7 +235,9 @@ public final class RoomDefinitionGroupConfigEditor {
             common.campAEquipmentSetId(),
             common.campBEquipmentSetId(),
             common.mapName(),
-            common.roomDescription()
+            common.roomDescription(),
+            common.flightVehicleOutsideBoundaryDeathSeconds(),
+            common.flightBoundaryPaddingBlocks()
         );
         return new RoomDefinition(
             definition.roomId(),

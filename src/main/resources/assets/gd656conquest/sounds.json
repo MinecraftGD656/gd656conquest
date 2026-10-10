@@ -741,5 +741,13 @@
         "name": "gd656conquest:voice/shelling/artillery_friendly_3"
       }
     ]
+  },
+  "voice.broadcast.leaving_area": {
+    "sounds": [
+      {
+        "name": "gd656conquest:voice/broadcast/vo_mp_mother_inform_leaving_area",
+        "stream": false
+      }
+    ]
   }
 }

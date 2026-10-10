@@ -1339,7 +1339,9 @@ public final class RoomCommands {
             common.campAEquipmentSetId(),
             common.campBEquipmentSetId(),
             common.mapName(),
-            common.roomDescription()
+            common.roomDescription(),
+            common.flightVehicleOutsideBoundaryDeathSeconds(),
+            common.flightBoundaryPaddingBlocks()
         );
 
         RoomDefinition updated = new RoomDefinition(

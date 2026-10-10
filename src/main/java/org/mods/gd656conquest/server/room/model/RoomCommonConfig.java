@@ -56,7 +56,9 @@ public record RoomCommonConfig(
     String campAEquipmentSetId,
     String campBEquipmentSetId,
     String mapName,
-    String roomDescription
+    String roomDescription,
+    Integer flightVehicleOutsideBoundaryDeathSeconds,
+    Double flightBoundaryPaddingBlocks
 ) {
     public RoomCommonConfig {
         matchingConfig = matchingConfig == null ? RoomMatchingConfig.defaults() : matchingConfig;
@@ -67,6 +69,10 @@ public record RoomCommonConfig(
         respawnDelaySeconds = Math.max(0, respawnDelaySeconds);
         outsideBoundaryDeathSeconds = Math.max(0, outsideBoundaryDeathSeconds);
         aircraftOutsideBoundaryCleanupSeconds = Math.max(0, aircraftOutsideBoundaryCleanupSeconds);
+        flightVehicleOutsideBoundaryDeathSeconds = flightVehicleOutsideBoundaryDeathSeconds == null
+            ? aircraftOutsideBoundaryCleanupSeconds : Math.max(0, flightVehicleOutsideBoundaryDeathSeconds);
+        flightBoundaryPaddingBlocks = flightBoundaryPaddingBlocks == null ? 100.0D
+            : Double.isFinite(flightBoundaryPaddingBlocks) ? Math.max(0, flightBoundaryPaddingBlocks) : 0.0D;
         playerMaxY = Math.max(0, playerMaxY);
         aircraftPassengerMaxY = Math.max(0, aircraftPassengerMaxY);
         campADisplayName = normalizeDisplayName(campADisplayName, "CampA");
@@ -95,6 +101,61 @@ public record RoomCommonConfig(
         campBEquipmentSetId = normalizeEquipmentSetId(campBEquipmentSetId);
         mapName = normalizeMapName(mapName);
         roomDescription = normalizeRoomDescription(roomDescription);
+    }
+
+    /** Existing callers retain the original constructor and missing-field migration defaults. */
+    public RoomCommonConfig(
+    RoomMatchingConfig matchingConfig,
+    String dimensionId,
+    RoomPosition queueSpawn,
+    int respawnDelaySeconds,
+    RoomVehicleBackend vehicleBackend,
+    RoomPlayerStateConfig playerStateConfig,
+    int outsideBoundaryDeathSeconds,
+    int aircraftOutsideBoundaryCleanupSeconds,
+    int playerMaxY,
+    int aircraftPassengerMaxY,
+    String campADisplayName,
+    String campBDisplayName,
+    String campAVoicePack,
+    String campBVoicePack,
+    double progressSpeed,
+    RoomResultConfig resultConfig,
+    boolean disableHunger,
+    boolean enableAutoTeamSwitchPrompt,
+    boolean disableInventoryChange,
+    boolean enableGoatHorn,
+    boolean enablePlayerDowned,
+    boolean enableRespawnCountdownWhileDowned,
+    boolean enableBackAgainstWall,
+    boolean enableRandomLoadout,
+    boolean enableRandomAttachments,
+    boolean enableParachute,
+    boolean enableDeathSupportDrop,
+    boolean disableUndyingTotem,
+    Boolean allowPlayerCampSwitch,
+    List<String> supportCampAHeroKits,
+    List<String> supportCampBHeroKits,
+    List<String> supportCampAShellings,
+    List<String> supportCampBShellings,
+    List<String> campAPrimaryWeaponIds,
+    List<String> campASecondaryWeaponIds,
+    List<String> campAMeleeWeaponIds,
+    List<String> campAGadget1Ids,
+    List<String> campAGadget2Ids,
+    List<String> campAThrowableIds,
+    List<String> campBPrimaryWeaponIds,
+    List<String> campBSecondaryWeaponIds,
+    List<String> campBMeleeWeaponIds,
+    List<String> campBGadget1Ids,
+    List<String> campBGadget2Ids,
+    List<String> campBThrowableIds,
+    String campAEquipmentSetId,
+    String campBEquipmentSetId,
+    String mapName,
+    String roomDescription
+    ) {
+        this(matchingConfig, dimensionId, queueSpawn, respawnDelaySeconds, vehicleBackend, playerStateConfig, outsideBoundaryDeathSeconds, aircraftOutsideBoundaryCleanupSeconds, playerMaxY, aircraftPassengerMaxY, campADisplayName, campBDisplayName, campAVoicePack, campBVoicePack, progressSpeed, resultConfig, disableHunger, enableAutoTeamSwitchPrompt, disableInventoryChange, enableGoatHorn, enablePlayerDowned, enableRespawnCountdownWhileDowned, enableBackAgainstWall, enableRandomLoadout, enableRandomAttachments, enableParachute, enableDeathSupportDrop, disableUndyingTotem, allowPlayerCampSwitch, supportCampAHeroKits, supportCampBHeroKits, supportCampAShellings, supportCampBShellings, campAPrimaryWeaponIds, campASecondaryWeaponIds, campAMeleeWeaponIds, campAGadget1Ids, campAGadget2Ids, campAThrowableIds, campBPrimaryWeaponIds, campBSecondaryWeaponIds, campBMeleeWeaponIds, campBGadget1Ids, campBGadget2Ids, campBThrowableIds, campAEquipmentSetId, campBEquipmentSetId, mapName, roomDescription, null, null);
     }
 
     public static RoomCommonConfig defaults() {

@@ -76,6 +76,9 @@ public final class RoomConfigValidator {
         if (common.aircraftOutsideBoundaryCleanupSeconds() <= 0) {
             result.addMissing("common.aircraftOutsideBoundaryCleanupSeconds", "aircraftOutsideBoundaryCleanupSeconds");
         }
+        if (common.flightVehicleOutsideBoundaryDeathSeconds() <= 0) {
+            result.addMissing("common.flightVehicleOutsideBoundaryDeathSeconds", "flightVehicleOutsideBoundaryDeathSeconds");
+        }
         if (common.playerMaxY() <= 0) {
             result.addMissing("common.playerMaxY", "playerMaxY");
         }

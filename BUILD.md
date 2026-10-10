@@ -35,10 +35,10 @@ Minecraft 1.20.1 / Forge 47.4.18 / official 1.20.1 映射。
 
 ## 输出
 
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.7.jar`：本轮迁移的默认完整模组，网络协议为 `bf1-0.0.7`，六项客户端 bypass 开关均为 false。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.7-bypass.jar`：原工程已有的客户端绕过配置变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.7-nores.jar`：原工程已有的无 assets 变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.7-resources.zip`：原工程已有的 assets 资源包。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.8.jar`：本轮迁移的默认完整模组，网络协议为 `bf1-0.0.8`，六项客户端 bypass 开关均为 false。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.8-bypass.jar`：原工程已有的客户端绕过配置变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.8-nores.jar`：原工程已有的无 assets 变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.8-resources.zip`：原工程已有的 assets 资源包。
 
 JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装选择没有变体后缀的主 JAR。
 构建日志保存在 `.build-logs/build.log`。
@@ -91,7 +91,7 @@ $env:JAVA_HOME = 'C:\path\to\jdk-17'
 首次或依赖变更后先运行上面的 `writeMigrationVerificationClasspath`。
 验证包含生产分类器/作用域/横幅、数据包往返和限制、真实 Forge SRG 的 `/kill` 与死亡钩子
 Mixin/refmap 应用、Killicon 火焰归属接口及生产调用链。它不启动游戏或使用旧反编译测试夹具。
-第四轮新增死亡原因包；第五轮新增镜头与趴姿解除包，第七轮追加卡片/部署快照包，当前协议为 `bf1-0.0.7`，客户端与服务端须同时更新。
+第四轮新增死亡原因包；第五轮新增镜头与趴姿解除包，第七轮追加卡片/部署快照包，当前协议为 `bf1-0.0.8`，客户端与服务端须同时更新。
 
 第五轮镜头/复活姿态验证同样使用当前主 JAR 与本项目依赖：
 
@@ -123,7 +123,7 @@ LWJGL/native 与 vanilla blit 从本工程 Gradle 缓存读取，临时文件进
 这不替代 Minecraft 实机、第三方 shader/瞄具或联机验收。
 
 第六轮是客户端视觉增量，协议保持 `bf1-0.0.5`；第七轮已追加两个 S2C 包，
-当前协议为 `bf1-0.0.7`，两端须一起更新。
+当前协议为 `bf1-0.0.8`，两端须一起更新。
 
 第七轮击杀者信息卡、手动部署与聊天布局验证：
 
@@ -136,7 +136,22 @@ LWJGL/native 与 vanilla blit 从本工程 Gradle 缓存读取，临时文件进
 真实 Forge EventBus 注册及可选元数据扩展失败隔离、ChatComponent/ChatScreen/CommandSuggestions
 三类的真实 Mixin 与服务器侧隔离、服务端门槛及退出清理的静态调用顺序。
 不会使用旧世界夹具，不等于游戏中的击杀者快照/爆头/多人完整流程验收。
-前序死亡原因与世界滤镜范围检查已登记本轮有意替换的自动部署入口和业务接入，仍可对当前产物运行。
+第六、七轮的范围脚本绑定各自阶段；当前产物的范围审计与卡片/滤镜回归使用下述第八轮脚本。
+
+第八轮统一出界、配置和载具验证：
+
+```powershell
+.\tools\verify-boundary.ps1 -JavaHome $env:JAVA_HOME
+```
+
+保留 `build/libs/gd656conquest-0.9.3-bf1-0.0.7.jar` 作为范围审计输入。
+验证当前主 JAR 的计时/几何、真实 Gson/编辑/校验/重载/模板复制、包往返、语音冷却；
+使用当前 refmap 在真实 Forge GameRenderer 与 TACZ 上应用死亡及边界 Mixin，检查重载/关闭独立接入、
+360 项真实 HUD 事件、SERVER 隔离和 TACZ 缺席；原始 YWZJ 0.5.7-all/Superb Warfare 依赖用于爆炸钩子及缺席检查。
+载具请求/乘员时序检查使用成品方法字节码与服务端/载具夹具，不启动 Minecraft。
+GPU 检查编译当前产物 GLSL 并读回像素；压制 uniform 值本轮固定为 0，不要求尚未迁入的压制着色器。
+同一脚本回归死亡/复活滤镜、卡片、手动部署与元数据扩展；死亡归属、镜头检查仍可运行上面的专用脚本。
+第八轮复用旧包槽位传输出界剩余 tick/乘坐类型，协议语义变更为 `bf1-0.0.8`，客户端和服务端一起更新。
 
 ## 本次环境修复
 

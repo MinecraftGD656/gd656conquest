@@ -21,6 +21,7 @@
 | `0.0.5` | P2 镜头/姿态：固定/自动镜头、普通尸体观察、视角交接、复活趴姿及 TACZ 解除 | `86e6bb6` 镜头/趴姿基础、`461721a` 普通死亡、`ac874ab` 复活解除/归位；按最终来源 `955b76d` 核对 | 2026-10-11，离线 build 成功 |
 | `0.0.6` | P2 世界滤镜：死亡去色/本地红色轮廓、复活曝光/bloom、世界/HUD 分层、重载与资源释放 | `b650004` 死亡滤镜、`ac874ab` 复活效果、`f97cc63` 天空 alpha/最终时间参数；按最终来源 `955b76d` 核对 | 2026-10-11，离线 build 成功 |
 | `0.0.7` | P3 元数据/卡片/部署输入/聊天：致命前装备与生命快照、爆头/对决、五列卡片、普通死亡手动部署与倒地点按、原生聊天适配 | `9d189a1` 卡片/武器快照，`6cb882b` 爆头/最终布局/手动部署/聊天；按最终来源 `955b76d` 核对 | 2026-10-11，离线 build 成功 |
+| `0.0.8` | P4 出界核心：统一玩家截止 tick、飞行缓冲、原生载具爆炸乘员快照、对应配置复制与警告 UI | `1e2a975` 出界重构，`07f0824` 载具修正；按最终来源 `955b76d` 核对，仅迁入边界部分 | 2026-10-11，离线 build 成功 |
 
 ## 0.0.1：明确救援目标
 
@@ -317,3 +318,33 @@ RoomServerModule 先解析并保存快照，再将同一击杀者用于原标记
 - Gradle test 为 NO-SOURCE；未启动 Minecraft、专用服务器或多人联机。真正的玩家互杀/装备清理前快照、爆头事件时序、GUI 缩放与皮肤/聊天操作、手动部署全流程仍待实机验收。
 
 下一轮可迁入 P4 的统一出界、载具处罚和配置复制链。本轮与前轮改动均留在工作区，未自动提交。
+
+## 0.0.8：统一出界、原生载具摧毁与边界警告
+
+从用户提交的 `42004f9`（0.0.6/0.0.7）继续迁移，固定来源仍为干净的 `955b76d8adc264703eb49141bdb99b06e84cba46`。
+本轮按实际完成的 P4 出界链路定为 **0.0.8**；对应 `1e2a975` 的出界重构与 `07f0824` 的载具边界修正，以及最终源码的乘员/归因处理，不表示两个历史提交的全部功能均已迁入。
+
+| 功能 | 反编译源码对应位置 | 本轮实现/适配 |
+| --- | --- | --- |
+| 单一截止 tick、状态切换只收紧 | `server/room/runtime/BoundaryCountdown.java`、`UnifiedBoundaryService.process` | 新类实现；原 `RoomRuleRuntimeService` 每 5 tick 调用，复用原状态表的清理周期；关闭旧飞行独立超时入口 |
+| 飞行缓冲及统一致命几何 | `FlightBoundaryGeometry.outside`、`UnifiedBoundaryService.isOutside/aboveHeight` | 欧氏距离、凹多边形/多区域，默认 100 格；方块与高度报告 TTL 20 tick 继续接入；`RoomDeathBoundaryQuery` 转发统一几何，现有致命前快照/真实原因/禁止倒地机制继续工作 |
+| 原生爆炸乘员处理 | `server/compat/vehicle/BoundaryVehicleDestruction.java`、两个 `BoundaryDestructionMixin` | YWZJ 零生命值后触发原生零伤害 hurt；Superb Warfare 等原生 tick/destroy；爆炸前递归快照实际乘员并全部标记，爆炸后只补处理仍存活且未部署者；使用真实 `RoomDeathEventDispatcher` 保护，服务端/房间重建清理请求 |
+| 配置加载、保存和复制 | `RoomCommonConfig`、`BoundaryConfigNumbers`、`RoomDefinitionRepository`、分组编辑/模板/`RoomCommands` | 添加两个 nullable 扩展字段；缺失飞行时限继承旧载具时限、缺失缓冲 100，显式 0 不当作缺失；保留旧 49 参数构造器；四个实际复制点带值；描述、数字编辑和开局校验接入 |
+| 本地警告及世界滤镜 | `ClientBoundaryState`、`BoundaryPresentation`、`BoundaryHudEvents`、`BoundaryWorldRenderMixin`、TACZ `BoundaryCrosshairMixin` | 剩余 tick/乘坐类型复用旧包槽位；暖灰滤镜 0.10 秒过渡，中文标题/倒计时、1.905333334 秒语音冷却；仅步兵准星取消，其他 HUD 与乘坐瞄具保留 |
+| 两项兵种中文显示 | `server/loadout/domain/PlayerClassType.java` | ASSAULT 显示医护兵、ENGINEER 显示突击兵；内部 key/数字、输入别名及机制保持最终来源 |
+
+新增业务集中在 **12 个类/Mixin**；已有 **16 个 Java 文件**仅做出界机制替换、共享配置传递、死亡/资源生命周期与协议语义接入。新增 3 个着色器资源和 1 个原始 OGG；声音表仅追加 leaving_area，旧条目保持一致。未新增包注册 ID；由于旧边界动作改为权威剩余 tick 更新，严格协议改为 **`bf1-0.0.8`**，两端一起更新。
+
+来源适配：边界资源释放也改为实际 `GameRenderer.reloadShaders(ResourceProvider)` 和 `close` 两个独立 `require = 1` 接入，避免来源 `m_6213_` 不存在但被 close 掩盖；映射由当前 APT/refmap 生成。P6 压制未迁入，`SuppressionOpacity` 本轮明确设为 0，保留来源边界 GLSL，不添加假压制服务。配置保留来源行为：显式 0 能正确加载并关闭对应运行计时；房间开局完整性校验仍要求出界时限为正，不把 0 解释成自动继承。
+
+构建：`./build.ps1 -Offline`，Java 17、ForgeGradle 6、本工程离线缓存，最终 **BUILD SUCCESSFUL**（1m 9s）。
+
+- 主产物：[gd656conquest-0.9.3-bf1-0.0.8.jar](../../build/libs/gd656conquest-0.9.3-bf1-0.0.8.jar)
+- 大小：**14,320,495 字节**。
+- SHA-256：`c48b2b2c91e56379fe07352af6a369e18914c89cf5aacf7d5f2e378b9f9e5adb`。
+
+验证：`tools/verify-boundary.ps1` 读取本轮主 JAR、当前 refmap 和真实依赖；与保留的 0.0.7 主 JAR 比较。计时/几何/真实 Gson、编辑、校验、仓库重载、模板/分组复制、包与语音/淡入淡出共 **222316** 项检查（含逐 tick 扫描）；成品原生请求/乘员时序 **13** 项使用服务端/载具夹具；真实 Forge HUD **360** 项；实际 GameRenderer/TACZ Mixin、资源重载/close、SERVER 隔离、TACZ 及两类载具缺席检查通过。边界实际 GPU **190** 项；死亡/复活 GPU **331/109075** 项；前后成品方法/资源/四处构造参数/统一路径审计 **13888** 项通过。镜头回归 **224/97/24** 项、真实 CLIENT 5 / SERVER 1 目标及 TACZ 缺席通过；死亡原因 **155/35/15** 项和两个真实 Forge 目标通过；卡片/部署模型 **3433/18**、包 **91**、真实元数据扩展/EventBus **9**，死亡/复活时间线 **1908/2003** 项通过。
+
+成品审计：ZIP 完整、包内版本正确、Java 17 major 61、六项普通 bypass 标志 false；既有 refmap 与声音条目保留，新资源逐字节匹配固定来源；不含测试类或第三方模组类；反编译来源工作区未改变。未启动 Minecraft/多人联机，不把上述检查等同于实机完整玩法验收。
+
+剩余：P4 六个共享扩展字段中的两个已全链路接入；敌方补给开关、压制配置、治疗伤害冷却和被动回血量留到 P5/P6。后续补给、压制及实机验收继续迁移；本轮不自动提交。

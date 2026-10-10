@@ -5,6 +5,8 @@
   "compatibilityLevel": "JAVA_17",
   "refmap": "gd656conquest.refmap.json",
   "mixins": [
+    "compat.ywzjvehicle.BoundaryDestructionMixin",
+    "compat.superbwarfare.BoundaryDestructionMixin",
     "compat.tacz.RevivedProneCrawlMixin",
     "compat.ragdoll.ServerRagdollHitCacheMixin",
     "compat.ragdoll.RagdollDeathMomentumMixin",
@@ -26,6 +28,7 @@
     "client.RoomChatScreenMixin",
     "client.RoomChatSuggestionsMixin",
     "client.DeathWorldRenderMixin",
+    "client.BoundaryWorldRenderMixin",
     "client.DeathKillerOutlineMixin",
     "client.DeathPostChainAccessor",
     "client.DownedCameraAccessor",
@@ -47,7 +50,8 @@
     "client.PlayerTeamColorMixin",
     "client.compat.explosionoverhaul.ExplosionOverhaulAmbientCaveDustDisableMixin",
     "client.compat.explosionoverhaul.ExplosionOverhaulBlockParticleGuardMixin",
-    "client.compat.lrtactical.AttackKeysMixin"
+    "client.compat.lrtactical.AttackKeysMixin",
+    "client.compat.tacz.BoundaryCrosshairMixin"
   ],
   "injectors": {
     "defaultRequire": 1
