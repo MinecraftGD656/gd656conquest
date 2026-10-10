@@ -48,7 +48,10 @@ public final class SupportRuntimeFixtureTest {
         public double m_20185_(){return x;}public double m_20186_(){return y;}public double m_20189_(){return z;}public double m_20188_(){return y+1.6;}
         public Vec3 m_20154_(){return new Vec3(0,0,1);}public Vec3 m_20184_(){return new Vec3(0,0,0);}public void m_20256_(Vec3 value){}
         public AABB m_20191_(){return new AABB(x,y,z,x+1,y+1,z+1);}public double m_20280_(Entity other){return (x-other.x)*(x-other.x)+(y-other.y)*(y-other.y)+(z-other.z)*(z-other.z);}
+        public Vec3 m_20182_(){return new Vec3(x,y,z);}public Vec3 m_146892_(){return new Vec3(x,y+1.6,z);}
+        public EntityType m_6095_(){return new EntityType();}
     }
+    public static class EntityType {}
     public static class Player extends Entity {
         public final Server f_8924_;public final Inventory inventory=new Inventory();public final Menu f_36096_=new Menu();public final Abilities abilities=new Abilities();
         public boolean spectator,acceptHeal=true;public float health=10,maximum=20;public final List<String> cues=new ArrayList<>();public int bonuses;
@@ -70,6 +73,7 @@ public final class SupportRuntimeFixtureTest {
     }
     public static class Server {
         public int now,limit=64,group=64;public final Map<UUID,Player> players=new HashMap<>();public State state=new State();public Room room=new Room();public boolean bound=true;
+        public final Map<UUID,String> roomIds=new HashMap<>();public final Map<String,Room> extraRooms=new HashMap<>();
         public final Level level=new Level(this);public int m_129921_(){return now;}public Players m_6846_(){return new Players(this);}public Iterable<Level> m_129785_(){return List.of(level);}
     }
     public static class Players {public final Server server;public Players(Server s){server=s;}public Player m_11259_(UUID id){return server.players.get(id);}}
@@ -91,7 +95,12 @@ public final class SupportRuntimeFixtureTest {
         public Map<UUID,RoomTeamId> getRoomTeams(){return teams;}public boolean isInRespawnFlow(UUID id){return respawning;}}
     public static class Room {public String id="room";public RoomLifecycleState lifecycle=RoomLifecycleState.RUNNING;public RoomGameplayId gameplay=RoomGameplayId.CONQUEST;public RoomCommonConfig config=RoomCommonConfig.defaults();
         public String roomId(){return id;}public RoomCommonConfig commonConfig(){return config;}public RoomLifecycleState lifecycleState(){return lifecycle;}public RoomGameplayId gameplayId(){return gameplay;}}
-    public static class Manager {public final Server s;public Manager(Server s){this.s=s;}public static Manager of(Server s){return new Manager(s);}public Optional<String> findPlayerRoomId(UUID id){return s.bound?Optional.of(s.room.id):Optional.empty();}public Optional<Room> findRoom(String id){return Optional.of(s.room);}public Optional<State> findRunningState(String id){return Optional.of(s.state);}public boolean isPlayerDowned(UUID id){return s.state.downed;}}
+    public static class Manager {public final Server s;public Manager(Server s){this.s=s;}public static Manager of(Server s){return new Manager(s);}public Optional<String> findPlayerRoomId(UUID id){return s.bound?Optional.of(s.roomIds.getOrDefault(id,s.room.id)):Optional.empty();}public Optional<Room> findRoom(String id){return Optional.ofNullable(id.equals(s.room.id)?s.room:s.extraRooms.get(id));}public Optional<State> findRunningState(String id){return Optional.of(s.state);}public boolean isPlayerDowned(UUID id){return s.state.downed;}}
+    public static class SuppressionTransport {
+        public record Message(Player player,boolean active,float opacity){}
+        public static final List<Message> messages=new ArrayList<>();
+        public static void send(Player p,boolean active,float opacity){messages.add(new Message(p,active,opacity));}
+    }
     public static class Data {
         public static final Map<Server,org.mods.gd656conquest.server.data.serverconfig.ServerConfigStore> stores=new IdentityHashMap<>();
         public final Server server;public Data(Server server){this.server=server;}public static Data of(Server server){return new Data(server);}
@@ -123,7 +132,8 @@ public final class SupportRuntimeFixtureTest {
         for(String s:List.of("SupportAmmoGrant","SupportAmmoGrant$Slots","SupportAmmoGrant$1","SupportContext","SupportRuntime","SupportRuntime$Recipient","SupportRuntime$MedicalTreatment","SupportAmmo","SupportAmmo$Target","SupportAmmo$Tacz","SupportDropGuard"))m.put(BASE+"server/support/"+s,RUN+s);
         for(var e:Map.ofEntries(Map.entry("net/minecraft/server/level/ServerPlayer",Player.class),Map.entry("net/minecraft/world/entity/player/Player",Player.class),Map.entry("net/minecraft/world/entity/LivingEntity",Entity.class),Map.entry("net/minecraft/world/entity/Entity",Entity.class),Map.entry("net/minecraft/world/entity/item/ItemEntity",ItemEntity.class),Map.entry("net/minecraft/server/MinecraftServer",Server.class),Map.entry("net/minecraft/server/players/PlayerList",Players.class),Map.entry("net/minecraft/world/level/Level",Level.class),Map.entry("net/minecraft/server/level/ServerLevel",Level.class),Map.entry("net/minecraft/world/entity/player/Inventory",Inventory.class),Map.entry("net/minecraft/world/inventory/AbstractContainerMenu",Menu.class),Map.entry("net/minecraft/world/inventory/Slot",Slot.class),Map.entry("net/minecraft/world/entity/player/Abilities",Abilities.class),Map.entry("net/minecraft/core/NonNullList",Slots.class),Map.entry("net/minecraft/world/item/ItemStack",Stack.class),Map.entry("net/minecraft/world/item/Item",Item.class),Map.entry("net/minecraft/sounds/SoundEvent",Sound.class),Map.entry("net/minecraftforge/fml/ModList",AmmoReserveFixtureTest.Mods.class),Map.entry("net/minecraftforge/registries/RegistryObject",AmmoReserveFixtureTest.Holder.class),Map.entry("net/minecraftforge/event/entity/player/EntityItemPickupEvent",Pickup.class),Map.entry("net/minecraftforge/event/entity/item/ItemTossEvent",Toss.class),Map.entry("net/minecraftforge/event/entity/living/LivingDamageEvent",Damage.class),Map.entry("net/minecraft/network/protocol/game/ServerboundContainerClickPacket",Click.class)).entrySet())m.put(e.getKey(),Type.getInternalName(e.getValue()));
         for(var e:Map.ofEntries(Map.entry("server/room/entry/RoomCoreRuntimeManager",Manager.class),Map.entry("server/room/model/RoomDefinition",Room.class),Map.entry("server/room/core/RunningRuntimeState",State.class),Map.entry("server/room/runtime/RoomPlayerLoadoutService",Loadout.class),Map.entry("server/room/runtime/RoomPlayerLoadoutService$ResolvedLoadoutItem",Resolved.class),Map.entry("server/room/runtime/RoomLoadoutGrantService$TaczAmmoMeta",Meta.class),Map.entry("server/data/equipment/EquipmentDataModel$EquipmentEntry",Entry.class),Map.entry("server/compat/superbwarfare/SuperbWarfareCompatBridge",AmmoReserveFixtureTest.Bridge.class),Map.entry("common/item/ConquestItems",AmmoReserveFixtureTest.Items.class),Map.entry("common/entity/AmmoBoxEntity",AmmoBox.class),Map.entry("common/entity/MedicalBoxEntity",MedicalBox.class),Map.entry("server/facility/support/HeroKitSupportService",Hero.class),Map.entry("server/compat/frontlinevoice/FrontlineVoiceBridge",Voice.class),Map.entry("server/integration/KilliconScoreboardBridge",Score.class),Map.entry("server/room/runtime/RoomDeathSupportDropService",Death.class)).entrySet())m.put(BASE+e.getKey(),Type.getInternalName(e.getValue()));
-        m.put(BASE+"server/room/runtime/RoomLoadoutGrantService",RUN+"Grant");m.put(Type.getInternalName(Grant.class),RUN+"Grant");return m;
+        m.put(BASE+"server/room/runtime/RoomLoadoutGrantService",RUN+"Grant");m.put(Type.getInternalName(Grant.class),RUN+"Grant");
+        m.put(BASE+"server/support/SuppressionNetwork",Type.getInternalName(SuppressionTransport.class));return m;
     }
     static void addRegen(AmmoReserveFixtureTest.Loader loader,Map<String,String> map)throws Exception {
         map.put(BASE+"server/data/ConquestDataManager",Type.getInternalName(Data.class));
@@ -136,7 +146,7 @@ public final class SupportRuntimeFixtureTest {
     public static void main(String[] args)throws Exception {
         var loader=new AmmoReserveFixtureTest.Loader();var map=mappings();
         addRegen(loader,map);
-        for(String name:new ArrayList<>(map.keySet()))if(name.startsWith(BASE+"server/support/"))AmmoReserveFixtureTest.add(loader,AmmoReserveFixtureTest.read(name),map);
+        for(String name:new ArrayList<>(map.keySet()))if(name.startsWith(BASE+"server/support/")&&!name.endsWith("SuppressionNetwork"))AmmoReserveFixtureTest.add(loader,AmmoReserveFixtureTest.read(name),map);
         AmmoReserveFixtureTest.add(loader,AmmoReserveFixtureTest.read(BASE+"server/player/regen/PassiveRegenService"),map);
         var adapter=AmmoReserveFixtureTest.read(Type.getInternalName(Grant.class));adapter.methods.removeIf(m->m.name.equals("addTaczAmmoToPreferredSlots"));adapter.methods.add(AmmoReserveFixtureTest.read(BASE+"server/room/runtime/RoomLoadoutGrantService").methods.stream().filter(m->m.name.equals("addTaczAmmoToPreferredSlots")).findFirst().orElseThrow());AmmoReserveFixtureTest.add(loader,adapter,map);
         Class<?> runtime=loader.loadClass("tests.supply.SupportRuntime"),context=loader.loadClass("tests.supply.SupportContext"),guard=loader.loadClass("tests.supply.SupportDropGuard"),ammo=loader.loadClass("tests.supply.SupportAmmo");

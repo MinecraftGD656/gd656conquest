@@ -1344,7 +1344,8 @@ public final class RoomCommands {
             common.flightBoundaryPaddingBlocks(),
             common.allowEnemySupportResupply(),
             common.medicalBoxDamageCooldownSeconds(),
-            common.naturalRegenConfig()
+            common.naturalRegenConfig(),
+            common.suppressionConfig()
         );
 
         RoomDefinition updated = new RoomDefinition(

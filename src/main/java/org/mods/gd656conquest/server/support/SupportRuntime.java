@@ -47,12 +47,16 @@ public final class SupportRuntime {
     public static final class Recipient {
         final String room;
         MedicalTreatment treatment;
+        final SupportRules.Suppression suppression=new SupportRules.Suppression();
         final Map<String,SupportRules.Progress> progress=new HashMap<>();
+        final Map<UUID,Double> shotGains=new HashMap<>();
+        final Map<UUID,Long> shotTimes=new HashMap<>();
         long pickupUntil,throwUntil,medicalRangeUntil,weaponUntil;
         long lastDamage=-1;
         long lastAmmoSoundTick=Long.MIN_VALUE;
         long lastMedicalSoundTick=Long.MIN_VALUE;
         int cursor;
+        boolean visual;
         Recipient(String room){this.room=room;}
     }
     private static final class MedicalTreatment {
@@ -68,7 +72,13 @@ public final class SupportRuntime {
     public static void reset(ServerPlayer p) {
         if(p==null || p.server==null)return;
         var rt=SERVERS.get(p.server);if(rt==null)return;
-        rt.recipients.remove(p.getUUID());
+        var old=rt.recipients.remove(p.getUUID());
+        if(old!=null && old.visual)SuppressionNetwork.send(p,false,.25F);
+    }
+    public static boolean suppressionBlocks(ServerPlayer p) {
+        var c=SupportContext.of(p);if(c==null || !c.room().commonConfig().suppressionConfig().enabled())return false;
+        var rt=SERVERS.get(p.server);var s=rt==null?null:rt.recipients.get(p.getUUID());
+        return s!=null && s.room.equals(c.room().roomId()) && s.suppression.blocksHealing(p.server.getTickCount(),c.room().commonConfig().suppressionConfig());
     }
     public static boolean damageBlocks(ServerPlayer p) {
         var c=SupportContext.of(p);if(c==null)return false;
@@ -79,7 +89,7 @@ public final class SupportRuntime {
     public static boolean pausePassive(ServerPlayer p) {
         if(p==null || p.server==null)return false;
         var rt=SERVERS.get(p.server);var s=rt==null?null:rt.recipients.get(p.getUUID());
-        return (s!=null && (s.treatment!=null || p.server.getTickCount()<s.medicalRangeUntil));
+        return suppressionBlocks(p) || (s!=null && (s.treatment!=null || p.server.getTickCount()<s.medicalRangeUntil));
     }
     @SubscribeEvent(priority=EventPriority.LOWEST) public static void damaged(LivingDamageEvent event) {
         if(!event.isCanceled() && event.getAmount()>0 && event.getEntity() instanceof ServerPlayer p) {
@@ -103,6 +113,10 @@ public final class SupportRuntime {
             if(p==null || !SupportContext.available(p) || c==null || !s.room.equals(c.room().roomId())) {
                 if(p!=null)reset(p);else recipients.remove(entry.getKey());continue;
             }
+            s.shotTimes.entrySet().removeIf(x->{if(now-x.getValue()>600){s.shotGains.remove(x.getKey());return true;}return false;});
+            var cfg=c.room().commonConfig().suppressionConfig();
+            boolean visual=cfg.enabled() && s.suppression.active(now,cfg);
+            if(visual!=s.visual){s.visual=visual;SuppressionNetwork.send(p,visual,cfg.vignetteOpacity().floatValue());}
             if(s.treatment!=null) {
                 var t=s.treatment;
                 if(p.getHealth()>=p.getMaxHealth() || !t.room.equals(c.room().roomId())
@@ -272,7 +286,7 @@ public final class SupportRuntime {
         }
         if(medical)for(var entry:nearest.entrySet()) {
             var p=server.getPlayerList().getPlayer(entry.getKey());var s=rt.recipient(p);
-            if(damageBlocks(p) || p.getHealth()>=p.getMaxHealth())continue;
+            if(damageBlocks(p) || suppressionBlocks(p) || p.getHealth()>=p.getMaxHealth())continue;
             var box=(MedicalBoxEntity)entry.getValue();var d=box.getPersistentData();
             float pool=box.isPermanentSupport()?Float.MAX_VALUE:d.getFloat("gd656_medical_pool");
             float actual=heal(p,Math.min(1,pool),box.getOwnerUuid(),d.getString("gd656_support_camp"));

@@ -15,6 +15,15 @@ public final class BoundaryConfigNumbers {
                 throw new IllegalArgumentException("自然回血回复量必须为 0–1024 HP 的有限数值", invalid);
             }
         }
+        if (id.toLowerCase(Locale.ROOT).startsWith("suppression")) {
+            try {
+                double value = Double.parseDouble(raw.trim());
+                if (!Double.isFinite(value) || value < 0) throw new NumberFormatException();
+                return value;
+            } catch (NumberFormatException invalid) {
+                throw new IllegalArgumentException("压制配置必须为有限的非负数", invalid);
+            }
+        }
         boolean medical = "medicalboxdamagecooldownseconds".equals(id.toLowerCase(Locale.ROOT));
         if (!medical && !"flightboundarypaddingblocks".equals(id.toLowerCase(Locale.ROOT))) return null;
         try {

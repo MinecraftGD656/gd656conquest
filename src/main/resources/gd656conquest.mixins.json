@@ -20,6 +20,10 @@
     "server.PlayerListMixin",
     "server.SupportDropMixin",
     "server.NaturalFoodRegenMixin",
+    "compat.tacz.SupportSuppressionMixin",
+    "compat.tacz.SupportShotMixin",
+    "compat.tacz.SupportBulletMixin",
+    "compat.tacz.KineticBulletSupportAccessor",
     "server.ServerPlayerDeathMixin",
     "server.KillCommandMixin",
     "server.ServerGamePacketListenerImplMixin"
@@ -32,6 +36,7 @@
     "client.RoomChatSuggestionsMixin",
     "client.DeathWorldRenderMixin",
     "client.BoundaryWorldRenderMixin",
+    "client.SuppressionWorldMixin",
     "client.DeathKillerOutlineMixin",
     "client.DeathPostChainAccessor",
     "client.DownedCameraAccessor",

@@ -20,7 +20,7 @@ public final class NaturalRegenRuntimeTest {
     static void tick(Method tick,Server server,Player player,int now)throws Exception {server.now=now;tick.invoke(null,player,(long)now,0,1);}
     public static void main(String[] args)throws Exception {
         var loader=new AmmoReserveFixtureTest.Loader();var map=SupportRuntimeFixtureTest.mappings();SupportRuntimeFixtureTest.addRegen(loader,map);
-        for(String name:new ArrayList<>(map.keySet()))if(name.startsWith(SupportRuntimeFixtureTest.BASE+"server/support/"))AmmoReserveFixtureTest.add(loader,AmmoReserveFixtureTest.read(name),map);
+        for(String name:new ArrayList<>(map.keySet()))if(name.startsWith(SupportRuntimeFixtureTest.BASE+"server/support/")&&!name.endsWith("SuppressionNetwork"))AmmoReserveFixtureTest.add(loader,AmmoReserveFixtureTest.read(name),map);
         var nativeMixin=AmmoReserveFixtureTest.read(SupportRuntimeFixtureTest.BASE+"mixin/server/NaturalFoodRegenMixin");
         nativeMixin.access &= ~Opcodes.ACC_ABSTRACT;
         nativeMixin.visibleAnnotations=null;nativeMixin.invisibleAnnotations=null;
@@ -59,9 +59,10 @@ public final class NaturalRegenRuntimeTest {
         check((boolean)foodRule.invoke(instance,rules,null,p),"room food on overrides world gamerule off");rules.enabled=true;config(server,"{}");check(!(boolean)foodRule.invoke(instance,rules,null,p),"room food off overrides world gamerule on");
         server.bound=false;check((boolean)foodRule.invoke(instance,rules,null,p),"food handler outside room preserves actual world rule");server.bound=true;
         var runtime=loader.loadClass("tests.supply.SupportRuntime");var of=runtime.getMethod("of",Server.class);var state=runtime.getMethod("recipient",Player.class);Object recipient=state.invoke(of.invoke(null,server),p);
-        var range=recipient.getClass().getDeclaredField("medicalRangeUntil");range.setAccessible(true);range.setLong(recipient,700L);server.now=650;reset.invoke(null,p);recipient=state.invoke(of.invoke(null,server),p);range.setLong(recipient,700L);damaged.invoke(null,p,650L);
-        check(!(boolean)canHeal.invoke(instance,p),"food healing pauses during actual active medical range");tick(tick,server,p,700);check(p.health==10,"passive healing pauses at inclusive medical range deadline");
-        config(server,"{\"naturalRegenConfig\":{\"startDelaySeconds\":0,\"intervalTicks\":1}}");tick(tick,server,p,701);check(p.health==10.5F&&(boolean)canHeal.invoke(instance,p),"both healing guards resume after treatment window");
+        var range=recipient.getClass().getDeclaredField("medicalRangeUntil");range.setAccessible(true);server.now=650;reset.invoke(null,p);recipient=state.invoke(of.invoke(null,server),p);range.setLong(recipient,700L);damaged.invoke(null,p,650L);
+        config(server,"{\"naturalRegenConfig\":{\"startDelaySeconds\":0,\"intervalTicks\":1}}");
+        check(!(boolean)canHeal.invoke(instance,p),"food healing pauses during actual active medical range");tick(tick,server,p,699);check(p.health==10,"passive healing pauses before medical range deadline");
+        tick(tick,server,p,700);check(p.health==10.5F&&(boolean)canHeal.invoke(instance,p),"both healing guards resume at exact treatment-window deadline");
         System.out.println("PASS actual resolver/passive timeline/food handler/treatment interactions: "+checks);
     }
 }

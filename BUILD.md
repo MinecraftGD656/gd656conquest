@@ -35,10 +35,10 @@ Minecraft 1.20.1 / Forge 47.4.18 / official 1.20.1 映射。
 
 ## 输出
 
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.11.jar`：本轮迁移的默认完整模组，网络协议为 `bf1-0.0.8`，六项客户端 bypass 开关均为 false。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.11-bypass.jar`：原工程已有的客户端绕过配置变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.11-nores.jar`：原工程已有的无 assets 变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.11-resources.zip`：原工程已有的 assets 资源包。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.12.jar`：本轮迁移的默认完整模组，网络协议为 `bf1-0.0.12`，六项客户端 bypass 开关均为 false。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.12-bypass.jar`：原工程已有的客户端绕过配置变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.12-nores.jar`：原工程已有的无 assets 变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.12-resources.zip`：原工程已有的 assets 资源包。
 
 JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装选择没有变体后缀的主 JAR。
 构建日志保存在 `.build-logs/build.log`。
@@ -185,7 +185,7 @@ GPU 检查编译当前产物 GLSL 并读回像素；压制 uniform 值本轮固�
 压制及新的全局/房间自然回血参数留待 P6；当前自然回血量/等待/间隔保留原规则，仅接入治疗期间暂停、
 成功后私人起始音效和状态清理。
 
-第十一轮全局/房间自然回血验证（当前入口）：
+第十一轮全局/房间自然回血验证：
 
 ```powershell
 .\tools\verify-natural-regen.ps1 -JavaHome $env:JAVA_HOME
@@ -204,6 +204,26 @@ GPU 检查编译当前产物 GLSL 并读回像素；压制 uniform 值本轮固�
 明确保存的旧全局等待/间隔及饱食度开关保留。新增全局 `boolPassiveRegeneration` 和 `passiveRegenHealAmount`。
 房间外被动回血使用全局设置，饱食度回血保留所在世界的原游戏规则。
 共享医疗暂停判定已用于两种自然回血；TACZ 火力压制、退出冷却与世界暗角留待下一阶段。
+
+第十二轮火力压制与世界暗角验证（当前入口）：
+
+```powershell
+.\tools\verify-suppression.ps1 -JavaHome $env:JAVA_HOME
+```
+
+保留 `build/libs/gd656conquest-0.9.3-bf1-0.0.11.jar` 作为成品范围对照。
+脚本使用当前主 JAR、真实 Forge SRG、原始 TACZ 1.1.8 及当前工程依赖导出，验证
+压制累计/衰减/退出完整冷却、射击分组/上限、普通与穿透路径截断、阵营/房间限制及共享医疗阻断。
+客户端实际字节码验证过渡、退出世界清理、资源释放、尺寸变化和出界合并；真实 Mixin 引擎验证
+客户端/服务端及缺少 TACZ 的应用，并回归现有箱包、音效和自然回血。
+GPU 检查使用缓存原生 Minecraft `client-extra.jar` 的 blit 顶点着色器及当前成品片元着色器，
+创建隐藏窗口并读回像素，验证独立暗角和与出界效果取最大值的角落亮度。
+不生成测试业务类或第三方 class 到模组 JAR；本轮未启动 Minecraft/联机。
+
+本轮新增 S2C 压制同步包，追加在既有消息 ID 之后并限定 PLAY_TO_CLIENT；
+**协议升级为 `bf1-0.0.12`，客户端与服务端须同时安装本轮主 JAR。**
+P4/P5/P6 的六个扩展字段均已迁入，四处配置复制链及旧构造接口保留。
+后续进入 P7 的资源盘点、构建与验证收口；实机与多人联机仍待验收。
 
 ## 本次环境修复
 

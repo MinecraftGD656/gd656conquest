@@ -97,7 +97,7 @@ public final class ClientBoundaryState {
         if (mc.level == null || !ensureChain(mc)) return;
         try {
             strength.set(PRESENTATION.strength());
-            suppression.set(0F); // Suppression is migrated in its own later stage.
+            suppression.set(ClientSuppressionState.opacity());
             RenderSystem.disableBlend(); RenderSystem.disableDepthTest(); RenderSystem.resetTextureMatrix();
             chain.process(partialTick);
         } finally {

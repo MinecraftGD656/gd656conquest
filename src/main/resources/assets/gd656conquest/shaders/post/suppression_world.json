@@ -1,0 +1,1 @@
+{"targets": ["suppression_world_swap"], "passes": [{"name": "gd656conquest:suppression_world", "intarget": "minecraft:main", "outtarget": "suppression_world_swap"}, {"name": "gd656conquest:suppression_world", "intarget": "suppression_world_swap", "outtarget": "minecraft:main", "uniforms": [{"name": "SuppressionOpacity", "values": [0]}]}]}

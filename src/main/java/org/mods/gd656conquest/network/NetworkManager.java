@@ -62,7 +62,7 @@ import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "bf1-0.0.8";
+    private static final String PROTOCOL_VERSION = "bf1-0.0.12";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -450,6 +450,7 @@ public final class NetworkManager {
         packetId = DeathCauseNetwork.register(CHANNEL, packetId);
         packetId = DownedViewNetwork.register(CHANNEL, packetId);
         packetId = KillerCardNetwork.register(CHANNEL, packetId);
+        packetId = org.mods.gd656conquest.server.support.SuppressionNetwork.register(CHANNEL, packetId);
     }
 
     public static void sendToPlayer(ServerPlayer player, Object packet) {

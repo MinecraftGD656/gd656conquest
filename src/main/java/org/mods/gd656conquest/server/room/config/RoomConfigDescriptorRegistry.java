@@ -156,6 +156,15 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "aircraftOutsideBoundaryCleanupSeconds", "地面载具出界死亡秒数", "commonConfig.aircraftOutsideBoundaryCleanupSeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "flightVehicleOutsideBoundaryDeathSeconds", "飞行载具出界死亡秒数", "commonConfig.flightVehicleOutsideBoundaryDeathSeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "allowEnemySupportResupply", "可通过敌方箱包回复", "commonConfig.allowEnemySupportResupply", RoomConfigValueType.BOOLEAN, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "enableFireSuppression", "启用火力压制", "commonConfig.suppressionConfig.enabled", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
+        common(descriptors, RoomConfigCategory.RULES, "suppressionRadiusBlocks", "压制头部检测半径", "commonConfig.suppressionConfig.radiusBlocks", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "suppressionThreshold", "被压制强度阈值", "commonConfig.suppressionConfig.threshold", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "suppressionDamageScale", "压制伤害系数", "commonConfig.suppressionConfig.damageScale", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "suppressionShotCap", "单次射击压制上限", "commonConfig.suppressionConfig.shotCap", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "suppressionDecayDelaySeconds", "压制衰减等待秒数", "commonConfig.suppressionConfig.decayDelaySeconds", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "suppressionDecayPerSecond", "每秒压制衰减量", "commonConfig.suppressionConfig.decayPerSecond", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "suppressionRecoverySeconds", "压制后回复冷却秒数", "commonConfig.suppressionConfig.recoverySeconds", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "suppressionVignetteOpacity", "压制暗角透明度", "commonConfig.suppressionConfig.vignetteOpacity", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "naturalRegenMode", "自然回血配置来源", "commonConfig.naturalRegenConfig.mode", RoomConfigValueType.STRING, List.of("全局", "房间"));
         common(descriptors, RoomConfigCategory.RULES, "roomPassiveRegenEnabled", "房间被动自然回血开关", "commonConfig.naturalRegenConfig.passiveEnabled", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
         common(descriptors, RoomConfigCategory.RULES, "roomVanillaRegenEnabled", "房间原版饱食度回血开关", "commonConfig.naturalRegenConfig.vanillaEnabled", RoomConfigValueType.BOOLEAN, List.of("true", "false"));

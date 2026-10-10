@@ -179,7 +179,8 @@ public final class RoomAdminConfigTemplateService {
             sourceCommon.flightBoundaryPaddingBlocks(),
             sourceCommon.allowEnemySupportResupply(),
             sourceCommon.medicalBoxDamageCooldownSeconds(),
-            sourceCommon.naturalRegenConfig()
+            sourceCommon.naturalRegenConfig(),
+            sourceCommon.suppressionConfig()
         );
         return new RoomDefinition(
             target.roomId(),

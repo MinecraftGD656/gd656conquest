@@ -240,7 +240,8 @@ public final class RoomDefinitionGroupConfigEditor {
             common.flightBoundaryPaddingBlocks(),
             common.allowEnemySupportResupply(),
             common.medicalBoxDamageCooldownSeconds(),
-            common.naturalRegenConfig()
+            common.naturalRegenConfig(),
+            common.suppressionConfig()
         );
         return new RoomDefinition(
             definition.roomId(),
