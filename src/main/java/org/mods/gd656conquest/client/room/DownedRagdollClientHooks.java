@@ -31,6 +31,7 @@ public final class DownedRagdollClientHooks {
     }
 
     public static void onDownedCleared() {
+        ClientKillerCardState.hide();
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
         UUID playerId = mc.player.getUUID();

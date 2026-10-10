@@ -1,0 +1,15 @@
+{
+  "targets": ["death_world_swap"],
+  "passes": [
+    {"name": "gd656conquest:death_world", "intarget": "minecraft:main", "outtarget": "death_world_swap"},
+    {
+      "name": "gd656conquest:death_world",
+      "intarget": "death_world_swap",
+      "outtarget": "minecraft:main",
+      "uniforms": [
+        {"name": "DeathFilterStrength", "values": [0]},
+        {"name": "DeathContrast", "values": [1]}
+      ]
+    }
+  ]
+}

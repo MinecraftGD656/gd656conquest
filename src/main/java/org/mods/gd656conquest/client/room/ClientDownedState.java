@@ -95,6 +95,7 @@ public final class ClientDownedState {
         debugExpireAtMs = 0L;
         rescuers = sanitizeRescuers(rescuerEntries);
         
+        if (enteringFreshDowned) ClientKillerCardState.downedStarted();
         ensureLoopSoundsPlaying(minecraft);
     }
 
@@ -119,6 +120,7 @@ public final class ClientDownedState {
         rescuers = buildLocalPreviewRescuers(player);
         ensureLoopSoundsPlaying(minecraft);
         ClientDeathFlowState.clear();
+        ClientKillerCardState.downedStarted();
     }
 
     public static void clear() {
@@ -219,6 +221,7 @@ public final class ClientDownedState {
 
     public static void tick() {
         Minecraft minecraft = Minecraft.getInstance();
+        ClientDownedDeployState.tick();
         boolean beingRevived = isBeingRevivedLocked();
         if (!active || minecraft.player == null) {
             ClientDeathFlowState.setDownedBlackoutStrength(0.0F);
@@ -261,7 +264,7 @@ public final class ClientDownedState {
             && !surrenderRequested
             && minecraft.screen == null
             && minecraft.options != null
-            && minecraft.options.keyJump.isDown();
+            && ClientDownedDeployState.allowLongPress(minecraft.options.keyJump);
         if (holdingJump) {
             surrenderHoldTicks = Math.min(SURRENDER_HOLD_TICKS, surrenderHoldTicks + 1.0F);
         } else if (!surrenderRequested) {
@@ -299,29 +302,18 @@ public final class ClientDownedState {
     }
 
     public static void render(GuiGraphics gui, Font font) {
-        if (!active || gui == null || font == null) {
-            return;
-        }
-        int height = gui.guiHeight();
-        int right = gui.guiWidth() - 16;
-        int listBaseY = height - 38 - Math.max(1, rescuers.size()) * 10;
-        int titleY = listBaseY - 48;
-        int surrenderHintY = listBaseY - 36;
-        int helpHintY = listBaseY - 24;
-        drawRightAligned(gui, font, "倒地状态", right, titleY, TEXT_PRIMARY);
-        drawRightAligned(gui, font, resolveSurrenderHintText(), right, surrenderHintY, resolveSurrenderHintColor());
-        drawRightAligned(gui, font, resolveHelpHintText(), right, helpHintY, resolveHelpHintColor());
-        drawRightAligned(gui, font, "附近救援者", right, listBaseY, TEXT_PRIMARY);
-        if (rescuers.isEmpty()) {
-            drawRightAligned(gui, font, "30m 内暂无队友", right, listBaseY + 12, TEXT_MUTED);
-            return;
-        }
-        int rowY = listBaseY + 12;
-        for (RescuerEntry entry : rescuers) {
-            int baseColor = entry.squadMate() ? TEXT_SQUAD : TEXT_TEAM;
-            drawRightAlignedParts(gui, font, right, rowY, entry.name() + "  ", baseColor, entry.distanceMeters() + "米", TEXT_DISTANCE);
-            rowY += 10;
-        }
+        ClientKillerCardState.render(gui, font, resolveSurrenderHintText(), resolveSurrenderHintColor(),
+            resolveHelpHintText(), resolveHelpHintColor(), rescuers);
+    }
+
+    public static int killerCardRemainingTicks() { return remainTicks; }
+
+    public static void requestReadyDeployment() {
+        if (!active || surrenderRequested || isBeingRevivedLocked()) return;
+        surrenderRequested = true;
+        surrenderHoldTicks = SURRENDER_HOLD_TICKS;
+        redeployRequestRetryTicksRemaining = REDEPLOY_REQUEST_RETRY_TICKS;
+        NetworkManager.getChannel().sendToServer(RoomDownedActionPacket.surrender());
     }
 
     public static boolean handleLeftClick() {

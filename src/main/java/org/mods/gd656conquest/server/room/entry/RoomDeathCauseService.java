@@ -78,6 +78,7 @@ public final class RoomDeathCauseService {
             : RoomDeathBoundaryQuery.isOutside(victim);
         DEATHS.put(victimId, new Death(victim, state, deathId,
             victim.level().dimension().location().toString(), cause, killer, legacy == null ? -1 : legacy.getId(), outside));
+        KillerIntelService.capture(victim, state, deathId, cause, killer, source);
         return killer;
     }
 
@@ -118,6 +119,7 @@ public final class RoomDeathCauseService {
             && !death.state().getDeployViewActivePlayers().contains(player.getUUID())
             && !death.state().getRespawnFinalizeTicks().containsKey(player.getUUID())) {
             NetworkManager.sendToPlayer(player, new DeathCausePacket(death.id(), player.getId(), death.dimension(), death.cause()));
+            KillerIntelService.publish(player, death.id());
         }
     }
 
@@ -130,12 +132,15 @@ public final class RoomDeathCauseService {
     }
 
     public static void forget(ServerPlayer player) {
+        KillerIntelService.forget(player);
         if (current(player) != null) DEATHS.remove(player.getUUID());
     }
     public static void clear(MinecraftServer server) {
+        KillerIntelService.clear(server);
         DEATHS.values().removeIf(death -> death.victim().server == server);
     }
     public static void tick(MinecraftServer server) {
+        KillerIntelService.tick(server);
         DEATHS.values().removeIf(death -> {
             ServerPlayer player = death.victim();
             if (player.server != server) return false;

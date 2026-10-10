@@ -114,6 +114,7 @@ public final class ClientDownedCamera {
                 anchor = packet.position(); killer = packet.killerPosition(); tracking = packet.tracking();
             }
             case PREPARE_REVIVE -> {
+                ClientKillerCardState.hide();
                 ClientDeathCauseState.hide();
                 if (stage != Stage.DOWNED || ordinaryDeath) return;
                 // Capture the last displayed view BEFORE native body removal and generic clears.
@@ -144,7 +145,7 @@ public final class ClientDownedCamera {
                 }
                 RevivedPronePose.apply(mc.player);
             }
-            case END -> { ClientDeathCauseState.hide(); closedSession = packet.session(); stopProne(); cancelCamera(); }
+            case END -> { ClientKillerCardState.hide(); ClientDeathCauseState.hide(); closedSession = packet.session(); stopProne(); cancelCamera(); }
             case PRONE_RELEASED -> { releasedLocally = true; stopProne(); }
         }
     }

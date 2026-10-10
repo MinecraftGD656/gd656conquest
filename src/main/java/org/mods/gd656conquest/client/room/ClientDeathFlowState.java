@@ -428,7 +428,7 @@ public final class ClientDeathFlowState {
     }
 
     public static float currentDarknessAlpha() {
-        return Mth.clamp(currentDarkness, 0.0F, 0.985F);
+        return 0.0F;
     }
 
     public static float getStandardDeathViewDarkness() {
@@ -440,6 +440,7 @@ public final class ClientDeathFlowState {
     }
 
     public static float currentHurtFlashAlpha() {
+        if (ClientDeathFilter.hideDamageOverlay()) return 0.0F;
         if (hurtFlashRemainSeconds <= 0.0F) {
             return 0.0F;
         }
@@ -901,11 +902,11 @@ public final class ClientDeathFlowState {
     }
 
     private static void applyDesaturation(Minecraft minecraft, float desaturationLevel) {
-        if (desaturationLevel <= 0.01F) {
-            disableDesaturate(minecraft);
-            return;
-        }
-        enableDesaturate(minecraft);
+        disableDesaturate(minecraft);
+    }
+
+    public static int deathFilterKillerId() {
+        return isDeathObservationPhase() ? killerEntityId : -1;
     }
 
     private static double normalizedProgress(long tick, int maxTicks) {

@@ -1,0 +1,76 @@
+{
+  "targets": [
+    {
+      "name": "revive_bright",
+      "width": 1,
+      "height": 1
+    },
+    {
+      "name": "revive_blur",
+      "width": 1,
+      "height": 1
+    },
+    "revive_world_swap"
+  ],
+  "passes": [
+    {
+      "name": "gd656conquest:revive_bright",
+      "intarget": "minecraft:main",
+      "outtarget": "revive_bright"
+    },
+    {
+      "name": "gd656conquest:revive_blur",
+      "intarget": "revive_bright",
+      "outtarget": "revive_blur",
+      "uniforms": [
+        {
+          "name": "BlurDirection",
+          "values": [
+            1,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "gd656conquest:revive_blur",
+      "intarget": "revive_blur",
+      "outtarget": "revive_bright",
+      "uniforms": [
+        {
+          "name": "BlurDirection",
+          "values": [
+            0,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "name": "gd656conquest:revive_world",
+      "intarget": "minecraft:main",
+      "outtarget": "revive_world_swap",
+      "auxtargets": [
+        {
+          "name": "BloomSampler",
+          "id": "revive_bright"
+        }
+      ]
+    },
+    {
+      "name": "gd656conquest:revive_world",
+      "intarget": "revive_world_swap",
+      "outtarget": "minecraft:main",
+      "auxtargets": [
+        {
+          "name": "BloomSampler",
+          "id": "revive_bright"
+        }
+      ],
+      "uniforms": [
+        {"name": "ExposureEV", "values": [0]},
+        {"name": "BloomGain", "values": [0]}
+      ]
+    }
+  ]
+}

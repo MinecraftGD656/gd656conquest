@@ -35,10 +35,10 @@ Minecraft 1.20.1 / Forge 47.4.18 / official 1.20.1 映射。
 
 ## 输出
 
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.5.jar`：本轮迁移的默认完整模组，网络协议为 `bf1-0.0.5`，六项客户端 bypass 开关均为 false。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.5-bypass.jar`：原工程已有的客户端绕过配置变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.5-nores.jar`：原工程已有的无 assets 变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.5-resources.zip`：原工程已有的 assets 资源包。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.7.jar`：本轮迁移的默认完整模组，网络协议为 `bf1-0.0.7`，六项客户端 bypass 开关均为 false。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.7-bypass.jar`：原工程已有的客户端绕过配置变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.7-nores.jar`：原工程已有的无 assets 变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.7-resources.zip`：原工程已有的 assets 资源包。
 
 JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装选择没有变体后缀的主 JAR。
 构建日志保存在 `.build-logs/build.log`。
@@ -91,7 +91,7 @@ $env:JAVA_HOME = 'C:\path\to\jdk-17'
 首次或依赖变更后先运行上面的 `writeMigrationVerificationClasspath`。
 验证包含生产分类器/作用域/横幅、数据包往返和限制、真实 Forge SRG 的 `/kill` 与死亡钩子
 Mixin/refmap 应用、Killicon 火焰归属接口及生产调用链。它不启动游戏或使用旧反编译测试夹具。
-第四轮新增死亡原因包；本轮新增镜头与趴姿解除包，当前协议为 `bf1-0.0.5`，客户端与服务端须同时更新。
+第四轮新增死亡原因包；第五轮新增镜头与趴姿解除包，第七轮追加卡片/部署快照包，当前协议为 `bf1-0.0.7`，客户端与服务端须同时更新。
 
 第五轮镜头/复活姿态验证同样使用当前主 JAR 与本项目依赖：
 
@@ -107,7 +107,36 @@ Mixin/refmap 应用、Killicon 火焰归属接口及生产调用链。它不启�
 
 服务器配置文件 `gd656conquest-downed-server.toml` 的 `deathCameraMode` 可设为
 `FIXED`（默认）或 `AUTOMATIC`。两种模式均在救援后恢复倒地前朝向并保持趴姿，
-重新按跳跃键或 TACZ 爬行键解除。世界去色/复活白光仍属下一迁移阶段。
+重新按跳跃键或 TACZ 爬行键解除。第六轮已接入世界去色及复活曝光/bloom。
+
+第六轮世界滤镜验证读取本轮主 JAR、当前 Forge SRG 和本工程依赖导出：
+
+```powershell
+.\tools\verify-world-filters.ps1 -JavaHome $env:JAVA_HOME
+```
+
+包含死亡/复活时间线、真实 Mixin/refmap 与世界/HUD 顺序、资源重载/关闭入口、
+服务器隔离和成品范围检查。GPU 部分创建隐藏 OpenGL 上下文，直接编译成品中的 GLSL，
+验证五段复活图、半尺寸 bloom、缩放及天空 alpha；需要可用的本机 OpenGL 驱动。
+LWJGL/native 与 vanilla blit 从本工程 Gradle 缓存读取，临时文件进入被忽略的 build 目录。
+保留 `build/libs/gd656conquest-0.9.3-bf1-0.0.5.jar` 用于前后成品对照。
+这不替代 Minecraft 实机、第三方 shader/瞄具或联机验收。
+
+第六轮是客户端视觉增量，协议保持 `bf1-0.0.5`；第七轮已追加两个 S2C 包，
+当前协议为 `bf1-0.0.7`，两端须一起更新。
+
+第七轮击杀者信息卡、手动部署与聊天布局验证：
+
+```powershell
+.\tools\verify-killer-card.ps1 -JavaHome $env:JAVA_HOME
+```
+
+读取当前主 JAR、本工程依赖及当前 refmap；保留 `build/libs/gd656conquest-0.9.3-bf1-0.0.6.jar`
+用于范围核对。包含实际卡片/对决/布局/输入模型、两个包的真实往返与非法字段拒绝、
+真实 Forge EventBus 注册及可选元数据扩展失败隔离、ChatComponent/ChatScreen/CommandSuggestions
+三类的真实 Mixin 与服务器侧隔离、服务端门槛及退出清理的静态调用顺序。
+不会使用旧世界夹具，不等于游戏中的击杀者快照/爆头/多人完整流程验收。
+前序死亡原因与世界滤镜范围检查已登记本轮有意替换的自动部署入口和业务接入，仍可对当前产物运行。
 
 ## 本次环境修复
 

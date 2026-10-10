@@ -27,12 +27,15 @@ public final class ClientDeathCauseState {
         level = mc.level; playerIdentity = mc.player;
         if (BANNER.begin(packet.deathId(), packet.cause())) {
             lastFrame = System.nanoTime();
+            ClientKillerCardState.begin(packet);
+            ClientManualDeathDeployState.begin(packet);
         }
     }
     public static void hide() {
         BANNER.hide();
+        if (!ClientDownedState.isActive() && !ClientDownedCamera.deathFilterActive()) ClientKillerCardState.hide();
     }
-    public static void reset() { BANNER.reset(); level = null; playerIdentity = null; lastFrame = 0; }
+    public static void reset() { BANNER.reset(); ClientKillerCardState.reset(); level = null; playerIdentity = null; lastFrame = 0; }
 
     public static String label(DeathCause cause) {
         if (cause == null) cause = DeathCause.KILLED_IN_ACTION;
@@ -67,7 +70,7 @@ public final class ClientDeathCauseState {
         long now = System.nanoTime();
         float elapsed = lastFrame == 0 ? 0 : Math.max(0, (now - lastFrame) / 1e9F);
         lastFrame = now;
-        BANNER.advance(elapsed, ClientDownedCamera.deathFilterActive() || ClientDeathFlowState.isDeathObservationPhase() || ClientDownedState.isActive());
+        BANNER.advance(elapsed, ClientDeathFilter.deathActive());
         float alpha = BANNER.alpha();
         if (alpha <= .01F || mc.options.hideGui) return;
         String text = label(BANNER.cause());

@@ -19,6 +19,8 @@
 | `0.0.3` | P1-B 身体：新鲜尸体提升/生成、代理、两端救援距离、动量、代次同步、订阅及生命周期清理 | `f8272a0` 身体基础，`c741614` 动量，`e12682c/a80a286/a3e8666` 替换/缓存，`93c8a97/d96cdce` 同步优化；按最终来源 `955b76d` 核对 | 2026-10-11，离线 build 成功 |
 | `0.0.4` | P3 死亡原因层：火焰归属、精确 /kill、一次性原因快照、共享归属/跳过救援、原因横幅 | `31a5dae` 死亡原因基础；最终来源 `955b76d` 的界外致命前快照与救援旁路；边界几何复用原机制 | 2026-10-11，离线 build 成功 |
 | `0.0.5` | P2 镜头/姿态：固定/自动镜头、普通尸体观察、视角交接、复活趴姿及 TACZ 解除 | `86e6bb6` 镜头/趴姿基础、`461721a` 普通死亡、`ac874ab` 复活解除/归位；按最终来源 `955b76d` 核对 | 2026-10-11，离线 build 成功 |
+| `0.0.6` | P2 世界滤镜：死亡去色/本地红色轮廓、复活曝光/bloom、世界/HUD 分层、重载与资源释放 | `b650004` 死亡滤镜、`ac874ab` 复活效果、`f97cc63` 天空 alpha/最终时间参数；按最终来源 `955b76d` 核对 | 2026-10-11，离线 build 成功 |
+| `0.0.7` | P3 元数据/卡片/部署输入/聊天：致命前装备与生命快照、爆头/对决、五列卡片、普通死亡手动部署与倒地点按、原生聊天适配 | `9d189a1` 卡片/武器快照，`6cb882b` 爆头/最终布局/手动部署/聊天；按最终来源 `955b76d` 核对 | 2026-10-11，离线 build 成功 |
 
 ## 0.0.1：明确救援目标
 
@@ -227,3 +229,91 @@ RoomServerModule 先解析并保存快照，再将同一击杀者用于原标记
 - Gradle test 仍为 NO-SOURCE；未启动 Minecraft、专用服务器或多人联机。本轮没有运行旧世界夹具中的完整 DownedViewTest，也不声称已动态验证真实实体中的趴姿解除/碰撞搜寻/控制器全流程。
 
 下一轮可继续 P2 的死亡/复活世界滤镜与渲染资源链，之后接入击杀者卡片和部署输入。本轮改动未自动提交。
+
+## 0.0.6：死亡/复活世界滤镜与渲染资源链
+
+本轮在已提交的 `1c912ab`（0.0.5）上迁入六个独立客户端类/Mixin 和十项专用 shader 资源。来源固定为最终反编译提交 `955b76d`，不改来源仓库；正常构建直接编译真实源码。原业务 Java 仅修改 ClientDeathFlowState 与 ClientDeathCauseState：禁用被替代的黑幕与旧全局去色槽、死亡期间隐藏受伤闪烁、提供受死亡阶段限制的击杀者 ID、让原因横幅共用实际滤镜状态。服务器、身体、救援、镜头、网络与 HUD 其他业务的既有 class 字节经成品对照保持一致。
+
+死亡效果使用独立 PostChain，强度随 0.32 秒受击和 1.10 秒镜头展开进入，最终去色 96%，对比度 1.03。普通退出连续恢复 0.20 秒；成功救援使用已有镜头拥有的同一时间线，0.08 秒恢复颜色。世界渲染和既有后处理完成后，先应用死亡滤镜，再合成轮廓，再应用复活曝光/bloom，最后交还主 framebuffer，由原流程继续绘制 HUD/GUI；原因提示保留原 HUD 后置渲染。
+
+击杀者轮廓仅在受害者本地呈红色，不修改实体 glowing 标记、队伍、计分或服务器状态；镜头会话沿用原玩家实体身份与追踪有效性，死亡/离开/进入复活流程后停止追踪。无镜头会话时，只有原死亡观察阶段提供 fallback ID，玩家本人、移除、死亡或错世界实体均排除。卡片 alpha 读取接口使用同一去色时间线，但本轮尚未启用卡片 UI。
+
+复活效果保持最终参数：1.40 秒、峰值保持 0.10 秒、曝光 +3.1 EV、bloom 增益 1.40；0.28 秒镜头归位后继续视觉尾段，期间不再锁镜头或手部。五段图依次提取亮部、横向半尺寸模糊、纵向半尺寸模糊、曝光/bloom 合成、零曝光/零增益复制回主 framebuffer。半尺寸输出按实际尺寸设置投影，奇偶窗口尺寸均验证；最终复制使用 one/zero 覆盖混合，保留透明天空像素的 RGB 和 alpha，不恢复旧 native blit 黑天空问题。
+
+资源在死亡阶段预热，主 framebuffer 身份或尺寸变化时重建/缩放；缺少 uniform 或 shader 加载失败时清理、记录错误并等待资源重载重试。世界更换、玩家为空、实际资源重载和 GameRenderer.close 均释放两条私有 chain。来源中的 GameRenderer `m_6213_` 并不存在于当前实际类，旧复合 Inject 实际只命中 close；本轮修正为 `reloadShaders(ResourceProvider)` 的 render-thread 入口（生成 refmap → `m_172767_`）及独立 close 注入，并对两个入口分别断言，不保留无效的重载钩子。
+
+| 功能 | 固定反编译来源 | 原始项目实现 |
+| --- | --- | --- |
+| 连续去色/救援恢复 | client/room/DeathFilterTransition，beginReviveRecovery/recoverRevive/advance | 同名纯数学新类，使用已迁入 DownedCameraMath/ReviveTransition |
+| 世界层处理/本地轮廓 | client/room/ClientDeathFilter，beginFrame/isKiller/compositeOutlines/finishWorld | 同名新类；使用上一轮真实镜头、玩家身份和生命状态 |
+| 复活五段效果/尺寸/投影 | client/room/ClientReviveEffect，prepare/render/releaseResources | 同名新类，消费上一轮实际 pulse 时间线与最终参数 |
+| 世界/HUD 边界、释放 | mixin/client/DeathWorldRenderMixin | official 名称 + 当前生成 refmap；资源重载修正为当前实际 reloadShaders |
+| 本地红色成员与颜色 | mixin/client/DeathKillerOutlineMixin | 同名新 Mixin；保留 vanilla 其他实体发光/颜色结果 |
+| Uniform/pass 列表 | mixin/client/DeathPostChainAccessor | official passes accessor + 当前生成 refmap |
+| 专用渲染图与 GLSL | assets/gd656conquest/shaders/post/{death_world,revive_world}.json；program/{death_world,revive_world,revive_bright,revive_blur}.{json,fsh} | 十项资源原字节迁入 src/main/resources，既有资源保留 |
+| 替代旧视觉入口 | ClientDeathFlowState.currentDarknessAlpha/currentHurtFlashAlpha/applyDesaturation/deathFilterKillerId；ClientDeathCauseState.onRender | 两个原类必要方法接入；既有生命/救援/部署时序不变 |
+
+版本判断：完成独立死亡/复活世界渲染增量，定为 `0.0.6`。对应 `b650004`、`ac874ab`、`f97cc63` 的相关子功能及最终参数；没有因此迁入卡片/聊天、边界、补给和压制，不能称为任一完整历史提交或最终 `.24` 等价。[一次性导入工具](../../tools/migrate_world_filters.py) 保留固定来源、official 转换和实际重载修正，拒绝覆盖目标 Java/资源。
+
+构建与验证（2026-10-11）：
+
+- 命令：`./build.ps1 -Offline`；Java 17.0.19、Gradle 8.8、Forge 47.4.18、official 1.20.1，复用工作区离线缓存。修正重载入口后重新构建最终主 JAR。
+- 最终结果：`BUILD SUCCESSFUL in 43s`；22 个任务，16 执行、6 up-to-date，包含源码编译、refmap 和 reobfJar；27 个弃用提示，原未命中重载方法的描述符告警已消除。
+- 主 JAR：`build/libs/gd656conquest-0.9.3-bf1-0.0.6.jar`，14,204,686 字节，保留前轮产物。
+- SHA-256：`120cfbdfa35430a72d601b89c0f65ea98b70e16f8d50c42bb007abfc98a8ed7c`。
+- mod/manifest 为 `0.9.3-bf1-0.0.6`；本轮没有消息注册/格式变化，协议保持 `bf1-0.0.5`，不将纯客户端显示增量作为网络不兼容升级。
+- [验证入口](../../tools/verify-world-filters.ps1)：当前主 JAR 与本工程 Forge SRG/依赖导出，不使用旧成品路径、世界夹具或复制生产方法；1908 项死亡过渡、2003 项复活时间线/低帧率/中断连续性检查通过。
+- 真实 Mixin 引擎在当前 Forge SRG 上应用 CLIENT GameRenderer/LevelRenderer/PostChain 三个目标及生成 refmap，检查世界→既有后处理→死亡处理→GUI 深度清理顺序、轮廓延后、accessor、reloadShaders 和 close 两个资源释放入口；SERVER 三个目标字节保持一致。
+- NVIDIA GeForce RTX 5060 Laptop GPU 的隐藏 OpenGL 上下文直接读取本轮 JAR：死亡 GLSL 编译/链接及 331 项像素检查；复活五段图 109075 项检查，包含 bloom 横纵扩散、暗部轮廓、透明/半透明天空 RGBA、旧 native blit 负面对照和奇偶尺寸重建，全部通过。像素数相关断言不等于 109075 个独立玩法场景。
+- 2484 项当前与 0.0.5 成品范围检查：保留前轮条目，除两个有意修改的客户端原类外，全部原生产 class 字节一致；私有 chain 不使用全局 shader 槽，不改变实体发光/游戏模式。测试和 GPU 临时文件只位于 tools/build 验证目录，不打包。
+- 当前 0.0.6 上镜头回归：224/97/24 项数学/包/调用顺序、CLIENT 5 / SERVER 1 个实际目标及 TACZ 缺席通过；死亡原因回归：155/35/15 项及两个真实 Forge 钩子通过。
+- Gradle test 仍为 NO-SOURCE；没有启动 Minecraft、专用服务器或联机。实际 GPU shader/图已验证，游戏内资源重载执行、第三方 shader/瞄具、GUI 缩放与多人完整流程仍需实机验收。
+
+下一轮可接入 P3 的击杀者元数据/卡片及部署输入消费链。本轮改动未自动提交。
+
+
+## 0.0.7：击杀者快照、信息卡、部署输入与聊天
+
+本轮在目标 HEAD `1c912ab` 上继续工作，完整保留上一轮尚未提交的 0.0.6；以保留的 0.0.6 主 JAR 为本轮对照。来源仍固定为最终反编译提交 `955b76d8adc264703eb49141bdb99b06e84cba46`，来源仓库未修改。本轮新增 22 个对应来源类/Mixin、独立追加注册类 KillerCardNetwork 及 headshot.png，共 23 个 Java 新类；原业务 Java 仅改 NetworkManager、RoomDeathEventDispatcher、RoomDeathCauseService、RoomPlayerRespawnService、ClientDeathCauseState、ClientDownedState、ClientDownedCamera、DownedRagdollClientHooks 八个类。
+
+击杀信息在火焰归属作用域内、完整 Forge 死亡派发前冻结。近战绑定同一次攻击与复制的物品，弹射物绑定发射实体/所有者与发射时装备，TACZ 使用实际弹丸的 GunId/GunDisplayId；无法确认时显示“无法确认”，不猜测后来手持武器。生命/等级/名称属于该次快照；爆头只接受同受害者、同弹丸、同 damage tick 的报告。元数据观察器不取消事件、不修改伤害或计分；可选反射/API 扩展失败隔离。对决账本只在已接受的敌方玩家致命事件计一次，按房间与 activeMatchInstanceId 隔离，下一场清零。
+
+倒地期间底部全宽背景保留头像、击杀者、武器、操作、救援五列；异步原生皮肤与默认皮肤回退，长名字截断/武器换行，列宽与 GUI 尺寸适配。alpha 共用上一轮死亡滤镜，HUD 在世界处理之后绘制。非玩家来源的三列击杀信息留空；已确认不可救援死亡按来源保留空击杀列和“不可被救援”。旧击杀动作栏、悬浮死亡倒计时和被救援提示改为清理对应 source，由卡片承担；救援者的原操作提示和救援进度继续使用现有机制。
+
+不可救援死亡（含竞技场分支）替换原自动打开部署的机制：立即启动尸体观察和服务器 deadline，以 Long.MAX_VALUE 标记保留原死亡流程所有权。deadline 归零只更新提示，继续等待玩家新按键；也可提前按键打开原部署界面，只携带剩余等待。复用真实 enterDeployHoldingState/openDeployView，打开成功后移除等待记录、禁用自动部署与缺失选择回退，打开失败保留 deadline 并允许显式重试。主动重新部署的双倍等待在建立 deadline 时消费一次；不会再附加旧 50/120 tick 的自动观察延迟。这里只改变已确认死亡入口，其他原部署/出生流程保留。
+
+倒地快照的部署剩余值直接调用原 resolveDeployDelayTicksFromDowned，死亡剩余值独立。开启 enableRespawnCountdownWhileDowned 时，服务端零值才允许新按空格立即走原 surrender→部署；之前继续原长按放弃。一直按住跨越归零、聊天中按键、救援锁解除后仍按住均不能自动提交；服务端 surrender 分支仍拒绝正在被救援者。普通死亡请求带 deathId，服务端核对成员、倒地/部署/收尾状态、维度及等待标记，重复/过期请求不能重开。
+
+聊天适配按来源在整个房间内启用，退出房间恢复原布局；移动原生 ChatComponent、EditBox 和建议锚点，而不复制聊天历史/签名消息/滚动机制。渲染、悬停、链接与排队点击共用布局坐标；房间状态、宽度或聊天缩放改变时从原组件重排。四个客户端 Mixin 使用 official 名称与本工程当前生成的 refmap，不保留旧成品的 remap=false SRG 注入。
+
+| 功能 | 固定反编译源码对应位置 | 原始项目实现 |
+| --- | --- | --- |
+| 致命前快照/装备/生命/发布 | [KillerIntelService](../../../gd656conquest/org/mods/gd656conquest/server/room/entry/KillerIntelService.java)：withFatalSnapshot 第 86 行、snapshot 第 93 行、capture 第 113 行、publish 第 127 行 | 同名新类；RoomDeathEventDispatcher 嵌套真实快照，RoomDeathCauseService 接入 capture/publish/forget/clear/tick |
+| 武器与精确爆头 | server/room/entry/KillWeaponResolver.resolve/extract/fromStack；FatalHitMetadata.onHitEvent/remember/headshot | 两个新观察/解析类，不改 TACZ/Killicon 源码；直接读取最终字段 |
+| 对决与只读载荷 | server/room/entry/MatchDuelStats.record；common/player/KillerCardInfo | 同名纯 Java 类；场次与 deathId 去重 |
+| 普通死亡手动门槛 | [ManualDeathDeployService](../../../gd656conquest/org/mods/gd656conquest/server/room/entry/ManualDeathDeployService.java)：begin 第 20 行、valid 第 30 行、request 第 52 行 | 同名新类，保留原 countdown map 所有权与现有延迟/双倍处罚 |
+| 两个真实移植方法 | [RoomPlayerRespawnService](../../../gd656conquest/org/mods/gd656conquest/server/room/runtime/RoomPlayerRespawnService.java)：onPlayerDeath 第 151 行、openManualDeathDeploy 第 172 行 | 原源码中实际实现，直接调用现有服务；不用编译占位或 ASM transplant |
+| 倒地快照/输入 | DownedDeployService.publish；DownedDeployModel；ClientDownedDeployState；ClientDownedState.requestReadyDeployment 第 311 行；downedDeployDelay 第 2283 行 | 三个新类 + 原倒地 tick/输入/发送的必要调用；原救援权威检查保留 |
+| 五列卡片/生命周期 | ClientKillerCardState，KillerCardModel/Layout；ClientManualDeathDeployState，ManualDeathDeployModel | 同名新类，原 render 委托、PREPARE/END/清理隐藏；使用已迁入 cardOpacity |
+| 原生聊天适配 | ClientRoomChatState、RoomChatLayout；KillerCardChatAccessor、RoomChatMixin/ScreenMixin/SuggestionsMixin | 六个新类/Mixin；四项 client 注册与当前 refmap |
+| 两个 S2C 快照 | KillerCardPacket、DownedDeployPacket；来源 DownedRagdollNetwork.register | 同名新包，独立 KillerCardNetwork 在所有已存在 ID 之后追加注册 |
+| 专用爆头图标 | assets/gd656conquest/textures/gui/killer_card/headshot.png | 原字节加入 src/main/resources，旧 assets/data 保留 |
+
+版本判断：完成独立 P3 剩余元数据/UI/输入消费链，定为 `0.0.7`。对应来源 `9d189a1`、`6cb882b` 的相关功能及最终修正；边界、载具处罚、补给/治疗、压制尚未迁入，不能称为最终 `.24` 完整等价。[一次性导入工具](../../tools/migrate_killer_card.py) 固定来源、转换 official 并拒绝覆盖新增文件。八个原类的调用/机制改动写在真实源码中。
+
+构建与验证（2026-10-11）：
+
+- 命令：`./build.ps1 -Offline`；Java 17.0.19、Gradle 8.8、Forge 47.4.18、official 1.20.1，复用工作区离线缓存。
+- 结果：`BUILD SUCCESSFUL in 42s`；22 个任务，18 执行、4 up-to-date；源码、资源、当前 refmap 和 reobfJar 均完成，32 个弃用提示，无 Mixin 未命中/描述符告警。
+- 主 JAR：`build/libs/gd656conquest-0.9.3-bf1-0.0.7.jar`，14,277,941 字节，保留前轮产物。
+- SHA-256：`04ef63e7d6a4603caa6c15985f9406509bd1cea6c674b946581b5ac4d6afd7e5`。
+- mod/manifest：`0.9.3-bf1-0.0.7`；追加两个明确 PLAY_TO_CLIENT 包，前序 ID 顺序保留；协议 `bf1-0.0.7`，客户端与服务端须一起更新。默认六项 bypass 均为 false。
+- [本轮验证入口](../../tools/verify-killer-card.ps1)：3433 项实际卡片原因/生命周期/对决/尺寸与聊天坐标/点按模型检查、18 项普通死亡等待/重试/聊天/输入模型、91 项真实数据包往返及非法字段拒绝，全部通过。多数布局断言来自尺寸组合，不是 3433 个独立游戏场景。
+- 9 项实际元数据扩展失败隔离及真实 Forge EventBus 注册/无关事件/反射失败检查；不提供伪造的 Minecraft 实体/世界接口。原始 TACZ 1.1.8 的 EntityHurtByGunEvent 实际 getHurtEntity/getBullet/isHeadShot API 已核对。
+- 实际 Mixin 引擎读取当前主 JAR/refmap 和 Forge SRG：CLIENT ChatComponent/ChatScreen/CommandSuggestions 三个目标成功，四个 Mixin 的渲染/宽度/行数/鼠标/输入/建议入口命中；SERVER 三个目标字节保持原样。
+- 2843 项当前/0.0.6 成品范围和静态调用审计通过：八个有意改动的原类之外，原生产 class 字节保留；其既有内嵌类只变动 source debug 行，剥离调试信息的实际指令/字段/注解一致。既有 assets/data 原字节保留。快照先于监听器、原因包先于卡片、手动门槛/双倍处罚/部署开启、倒地快照/输入与退出清理均有静态生产证据；不冒充完整游戏动态验收。
+- 前序镜头回归 224/97/24 项、CLIENT 5 / SERVER 1 个实际目标与 TACZ 缺席通过；死亡原因 155/35/15 项与两个实际 Forge 钩子通过；救援选择 5 场景、死亡协调器 61 项及真实 EventBus 4 场景通过。原死亡原因调用断言已更新为本轮有意替换的 ManualDeathDeployService.begin。
+- 当前产物世界滤镜回归通过：1908/2003 项时间线，CLIENT 3 目标与 SERVER 隔离；实际 GPU 331/109075 项像素/五段图/透明天空/缩放检查；2477 项成品范围。范围工具显式登记本轮业务接入，由独立本轮工具核对；原视觉算法和资源字节保持一致。
+- Gradle test 为 NO-SOURCE；未启动 Minecraft、专用服务器或多人联机。真正的玩家互杀/装备清理前快照、爆头事件时序、GUI 缩放与皮肤/聊天操作、手动部署全流程仍待实机验收。
+
+下一轮可迁入 P4 的统一出界、载具处罚和配置复制链。本轮与前轮改动均留在工作区，未自动提交。

@@ -44,7 +44,8 @@ public final class DeathCauseWiringCheck {
             call(current, "server.room.entry.RoomServerModule", "onLivingDeath", service, "resolveKiller");
             call(current, "server.room.entry.RoomServerModule", "onLivingDeath", service, "publish");
             call(current, "server.room.core.RoomCoreService", "handlePlayerFatalState", service, "consumeBoundaryDeath");
-            call(current, "server.room.runtime.RoomPlayerRespawnService", "onPlayerDeath", service, "legacyKillerEntityId");
+            // 0.0.7 deliberately replaces the legacy observation delay with manual deployment.
+            call(current, "server.room.runtime.RoomPlayerRespawnService", "onPlayerDeath", "server/room/entry/ManualDeathDeployService", "begin");
             call(current, "server.room.runtime.RoomPlayerRespawnService", "tryEnterDownedState", service, "skipDowned");
             call(current, "server.room.runtime.RoomPlayerStateService", "normalizePlayerModelState", service, "forget");
             call(current, "client.room.ClientDeathFlowState", "clear", "client/room/ClientDeathCauseState", "hide");

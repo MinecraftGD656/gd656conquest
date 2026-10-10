@@ -26,7 +26,8 @@ public final class RoomDeathEventDispatcher {
             return ForgeHooks.onLivingDeath(entity, source);
         }
         return RoomDeathCauseService.withFireOwnership(player, source,
-            () -> dispatchTrackedDeath(player, source));
+            () -> org.mods.gd656conquest.server.room.entry.KillerIntelService.withFatalSnapshot(player, source,
+                () -> dispatchTrackedDeath(player, source)));
     }
 
     private static boolean dispatchTrackedDeath(ServerPlayer player, DamageSource source) {

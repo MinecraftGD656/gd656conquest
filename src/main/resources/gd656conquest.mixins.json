@@ -21,6 +21,13 @@
     "server.ServerGamePacketListenerImplMixin"
   ],
   "client": [
+    "client.KillerCardChatAccessor",
+    "client.RoomChatMixin",
+    "client.RoomChatScreenMixin",
+    "client.RoomChatSuggestionsMixin",
+    "client.DeathWorldRenderMixin",
+    "client.DeathKillerOutlineMixin",
+    "client.DeathPostChainAccessor",
     "client.DownedCameraAccessor",
     "client.compat.tacz.RevivedProneInputMixin",
     "client.compat.tacz.RevivedProneReleaseMixin",

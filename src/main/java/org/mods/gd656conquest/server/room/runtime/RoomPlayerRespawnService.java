@@ -142,46 +142,40 @@ public final class RoomPlayerRespawnService {
         this.markerRuntimeService = Objects.requireNonNull(markerRuntimeService, "markerRuntimeService");
     }
 
-    public void onPlayerDeath(
-        RoomDefinition room,
-        RunningRuntimeState state,
-        UUID playerId,
-        RoomPosition deathPosition,
-        int killerEntityId,
-        long gameTick
-    ) {
+    public void onPlayerDeath(RoomDefinition room, RunningRuntimeState state, UUID playerId, RoomPosition deathPosition, int killerEntityId, long gameTick) {
         Objects.requireNonNull(room, "room");
         Objects.requireNonNull(state, "state");
-        if (playerId == null || deathPosition == null) {
-            return;
-        }
-        boolean deathmatch = isArenaGameplay(room);
-        int timingKillerId = org.mods.gd656conquest.server.room.entry.RoomDeathCauseService.legacyKillerEntityId(playerId, killerEntityId);
-        long countdownStartTick = deathmatch
-            ? gameTick
-            : gameTick + (timingKillerId >= 0
-                ? DEATH_WITH_KILLER_OPEN_DEPLOY_TICKS
-                : DEATH_NO_KILLER_OPEN_DEPLOY_TICKS);
+        if (playerId == null || deathPosition == null) return;
         HeroKitSupportService.endHeroKitState(server, state, playerId, gameTick);
-        state.markPlayerDead(playerId, deathPosition, countdownStartTick, killerEntityId);
+        state.markPlayerDead(playerId, deathPosition, Long.MAX_VALUE, killerEntityId);
+        org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.startDeath(server, state, playerId, deathPosition);
         notifyNearbyTeammatesManDown(state, playerId, deathPosition, killerEntityId, false);
         ServerPlayer player = server.getPlayerList().getPlayer(playerId);
         if (player != null) {
             prepareRespawnAnchor(room, state, player);
-            if (deathmatch) {
+            if (isArenaGameplay(room)) {
                 ServerPlayer killerPlayer = findPlayerByEntityId(killerEntityId);
                 if (killerPlayer != null && isEnemyCause(state, playerId, killerEntityId)) {
-                    showKillerActionbar(player, killerPlayer, "击杀者: ");
                     markDownedKiller(room, state, player, killerPlayer, gameTick);
                 }
-                beginDeathmatchRespawnHold(room, state, player, gameTick, resolveDeployDelayTicks(room, state, 1), false, true);
-                return;
             }
-            NetworkManager.sendToPlayer(
-                player,
-                RoomDeathFlowPacket.startDeath(deathPosition.x(), deathPosition.y(), deathPosition.z(), killerEntityId)
-            );
-            org.mods.gd656conquest.server.compat.ragdoll.DownedViewService.startDeath(server, state, playerId, deathPosition);
+            NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.startDeath(deathPosition.x(), deathPosition.y(), deathPosition.z(), killerEntityId));
+            org.mods.gd656conquest.server.room.entry.ManualDeathDeployService.begin(state, player, gameTick, resolveDeployDelayTicks(room, state, 1));
+        }
+    }
+
+    /** Open the existing view; preserve the remaining server delay and require a deployment selection. */
+    public void openManualDeathDeploy(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long gameTick, int delay) {
+        if (room == null || state == null || player == null) return;
+        enterDeployHoldingState(room, state, player, false);
+        openDeployView(room, state, player, new RoomGameplayDeployViewRequest(RoomGameplayDeployViewKind.RESPAWN, gameTick, Math.max(0, delay), false));
+        UUID id = player.getUUID();
+        if (state.getDeployViewActivePlayers().contains(id)) {
+            state.getDeployReadyTicks().put(id, gameTick + Math.max(0, delay));
+            state.getDeployAutoStartOnReadyPlayers().remove(id);
+            state.getDeployAllowFallbackOnMissingSelectionPlayers().remove(id);
+            state.getDeployExplicitConfirmRequiredPlayers().remove(id);
+            state.getRespawnCountdownLastShownSeconds().remove(id);
         }
     }
 
@@ -243,6 +237,7 @@ public final class RoomPlayerRespawnService {
         if (room == null || state == null || player == null || action == null || action.isBlank()) {
             return false;
         }
+        if (org.mods.gd656conquest.server.room.entry.ManualDeathDeployService.request(this, room, state, player, action, gameTick)) return true;
         String normalized = action.trim();
         if ("surrender".equalsIgnoreCase(normalized)) {
             if (!state.isPlayerDowned(player.getUUID())) {
@@ -600,6 +595,7 @@ public final class RoomPlayerRespawnService {
         Objects.requireNonNull(room, "room");
         Objects.requireNonNull(state, "state");
 
+        org.mods.gd656conquest.server.room.entry.ManualDeathDeployService.tick(state, server, gameTick);
         tickPendingDownedPlayers(room, state, gameTick);
         tickActiveRevives(room, state, gameTick);
         tickDownedPlayers(room, state, gameTick);
@@ -1182,6 +1178,11 @@ public final class RoomPlayerRespawnService {
         ));
     }
 
+    /** Presentation uses the exact same calculation as the original downed deployment transition. */
+    public int downedDeployDelay(RoomDefinition room, RunningRuntimeState state, UUID playerId, long gameTick) {
+        return resolveDeployDelayTicksFromDowned(room, state, playerId, gameTick);
+    }
+
     private int resolveDeployDelayTicksFromDowned(RoomDefinition room, RunningRuntimeState state, UUID playerId, long gameTick) {
         int deployDelayTicks = resolveDeployDelayTicks(room, state, 1);
         if (room == null || state == null || playerId == null || !room.commonConfig().enableRespawnCountdownWhileDowned()) {
@@ -1278,27 +1279,8 @@ public final class RoomPlayerRespawnService {
     }
 
     private void showKillerActionbar(ServerPlayer targetPlayer, ServerPlayer killerPlayer, String killerLabel) {
-        if (targetPlayer == null || killerPlayer == null) {
-            return;
-        }
-        String killerName = killerPlayer.getScoreboardName();
-        if (killerName == null || killerName.isBlank()) {
-            killerName = "未知玩家";
-        }
-        String weaponName = "同时死亡";
-        ItemStack heldStack = killerPlayer.getMainHandItem();
-        if (heldStack != null && !heldStack.isEmpty()) {
-            weaponName = resolveDownedKillerWeaponName(killerPlayer, heldStack);
-        }
-        ServerActionBarService.showBuilder(
-            targetPlayer,
-            ACTIONBAR_SOURCE_DOWNED_KILLER_INFO,
-            ServerActionBarService.builder()
-                .labelValue(killerLabel, killerName, ChatFormatting.RED, ChatFormatting.GOLD)
-                .separator()
-                .labelValue("武器: ", weaponName, ChatFormatting.AQUA, ChatFormatting.WHITE),
-            DOWNED_KILLER_INFO_TICKS
-        );
+        // Victim-only immutable card replaces the old later-held-weapon subtitle.
+        if (targetPlayer != null) ServerActionBarService.clearSource(targetPlayer, ACTIONBAR_SOURCE_DOWNED_KILLER_INFO);
     }
 
     private String resolveDownedKillerWeaponName(ServerPlayer killerPlayer, ItemStack heldStack) {
@@ -1512,6 +1494,7 @@ public final class RoomPlayerRespawnService {
                 buildNearbyRescuerEntries(state, player)
             )
         );
+        org.mods.gd656conquest.server.room.entry.DownedDeployService.publish(this, player, state, (int) Math.max(0L, remainTicks));
     }
 
     private void sendDownedUpdate(ServerPlayer player, RunningRuntimeState state, int remainTicks) {
@@ -1522,6 +1505,7 @@ public final class RoomPlayerRespawnService {
             player,
             RoomDownedStatePacket.update(remainTicks, buildNearbyRescuerEntries(state, player))
         );
+        org.mods.gd656conquest.server.room.entry.DownedDeployService.publish(this, player, state, Math.max(0, remainTicks));
     }
 
     private void broadcastPlayerAnimatorState(RunningRuntimeState state, UUID playerId, int durationMs, boolean active) {
@@ -1675,15 +1659,8 @@ public final class RoomPlayerRespawnService {
     }
 
     private void showBeingRevived(ServerPlayer target, ServerPlayer reviver) {
-        if (target == null || reviver == null) {
-            return;
-        }
-        ServerActionBarService.showComponent(
-            target,
-            ACTIONBAR_SOURCE_DOWNED_BEING_RESCUED,
-            ServerActionBarService.Templates.subjectAction("正在被 ", ChatFormatting.GRAY, reviver.getScoreboardName(), ChatFormatting.RED, " 救援", ChatFormatting.GRAY),
-            6
-        );
+        // The existing being_revived lock drives the footer's rescue status.
+        if (target != null) ServerActionBarService.clearSource(target, ACTIONBAR_SOURCE_DOWNED_BEING_RESCUED);
     }
 
     private void clearRevivePresentation(ServerPlayer reviver, ServerPlayer target) {
@@ -2277,15 +2254,8 @@ public final class RoomPlayerRespawnService {
     }
 
     private void showDownedCountdown(ServerPlayer player, int remainSeconds) {
-        if (player == null || remainSeconds <= 0) {
-            return;
-        }
-        ServerActionBarService.showText(
-            player,
-            ACTIONBAR_SOURCE_DOWNED,
-            "§4你将在 §c" + remainSeconds + " §4秒后彻底死亡",
-            30
-        );
+        // The footer owns the bleedout/deployment timers.
+        if (player != null) ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DOWNED);
     }
 
     private String resolveCountdownColor(int remainSeconds) {
