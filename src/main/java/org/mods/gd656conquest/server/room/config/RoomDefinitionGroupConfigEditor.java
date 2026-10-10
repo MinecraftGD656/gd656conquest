@@ -239,7 +239,8 @@ public final class RoomDefinitionGroupConfigEditor {
             common.flightVehicleOutsideBoundaryDeathSeconds(),
             common.flightBoundaryPaddingBlocks(),
             common.allowEnemySupportResupply(),
-            common.medicalBoxDamageCooldownSeconds()
+            common.medicalBoxDamageCooldownSeconds(),
+            common.naturalRegenConfig()
         );
         return new RoomDefinition(
             definition.roomId(),

@@ -285,7 +285,8 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().flightVehicleOutsideBoundaryDeathSeconds(),
             base.commonConfig().flightBoundaryPaddingBlocks(),
             base.commonConfig().allowEnemySupportResupply(),
-            base.commonConfig().medicalBoxDamageCooldownSeconds()
+            base.commonConfig().medicalBoxDamageCooldownSeconds(),
+            base.commonConfig().naturalRegenConfig()
         );
         org.mods.gd656conquest.server.room.model.IRoomGameplayConfig gameplayConfig;
         if (base.gameplayConfig() instanceof RoomConquestConfig conquest) {

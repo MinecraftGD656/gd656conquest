@@ -56,6 +56,7 @@ public final class SupportRuntimeFixtureTest {
         public Player(Server server){f_8924_=server;level=server.level;server.players.put(id,this);server.state.teams.put(id,RoomTeamId.CAMP_A);level.entities.put(id,this);}
         public Inventory m_150109_(){return inventory;}public boolean m_5833_(){return spectator;}public Abilities m_150110_(){return abilities;}
         public float m_21223_(){return health;}public float m_21233_(){return maximum;}public void m_5634_(float amount){if(acceptHeal)health=Math.min(maximum,health+amount);}
+        public boolean m_36325_(){return health<maximum;}
         public Level m_284548_(){return level;}
         public void m_6330_(Sound sound,SoundSource source,float volume,float pitch){cues.add(sound.id.toString());}
         public Stack m_21120_(InteractionHand hand){return inventory.m_8020_(inventory.f_35977_);}public Stack m_21205_(){return m_21120_(InteractionHand.MAIN_HAND);}
@@ -91,6 +92,13 @@ public final class SupportRuntimeFixtureTest {
     public static class Room {public String id="room";public RoomLifecycleState lifecycle=RoomLifecycleState.RUNNING;public RoomGameplayId gameplay=RoomGameplayId.CONQUEST;public RoomCommonConfig config=RoomCommonConfig.defaults();
         public String roomId(){return id;}public RoomCommonConfig commonConfig(){return config;}public RoomLifecycleState lifecycleState(){return lifecycle;}public RoomGameplayId gameplayId(){return gameplay;}}
     public static class Manager {public final Server s;public Manager(Server s){this.s=s;}public static Manager of(Server s){return new Manager(s);}public Optional<String> findPlayerRoomId(UUID id){return s.bound?Optional.of(s.room.id):Optional.empty();}public Optional<Room> findRoom(String id){return Optional.of(s.room);}public Optional<State> findRunningState(String id){return Optional.of(s.state);}public boolean isPlayerDowned(UUID id){return s.state.downed;}}
+    public static class Data {
+        public static final Map<Server,org.mods.gd656conquest.server.data.serverconfig.ServerConfigStore> stores=new IdentityHashMap<>();
+        public final Server server;public Data(Server server){this.server=server;}public static Data of(Server server){return new Data(server);}
+        public org.mods.gd656conquest.server.data.serverconfig.ServerConfigStore serverConfig(){
+            return stores.computeIfAbsent(server,s->{try{return NaturalRegenConfigTest.store(new org.mods.gd656conquest.server.data.serverconfig.ServerConfigDataModel());}catch(Exception e){throw new RuntimeException(e);}});
+        }
+    }
     public static class Loadout {public Loadout(Server s){}public Map<CustomLoadoutSlot,Resolved> resolveConfiguredLoadoutItems(Player p){return p.configured;}public boolean isAmmoManagedGunItem(Stack stack){return stack.gun;}}
     public static class Grant {
         public final Server server;public Grant(Server server){this.server=server;}
@@ -117,12 +125,17 @@ public final class SupportRuntimeFixtureTest {
         for(var e:Map.ofEntries(Map.entry("server/room/entry/RoomCoreRuntimeManager",Manager.class),Map.entry("server/room/model/RoomDefinition",Room.class),Map.entry("server/room/core/RunningRuntimeState",State.class),Map.entry("server/room/runtime/RoomPlayerLoadoutService",Loadout.class),Map.entry("server/room/runtime/RoomPlayerLoadoutService$ResolvedLoadoutItem",Resolved.class),Map.entry("server/room/runtime/RoomLoadoutGrantService$TaczAmmoMeta",Meta.class),Map.entry("server/data/equipment/EquipmentDataModel$EquipmentEntry",Entry.class),Map.entry("server/compat/superbwarfare/SuperbWarfareCompatBridge",AmmoReserveFixtureTest.Bridge.class),Map.entry("common/item/ConquestItems",AmmoReserveFixtureTest.Items.class),Map.entry("common/entity/AmmoBoxEntity",AmmoBox.class),Map.entry("common/entity/MedicalBoxEntity",MedicalBox.class),Map.entry("server/facility/support/HeroKitSupportService",Hero.class),Map.entry("server/compat/frontlinevoice/FrontlineVoiceBridge",Voice.class),Map.entry("server/integration/KilliconScoreboardBridge",Score.class),Map.entry("server/room/runtime/RoomDeathSupportDropService",Death.class)).entrySet())m.put(BASE+e.getKey(),Type.getInternalName(e.getValue()));
         m.put(BASE+"server/room/runtime/RoomLoadoutGrantService",RUN+"Grant");m.put(Type.getInternalName(Grant.class),RUN+"Grant");return m;
     }
+    static void addRegen(AmmoReserveFixtureTest.Loader loader,Map<String,String> map)throws Exception {
+        map.put(BASE+"server/data/ConquestDataManager",Type.getInternalName(Data.class));
+        for(String name:List.of("NaturalRegenService","PassiveRegenService"))map.put(BASE+"server/player/regen/"+name,RUN+name);
+        for(String name:List.of("NaturalRegenService","PassiveRegenService"))AmmoReserveFixtureTest.add(loader,AmmoReserveFixtureTest.read(BASE+"server/player/regen/"+name),map);
+    }
     static ItemEntity bag(Server s,String type,int count){return new ItemEntity(s.level,0,0,0,new Stack(type,count,64));}
     static void configure(Player p,CustomLoadoutSlot slot,Stack stack,int cap){Entry entry=new Entry();entry.configured=cap;int hotbar=slot.getIndex()-1;p.inventory.m_6836_(hotbar,stack);p.configured.put(slot,new Resolved(slot,hotbar,entry,stack.m_41777_()));}
     static int reserve(Player p){return p.inventory.f_35974_.stream().filter(s->s.item.id.equals("ammo:test:light")).mapToInt(s->s.count).sum();}
     public static void main(String[] args)throws Exception {
         var loader=new AmmoReserveFixtureTest.Loader();var map=mappings();
-        map.put(BASE+"server/player/regen/PassiveRegenService",RUN+"PassiveRegenService");
+        addRegen(loader,map);
         for(String name:new ArrayList<>(map.keySet()))if(name.startsWith(BASE+"server/support/"))AmmoReserveFixtureTest.add(loader,AmmoReserveFixtureTest.read(name),map);
         AmmoReserveFixtureTest.add(loader,AmmoReserveFixtureTest.read(BASE+"server/player/regen/PassiveRegenService"),map);
         var adapter=AmmoReserveFixtureTest.read(Type.getInternalName(Grant.class));adapter.methods.removeIf(m->m.name.equals("addTaczAmmoToPreferredSlots"));adapter.methods.add(AmmoReserveFixtureTest.read(BASE+"server/room/runtime/RoomLoadoutGrantService").methods.stream().filter(m->m.name.equals("addTaczAmmoToPreferredSlots")).findFirst().orElseThrow());AmmoReserveFixtureTest.add(loader,adapter,map);
@@ -187,6 +200,7 @@ public final class SupportRuntimeFixtureTest {
         p.abilities.f_35937_=false;server.level.spawn=false;server.now=930;int before=p.inventory.m_8020_(0).count;
         runtime.getMethod("useBag",Level.class,Player.class,InteractionHand.class).invoke(null,server.level,p,InteractionHand.MAIN_HAND);
         check(p.inventory.m_8020_(0).count==before,"failed world insertion does not consume thrown bag");server.level.spawn=true;
+        server.room.config=new com.google.gson.Gson().fromJson("{\"naturalRegenConfig\":{\"startDelaySeconds\":0,\"intervalTicks\":1,\"healAmount\":2}}",RoomCommonConfig.class);
         Class<?> passive=loader.loadClass("tests.supply.PassiveRegenService");p.health=10;p.acceptHeal=false;cues=p.cues.size();
         passive.getMethod("markPlayerDamaged",Player.class,long.class).invoke(null,p,990L);
         passive.getMethod("onPlayerTick",Player.class,long.class,int.class,int.class).invoke(null,p,1000L,0,1);

@@ -196,7 +196,7 @@ public final class RoomDefinitionScalarConfigEditor {
         if ("fullcaptureendseconds".equals(configId)) {
             return parseNonNegativeOrDisable(rawValue);
         }
-        if (requiresPositiveInt(configId)) {
+        if ("passiveregenintervalticks".equals(configId) || requiresPositiveInt(configId)) {
             return parsePositiveInt(rawValue);
         }
         return parseNonNegativeInt(rawValue);

@@ -156,6 +156,12 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "aircraftOutsideBoundaryCleanupSeconds", "地面载具出界死亡秒数", "commonConfig.aircraftOutsideBoundaryCleanupSeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "flightVehicleOutsideBoundaryDeathSeconds", "飞行载具出界死亡秒数", "commonConfig.flightVehicleOutsideBoundaryDeathSeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "allowEnemySupportResupply", "可通过敌方箱包回复", "commonConfig.allowEnemySupportResupply", RoomConfigValueType.BOOLEAN, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "naturalRegenMode", "自然回血配置来源", "commonConfig.naturalRegenConfig.mode", RoomConfigValueType.STRING, List.of("全局", "房间"));
+        common(descriptors, RoomConfigCategory.RULES, "roomPassiveRegenEnabled", "房间被动自然回血开关", "commonConfig.naturalRegenConfig.passiveEnabled", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
+        common(descriptors, RoomConfigCategory.RULES, "roomVanillaRegenEnabled", "房间原版饱食度回血开关", "commonConfig.naturalRegenConfig.vanillaEnabled", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
+        common(descriptors, RoomConfigCategory.RULES, "passiveRegenStartDelaySeconds", "自然回血受伤后等待秒数", "commonConfig.naturalRegenConfig.startDelaySeconds", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "passiveRegenIntervalTicks", "自然回血间隔tick", "commonConfig.naturalRegenConfig.intervalTicks", RoomConfigValueType.NUMBER, List.of());
+        common(descriptors, RoomConfigCategory.RULES, "passiveRegenHealAmount", "自然回血单次回复HP", "commonConfig.naturalRegenConfig.healAmount", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "medicalBoxDamageCooldownSeconds", "医疗箱受伤后回复冷却秒数", "commonConfig.medicalBoxDamageCooldownSeconds", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "flightBoundaryPaddingBlocks", "飞行载具边界缓冲距离", "commonConfig.flightBoundaryPaddingBlocks", RoomConfigValueType.NUMBER, List.of());
         common(descriptors, RoomConfigCategory.RULES, "playerMaxY", "玩家最大Y轴", "commonConfig.playerMaxY", RoomConfigValueType.NUMBER, List.of());

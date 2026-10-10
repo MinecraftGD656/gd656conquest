@@ -35,10 +35,10 @@ Minecraft 1.20.1 / Forge 47.4.18 / official 1.20.1 映射。
 
 ## 输出
 
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.10.jar`：本轮迁移的默认完整模组，网络协议为 `bf1-0.0.8`，六项客户端 bypass 开关均为 false。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.10-bypass.jar`：原工程已有的客户端绕过配置变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.10-nores.jar`：原工程已有的无 assets 变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.10-resources.zip`：原工程已有的 assets 资源包。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.11.jar`：本轮迁移的默认完整模组，网络协议为 `bf1-0.0.8`，六项客户端 bypass 开关均为 false。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.11-bypass.jar`：原工程已有的客户端绕过配置变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.11-nores.jar`：原工程已有的无 assets 变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.11-resources.zip`：原工程已有的 assets 资源包。
 
 JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装选择没有变体后缀的主 JAR。
 构建日志保存在 `.build-logs/build.log`。
@@ -184,6 +184,26 @@ GPU 检查编译当前产物 GLSL 并读回像素；压制 uniform 值本轮固�
 本轮版本 `0.0.10`，数据包与协议保持 `bf1-0.0.8`，两端安装当前 JAR 可获得完整本轮表现。
 压制及新的全局/房间自然回血参数留待 P6；当前自然回血量/等待/间隔保留原规则，仅接入治疗期间暂停、
 成功后私人起始音效和状态清理。
+
+第十一轮全局/房间自然回血验证（当前入口）：
+
+```powershell
+.\tools\verify-natural-regen.ps1 -JavaHome $env:JAVA_HOME
+```
+
+保留 `build/libs/gd656conquest-0.9.3-bf1-0.0.10.jar` 作为成品范围对照。
+脚本读取当前主 JAR、当前 Forge SRG 和本工程依赖导出，验证配置来源、旧“禁用”转换、
+缺省与明确保存值、六项房间配置编辑、全局新键及仓库/模板/分组复制。
+成品字节码夹具执行实际配置解析服务、被动回血时间线和饱食度回血 Mixin 处理方法；
+真实 Mixin 引擎在 CLIENT/SERVER 两侧检查 FoodData 的两处回血判断和一处游戏规则读取。
+回归 0.0.9/0.0.10 的发弹、储备、箱包运行时及私人音效，并保护其他生产方法、资源、网络和原 refmap。
+本轮版本 `0.0.11`，协议保持 `bf1-0.0.8`；尚未启动 Minecraft/联机。
+原有分阶段范围脚本按对应版本审核；当前版本使用此入口。
+
+缺失配置使用房间来源、被动回血开启、饱食度回血关闭、等待 6 秒、间隔 10 tick、单次 0.5 HP。
+明确保存的旧全局等待/间隔及饱食度开关保留。新增全局 `boolPassiveRegeneration` 和 `passiveRegenHealAmount`。
+房间外被动回血使用全局设置，饱食度回血保留所在世界的原游戏规则。
+共享医疗暂停判定已用于两种自然回血；TACZ 火力压制、退出冷却与世界暗角留待下一阶段。
 
 ## 本次环境修复
 

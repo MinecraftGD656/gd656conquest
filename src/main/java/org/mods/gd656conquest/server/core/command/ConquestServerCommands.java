@@ -69,7 +69,7 @@ public final class ConquestServerCommands {
     private static final int PLAYER_ANIMATOR_PREVIEW_DURATION_MS = 10_000;
     private static final long HUB_MIGRATION_CONFIRM_WINDOW_MS = 5_000L;
     private static final Map<String, Long> HUB_MIGRATION_CONFIRMATIONS = new ConcurrentHashMap<>();
-    private static final List<String> SERVER_CONFIG_KEYS = List.of(
+    private static final List<String> SERVER_CONFIG_KEYS = NaturalRegenCommands.keys(List.of(
         "boolOverworldInvulnerable",
         "boolRestrictConquestDimension",
         "boolNaturalRegeneration",
@@ -92,7 +92,7 @@ public final class ConquestServerCommands {
         "parkourBestTitleId",
         "enablePackValidation",
         "missileKillRadius"
-    );
+    ));
 
     private ConquestServerCommands() {
     }
@@ -494,16 +494,21 @@ public final class ConquestServerCommands {
         CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourCompletionTitleId=" + store.getParkourCompletionTitleId(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourBestTitleId=" + store.getParkourBestTitleId(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("enablePackValidation=" + store.isPackValidationEnabled(), net.minecraft.ChatFormatting.AQUA));
+        NaturalRegenCommands.showAdded(context);
         return 1;
     }
 
     private static int executeConfigGetSingle(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        Integer regenResult = NaturalRegenCommands.get(context);
+        if (regenResult != null) return regenResult;
         String configId = StringArgumentType.getString(context, "configId");
         String normalized = normalizeServerConfigId(configId);
         return CommandFeedbacks.info(context.getSource(), normalized + "=" + readConfigValue(ConquestDataManager.of(context.getSource().getServer()).serverConfig(), normalized));
     }
 
     private static int executeConfigSet(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        Integer regenResult = NaturalRegenCommands.set(context);
+        if (regenResult != null) return regenResult;
         String configId = normalizeServerConfigId(StringArgumentType.getString(context, "configId"));
         String rawValue = StringArgumentType.getString(context, "value").trim();
         ServerConfigStore store = ConquestDataManager.of(context.getSource().getServer()).serverConfig();
@@ -547,6 +552,8 @@ public final class ConquestServerCommands {
     }
 
     private static CompletableFuture<Suggestions> suggestServerConfigValues(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        var regenSuggestions = NaturalRegenCommands.suggest(context, builder);
+        if (regenSuggestions != null) return regenSuggestions;
         String configId = StringArgumentType.getString(context, "configId");
         String normalized = normalizeServerConfigIdSafe(configId);
         if (normalized == null) {
@@ -594,6 +601,8 @@ public final class ConquestServerCommands {
     }
 
     private static String normalizeServerConfigIdSafe(String raw) {
+        String regenId = NaturalRegenCommands.normalize(raw);
+        if (regenId != null) return regenId;
         if (raw == null) {
             return null;
         }
@@ -625,6 +634,8 @@ public final class ConquestServerCommands {
     }
 
     private static String readConfigValue(ServerConfigStore store, String configId) {
+        String regenValue = NaturalRegenCommands.read(store, configId);
+        if (regenValue != null) return regenValue;
         ServerConfigDataModel config = store.get();
         return switch (configId) {
             case "boolOverworldInvulnerable" -> String.valueOf(store.isOverworldInvulnerableEnabled());

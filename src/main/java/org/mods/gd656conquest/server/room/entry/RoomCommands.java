@@ -1343,7 +1343,8 @@ public final class RoomCommands {
             common.flightVehicleOutsideBoundaryDeathSeconds(),
             common.flightBoundaryPaddingBlocks(),
             common.allowEnemySupportResupply(),
-            common.medicalBoxDamageCooldownSeconds()
+            common.medicalBoxDamageCooldownSeconds(),
+            common.naturalRegenConfig()
         );
 
         RoomDefinition updated = new RoomDefinition(

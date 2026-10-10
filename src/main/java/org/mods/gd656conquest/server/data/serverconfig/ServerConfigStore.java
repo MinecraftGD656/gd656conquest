@@ -53,11 +53,19 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
     }
 
     public synchronized int getPassiveRegenIntervalTicks() {
-        return Math.max(1, get().getPassiveRegenIntervalTicks() == null ? 3 : get().getPassiveRegenIntervalTicks());
+        return Math.max(1, get().getPassiveRegenIntervalTicks() == null ? 10 : get().getPassiveRegenIntervalTicks());
     }
 
     public synchronized int getPassiveRegenStartDelaySeconds() {
         return Math.max(0, get().getPassiveRegenStartDelaySeconds() == null ? 6 : get().getPassiveRegenStartDelaySeconds());
+    }
+
+    public synchronized boolean isPassiveRegenerationEnabled() {
+        return !Boolean.FALSE.equals(get().getBoolPassiveRegeneration());
+    }
+
+    public synchronized double getPassiveRegenHealAmount() {
+        return org.mods.gd656conquest.server.room.model.RoomNaturalRegenConfig.amount(get().getPassiveRegenHealAmount());
     }
 
     public synchronized double getMaxScopePistol() {
@@ -152,6 +160,8 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
     }
 
     private void normalize(ServerConfigDataModel model) {
+        if (model.getBoolPassiveRegeneration() == null) model.setBoolPassiveRegeneration(true);
+        model.setPassiveRegenHealAmount(org.mods.gd656conquest.server.room.model.RoomNaturalRegenConfig.amount(model.getPassiveRegenHealAmount()));
         if (model.getBoolOverworldInvulnerable() == null) {
             model.setBoolOverworldInvulnerable(true);
         }
@@ -162,7 +172,7 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
             model.setBoolNaturalRegeneration(false);
         }
         if (model.getPassiveRegenIntervalTicks() == null || model.getPassiveRegenIntervalTicks() <= 0) {
-            model.setPassiveRegenIntervalTicks(3);
+            model.setPassiveRegenIntervalTicks(10);
         }
         if (model.getPassiveRegenStartDelaySeconds() == null || model.getPassiveRegenStartDelaySeconds() < 0) {
             model.setPassiveRegenStartDelaySeconds(6);

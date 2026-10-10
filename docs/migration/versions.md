@@ -24,6 +24,7 @@
 | `0.0.8` | P4 出界核心：统一玩家截止 tick、飞行缓冲、原生载具爆炸乘员快照、对应配置复制与警告 UI | `1e2a975` 出界重构，`07f0824` 载具修正；按最终来源 `955b76d` 核对，仅迁入边界部分 | 2026-10-11，离线 build 成功 |
 | `0.0.9` | P5-A：两轮部署发弹、实际储备 NBT 上限、同弹池合并和现有箱包入口的限额补给 | `9556c5a` 储备目标、`770bbe4` 两轮发弹/实际上限；按最终来源 `955b76d` 核对，箱包完整运行时留到后续 | 2026-10-11，离线 build 成功 |
 | `0.0.10` | P5-B：箱包投放/拾取权限、受赠者光环进度、直接 HP 医疗、包库存恢复与成功私人音效 | `9556c5a` 箱包运行时，`770bbe4` 补给成功音效，`955b76d` 医疗音效与最终修正；压制/自然回血参数留到 P6 | 2026-10-11，离线 build 成功 |
+| `0.0.11` | P6-A：全局/房间自然回血、独立被动/饱食度开关、旧禁用转换、全局新键及第五共享配置复制 | `9556c5a` 的回血/命令/原生饱食度策略，`955b76d` 的最终默认值；固定来源 `955b76d` | 2026-10-11，离线 build 成功 |
 
 ## 0.0.1：明确救援目标
 
@@ -435,3 +436,45 @@ Gradle test 为 NO-SOURCE。夹具隔离引擎/原生枪械元数据，不等于
 夹具保留实际产物规则方法，但隔离游戏引擎、背包/房间、枪械元数据、音效发送和奖励运输；不等于实际实体/原生枪械/多人游戏验收。
 未启动 Minecraft 或专用服务器/联机；实机需检查投包、死亡奖励权、存档加载、GUI 丢弃、长音频与第三方声音/治疗事件交互。
 下一轮进入 P6 的真实火力压制、世界暗角与全局/房间自然回血参数和剩余两配置复制链。本轮未自动提交。
+
+
+## 0.0.11：全局/房间自然回血与饱食度策略
+
+从用户提交的 `e80aa2b`（0.0.10）继续，来源固定为干净的
+`955b76d8adc264703eb49141bdb99b06e84cba46`。本轮完成 P6-A，定为 **0.0.11**。
+`9556c5a` 引入自然回血配置、解析服务、全局新键和饱食度 Mixin，`955b76d` 修正房间/全局最终默认值。
+本轮不等价于完整 P6 或来源最终 `.24`；压制强度/退出计时/弹道/网络/暗角仍未迁入。
+
+| 功能 | 反编译来源对应 | 本轮实现/适配 |
+| --- | --- | --- |
+| 全局/房间来源与旧禁用迁移 | [RoomNaturalRegenConfig](../../../gd656conquest/org/mods/gd656conquest/server/room/model/RoomNaturalRegenConfig.java)，构造器、normalizeMode、resolve | 新 record；旧禁用变为房间来源及两个开关 false，保留等待/间隔/回复量；缺失采用房间/true/false/6秒/10tick/0.5HP，0 回复量保留，无效量回退、过大量上限 1024 |
+| 当前玩家策略解析 | [NaturalRegenService](../../../gd656conquest/org/mods/gd656conquest/server/player/regen/NaturalRegenService.java)，room/settings/enabled/startDelay/interval/amount/vanillaAllowed | 新类转换 official；房间来源覆盖全局，房间外被动回血读取全局；房间外饱食度回血保留原世界游戏规则 |
+| 全局模型与持久化 | 来源 ServerConfigDataModel/ServerConfigStore 的新字段、访问器、normalize | 原类必要扩展 boolPassiveRegeneration、passiveRegenHealAmount；缺失 true/0.5，间隔缺省 10；明确保存的旧等待、间隔、开关保留，存储规范化和读取使用同一回复量规则 |
+| 被动回血实际机制 | 来源旧构建 [BuildRagdollJar](../../../build-project/tools/BuildRagdollJar.java) 的 support.passiveRegen/regen.amount 接入；实际 PassiveRegenService | 原 onPlayerTick 读取独立解析服务，保留原损伤/回血/起始音效计时和 reset；保留 0.0.10 的 heal 前后实际 HP 判断及私人声音；沿用真实箱包治疗暂停 |
+| 原版饱食度回血 | [SuppressedFoodRegenMixin](../../../gd656conquest/org/mods/gd656conquest/mixin/server/SuppressedFoodRegenMixin.java)，gd656$canHeal/gd656$roomFoodRule | 迁为 NaturalFoodRegenMixin；FoodData.tick 的两处 isHurt 与一处 GameRules.getBoolean 转换 official/APT/refmap；按房间独立开关选择，两种自然回血共用当前实际医疗暂停判定；后续扩展共享判定即可接入压制，不注册第二套同位置 Mixin |
+| 全局配置命令 | [NaturalRegenCommands](../../../gd656conquest/org/mods/gd656conquest/server/core/command/NaturalRegenCommands.java)，keys/normalize/read/get/set/suggest/showAdded；旧 BuildRagdollJar 的 commandHooks | 新类提供两键/别名/读写/补全；原 ConquestServerCommands 只接入七处调用，未知键继续原路径；开关严格 true/false，回复量有限 0–1024 HP |
+| 房间编辑/复制 | 来源 RoomCommonConfig.naturalRegenConfig 与 RoomConfigDescriptorRegistry 的六项路径 | canonical 增至 54 参数，保留 49/51/53 参数 API；六个设置可通过原编辑器修改/删除；等待非负整数、间隔正整数、回复量有限 0–1024；四处仓库/分组/模板/武器白名单实际构造携带所有五个已迁入扩展字段 |
+
+四个新业务类/Mixin，12 个已有 Java 文件作机制及配置接入，新增逻辑优先放入独立类。
+[一次性导入/接入工具](../../tools/migrate_natural_regen.py) 绑定 `e80aa2b` 与固定来源，拒绝覆盖新类；
+实际成品通过原 ForgeGradle 源码构建，未使用 ASM 成品补丁。测试夹具使用 ASM 隔离引擎，不进入业务构建。
+相较来源编辑器，本轮在写入前拒绝 0 tick 间隔和超过 1024 HP 的回复量，避免构造器静默修正输入。
+P5 箱包/音效及所有前序网络、资源、压制预留边界均保留。
+
+构建与验证（2026-10-11）：
+
+- 命令：`./build.ps1 -Offline`；Java 17.0.19、Gradle 8.8、ForgeGradle 6.0.54、Minecraft 1.20.1 / Forge 47.4.18，official/APT/refmap/reobfJar。
+- **BUILD SUCCESSFUL in 1m 10s**；22 个任务，18 执行、4 up-to-date；Gradle test 为 NO-SOURCE。
+- 主产物：[gd656conquest-0.9.3-bf1-0.0.11.jar](../../build/libs/gd656conquest-0.9.3-bf1-0.0.11.jar)，**14,370,196 字节**。
+- SHA-256：`3bc5df6c319dc35afe794578df99437a4ffba58517a4409b08a7addb80a08ec7`。
+- mods.toml/manifest：`0.9.3-bf1-0.0.11`；网络注册/格式/协议保持 `bf1-0.0.8`，六项普通 bypass 为 false。
+- [当前验证入口](../../tools/verify-natural-regen.ps1)，保留 0.0.10 主 JAR：**52** 项实际 Gson/旧禁用/默认值/全局存储规范化/配置编辑/仓库模板分组复制/命令；**158** 项实际成品解析服务、被动回血精确计时、两个开关、房间外策略及原版回血处理方法的夹具检查。
+- 实际 Mixin 引擎对当前真实 Forge FoodData 在 CLIENT/SERVER 各 **5** 项检查通过；快/慢饱食度回血均接管、房间游戏规则正确替换、实际共享治疗判定和解析服务安装；旧丢弃/声音 Mixin 两侧各 **3** 项回归通过。
+- **5583** 项 0.0.10 → 0.0.11 成品范围/调用/构造 API/四处配置复制/refmap/包内容检查：预期方法外原代码保留，其余 class/资源/网络原字节一致；完整旧 Mixin 序列及 refmap 键值保留，只追加一个 FoodData 目标；无测试/运输/背包适配器或第三方 class，Java 17 major 61。
+- P5 回归：发弹/NBT **473**、实际储备事务 **33**、规则/配置 **100**、实际箱包运行时 **45**、真实声音事件/通道 **69** 项通过。来源保持干净，ZIP 完整与成品哈希核对通过。
+
+夹具执行实际生产字节码，但隔离世界/玩家/房间/运输；全局存储采用真实模型与规范化方法，
+未执行磁盘延迟写入、Minecraft 启动、专用服务器或联机。实机应检查旧配置加载/保存/重载、
+配置命令完整对话、房间进出、两种回血开关及与原医疗流程的交互。
+下一阶段 P6-B：真实 TACZ 火力压制、完整退出冷却、世界软暗角与最后一个共享配置复制。
+本轮未自动提交。

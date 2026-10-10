@@ -7,8 +7,10 @@ public final class ServerConfigDataModel {
     private Boolean boolOverworldInvulnerable = true;
     private Boolean boolRestrictConquestDimension = true;
     private Boolean boolNaturalRegeneration = false;
-    private Integer passiveRegenIntervalTicks = 3;
+    private Integer passiveRegenIntervalTicks = 10;
     private Integer passiveRegenStartDelaySeconds = 6;
+    private Boolean boolPassiveRegeneration = true;
+    private Double passiveRegenHealAmount = 0.5D;
     private Double maxScopePistol = 2.0;
     private Double maxScopeSniper = 12.0;
     private Double maxScopeRifle = 6.0;
@@ -66,6 +68,12 @@ public final class ServerConfigDataModel {
     public void setPassiveRegenStartDelaySeconds(Integer passiveRegenStartDelaySeconds) {
         this.passiveRegenStartDelaySeconds = passiveRegenStartDelaySeconds;
     }
+
+
+    public Boolean getBoolPassiveRegeneration() { return boolPassiveRegeneration; }
+    public void setBoolPassiveRegeneration(Boolean value) { boolPassiveRegeneration = value; }
+    public Double getPassiveRegenHealAmount() { return passiveRegenHealAmount; }
+    public void setPassiveRegenHealAmount(Double value) { passiveRegenHealAmount = value; }
 
     public Double getMaxScopePistol() {
         return maxScopePistol;

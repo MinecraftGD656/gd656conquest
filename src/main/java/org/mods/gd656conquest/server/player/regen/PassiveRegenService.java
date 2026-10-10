@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.UUID;
 
 public final class PassiveRegenService {
-    private static final float HEAL_AMOUNT = 2.0F;
     private static final ResourceLocation PLAYER_HEAL_SOUND_ID = ResourceLocation.fromNamespaceAndPath("gd656conquest", "sfx.player_heal");
 
     private static final Map<UUID, Long> LAST_DAMAGE_TICK_BY_PLAYER = new HashMap<>();
@@ -31,7 +30,9 @@ public final class PassiveRegenService {
     }
 
     public static void onPlayerTick(ServerPlayer player, long gameTick, int startDelaySeconds, int healIntervalTicks) {
-        if (org.mods.gd656conquest.server.support.SupportRuntime.pausePassive(player)) return;
+        if (!NaturalRegenService.enabled(player) || org.mods.gd656conquest.server.support.SupportRuntime.pausePassive(player)) return;
+        startDelaySeconds = NaturalRegenService.startDelay(player, startDelaySeconds);
+        healIntervalTicks = NaturalRegenService.interval(player, healIntervalTicks);
         if (player == null || gameTick < 0L || !player.isAlive() || player.isSpectator()) {
             return;
         }
@@ -51,7 +52,7 @@ public final class PassiveRegenService {
             return;
         }
         float healthBefore = player.getHealth();
-        player.heal(HEAL_AMOUNT);
+        player.heal(NaturalRegenService.amount(player));
         if (player.getHealth() <= healthBefore) {
             return;
         }

@@ -19,6 +19,7 @@
     "server.MinecraftServerMixin",
     "server.PlayerListMixin",
     "server.SupportDropMixin",
+    "server.NaturalFoodRegenMixin",
     "server.ServerPlayerDeathMixin",
     "server.KillCommandMixin",
     "server.ServerGamePacketListenerImplMixin"
