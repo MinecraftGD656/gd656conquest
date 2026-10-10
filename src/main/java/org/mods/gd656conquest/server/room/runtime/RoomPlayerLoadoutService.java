@@ -107,14 +107,7 @@ public final class RoomPlayerLoadoutService {
     }
 
     public boolean tryRefillLoadoutByAmmoBox(RoomTeamId teamId, ServerPlayer player) {
-        if (teamId == null || player == null || player.server == null) {
-            return false;
-        }
-        RoomRuntimeContext roomContext = resolveRoomRuntimeContext(player);
-        AmmoBoxBlockedState blockedState = snapshotAmmoBoxBlockedState(player);
-        applyLoadout(roomContext.room(), roomContext.state(), teamId, player, true, true, false, !blockedState.blockTotemOffhandAutoMove());
-        restoreBlockedState(player, blockedState);
-        return true;
+        return org.mods.gd656conquest.server.support.SupportAmmoRefill.box(teamId, player);
     }
 
     private void applyLoadout(
@@ -210,6 +203,7 @@ public final class RoomPlayerLoadoutService {
         if (selection.playerDataChanged()) {
             playerDataHandler.savePlayerData(player.getUUID(), playerData);
         }
+        org.mods.gd656conquest.server.support.SupportAmmoGrant.finishLoadout(player);
         player.getInventory().setChanged();
         player.containerMenu.broadcastChanges();
     }
@@ -400,82 +394,15 @@ public final class RoomPlayerLoadoutService {
     }
 
     public AmmoSupplyResult trySupplyAmmoByBag(ServerPlayer player, int maxRounds) {
-        if (player == null || maxRounds <= 0) {
-            return AmmoSupplyResult.EMPTY;
-        }
-        LoadoutAmmoContext primary = resolveLoadoutAmmoContext(player, CustomLoadoutSlot.PRIMARY_WEAPON, PRIMARY_WEAPON_HOTBAR_SLOT, PRIMARY_AMMO_ROW_START, PRIMARY_AMMO_ROW_END);
-        LoadoutAmmoContext secondary = resolveLoadoutAmmoContext(
-            player,
-            CustomLoadoutSlot.SECONDARY_WEAPON,
-            SECONDARY_WEAPON_HOTBAR_SLOT,
-            SECONDARY_AMMO_ROW_START,
-            SECONDARY_AMMO_ROW_END
-        );
-        int remaining = maxRounds;
-        int primaryAdded = 0;
-        int secondaryAdded = 0;
-        int superbWarfareAdded = 0;
-
-        if (primary != null && primary.targetAmmo() > 0) {
-            int currentPrimary = countAmmoInInventory(player, primary.ammoMeta());
-            int missingPrimary = Math.max(0, primary.targetAmmo() - currentPrimary);
-            int firstPass = Math.min(remaining, missingPrimary);
-            if (firstPass > 0) {
-                int added = addTaczAmmoToPreferredSlots(player, primary.ammoMeta(), null, firstPass, primary.preferredSlots());
-                primaryAdded += added;
-                remaining -= added;
-            }
-        }
-
-        if (remaining > 0 && secondary != null && secondary.targetAmmo() > 0) {
-            int currentSecondary = countAmmoInInventory(player, secondary.ammoMeta());
-            int missingSecondary = Math.max(0, secondary.targetAmmo() - currentSecondary);
-            int secondPass = Math.min(remaining, missingSecondary);
-            if (secondPass > 0) {
-                int added = addTaczAmmoToPreferredSlots(player, secondary.ammoMeta(), null, secondPass, secondary.preferredSlots());
-                secondaryAdded += added;
-                remaining -= added;
-            }
-        }
-
-        if (remaining > 0 && primary != null) {
-            int added = addTaczAmmoToPreferredSlots(player, primary.ammoMeta(), null, remaining, primary.preferredSlots());
-            primaryAdded += added;
-            remaining -= added;
-        }
-
-        if (remaining > 0) {
-            Map<CustomLoadoutSlot, ResolvedLoadoutItem> resolvedItems = resolveConfiguredLoadoutItems(player);
-            for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
-                if (remaining <= 0) {
-                    break;
-                }
-                int added = addSuperbWarfareAmmoToConfiguredSlot(player, resolvedItems.get(slot), remaining);
-                if (added <= 0) {
-                    continue;
-                }
-                superbWarfareAdded += added;
-                remaining -= added;
-            }
-        }
-
-        int totalAdded = primaryAdded + secondaryAdded + superbWarfareAdded;
-        if (totalAdded <= 0) {
-            return AmmoSupplyResult.EMPTY;
-        }
-        player.getInventory().setChanged();
-        player.containerMenu.broadcastChanges();
+        int added = org.mods.gd656conquest.server.support.SupportAmmoRefill.bag(player, maxRounds);
+        if (added <= 0) return AmmoSupplyResult.EMPTY;
         player.serverLevel().playSound(
-                null,
-                player.getX(),
-                player.getY(),
-                player.getZ(),
-                SoundEvent.createVariableRangeEvent(AMMO_BAG_PICKUP_SOUND_ID),
-                SoundSource.PLAYERS,
-                1.0F,
-                1.0F
+            null,
+            player.getX(), player.getY(), player.getZ(),
+            SoundEvent.createVariableRangeEvent(AMMO_BAG_PICKUP_SOUND_ID),
+            SoundSource.PLAYERS, 1.0F, 1.0F
         );
-        return new AmmoSupplyResult(totalAdded);
+        return new AmmoSupplyResult(added);
     }
 
     private void grantConfiguredWeaponAmmoByExtraData(ServerPlayer player, ItemStack gunStack, int extraData, int[] preferredSlots) {

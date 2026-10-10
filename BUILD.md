@@ -35,10 +35,10 @@ Minecraft 1.20.1 / Forge 47.4.18 / official 1.20.1 映射。
 
 ## 输出
 
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.8.jar`：本轮迁移的默认完整模组，网络协议为 `bf1-0.0.8`，六项客户端 bypass 开关均为 false。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.8-bypass.jar`：原工程已有的客户端绕过配置变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.8-nores.jar`：原工程已有的无 assets 变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.0.8-resources.zip`：原工程已有的 assets 资源包。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.9.jar`：本轮迁移的默认完整模组，网络协议为 `bf1-0.0.8`，六项客户端 bypass 开关均为 false。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.9-bypass.jar`：原工程已有的客户端绕过配置变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.9-nores.jar`：原工程已有的无 assets 变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.0.9-resources.zip`：原工程已有的 assets 资源包。
 
 JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装选择没有变体后缀的主 JAR。
 构建日志保存在 `.build-logs/build.log`。
@@ -136,9 +136,9 @@ LWJGL/native 与 vanilla blit 从本工程 Gradle 缓存读取，临时文件进
 真实 Forge EventBus 注册及可选元数据扩展失败隔离、ChatComponent/ChatScreen/CommandSuggestions
 三类的真实 Mixin 与服务器侧隔离、服务端门槛及退出清理的静态调用顺序。
 不会使用旧世界夹具，不等于游戏中的击杀者快照/爆头/多人完整流程验收。
-第六、七轮的范围脚本绑定各自阶段；当前产物的范围审计与卡片/滤镜回归使用下述第八轮脚本。
+第六、七轮的范围脚本绑定各自阶段；0.0.8 的范围审计与卡片/滤镜回归使用下述第八轮脚本；0.0.9 的范围审计使用第九轮脚本。
 
-第八轮统一出界、配置和载具验证：
+第八轮统一出界、配置和载具验证（该脚本的范围检查绑定 0.0.8）：
 
 ```powershell
 .\tools\verify-boundary.ps1 -JavaHome $env:JAVA_HOME
@@ -152,6 +152,22 @@ LWJGL/native 与 vanilla blit 从本工程 Gradle 缓存读取，临时文件进
 GPU 检查编译当前产物 GLSL 并读回像素；压制 uniform 值本轮固定为 0，不要求尚未迁入的压制着色器。
 同一脚本回归死亡/复活滤镜、卡片、手动部署与元数据扩展；死亡归属、镜头检查仍可运行上面的专用脚本。
 第八轮复用旧包槽位传输出界剩余 tick/乘坐类型，协议语义变更为 `bf1-0.0.8`，客户端和服务端一起更新。
+
+第九轮部署发弹与储备上限验证：
+
+```powershell
+.\tools\verify-ammo-reserves.ps1 -JavaHome $env:JAVA_HOME
+```
+
+读取当前主 JAR 和本工程 Forge SRG/依赖导出；保留
+`build/libs/gd656conquest-0.9.3-bf1-0.0.8.jar` 作为本轮成品范围对照。
+验证两轮发弹、有限/扩容/小容量格子、实际部署 NBT 上限及旧枪回退；
+使用成品方法字节码、背包/房间及枪械元数据适配器和真实 Minecraft NBT，验证
+最终配备覆盖修正、同弹池合并、弹药箱/包限额补给与无效玩家拒绝。
+并核对仅两个原业务类的方法发生有意改变；其他生产 class、Mixin/refmap、资源、网络注册和协议保持 0.0.8。
+测试适配器不打包，也不等于实际 TACZ/Superb Warfare 枪械或 Minecraft 多人玩法验收。
+本轮版本 `0.0.9`，没有数据包变化，协议保持 `bf1-0.0.8`。
+新箱包光环、权限/投包/死亡掉包、医疗与私人音效仍按 P5 后续批次迁入；当前旧包数量规则和公共补给声音暂保留。
 
 ## 本次环境修复
 

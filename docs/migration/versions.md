@@ -22,6 +22,7 @@
 | `0.0.6` | P2 世界滤镜：死亡去色/本地红色轮廓、复活曝光/bloom、世界/HUD 分层、重载与资源释放 | `b650004` 死亡滤镜、`ac874ab` 复活效果、`f97cc63` 天空 alpha/最终时间参数；按最终来源 `955b76d` 核对 | 2026-10-11，离线 build 成功 |
 | `0.0.7` | P3 元数据/卡片/部署输入/聊天：致命前装备与生命快照、爆头/对决、五列卡片、普通死亡手动部署与倒地点按、原生聊天适配 | `9d189a1` 卡片/武器快照，`6cb882b` 爆头/最终布局/手动部署/聊天；按最终来源 `955b76d` 核对 | 2026-10-11，离线 build 成功 |
 | `0.0.8` | P4 出界核心：统一玩家截止 tick、飞行缓冲、原生载具爆炸乘员快照、对应配置复制与警告 UI | `1e2a975` 出界重构，`07f0824` 载具修正；按最终来源 `955b76d` 核对，仅迁入边界部分 | 2026-10-11，离线 build 成功 |
+| `0.0.9` | P5-A：两轮部署发弹、实际储备 NBT 上限、同弹池合并和现有箱包入口的限额补给 | `9556c5a` 储备目标、`770bbe4` 两轮发弹/实际上限；按最终来源 `955b76d` 核对，箱包完整运行时留到后续 | 2026-10-11，离线 build 成功 |
 
 ## 0.0.1：明确救援目标
 
@@ -348,3 +349,43 @@ RoomServerModule 先解析并保存快照，再将同一击杀者用于原标记
 成品审计：ZIP 完整、包内版本正确、Java 17 major 61、六项普通 bypass 标志 false；既有 refmap 与声音条目保留，新资源逐字节匹配固定来源；不含测试类或第三方模组类；反编译来源工作区未改变。未启动 Minecraft/多人联机，不把上述检查等同于实机完整玩法验收。
 
 剩余：P4 六个共享扩展字段中的两个已全链路接入；敌方补给开关、压制配置、治疗伤害冷却和被动回血量留到 P5/P6。后续补给、压制及实机验收继续迁移；本轮不自动提交。
+
+
+## 0.0.9：两轮部署发弹与实际储备上限
+
+从已提交的 `1fe56bb`（0.0.8）继续，来源固定为干净的
+`955b76d8adc264703eb49141bdb99b06e84cba46`。本轮完成可独立运行的 P5-A，定为 **0.0.9**。
+`9556c5a` 引入补给目标与储备事务，`770bbe4` 新增 SupportAmmoGrant 并接入两轮发弹、部署结束记录与同弹池上限；
+本轮迁入这些子功能，不代表两次历史提交或最终 `.24` 的医疗、箱包、压制和声音已全部等价。
+
+| 功能 | 反编译源码对应位置 | 本轮实现/适配 |
+| --- | --- | --- |
+| 两轮初始发弹 | [SupportAmmoGrant](../../../gd656conquest/org/mods/gd656conquest/server/support/SupportAmmoGrant.java)，distribute 第 23 行、grant 第 40 行 | 同名新类转换 official；先按枪包组分格，再填同一批格子的实际容量；返回实际写入量，不向其他格子溢出 |
+| 部署持久上限/重新部署 | 同上，cap/readCap 第 88/93 行、finishLoadout 第 99 行；来源 RoomPlayerLoadoutService.applyLoadout 第 213 行 | 实际数量/弹池写入枪械 NBT；后续配备覆盖弹药格子时按最终背包重新分配上限；旧枪缺记录回退配置，显式 0 保留，重新部署覆盖旧记录 |
+| 同池合并与储备事务 | [SupportAmmo](../../../gd656conquest/org/mods/gd656conquest/server/support/SupportAmmo.java)，targets 第 15 行、Target.reserve/add 第 85/109 行 | 同名新类迁入目标、同池上限求和、TACZ 实体弹药/SBW 虚拟储备和配备/投掷物目标；只补储备，保留枪械已装填弹药及其他 NBT |
+| 原发弹/部署链路 | 来源 RoomLoadoutGrantService.grantConfiguredWeaponAmmoByExtraData 第 150 行及 RoomPlayerLoadoutService.applyLoadout | 原源码改为委托 grant；配备/可选房间物品发放完成后调用 finishLoadout，再同步背包 |
+| 分阶段接入原箱包入口 | 来源 SupportAmmo.targets/Target.add，以及后续 SupportRuntime 的储备调用；原 Core/RoomSupportBox 接口 | 新 SupportAmmoRefill 复用真实房间、阵营、运行、倒地/部署状态；箱补所有允许目标、包优先当前手持枪且保留旧 maxRounds；原类两处入口委托，移除整套配装补给和旧包超过上限的追加补弹 |
+| 小容量空格补弹 | 原 RoomLoadoutGrantService.addTaczAmmoToPreferredSlots | 必要机制修正：空格数量同时取枪包组大小和真实 ItemStack 堆叠上限，防止组大小 64、实际上限 16 时创建超量堆叠 |
+
+新增三个业务类；只修改两个已有业务 Java 文件。SupportAmmo 不导入依赖后续 SupportContext/SupportRules/SupportRuntime 的 `bag(ServerPlayer)`；
+通过独立、实际可运行的 SupportAmmoRefill 接入现有入口，没有添加占位服务。原箱的权限检查继续由原 RoomSupportBoxService 提供。
+[一次性导入工具](../../tools/migrate_ammo_reserves.py) 固定来源、转换 official、拒绝覆盖目标 Java；上述原类适配直接在源码中实施。
+
+构建（2026-10-11）：`./build.ps1 -Offline`；Java 17.0.19、Gradle 8.8、ForgeGradle 6.0.54、MC 1.20.1 / Forge 47.4.18。
+小容量补弹回归暴露旧入口问题后修正并重建，最终 **BUILD SUCCESSFUL in 57s**，22 个任务（16 执行、6 up-to-date），含编译、refmap 和 reobfJar。
+
+- 主产物：[gd656conquest-0.9.3-bf1-0.0.9.jar](../../build/libs/gd656conquest-0.9.3-bf1-0.0.9.jar)，**14,336,957 字节**。
+- SHA-256：`9b0482d772f185aa2690b9d763e692411edaa5b2e6bf0e5de5bed4661cc07f0c`。
+- mods.toml/manifest：`0.9.3-bf1-0.0.9`；数据包、注册、协议保持 `bf1-0.0.8`，六项普通 bypass 为 false。
+
+[验证入口](../../tools/verify-ammo-reserves.ps1) 读取本轮主 JAR、真实 Forge SRG 和本工程依赖导出：
+
+- **473** 项实际 distribute/NBT 及成品调用检查：有限/扩容/小容量格子、重复/无效位置、实际写入失败、巨量请求、NBT 序列化、0/旧记录回退/重新部署覆盖。
+- **33** 项实际成品 grant/finishLoadout/targets/refill 与原 addTaczAmmoToPreferredSlots 方法的夹具检查：执行产物方法字节码，适配背包、房间及枪械元数据，使用真实 Minecraft NBT；覆盖最终格子覆盖、同弹池合并、实际储备补充、配置编辑不提高旧上限、无效玩家/房间/阵营、配备补充、容量/持枪/禁用目标、0 上限及 SBW 储备/弹匣分离。
+- **4131** 项 0.0.8 → 0.0.9 成品范围和静态调用检查：两个原类仅预期方法变动，部署方法除新增一次 finishLoadout 外原指令保持一致；相关内嵌类除 debug/表项顺序外行为保留；其他生产 class、资源、Mixin/refmap、网络和协议字节一致；不含测试/第三方类，Java 17 major 61。
+
+Gradle test 为 NO-SOURCE。夹具隔离引擎/原生枪械元数据，不等于实际 TACZ/SBW 枪械、Minecraft 启动或多人验收。
+来源仓库仍干净；本轮未自动提交。
+
+剩余 P5：新箱包光环/频率、包两弹匣规则、所有者/敌方权限、Q/整组/容器丢弃限制、死亡包寿命、医疗与只发给接受者的成功音效及客户端通道保护。
+旧包 maxRounds 与公共补给声音暂保留；四个共享字段和压制/自然回血按 P5/P6 继续迁入。

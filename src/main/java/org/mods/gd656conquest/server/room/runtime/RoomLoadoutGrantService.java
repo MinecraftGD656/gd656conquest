@@ -148,12 +148,7 @@ public final class RoomLoadoutGrantService {
     }
 
     public void grantConfiguredWeaponAmmoByExtraData(ServerPlayer player, ItemStack gunStack, int extraData, int[] preferredSlots) {
-        if (grantTaczAmmoByExtraData(player, gunStack, extraData, preferredSlots)) {
-            return;
-        }
-        if (gunStack != null && !gunStack.isEmpty() && extraData > 0) {
-            SuperbWarfareCompatBridge.applyReserveAmmo(gunStack, extraData);
-        }
+        org.mods.gd656conquest.server.support.SupportAmmoGrant.grant(this, player, gunStack, extraData, preferredSlots);
     }
 
     public boolean isTaczGunItem(ItemStack stack) {
@@ -202,7 +197,8 @@ public final class RoomLoadoutGrantService {
                 added += delta;
                 continue;
             }
-            int count = Math.min(ammoMeta.stackSize(), remaining);
+            int capacity = Math.min(ammoMeta.stackSize(), Math.max(0, sampleAmmo.getMaxStackSize()));
+            int count = Math.min(capacity, remaining);
             ItemStack ammoStack = createTaczAmmoStack(ammoMeta.ammoId(), count);
             if (ammoStack.isEmpty()) {
                 continue;
