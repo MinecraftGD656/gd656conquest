@@ -150,14 +150,19 @@ public final class ClientPlayerAnimatorDebugState {
         }
         long now = System.currentTimeMillis();
         for (AbstractClientPlayer player : minecraft.level.players()) {
-            boolean active = isPreviewActive(player.getUUID(), now);
+            boolean bodyReady = org.mods.gd656conquest.client.room.ClientDownedRagdollState.isBodyReady(player.getUUID());
+            boolean active = !bodyReady && isPreviewActive(player.getUUID(), now);
             if (!active) {
                 LOCKED_BODY_YAW_DEGREES.remove(player.getUUID());
                 HELP_WINDOWS.remove(player.getUUID());
             } else {
                 maintainLockedBodyYaw(player);
             }
-            PlayerAnimatorDebugDimensionsState.tickPlayer(player);
+            if (bodyReady) {
+                org.mods.gd656conquest.client.room.DownedRagdollClientHooks.clearForcedPose(player.getUUID());
+            } else {
+                PlayerAnimatorDebugDimensionsState.tickPlayer(player);
+            }
             applyPreviewState(player, active);
         }
         clearExpiredState(now);

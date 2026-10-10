@@ -103,5 +103,14 @@
   "gd656conquest.client.gui.loadout.info.level": "Level: %s",
   "gd656conquest.client.gui.loadout.info.class": "Class: %s",
   "gd656conquest.client.gui.loadout.info.state": "State: %s",
-  "gd656conquest.client.gui.loadout.info.hint": "Press ESC or \"Close\" to exit loadout UI"
+  "gd656conquest.client.gui.loadout.info.hint": "Press ESC or \"Close\" to exit loadout UI",
+  "gd656conquest.death_cause.accident": "ACCIDENT",
+  "gd656conquest.death_cause.fall": "FALL",
+  "gd656conquest.death_cause.desertion": "DESERTION",
+  "gd656conquest.death_cause.burned": "BURNED",
+  "gd656conquest.death_cause.crushed": "CRUSHED",
+  "gd656conquest.death_cause.drowned": "DROWNED",
+  "gd656conquest.death_cause.redeploy": "REDEPLOYING",
+  "gd656conquest.death_cause.command_kill": "KILLED BY ADMINISTRATOR",
+  "gd656conquest.death_cause.killed_in_action": "KILLED IN ACTION"
 }

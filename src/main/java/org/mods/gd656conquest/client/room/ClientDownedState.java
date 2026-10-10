@@ -145,6 +145,7 @@ public final class ClientDownedState {
         }
         ClientDeathFlowState.clear();
         ClientDeathFlowState.setDownedBlackoutStrength(0.0F);
+        DownedRagdollClientHooks.onDownedCleared();
     }
 
     private static void ensureLoopSoundsPlaying(Minecraft minecraft) {

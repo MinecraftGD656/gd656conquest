@@ -318,10 +318,14 @@ public final class RoomCoreRuntimeManager {
     }
 
     public boolean handleDownedAction(ServerPlayer player, String action, long gameTick) {
+        return handleDownedAction(player, action, null, gameTick);
+    }
+
+    public boolean handleDownedAction(ServerPlayer player, String action, UUID requestedTargetId, long gameTick) {
         if (coreService == null) {
             return false;
         }
-        return coreService.handleDownedAction(player, action, gameTick);
+        return coreService.handleDownedAction(player, action, requestedTargetId, gameTick);
     }
 
     public boolean handlePlayerDeath(UUID playerId, RoomPosition deathPosition, int killerEntityId, long gameTick) {

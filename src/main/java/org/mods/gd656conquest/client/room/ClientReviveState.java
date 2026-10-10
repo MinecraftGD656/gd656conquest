@@ -36,7 +36,7 @@ public final class ClientReviveState {
             && candidateId != null;
         if (shouldHold) {
             if (!reviveHeld || !candidateId.equals(activeTargetId)) {
-                NetworkManager.getChannel().sendToServer(RoomDownedActionPacket.reviveStart());
+                NetworkManager.getChannel().sendToServer(RoomDownedActionPacket.reviveStart(candidateId));
                 self.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
                 reviveHeld = true;
                 activeTargetId = candidateId;
@@ -92,10 +92,10 @@ public final class ClientReviveState {
             if (!selfIsAssault && !squadMate) {
                 continue;
             }
-            if (!ClientPlayerAnimatorDebugState.isPreviewActive(other.getUUID())) {
+            if (!DownedRagdollClientHooks.isDowned(other.getUUID())) {
                 continue;
             }
-            double distanceSqr = self.distanceToSqr(other);
+            double distanceSqr = DownedRagdollClientHooks.distanceSquared(self, other);
             if (distanceSqr > MAX_RESCUE_DISTANCE_SQR || distanceSqr >= bestDistanceSqr) {
                 continue;
             }

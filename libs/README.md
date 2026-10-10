@@ -7,7 +7,11 @@
 - `ywzj_vehicle-1.20.1-0.5.7-all.jar`
 - `Explosion-Overhaul-0.1.5.9-a-656260819.jar`
 - `gd656killicon-1.3.3-1.20.1-forge.jar`
+- `ragdollified-1.20.1-1.1.1-hotfix-RELEASE.jar`
 
-当前工作区的来源为 `../build-project/dependencies/mods/`。
+前四项在当前工作区的来源为 `../build-project/dependencies/mods/`；Ragdollified
+来自 `../dist/dependencies/`，SHA-256 为
+`5a0e05ace4cedc88210c2e543520db17bd975ec118494eebd2aeef64963e22fc`。
+运行时 Ragdollified 是可选依赖；要使用本轮身体功能，客户端和服务端都需安装这个已验证的版本。
 可以通过 `-PlocalModsDir=<目录>` 使用其他位置，并在 `gradle.properties`
 中调整对应版本。不要把已经映射过的开发 JAR 当成这里的原始依赖。

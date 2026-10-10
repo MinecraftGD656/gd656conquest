@@ -18,7 +18,7 @@ plugins {
 apply plugin: 'org.spongepowered.mixin'
 
 group = mod_group_id
-version = mod_version
+version = "${mod_version}-bf1-${migration_version}"
 
 base {
     archivesName = mod_id
@@ -138,7 +138,8 @@ def localModVersions = [
         'player-animation-lib-forge': player_animation_version,
         'ywzj_vehicle-1.20.1': ywzj_vehicle_version,
         'Explosion-Overhaul': explosion_overhaul_version,
-        'gd656killicon': killicon_version
+        'gd656killicon': killicon_version,
+        'ragdollified-1.20.1': ragdollified_version
 ]
 localModVersions.each { artifact, artifactVersion ->
     def dependencyJar = new File(localModsDir, "${artifact}-${artifactVersion}.jar")
@@ -234,6 +235,10 @@ dependencies {
     // Required by mods.toml; keep it on the development runtime classpath.
     runtimeOnly fg.deobf("local.mods:gd656killicon:${killicon_version}")
 
+    // Optional production integration; required locally to compile and exercise external Mixins.
+    compileOnly fg.deobf("local.mods:ragdollified-1.20.1:${ragdollified_version}")
+    runtimeOnly fg.deobf("local.mods:ragdollified-1.20.1:${ragdollified_version}")
+
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
 }
 
@@ -245,7 +250,7 @@ tasks.named('processResources', ProcessResources).configure {
     var replaceProperties = [minecraft_version   : minecraft_version, minecraft_version_range: minecraft_version_range,
                              forge_version       : forge_version, forge_version_range: forge_version_range,
                              loader_version_range: loader_version_range,
-                             mod_id              : mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+                             mod_id              : mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: project.version.toString(),
                              mod_authors         : mod_authors, mod_description: mod_description,]
 
     inputs.properties replaceProperties
@@ -290,7 +295,7 @@ def generateBypassClientBypassResource = registerClientBypassResourceTask(
 
 // Example for how to get properties into the manifest for reading at runtime.
 tasks.named('jar', Jar).configure {
-    archiveClassifier = 'normal'
+    archiveClassifier = ''
     dependsOn generateNormalClientBypassResource
     from(normalClientBypassResourceDir)
     manifest {
@@ -367,4 +372,16 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('test', Test).configure {
     useJUnitPlatform()
+}
+
+// Local migration verifiers use this build's dependencies rather than the old decompile harness.
+tasks.register('writeMigrationVerificationClasspath') {
+    def outputFile = layout.buildDirectory.file('migration-verification/dependencies.txt')
+    inputs.files(sourceSets.main.compileClasspath)
+    outputs.file(outputFile)
+    doLast {
+        def target = outputFile.get().asFile
+        target.parentFile.mkdirs()
+        target.setText(sourceSets.main.compileClasspath.asPath, 'UTF-8')
+    }
 }

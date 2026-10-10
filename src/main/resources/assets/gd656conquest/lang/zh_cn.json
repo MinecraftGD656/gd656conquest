@@ -105,5 +105,14 @@
   "gd656conquest.client.gui.loadout.info.level": "等级: %s",
   "gd656conquest.client.gui.loadout.info.class": "兵种: %s",
   "gd656conquest.client.gui.loadout.info.state": "状态: %s",
-  "gd656conquest.client.gui.loadout.info.hint": "按 ESC 或“关闭”退出配装界面"
+  "gd656conquest.client.gui.loadout.info.hint": "按 ESC 或“关闭”退出配装界面",
+  "gd656conquest.death_cause.accident": "意外阵亡",
+  "gd656conquest.death_cause.fall": "摔死",
+  "gd656conquest.death_cause.desertion": "逃兵",
+  "gd656conquest.death_cause.burned": "烧死",
+  "gd656conquest.death_cause.crushed": "压死",
+  "gd656conquest.death_cause.drowned": "溺死",
+  "gd656conquest.death_cause.redeploy": "重新部署中",
+  "gd656conquest.death_cause.command_kill": "被管理员杀死",
+  "gd656conquest.death_cause.killed_in_action": "阵亡"
 }

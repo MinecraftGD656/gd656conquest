@@ -70,10 +70,10 @@ try {
         $ErrorActionPreference = 'Stop'
     }
     if ($buildExitCode -ne 0) { throw "Gradle build failed (exit $buildExitCode). See $logPath" }
-    $normalJar = Join-Path $PSScriptRoot "build/libs/$($projectProperties.mod_id)-$($projectProperties.mod_version)-normal.jar"
-    if (!(Test-Path -LiteralPath $normalJar)) { throw "Expected JAR not found: $normalJar" }
-    $artifact = Get-Item -LiteralPath $normalJar
-    $artifactHash = (Get-FileHash -LiteralPath $normalJar -Algorithm SHA256).Hash
+    $mainJar = Join-Path $PSScriptRoot "build/libs/$($projectProperties.mod_id)-$($projectProperties.mod_version)-bf1-$($projectProperties.migration_version).jar"
+    if (!(Test-Path -LiteralPath $mainJar)) { throw "Expected JAR not found: $mainJar" }
+    $artifact = Get-Item -LiteralPath $mainJar
+    $artifactHash = (Get-FileHash -LiteralPath $mainJar -Algorithm SHA256).Hash
     Write-Host "JAR: $($artifact.FullName) ($($artifact.Length) bytes)"
     Write-Host "SHA-256: $artifactHash"
 } finally {

@@ -148,6 +148,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void openDeploySequence(double sourceX, double sourceY, double sourceZ, double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int deployDelayTicks) {
+        DownedRagdollClientHooks.onDeployTransition();
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null) {
@@ -222,6 +223,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void openDeployInstant(double targetX, double targetY, double targetZ, float targetYaw, float targetPitch, int deployDelayTicks) {
+        DownedRagdollClientHooks.onDeployTransition();
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null) {
@@ -339,7 +341,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void applyCameraOverride(Camera camera, float partialTick) {
-        if (!active || camera == null) {
+        if (!active || camera == null || ClientDownedRagdollState.hasCameraOverride()) {
             return;
         }
         if (phase == PHASE_DOWNED_HOLD) {
@@ -386,6 +388,9 @@ public final class ClientDeathFlowState {
     }
 
     public static void enterDownedView() {
+        if (ClientDownedRagdollState.hasCameraOverride() && active && phase == PHASE_DOWNED_HOLD) {
+            return;
+        }
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null) {
@@ -396,9 +401,11 @@ public final class ClientDeathFlowState {
         phase = PHASE_DOWNED_HOLD;
         phaseTicks = 0L;
         downedEntryFadeElapsedSeconds = 0.0F;
-        player.setYRot(currentCameraYaw);
-        player.setYHeadRot(currentCameraYaw);
-        player.setXRot(currentCameraPitch);
+        if (!ClientDownedRagdollState.hasCameraOverride()) {
+            player.setYRot(currentCameraYaw);
+            player.setYHeadRot(currentCameraYaw);
+            player.setXRot(currentCameraPitch);
+        }
         setCameraPose(currentCameraX, currentCameraY, currentCameraZ, currentCameraYaw, currentCameraPitch, true);
     }
 
@@ -443,6 +450,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void clear() {
+        ClientDeathCauseState.hide();
         Minecraft minecraft = Minecraft.getInstance();
         TaczClientInputCompat.suppressCombatInputUntilRelease(minecraft);
         disableDesaturate(minecraft);

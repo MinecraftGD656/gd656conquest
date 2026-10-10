@@ -1,5 +1,7 @@
 package org.mods.gd656conquest.server.room.runtime;
 
+import org.mods.gd656conquest.server.compat.ragdoll.DownedRagdollBridge;
+
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
 import net.minecraft.server.level.ServerPlayer;
@@ -145,6 +147,8 @@ public final class RoomPlayerStateService {
         if (player == null) {
             return;
         }
+        DownedRagdollBridge.stop(player, false);
+        org.mods.gd656conquest.server.room.entry.RoomDeathCauseService.forget(player);
         clearTransientItemUseState(player);
         if (player.isPassenger()) {
             player.stopRiding();
@@ -206,6 +210,7 @@ public final class RoomPlayerStateService {
         float maxHealth = Math.max(1.0F, player.getMaxHealth());
         player.setHealth(Math.min(maxHealth, DOWNED_HEALTH));
         syncSelectedHotbarSlot(player, DOWNED_LOCKED_HOTBAR_SLOT);
+        DownedRagdollBridge.maintainProxy(player);
     }
 
     public void applyRevivedState(RoomDefinition room, ServerPlayer player, long gameTick, boolean revivedByAssault) {

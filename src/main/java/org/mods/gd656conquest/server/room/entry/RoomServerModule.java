@@ -12,6 +12,8 @@ import org.mods.gd656conquest.server.room.runtime.audio.RoomThirdPersonAudioCueR
 import org.mods.gd656conquest.server.core.bootstrap.ServerModule;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.runtime.RoomPlayerDimensionStabilityService;
+import org.mods.gd656conquest.server.room.runtime.RoomDeathEventDispatcher;
+import org.mods.gd656conquest.server.compat.ragdoll.DownedRagdollBridge;
 
 public final class RoomServerModule implements ServerModule {
     @Override
@@ -25,12 +27,16 @@ public final class RoomServerModule implements ServerModule {
     @Override
     public void onServerTick(MinecraftServer server, long gameTick) {
         RoomCoreRuntimeManager.of(server).onServerTick(gameTick);
+        RoomDeathCauseService.tick(server);
+        DownedRagdollBridge.tick(server);
         RoomResetRecoveryService.of(server).syncPendingResetsFromRooms(RoomCoreRuntimeManager.of(server).listRooms());
     }
 
     @Override
     public void onServerStopped(MinecraftServer server) {
         RoomResetRecoveryService.of(server).syncPendingResetsFromRooms(RoomCoreRuntimeManager.of(server).listRooms());
+        DownedRagdollBridge.clear(server);
+        RoomDeathCauseService.clear(server);
         RoomCoreRuntimeManager.of(server).shutdown();
         RoomResetRecoveryService.forget(server);
     }
@@ -40,11 +46,15 @@ public final class RoomServerModule implements ServerModule {
         if (player == null || player.server == null) {
             return;
         }
+        DownedRagdollBridge.stop(player, false);
+        RoomDeathCauseService.forget(player);
         RoomCoreRuntimeManager.of(player.server).handlePlayerLogout(player.getUUID(), player.server.getTickCount());
     }
 
     @Override
     public void onPlayerChangedDimension(ServerPlayer player) {
+        DownedRagdollBridge.stop(player, false);
+        RoomDeathCauseService.forget(player);
         RoomPlayerDimensionStabilityService.onPlayerChangedDimension(player);
     }
 
@@ -71,6 +81,9 @@ public final class RoomServerModule implements ServerModule {
         if (event == null) {
             return;
         }
+        if (RoomDeathEventDispatcher.deferRoomDeath(this, event)) {
+            return;
+        }
         if (isTacticalGadgetEntity(event.getEntity())) {
             net.minecraft.world.entity.Entity attacker = event.getSource() == null ? null : event.getSource().getEntity();
             if (attacker instanceof ServerPlayer player) {
@@ -81,17 +94,21 @@ public final class RoomServerModule implements ServerModule {
         if (!(event.getEntity() instanceof ServerPlayer player) || player.server == null) {
             return;
         }
-        ServerPlayer killer = RoomDamageSourceResolver.resolveAttackingPlayer(event.getSource(), event.getEntity());
+        ServerPlayer killer = RoomDeathCauseService.resolveKiller(event.getSource(), event.getEntity());
         RoomCoreRuntimeManager.of(player.server).handleMarkedPlayerDeath(player, killer, player.server.getTickCount());
         if (killer != null && killer != player) {
             RoomCoreRuntimeManager.of(player.server).handlePlayerKillSupportDrop(player, killer);
         }
-        boolean downedHandled = RoomCoreRuntimeManager.of(player.server).handlePlayerDeathEvent(
+        boolean downedHandled = RoomDeathEventDispatcher.handleRoomFatalDeath(
+            RoomCoreRuntimeManager.of(player.server),
             player,
             new RoomPosition(player.getBlockX(), player.getY(), player.getBlockZ()),
             resolveKillerEntityId(event.getSource()),
-            player.server.getTickCount()
+            player.server.getTickCount(),
+            event.getSource()
         );
+        RoomDeathEventDispatcher.onRoomDeath(event, downedHandled);
+        RoomDeathCauseService.publish(player);
         if (!isTaczBulletDamage(event.getSource()) && !downedHandled && killer != null && killer != player) {
             RoomCoreRuntimeManager.of(player.server).emitPlayerThirdPersonAudioCue(killer.getUUID(), RoomThirdPersonAudioCueRegistry.PLAYER_KILL_ENEMY);
         }

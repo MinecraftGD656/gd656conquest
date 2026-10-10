@@ -62,7 +62,7 @@ import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "098";
+    private static final String PROTOCOL_VERSION = "bf1-0.0.4";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -446,6 +446,8 @@ public final class NetworkManager {
                 RoomSelectionSnapshotPacket::decode,
                 RoomSelectionSnapshotPacket::handle
         );
+        packetId = DownedRagdollNetwork.register(CHANNEL, packetId);
+        packetId = DeathCauseNetwork.register(CHANNEL, packetId);
     }
 
     public static void sendToPlayer(ServerPlayer player, Object packet) {

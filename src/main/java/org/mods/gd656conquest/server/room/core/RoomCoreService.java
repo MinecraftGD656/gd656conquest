@@ -664,6 +664,10 @@ public final class RoomCoreService {
     }
 
     public boolean handleDownedAction(ServerPlayer player, String action, long gameTick) {
+        return handleDownedAction(player, action, null, gameTick);
+    }
+
+    public boolean handleDownedAction(ServerPlayer player, String action, UUID requestedTargetId, long gameTick) {
         if (player == null) {
             return false;
         }
@@ -673,6 +677,7 @@ public final class RoomCoreService {
                 slot.runtime().getRunningState(),
                 player,
                 action,
+                requestedTargetId,
                 gameTick
             ))
             .orElse(false);
@@ -748,7 +753,8 @@ public final class RoomCoreService {
             return false;
         }
         boolean bypassDownedForRedeploy = runningState.getDoubledRespawnPending().contains(playerId);
-        boolean bypassDownedForBoundary = runningState.getBoundaryDeathPendingPlayers().remove(playerId);
+        boolean bypassDownedForBoundary = org.mods.gd656conquest.server.room.entry.RoomDeathCauseService.consumeBoundaryDeath(
+            runningState.getBoundaryDeathPendingPlayers(), playerId, player);
         boolean bypassDowned = bypassDownedForRedeploy || bypassDownedForBoundary;
         shellingRuntimeService.abortShellingRequest(
             runningSlot.room(),

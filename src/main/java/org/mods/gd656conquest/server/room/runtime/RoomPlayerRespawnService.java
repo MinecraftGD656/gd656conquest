@@ -1,5 +1,7 @@
 package org.mods.gd656conquest.server.room.runtime;
 
+import org.mods.gd656conquest.server.compat.ragdoll.DownedRagdollBridge;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -154,9 +156,10 @@ public final class RoomPlayerRespawnService {
             return;
         }
         boolean deathmatch = isArenaGameplay(room);
+        int timingKillerId = org.mods.gd656conquest.server.room.entry.RoomDeathCauseService.legacyKillerEntityId(playerId, killerEntityId);
         long countdownStartTick = deathmatch
             ? gameTick
-            : gameTick + (killerEntityId >= 0
+            : gameTick + (timingKillerId >= 0
                 ? DEATH_WITH_KILLER_OPEN_DEPLOY_TICKS
                 : DEATH_NO_KILLER_OPEN_DEPLOY_TICKS);
         HeroKitSupportService.endHeroKitState(server, state, playerId, gameTick);
@@ -199,6 +202,7 @@ public final class RoomPlayerRespawnService {
         int killerEntityId,
         long gameTick
     ) {
+        if (org.mods.gd656conquest.server.room.entry.RoomDeathCauseService.skipDowned(player)) return false;
         Objects.requireNonNull(room, "room");
         Objects.requireNonNull(state, "state");
         if (player == null || deathPosition == null || !room.commonConfig().enablePlayerDowned()) {
@@ -213,6 +217,7 @@ public final class RoomPlayerRespawnService {
         HeroKitSupportService.endHeroKitState(server, state, playerId, gameTick);
         long expireTick = gameTick + DOWNED_DURATION_TICKS;
         state.markPlayerDowned(playerId, deathPosition, gameTick, expireTick, killerEntityId);
+        DownedRagdollBridge.start(player, state);
         notifyNearbyTeammatesManDown(state, playerId, deathPosition, killerEntityId, true);
         prepareRespawnAnchor(room, state, player);
         playerStateService.applyDownedState(room, player);
@@ -229,6 +234,10 @@ public final class RoomPlayerRespawnService {
     }
 
     public boolean handleDownedAction(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, String action, long gameTick) {
+        return handleDownedAction(room, state, player, action, null, gameTick);
+    }
+
+    public boolean handleDownedAction(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, String action, UUID requestedTargetId, long gameTick) {
         if (room == null || state == null || player == null || action == null || action.isBlank()) {
             return false;
         }
@@ -247,7 +256,7 @@ public final class RoomPlayerRespawnService {
             return requestRedeploy(room, state, player).startsWith("已");
         }
         if ("revive_start".equalsIgnoreCase(normalized)) {
-            return startReviveAttempt(room, state, player, gameTick);
+            return startReviveAttempt(room, state, player, requestedTargetId, gameTick);
         }
         if ("revive_stop".equalsIgnoreCase(normalized)) {
             return stopReviveAttempt(state, player.getUUID());
@@ -350,11 +359,11 @@ public final class RoomPlayerRespawnService {
         player.setInvulnerable(false);
         player.setDeltaMovement(0.0D, 0.0D, 0.0D);
         player.hurt(player.damageSources().genericKill(), Float.MAX_VALUE);
-        if (!player.isAlive()) {
+        if (!RoomDeathEventDispatcher.isStillAliveOutsideDeployment(player)) {
             return true;
         }
         player.kill();
-        return !player.isAlive();
+        return !RoomDeathEventDispatcher.isStillAliveOutsideDeployment(player);
     }
 
     public void beginInitialDeploy(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long gameTick) {
@@ -910,16 +919,22 @@ public final class RoomPlayerRespawnService {
         }
     }
 
-    private boolean startReviveAttempt(RoomDefinition room, RunningRuntimeState state, ServerPlayer reviver, long gameTick) {
+    private boolean startReviveAttempt(RoomDefinition room, RunningRuntimeState state, ServerPlayer reviver, UUID requestedTargetId, long gameTick) {
         if (room == null || state == null || reviver == null || !reviver.isAlive() || reviver.isSpectator() || state.isPlayerDowned(reviver.getUUID()) || state.isInRespawnFlow(reviver.getUUID())) {
             return false;
         }
-        DownedRescueHint hint = resolveNearestDownedRescueHint(state, reviver);
-        if (hint == null || !hint.canRevive()) {
+        UUID targetId = ReviveTargetSelection.select(requestedTargetId,
+            () -> {
+                DownedRescueHint hint = resolveNearestDownedRescueHint(state, reviver);
+                return hint != null && hint.canRevive() ? hint.targetId() : null;
+            },
+            id -> resolveActiveReviveContext(state, reviver, server.getPlayerList().getPlayer(id)) != null
+                && !state.isPlayerBeingRevived(id));
+        if (targetId == null) {
             return false;
         }
         clearDownedRescueHint(reviver);
-        state.startRevive(reviver.getUUID(), hint.targetId(), gameTick);
+        state.startRevive(reviver.getUUID(), targetId, gameTick);
         
         boolean isAssault = resolvePlayerClassType(reviver) == PlayerClassType.ASSAULT;
         if (isAssault) {
@@ -968,7 +983,7 @@ public final class RoomPlayerRespawnService {
         if (!assault && !sameSquad) {
             return null;
         }
-        if (reviver.distanceToSqr(target) > DOWNED_RESCUE_HINT_DISTANCE_SQR) {
+        if (DownedRagdollBridge.distanceSquared(reviver, target) > DOWNED_RESCUE_HINT_DISTANCE_SQR) {
             return null;
         }
         return new ActiveReviveContext(reviver, target, sameSquad, assault ? REVIVE_ASSAULT_HOLD_TICKS : REVIVE_SQUAD_HOLD_TICKS, !assault && sameSquad);
@@ -986,6 +1001,7 @@ public final class RoomPlayerRespawnService {
         int killerEntityId = state.getDeathKillerEntityIdOrDefault(playerId);
         long expireTick = gameTick + DOWNED_DURATION_TICKS;
         state.markPlayerDowned(playerId, deathPosition, gameTick, expireTick, killerEntityId);
+        DownedRagdollBridge.start(player, state);
         playerStateService.applyDownedState(room, player);
         sendDownedStart(player, state, deathPosition, killerEntityId, expireTick - gameTick);
         presentDownedKillerIntel(room, state, player, killerEntityId, gameTick);
@@ -1098,6 +1114,7 @@ public final class RoomPlayerRespawnService {
         ServerPlayer reviver = reviverId == null ? null : server.getPlayerList().getPlayer(reviverId);
         int killerEntityId = state.getDeathKillerEntityIdOrDefault(playerId);
         int deployDelayTicks = resolveDeployDelayTicksFromDowned(room, state, playerId, gameTick);
+        DownedRagdollBridge.stop(player, false);
         clearRevivePresentation(reviver, player);
         releaseForcedReviveCrouch(reviver);
         state.clearRespawnFlow(playerId);
@@ -1129,6 +1146,7 @@ public final class RoomPlayerRespawnService {
         PlayerAnimatorDebugDimensionsState.stopPreview(player);
         int killerEntityId = state.getDeathKillerEntityIdOrDefault(playerId);
         int deployDelayTicks = resolveDeployDelayTicksFromDowned(room, state, playerId, gameTick);
+        DownedRagdollBridge.stop(player, false);
         state.clearReviveState(playerId);
         state.clearRespawnFlow(playerId);
         broadcastPlayerAnimatorState(state, playerId, 0, false);
@@ -1545,7 +1563,7 @@ public final class RoomPlayerRespawnService {
             if (teammate == null || !teammate.isAlive() || teammate.isSpectator()) {
                 continue;
             }
-            double distanceSqr = teammate.distanceToSqr(downedPlayer);
+            double distanceSqr = DownedRagdollBridge.distanceSquared(teammate, downedPlayer);
             if (distanceSqr > 30.0D * 30.0D) {
                 continue;
             }
@@ -1612,7 +1630,7 @@ public final class RoomPlayerRespawnService {
             if (target == null || !target.isAlive() || target.isSpectator()) {
                 continue;
             }
-            double distanceSqr = viewer.distanceToSqr(target);
+            double distanceSqr = DownedRagdollBridge.distanceSquared(viewer, target);
             if (distanceSqr > DOWNED_RESCUE_HINT_DISTANCE_SQR || distanceSqr >= bestDistanceSqr) {
                 continue;
             }
@@ -1687,6 +1705,7 @@ public final class RoomPlayerRespawnService {
         }
         UUID targetId = target.getUUID();
         boolean revivedByAssault = resolvePlayerClassType(reviver) == PlayerClassType.ASSAULT;
+        DownedRagdollBridge.stop(target, true);
         clearRevivePresentation(reviver, target);
         releaseForcedReviveCrouch(reviver);
         state.clearReviveState(targetId);
