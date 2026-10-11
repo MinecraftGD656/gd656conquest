@@ -43,3 +43,9 @@ replay_pid*.log
 Thumbs.db
 
 /gradle_compile_output.txt
+
+# Local archive of completed migration scripts, fixtures and evidence
+/.migration-archive/
+
+# Local development and migration utilities
+/tools/

@@ -144,7 +144,7 @@ def localModVersions = [
 localModVersions.each { artifact, artifactVersion ->
     def dependencyJar = new File(localModsDir, "${artifact}-${artifactVersion}.jar")
     if (!dependencyJar.isFile()) {
-        throw new GradleException("Missing local dependency: ${dependencyJar}. See BUILD.md; override the directory with -PlocalModsDir=<path>.")
+        throw new GradleException("Missing local dependency: ${dependencyJar}. See docs/BUILD.md; override the directory with -PlocalModsDir=<path>.")
     }
 }
 
@@ -372,16 +372,4 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('test', Test).configure {
     useJUnitPlatform()
-}
-
-// Local migration verifiers use this build's dependencies rather than the old decompile harness.
-tasks.register('writeMigrationVerificationClasspath') {
-    def outputFile = layout.buildDirectory.file('migration-verification/dependencies.txt')
-    inputs.files(sourceSets.main.compileClasspath)
-    outputs.file(outputFile)
-    doLast {
-        def target = outputFile.get().asFile
-        target.parentFile.mkdirs()
-        target.setText(sourceSets.main.compileClasspath.asPath, 'UTF-8')
-    }
 }

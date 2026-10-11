@@ -1,15 +1,42 @@
-# 迁移版本与构建记录
+# 迁移版本明细
 
-## 本轮及后续规则
+记录日期：2026-10-11。业务源码和运行资源迁移已完成，当前模组版本 **0.0.12**，
+网络协议 **bf1-0.0.12**；已确认实机表现符合预期。
+当前源代码仓库仅保留本文件作为迁移记录，包含阶段计划表、版本表和各版本功能/来源/构建验收内容。
+日常构建方法见 [BUILD.md](BUILD.md)。
 
-- 未进行业务迁移的原始源码为 `0.0.0`。
-- 每轮必须成功完成 ForgeGradle 构建并生成主产物，才记录该轮迁移完成；主产物命名为 `gd656conquest-0.9.3-bf1-x.x.x.jar`。
-- 版本按实际迁入的功能范围判定，查找最终反编译源码与引入该功能的历史提交。部分功能迁入不能算作完整历史版本等价；旧成品 `.24` 后缀不直接转换成迁移版本。
-- 新增独立功能、逻辑优先新建类。改变原版机制或打通原有调用链时，才在原类中作必要修改；保留有用途的旧接口。
-- 每轮记录版本、来源方法、修改范围、构建命令、产物路径/哈希及剩余功能。多人实机验证作为补充记录，不替代或增加用户指定的成功条件。
-- `gradle.properties` 的 `migration_version` 为产物版本入口；需要改包格式/注册顺序时单独调整 `NetworkManager.PROTOCOL_VERSION`，不假定产物版本就是协议兼容性。
+## 固定迁移对照
 
-## 版本总览
+| 对照 | 固定提交或标识 | 作用 |
+| --- | --- | --- |
+| 待迁移原版 | `acb7636877d2d515c2a616d6703295120bec8e33` | 区分用户改动与反编译原始内容 |
+| 待迁移版最终来源 | `955b76d8adc264703eb49141bdb99b06e84cba46` | 本次功能迁移的固定范围 |
+| 原始源码基线 | `4cf4ef4d09f64e5505ad0004ea1af99566ef5808` | 未迁移业务的 0.0.0，构建环境已修复 |
+| 迁移分支 | `v0.9.3-bf1` | 原始源码迁移与后续维护分支 |
+| 迁移业务最后提交 | `9164d5d` | 0.0.12 火力压制、退出冷却和世界暗角 |
+| 原版二进制 SHA-256 | `0bdfaee77d7281c550f0d107ca0763fb750b8e66ced4d4aafeba3ca022ca9ba2` | 原流水线历史输入 |
+| 最终旧 .24 JAR SHA-256 | `47bc5ed18e6071e93c3d3570a21bc18e36ab09a2c69b9f6828c429b8cff9c20e` | 旧成品行为和资源对照 |
+
+
+## 迁移计划阶段表
+
+| 阶段 | 原计划内容 | 实现版本 | 当前状态 |
+| --- | --- | --- | --- |
+| P0 | 固定对照、Java/Forge/official 映射、可选依赖、refmap 与协议基础 | 0.0.0 起，随各轮补齐 | 已完成，原始工程可运行 |
+| P1 | 明确救援目标、完整死亡派发、倒地身体/动量/订阅/生命周期与原权威救援链 | 0.0.1–0.0.3，相关依赖在后续版本补齐 | 业务迁移已完成 |
+| P2 | 固定/自动死亡镜头、复活趴姿及解除、视角交接、死亡/复活世界滤镜 | 0.0.5–0.0.6 | 已完成 |
+| P3 | 死亡原因与火焰归属、致命快照/爆头/对决、击杀卡片、手动部署与聊天 | 0.0.4、0.0.7 | 已完成 |
+| P4 | 统一出界、飞行缓冲、原生载具摧毁/乘员快照、边界 UI 与兵种显示名 | 0.0.8 | 已完成 |
+| P5-A | 两轮发弹、实际部署储备 NBT 上限和同类弹池补充 | 0.0.9 | 已完成 |
+| P5-B | 箱包投放/拾取权限、光环、医疗、库存恢复和成功私人音效 | 0.0.10 | 已完成 |
+| P6-A | 全局/房间自然回血、被动/饱食度开关、旧配置迁移和命令 | 0.0.11 | 已完成 |
+| P6-B | TACZ 近失弹压制、射击分组上限、退出冷却、共享医疗阻断和世界暗角 | 0.0.12 | 已完成 |
+| 共享配置 | 六个扩展字段、四处实际复制链和旧构造 API | 0.0.8–0.0.12 | 已完成 |
+| P7 | 资源、ForgeGradle 打包/重混淆、完整自动验证及记录整理 | 0.0.12，工具/文档整理不升版 | 自动部分已完成，仓库已整理 |
+| 专项实机验收 | 多人联网/重连、配置升级与重载、游戏内资源重载、可选模组/第三方渲染组合 | 不预设新版本 | 用户已确认 0.0.12 实机表现；专项覆盖尚未逐项确认 |
+
+
+## 迁移版本表
 
 | 迁移版本 | 完成功能范围 | 对应来源 | 构建状态 |
 | --- | --- | --- | --- |
@@ -27,21 +54,27 @@
 | `0.0.11` | P6-A：全局/房间自然回血、独立被动/饱食度开关、旧禁用转换、全局新键及第五共享配置复制 | `9556c5a` 的回血/命令/原生饱食度策略，`955b76d` 的最终默认值；固定来源 `955b76d` | 2026-10-11，离线 build 成功 |
 | `0.0.12` | P6-B：TACZ 近失弹压制、射击分组上限、退出完整冷却、共同医疗阻断、世界暗角及第六共享字段 | `9556c5a` 的压制/弹道/暗角；固定最终来源 `955b76d` | 2026-10-11，离线 build 成功；协议升级 bf1-0.0.12 |
 
+## 0.0.0：未迁移业务的原始源码基线
+
+原始工程构建依赖和环境已修复，Java 17 / MC 1.20.1 / Forge 47.4.18 / official 1.20.1，
+原始项目可运行由用户确认。此版本不包含反编译修改版业务迁移，作为后续各轮比较起点；
+`e66bf3e` 仅增加迁移计划和盘点文档，不构成新的模组内容版本。
+
 ## 0.0.1：明确救援目标
 
 客户端选中的玩家 UUID 随 `revive_start` 传到服务端，沿 Manager → Core → Respawn 传参；服务端对该对象检查存活、旁观状态、当前房间运行状态中的倒地/队伍、小队或兵种救援资格、距离及已有救援锁定。目标不合法时拒绝，不改为其他附近玩家。没有 UUID 的 Java 调用保留原最近合法目标回退。停止、放弃与重新部署分支继续使用原实现。
 
-新类 [ReviveTargetSelection](../../src/main/java/org/mods/gd656conquest/server/room/runtime/ReviveTargetSelection.java) 独立实现“明确目标优先、仅无目标时回退、统一校验”的决策，权威校验继续由原 Respawn 方法提供。必要机制改动仅在六个已有业务类中实施，不引入旧构建的 `DownedReviveRequest` ThreadLocal、prepared API JAR 或 ASM 替换。
+新类 [ReviveTargetSelection](src/main/java/org/mods/gd656conquest/server/room/runtime/ReviveTargetSelection.java) 独立实现“明确目标优先、仅无目标时回退、统一校验”的决策，权威校验继续由原 Respawn 方法提供。必要机制改动仅在六个已有业务类中实施，不引入旧构建的 `DownedReviveRequest` ThreadLocal、prepared API JAR 或 ASM 替换。
 
 来源行号按固定最终提交 `955b76d` 的源码定位；下列来源链接指向相邻反编译项目。
 
 | 功能 | 反编译源码对应位置 | 原始项目实现 |
 | --- | --- | --- |
-| 携带目标、编解码、服务端方向与转发 | [RoomDownedActionPacket](../../../gd656conquest/org/mods/gd656conquest/network/packet/RoomDownedActionPacket.java)，`reviveStart(UUID)` 第 23 行、`encode/decode/handle` | 同名源码包；`action + boolean + optional UUID` |
-| 客户端选定对象发送请求 | [ClientReviveState](../../../gd656conquest/org/mods/gd656conquest/client/room/ClientReviveState.java)，`tick` 第 39 行 | 仅将已有 `candidateId` 传入包工厂 |
-| Manager UUID 重载 | [RoomCoreRuntimeManager](../../../gd656conquest/org/mods/gd656conquest/server/room/entry/RoomCoreRuntimeManager.java)，第 320/324 行 | 保留旧重载传 null、新重载直接转发 |
-| Core UUID 重载 | [RoomCoreService](../../../gd656conquest/org/mods/gd656conquest/server/room/core/RoomCoreService.java)，第 666/670 行 | 沿原运行槽转发；无运行房间时仍失败 |
-| Respawn 动作重载 | [RoomPlayerRespawnService](../../../gd656conquest/org/mods/gd656conquest/server/room/runtime/RoomPlayerRespawnService.java)，第 230/234 行 | 仅 `revive_start` 消费目标参数 |
+| 携带目标、编解码、服务端方向与转发 | RoomDownedActionPacket（反编译来源 `gd656conquest/org/mods/gd656conquest/network/packet/RoomDownedActionPacket.java`），`reviveStart(UUID)` 第 23 行、`encode/decode/handle` | 同名源码包；`action + boolean + optional UUID` |
+| 客户端选定对象发送请求 | ClientReviveState（反编译来源 `gd656conquest/org/mods/gd656conquest/client/room/ClientReviveState.java`），`tick` 第 39 行 | 仅将已有 `candidateId` 传入包工厂 |
+| Manager UUID 重载 | RoomCoreRuntimeManager（反编译来源 `gd656conquest/org/mods/gd656conquest/server/room/entry/RoomCoreRuntimeManager.java`），第 320/324 行 | 保留旧重载传 null、新重载直接转发 |
+| Core UUID 重载 | RoomCoreService（反编译来源 `gd656conquest/org/mods/gd656conquest/server/room/core/RoomCoreService.java`），第 666/670 行 | 沿原运行槽转发；无运行房间时仍失败 |
+| Respawn 动作重载 | RoomPlayerRespawnService（反编译来源 `gd656conquest/org/mods/gd656conquest/server/room/runtime/RoomPlayerRespawnService.java`），第 230/234 行 | 仅 `revive_start` 消费目标参数 |
 | 目标回退、权威校验、救援锁定 | 同上，`startReviveAttempt` 第 918 行及 `resolveActiveReviveContext` | 独立目标选择类 + 原权威方法 + `isPlayerBeingRevived` |
 
 历史提交 `f8272a0` 同时包含布娃娃及其他接入；本轮只迁入其中明确目标的完整链路，故定为第一个迁移增量 `0.0.1`。布娃娃生成、身体距离、死亡事件接管、镜头和部署快照尚未迁入，不能称为整个 `f8272a0` 或最终 `.24` 功能等价。
@@ -72,10 +105,10 @@
 
 | 新文件 | 职责 |
 | --- | --- |
-| [DeferredDeathDispatch](../../src/main/java/org/mods/gd656conquest/server/room/runtime/DeferredDeathDispatch.java) | 独立派发协调、事件身份匹配、嵌套/递归保护、恢复与异常清理 |
-| [RoomDeathEventDispatcher](../../src/main/java/org/mods/gd656conquest/server/room/runtime/RoomDeathEventDispatcher.java) | Forge/房间入口、接管结果、原部署后处理及强制死亡成功查询 |
-| [RagdollNetworkPresence](../../src/main/java/org/mods/gd656conquest/server/compat/ragdoll/RagdollNetworkPresence.java) | 反射解析可选通道并检查远端存在；不直接链接外部或客户端类 |
-| [ServerPlayerDeathMixin](../../src/main/java/org/mods/gd656conquest/mixin/server/ServerPlayerDeathMixin.java) | official `die` 入口经注解处理器映射至生产 SRG；Forge 调用目标保持 remap=false |
+| [DeferredDeathDispatch](src/main/java/org/mods/gd656conquest/server/room/runtime/DeferredDeathDispatch.java) | 独立派发协调、事件身份匹配、嵌套/递归保护、恢复与异常清理 |
+| [RoomDeathEventDispatcher](src/main/java/org/mods/gd656conquest/server/room/runtime/RoomDeathEventDispatcher.java) | Forge/房间入口、接管结果、原部署后处理及强制死亡成功查询 |
+| [RagdollNetworkPresence](src/main/java/org/mods/gd656conquest/server/compat/ragdoll/RagdollNetworkPresence.java) | 反射解析可选通道并检查远端存在；不直接链接外部或客户端类 |
+| [ServerPlayerDeathMixin](src/main/java/org/mods/gd656conquest/mixin/server/ServerPlayerDeathMixin.java) | official `die` 入口经注解处理器映射至生产 SRG；Forge 调用目标保持 remap=false |
 
 原业务类只修改两处文件：RoomServerModule 增加回调延后/结果上报；RoomPlayerRespawnService 修改 forceRedeployDeath 的两处成功判断。Mixin 配置保留已有条目、新增服务端钩子并将兼容级别对齐 Java 17。
 
@@ -83,11 +116,11 @@
 
 | 功能 | 反编译源码对应位置 | 本轮对应 |
 | --- | --- | --- |
-| 派发、取消/恢复与 finally 清理 | [DownedRagdollEvents](../../../gd656conquest/org/mods/gd656conquest/server/compat/ragdoll/DownedRagdollEvents.java)，`dispatchPlayerDeath/dispatchTrackedDeath` 第 21/29 行 | RoomDeathEventDispatcher + DeferredDeathDispatch |
+| 派发、取消/恢复与 finally 清理 | DownedRagdollEvents（反编译来源 `gd656conquest/org/mods/gd656conquest/server/compat/ragdoll/DownedRagdollEvents.java`），`dispatchPlayerDeath/dispatchTrackedDeath` 第 21/29 行 | RoomDeathEventDispatcher + DeferredDeathDispatch |
 | 房间监听器延后回调 | 同上，`deferRoomDeath` 第 57 行；RoomServerModule.onLivingDeath | 新协调器 defer + 原模块两处调用 |
 | 接管结果与普通死亡部署代理 | 同上，`onRoomDeath` 第 101 行 | 活动派发中查询原运行状态并调用原后处理 |
-| 防止部署后被重复杀死 | 同上，`isStillAliveOutsideDeployment` 第 88 行；[RoomPlayerRespawnService](../../../gd656conquest/org/mods/gd656conquest/server/room/runtime/RoomPlayerRespawnService.java)，forceRedeployDeath 第 346 行 | 原始存活检查保留，仅替换两处成功判断 |
-| 原生死亡钩子 | [ServerPlayerDeathMixin](../../../gd656conquest/org/mods/gd656conquest/mixin/server/ServerPlayerDeathMixin.java) | 同名新 Mixin，使用 official 映射与生成 refmap |
+| 防止部署后被重复杀死 | 同上，`isStillAliveOutsideDeployment` 第 88 行；RoomPlayerRespawnService（反编译来源 `gd656conquest/org/mods/gd656conquest/server/room/runtime/RoomPlayerRespawnService.java`），forceRedeployDeath 第 346 行 | 原始存活检查保留，仅替换两处成功判断 |
+| 原生死亡钩子 | ServerPlayerDeathMixin（反编译来源 `gd656conquest/org/mods/gd656conquest/mixin/server/ServerPlayerDeathMixin.java`） | 同名新 Mixin，使用 official 映射与生成 refmap |
 
 历史 `2f8ad09` 引入事件完整派发后的接管机制，部署保护在 `f8272a0` 中已经出现。本轮只迁入这两个子功能，因此版本递增为 `0.0.2`，不能当作完整历史提交/最终成品等价。原最终 helper 中的受击动量、尸体新旧记录、火焰归属及击杀者快照分别属于未接入的身体/死亡归属阶段；本轮没有将这些调用替换成占位返回值，也没有启用依赖它们的身体功能。
 
@@ -98,7 +131,7 @@
 - 主 JAR：`build/libs/gd656conquest-0.9.3-bf1-0.0.2.jar`，13,986,857 字节。
 - SHA-256：`a9145664ed2092ac3f39d7efe0ad9c583dd214c0600376ec44f209f93d922f55`。
 - 包内 mod/manifest 版本：`0.9.3-bf1-0.0.2`；协议仍为 `bf1-0.0.1`，本轮无包格式或注册顺序变化。`098/114` 仍被拒绝。
-- [验证入口](../../tools/verify-death-dispatch.ps1)：61 项协调器检查、真实 Forge EventBus 的四个优先级/取消/恢复场景通过；上一轮五个救援选择场景通过。真实 EventBus 测试使用测试事件载荷，不构造或替换 Minecraft 实体，不声称是完整游戏测试。
+- 验证入口（历史工具 `tools/verify-death-dispatch.ps1`，已归档）：61 项协调器检查、真实 Forge EventBus 的四个优先级/取消/恢复场景通过；上一轮五个救援选择场景通过。真实 EventBus 测试使用测试事件载荷，不构造或替换 Minecraft 实体，不声称是完整游戏测试。
 - 核对主 JAR 完整性、四个新类不引用客户端包、normal 配置、测试源码不打包、新 Mixin 仅注册一次、`die → m_6667_` refmap，并用当前 Forge 开发 JAR 的 ServerPlayer 字节码确认该方法恰有一个 Forge 死亡钩子。
 - Gradle test 仍为 `NO-SOURCE`；未执行 Minecraft 启动、专用服务器启动或多人实机验证。改动留在工作区，未自动提交。
 
@@ -118,10 +151,10 @@
 
 | 功能 | 反编译源码对应位置 | 本轮目标实现与边界 |
 | --- | --- | --- |
-| 新鲜死亡身份与作用域 | [DownedRagdollEvents](../../../gd656conquest/org/mods/gd656conquest/server/compat/ragdoll/DownedRagdollEvents.java)，dispatchTrackedDeath 第 29 行、isFreshDeathRecord 第 69 行 | RagdollFatalContext + 上轮派发器；仅取身份/动量，火焰与击杀者归属快照未接入 |
-| 生成/提升、代理、距离、动量与清理 | [DownedRagdollBridge](../../../gd656conquest/org/mods/gd656conquest/server/compat/ragdoll/DownedRagdollBridge.java)，withFatalSource/start/promoteDeathBody 第 66/89/143 行；distanceSquared/tick/retire | 同名独立类，直接接入原房间生命周期和救援调用 |
-| 救起落脚搜索 | [DownedViewService](../../../gd656conquest/org/mods/gd656conquest/server/compat/ragdoll/DownedViewService.java)，safePronePosition | 新 ReviveBodyPlacement 保留安全搜索，用 STANDING 碰撞体；视角朝向/复活趴姿规则留后续 |
-| 替换/就绪/显示/两端距离 | [ClientDownedRagdollState](../../../gd656conquest/org/mods/gd656conquest/client/room/ClientDownedRagdollState.java)，accept/onClientTick/ready/queueReplacement；同目录 ClientHooks | 同名独立类及客户端原机制调用；只启用倒地本人的原生镜头附着 |
+| 新鲜死亡身份与作用域 | DownedRagdollEvents（反编译来源 `gd656conquest/org/mods/gd656conquest/server/compat/ragdoll/DownedRagdollEvents.java`），dispatchTrackedDeath 第 29 行、isFreshDeathRecord 第 69 行 | RagdollFatalContext + 上轮派发器；仅取身份/动量，火焰与击杀者归属快照未接入 |
+| 生成/提升、代理、距离、动量与清理 | DownedRagdollBridge（反编译来源 `gd656conquest/org/mods/gd656conquest/server/compat/ragdoll/DownedRagdollBridge.java`），withFatalSource/start/promoteDeathBody 第 66/89/143 行；distanceSquared/tick/retire | 同名独立类，直接接入原房间生命周期和救援调用 |
+| 救起落脚搜索 | DownedViewService（反编译来源 `gd656conquest/org/mods/gd656conquest/server/compat/ragdoll/DownedViewService.java`），safePronePosition | 新 ReviveBodyPlacement 保留安全搜索，用 STANDING 碰撞体；视角朝向/复活趴姿规则留后续 |
+| 替换/就绪/显示/两端距离 | ClientDownedRagdollState（反编译来源 `gd656conquest/org/mods/gd656conquest/client/room/ClientDownedRagdollState.java`），accept/onClientTick/ready/queueReplacement；同目录 ClientHooks | 同名独立类及客户端原机制调用；只启用倒地本人的原生镜头附着 |
 | 受击缓存与爆炸表现 | server/compat/ragdoll/RagdollHitCacheGuard；mixin/compat/ragdoll 的 HitCache/DeathMomentum 及客户端对应 Mixin | 直接迁入并转换 official 标识；对生产依赖验证实际注入 |
 | 代次、发送者、替换与播放 | server/compat/ragdoll/RagdollSyncScope、RagdollPacketScope；ClientRagdollReplacementMixin、RagdollPlaybackGuard/Mixin | 六种原生包扩展代次；工作线程替换、旧对象发送隔离及已完成播放保持 |
 | 目录、包围盒、订阅、遮挡与缓存 | server/compat/ragdoll/RagdollSubscriptions/RecordView/SubscriptionPolicy；client/room/ClientRagdollSubscriptions/VisibilityMath；RagdollSubscription/VisibilityMixin | 迁入实际实现；普通死亡观察镜头的额外强制订阅随镜头阶段启用 |
@@ -129,7 +162,7 @@
 
 迁入 25 个身体源文件，另建 RagdollFatalContext、ReviveBodyPlacement、DownedRagdollNetwork 三个阶段衔接类。已有业务类只改动八个：RoomServerModule、RoomPlayerRespawnService、RoomPlayerStateService、ClientReviveState、ClientDownedState、ClientDeathFlowState、ClientPlayerAnimatorDebugState、NetworkManager；其余扩展放入新类。上轮新增的死亡协调器只增加处理玩家查询与身体作用域衔接。
 
-一次性导入工具 [migrate_ragdoll_body.py](../../tools/migrate_ragdoll_body.py) 要求来源提交与干净状态匹配，通过本地 official/SRG 映射转换 Java 标识，保持反射名字与 Mixin 描述符字符串；拒绝覆盖已有目标源码。正常构建使用目标源码，不运行导入器，不依赖旧 ASM 替换、prepared API JAR 或测试夹具。
+一次性导入工具 migrate_ragdoll_body.py（历史工具 `tools/migrate_ragdoll_body.py`，已归档） 要求来源提交与干净状态匹配，通过本地 official/SRG 映射转换 Java 标识，保持反射名字与 Mixin 描述符字符串；拒绝覆盖已有目标源码。正常构建使用目标源码，不运行导入器，不依赖旧 ASM 替换、prepared API JAR 或测试夹具。
 
 版本判断：`f8272a0` 的身体基础及 `c741614` 的动量是本轮主体，同时纳入 `e12682c/a80a286/a3e8666` 的单身体/替换/缓存修复和 `93c8a97/d96cdce` 的同步优化。来源最终类中依赖增强镜头/复活趴姿的部分按阶段拆开，未制造空实现。仍未完成 tryHandlePlayerDownedDamage 资格扩展、火焰/击杀者快照、普通死亡观察与增强倒地镜头、复活趴姿、死亡卡片及部署快照。因此本轮标记身体迁移增量 `0.0.3`，不称为某个完整历史版本或最终 `.24` 等价。
 
@@ -140,7 +173,7 @@
 - SHA-256：`613f1ab2c5b9ba21bd107d733b1936547516eb5100b418301a99bf232640a59e`。重建含时间戳，哈希可能变化。
 - mod/manifest 版本：`0.9.3-bf1-0.0.3`；GD 协议升级为 `bf1-0.0.3`，两端须一起更新。四种新 GD 包与原生包的 generation 扩展均已启用。
 - 新增可选 Ragdollified 元数据与本地 compileOnly/runtimeOnly 开发依赖，不嵌入第三方类。已验证原始依赖 `ragdollified-1.20.1-1.1.1-hotfix-RELEASE.jar`，SHA-256 `5a0e05ace4cedc88210c2e543520db17bd975ec118494eebd2aeef64963e22fc`；缺少联动时使用原动画，使用身体功能需两端安装该依赖。
-- [身体验证入口](../../tools/verify-ragdoll-body.ps1)：31 项代次/提前数据/工作线程检查、13 项视野/订阅策略、22 项 GD 包往返/大小限制、43 项真实原生包/播放/类加载、12 项实际替换/发送者检查，共 121 项通过。
+- 身体验证入口（历史工具 `tools/verify-ragdoll-body.ps1`，已归档）：31 项代次/提前数据/工作线程检查、13 项视野/订阅策略、22 项 GD 包往返/大小限制、43 项真实原生包/播放/类加载、12 项实际替换/发送者检查，共 121 项通过。
 - 真实 Mixin 引擎读取本轮主 JAR 的九个身体 Mixin，应用于未修改的原始 Ragdollified 依赖：CLIENT 13 / SERVER 9 个目标通过，依赖缺席配置通过。原生 ClientRagdoll 物理类字节不变；不声称这些隔离检查是游戏启动或物理性能测试。
 - 前轮回归：五个救援目标场景、61 项死亡协调器检查、四个真实 Forge EventBus 优先级/取消/恢复场景通过。
 - 成品 ZIP、版本/协议、四种 GD 包、九个 Mixin 唯一注册、Java 17 字节码、死亡 refmap、服务端身体类无客户端引用、测试/第三方类不打包均已核对。Gradle test 为 `NO-SOURCE`；Java 验证由上述独立入口执行。
@@ -164,17 +197,17 @@ RoomServerModule 先解析并保存快照，再将同一击杀者用于原标记
 
 | 功能 | 最终反编译源码对应位置 | 本轮实现 |
 | --- | --- | --- |
-| 原因优先级与稳定 wire ID | common/player/[DeathCause](../../../gd656conquest/org/mods/gd656conquest/common/player/DeathCause.java)，server/room/entry/[DeathCauseClassifier](../../../gd656conquest/org/mods/gd656conquest/server/room/entry/DeathCauseClassifier.java) | 同名独立类，保留全部十种原因与未知值回退 |
-| 火焰只读归属 | [KilliconFireOwnership](../../../gd656conquest/org/mods/gd656conquest/server/room/entry/KilliconFireOwnership.java)，resolve/discover | 同名可选反射适配器；在当前原始 Killicon 1.3.3 中核验五项真实接口 |
-| 快照、共享归属、跳过救援及清理 | [RoomDeathCauseService](../../../gd656conquest/org/mods/gd656conquest/server/room/entry/RoomDeathCauseService.java)，resolveKiller/withFireOwnership/skipDowned/consumeBoundaryDeath/publish/tick | 同名服务；作用域移至 ScopedDeathAttribution，边界查询接入当前原机制 |
-| 派发前快照和真实击杀者转发 | [DownedRagdollEvents](../../../gd656conquest/org/mods/gd656conquest/server/compat/ragdoll/DownedRagdollEvents.java)，dispatchPlayerDeath/handleRoomFatalDeath | 扩展上轮 RoomDeathEventDispatcher，未改独立派发协调算法 |
-| 精确命令身份 | [KillCommandMixin](../../../gd656conquest/org/mods/gd656conquest/mixin/server/KillCommandMixin.java) | official `kill` 与 Entity.kill 经生成 refmap 对应生产 `m_137813_` / `m_6074_` |
-| 包与显示 | [DeathCausePacket](../../../gd656conquest/org/mods/gd656conquest/network/packet/DeathCausePacket.java)，client/room/[ClientDeathCauseState](../../../gd656conquest/org/mods/gd656conquest/client/room/ClientDeathCauseState.java) 与 DeathCauseBanner | 新 DeathCauseNetwork 在已有注册末尾追加 S2C；横幅接入当前观察状态和 clear |
+| 原因优先级与稳定 wire ID | common/player/DeathCause（反编译来源 `gd656conquest/org/mods/gd656conquest/common/player/DeathCause.java`），server/room/entry/DeathCauseClassifier（反编译来源 `gd656conquest/org/mods/gd656conquest/server/room/entry/DeathCauseClassifier.java`） | 同名独立类，保留全部十种原因与未知值回退 |
+| 火焰只读归属 | KilliconFireOwnership（反编译来源 `gd656conquest/org/mods/gd656conquest/server/room/entry/KilliconFireOwnership.java`），resolve/discover | 同名可选反射适配器；在当前原始 Killicon 1.3.3 中核验五项真实接口 |
+| 快照、共享归属、跳过救援及清理 | RoomDeathCauseService（反编译来源 `gd656conquest/org/mods/gd656conquest/server/room/entry/RoomDeathCauseService.java`），resolveKiller/withFireOwnership/skipDowned/consumeBoundaryDeath/publish/tick | 同名服务；作用域移至 ScopedDeathAttribution，边界查询接入当前原机制 |
+| 派发前快照和真实击杀者转发 | DownedRagdollEvents（反编译来源 `gd656conquest/org/mods/gd656conquest/server/compat/ragdoll/DownedRagdollEvents.java`），dispatchPlayerDeath/handleRoomFatalDeath | 扩展上轮 RoomDeathEventDispatcher，未改独立派发协调算法 |
+| 精确命令身份 | KillCommandMixin（反编译来源 `gd656conquest/org/mods/gd656conquest/mixin/server/KillCommandMixin.java`） | official `kill` 与 Entity.kill 经生成 refmap 对应生产 `m_137813_` / `m_6074_` |
+| 包与显示 | DeathCausePacket（反编译来源 `gd656conquest/org/mods/gd656conquest/network/packet/DeathCausePacket.java`），client/room/ClientDeathCauseState（反编译来源 `gd656conquest/org/mods/gd656conquest/client/room/ClientDeathCauseState.java`） 与 DeathCauseBanner | 新 DeathCauseNetwork 在已有注册末尾追加 S2C；横幅接入当前观察状态和 clear |
 | 界外几何与跳过救援 | UnifiedBoundaryService.isOutside、RoomDeathCauseService.withFireOwnership/skipDowned | 新 RoomDeathBoundaryQuery 读取原边界；保留界外死亡的真实原因，不将普通敌方致命伤归为逃兵 |
 
 新增八个来源类及 ScopedDeathAttribution、RoomDeathBoundaryQuery、DeathCauseNetwork 三个衔接类，共十一项生产源码。已有原业务类只修改六个：RoomServerModule、RoomCoreService、RoomPlayerRespawnService、RoomPlayerStateService、ClientDeathFlowState、NetworkManager；另扩展上轮新 RoomDeathEventDispatcher。其余逻辑均放在新类，资源只合并本轮九个翻译键，原有值及着色器保留。
 
-阶段边界：击杀者装备/武器/爆头/生命值快照、卡片、对决统计和手动部署属于后续完整消费链。本轮实现 `31a5dae` 已存在的独立死亡原因链，不启用最终新增的卡片/部署消费入口，也不添加空占位类。原因层并不需要改变镜头求解、复活姿态或滤镜；这些仍待下轮实际迁入。一次性导入工具 [migrate_death_causes.py](../../tools/migrate_death_causes.py) 记录固定来源与 stage 转换，拒绝覆盖目标 Java；正常构建直接使用目标源码。
+阶段边界：击杀者装备/武器/爆头/生命值快照、卡片、对决统计和手动部署属于后续完整消费链。本轮实现 `31a5dae` 已存在的独立死亡原因链，不启用最终新增的卡片/部署消费入口，也不添加空占位类。原因层并不需要改变镜头求解、复活姿态或滤镜；这些仍待下轮实际迁入。一次性导入工具 migrate_death_causes.py（历史工具 `tools/migrate_death_causes.py`，已归档） 记录固定来源与 stage 转换，拒绝覆盖目标 Java；正常构建直接使用目标源码。
 
 版本判断：相对于 `0.0.3` 新完成的是死亡原因层及最终来源的界外救援旁路，故定为 `0.0.4`。尚未迁入先于/晚于历史 `31a5dae` 的全部镜头和 UI 功能，不能将这个版本称为完整历史提交或最终 `.24` 等价。
 
@@ -184,7 +217,7 @@ RoomServerModule 先解析并保存快照，再将同一击杀者用于原标记
 - 主 JAR：`build/libs/gd656conquest-0.9.3-bf1-0.0.4.jar`，14,134,782 字节；保留之前各轮主 JAR。
 - SHA-256：`b84f2a1c8ba2913ff4f14127c004b513bdf1b18510dd947ab46da2fe50e59070`。
 - mod/manifest：`0.9.3-bf1-0.0.4`；新增原因包，协议升级为 `bf1-0.0.4`，两端应一起更新；原生布娃娃包沿用上轮代次格式。
-- [本轮验证入口](../../tools/verify-death-causes.ps1)：155 项真实生产分类器/作用域/横幅检查、35 项真实数据包往返/限制、15 项当前 Killicon 接口/生产调用链检查通过；真实 Mixin 引擎使用当前主 JAR、生成 refmap 与 Forge SRG 的 KillCommand/ServerPlayer，两处目标通过。
+- 本轮验证入口（历史工具 `tools/verify-death-causes.ps1`，已归档）：155 项真实生产分类器/作用域/横幅检查、35 项真实数据包往返/限制、15 项当前 Killicon 接口/生产调用链检查通过；真实 Mixin 引擎使用当前主 JAR、生成 refmap 与 Forge SRG 的 KillCommand/ServerPlayer，两处目标通过。
 - 回归：上轮 121 项身体/同步/播放/替换检查通过，真实 CLIENT 13 / SERVER 9 个身体目标及可选依赖缺席检查通过；五个救援目标、61 项协调器、四个真实 Forge EventBus 场景通过。
 - 成品 ZIP、十一项新增生产类、服务端无客户端引用、Java 17 字节码、版本/协议、Mixin 唯一注册、命令 refmap、六项 normal 开关、翻译只增本轮键、着色器与原翻译值保持、测试/第三方类不打包均已核对。
 - Gradle test 为 `NO-SOURCE`；上述独立 Java 检查不构造游戏实体，不证明实际计分、火焰事件或联网行为。未启动 Minecraft/专用服务器，也未执行多人实机验证。改动留在工作区，未自动提交。
@@ -227,7 +260,7 @@ RoomServerModule 先解析并保存快照，再将同一击杀者用于原标记
 - 主 JAR：`build/libs/gd656conquest-0.9.3-bf1-0.0.5.jar`，14,188,505 字节；保留先前各轮产物。
 - SHA-256：`de3a1726213ead8891bf06727245cf4b717bbf6c94d331daacd59706f1b85a04`。
 - mod/manifest：`0.9.3-bf1-0.0.5`；追加镜头和趴姿解除包，协议 `bf1-0.0.5`，两端应一起更新。
-- [本轮验证入口](../../tools/verify-downed-view.ps1)：224 项实际生产镜头构图/运动/0.28 秒归位检查，含 4:3/16:9/21:9 视野、短角插值、碰撞回调、跟随加速度、30/120 FPS 位置与速度一致性；97 项实际数据包往返与非法字段拒绝。
+- 本轮验证入口（历史工具 `tools/verify-downed-view.ps1`，已归档）：224 项实际生产镜头构图/运动/0.28 秒归位检查，含 4:3/16:9/21:9 视野、短角插值、碰撞回调、跟随加速度、30/120 FPS 位置与速度一致性；97 项实际数据包往返与非法字段拒绝。
 - 24 项当前主 JAR 的生产字节码顺序检查，覆盖倒地前快照、PREPARE→身体清理→旧状态清理→REVIVED、部署姿态捕获以及退房/断线/维度清理。这是静态调用审计，不冒充实际多人游戏行为。
 - 使用当前主 JAR、生成 refmap、实际 Forge SRG 和原始 TACZ 1.1.8 JAR 应用真实 Mixin：CLIENT 5 个目标（Camera/MouseHandler/两种 Crawl/CrawlKey）、SERVER 1 个目标；TACZ 缺席场景通过。Camera 的三个 accessor 均成功生成。
 - 当前 0.0.5 上回归上一轮：121 项身体/同步/播放/替换检查和 CLIENT 13 / SERVER 9 个原生 Mixin 目标、可选布娃娃缺席；155/35/15 项死亡原因规则/包/接口检查及两个 Forge 钩子；5 个救援选择、61 项死亡协调器和 4 个真实 EventBus 场景，全部通过。
@@ -258,7 +291,7 @@ RoomServerModule 先解析并保存快照，再将同一击杀者用于原标记
 | 专用渲染图与 GLSL | assets/gd656conquest/shaders/post/{death_world,revive_world}.json；program/{death_world,revive_world,revive_bright,revive_blur}.{json,fsh} | 十项资源原字节迁入 src/main/resources，既有资源保留 |
 | 替代旧视觉入口 | ClientDeathFlowState.currentDarknessAlpha/currentHurtFlashAlpha/applyDesaturation/deathFilterKillerId；ClientDeathCauseState.onRender | 两个原类必要方法接入；既有生命/救援/部署时序不变 |
 
-版本判断：完成独立死亡/复活世界渲染增量，定为 `0.0.6`。对应 `b650004`、`ac874ab`、`f97cc63` 的相关子功能及最终参数；没有因此迁入卡片/聊天、边界、补给和压制，不能称为任一完整历史提交或最终 `.24` 等价。[一次性导入工具](../../tools/migrate_world_filters.py) 保留固定来源、official 转换和实际重载修正，拒绝覆盖目标 Java/资源。
+版本判断：完成独立死亡/复活世界渲染增量，定为 `0.0.6`。对应 `b650004`、`ac874ab`、`f97cc63` 的相关子功能及最终参数；没有因此迁入卡片/聊天、边界、补给和压制，不能称为任一完整历史提交或最终 `.24` 等价。一次性导入工具（历史工具 `tools/migrate_world_filters.py`，已归档） 保留固定来源、official 转换和实际重载修正，拒绝覆盖目标 Java/资源。
 
 构建与验证（2026-10-11）：
 
@@ -267,7 +300,7 @@ RoomServerModule 先解析并保存快照，再将同一击杀者用于原标记
 - 主 JAR：`build/libs/gd656conquest-0.9.3-bf1-0.0.6.jar`，14,204,686 字节，保留前轮产物。
 - SHA-256：`120cfbdfa35430a72d601b89c0f65ea98b70e16f8d50c42bb007abfc98a8ed7c`。
 - mod/manifest 为 `0.9.3-bf1-0.0.6`；本轮没有消息注册/格式变化，协议保持 `bf1-0.0.5`，不将纯客户端显示增量作为网络不兼容升级。
-- [验证入口](../../tools/verify-world-filters.ps1)：当前主 JAR 与本工程 Forge SRG/依赖导出，不使用旧成品路径、世界夹具或复制生产方法；1908 项死亡过渡、2003 项复活时间线/低帧率/中断连续性检查通过。
+- 验证入口（历史工具 `tools/verify-world-filters.ps1`，已归档）：当前主 JAR 与本工程 Forge SRG/依赖导出，不使用旧成品路径、世界夹具或复制生产方法；1908 项死亡过渡、2003 项复活时间线/低帧率/中断连续性检查通过。
 - 真实 Mixin 引擎在当前 Forge SRG 上应用 CLIENT GameRenderer/LevelRenderer/PostChain 三个目标及生成 refmap，检查世界→既有后处理→死亡处理→GUI 深度清理顺序、轮廓延后、accessor、reloadShaders 和 close 两个资源释放入口；SERVER 三个目标字节保持一致。
 - NVIDIA GeForce RTX 5060 Laptop GPU 的隐藏 OpenGL 上下文直接读取本轮 JAR：死亡 GLSL 编译/链接及 331 项像素检查；复活五段图 109075 项检查，包含 bloom 横纵扩散、暗部轮廓、透明/半透明天空 RGBA、旧 native blit 负面对照和奇偶尺寸重建，全部通过。像素数相关断言不等于 109075 个独立玩法场景。
 - 2484 项当前与 0.0.5 成品范围检查：保留前轮条目，除两个有意修改的客户端原类外，全部原生产 class 字节一致；私有 chain 不使用全局 shader 槽，不改变实体发光/游戏模式。测试和 GPU 临时文件只位于 tools/build 验证目录，不打包。
@@ -293,18 +326,18 @@ RoomServerModule 先解析并保存快照，再将同一击杀者用于原标记
 
 | 功能 | 固定反编译源码对应位置 | 原始项目实现 |
 | --- | --- | --- |
-| 致命前快照/装备/生命/发布 | [KillerIntelService](../../../gd656conquest/org/mods/gd656conquest/server/room/entry/KillerIntelService.java)：withFatalSnapshot 第 86 行、snapshot 第 93 行、capture 第 113 行、publish 第 127 行 | 同名新类；RoomDeathEventDispatcher 嵌套真实快照，RoomDeathCauseService 接入 capture/publish/forget/clear/tick |
+| 致命前快照/装备/生命/发布 | KillerIntelService（反编译来源 `gd656conquest/org/mods/gd656conquest/server/room/entry/KillerIntelService.java`）：withFatalSnapshot 第 86 行、snapshot 第 93 行、capture 第 113 行、publish 第 127 行 | 同名新类；RoomDeathEventDispatcher 嵌套真实快照，RoomDeathCauseService 接入 capture/publish/forget/clear/tick |
 | 武器与精确爆头 | server/room/entry/KillWeaponResolver.resolve/extract/fromStack；FatalHitMetadata.onHitEvent/remember/headshot | 两个新观察/解析类，不改 TACZ/Killicon 源码；直接读取最终字段 |
 | 对决与只读载荷 | server/room/entry/MatchDuelStats.record；common/player/KillerCardInfo | 同名纯 Java 类；场次与 deathId 去重 |
-| 普通死亡手动门槛 | [ManualDeathDeployService](../../../gd656conquest/org/mods/gd656conquest/server/room/entry/ManualDeathDeployService.java)：begin 第 20 行、valid 第 30 行、request 第 52 行 | 同名新类，保留原 countdown map 所有权与现有延迟/双倍处罚 |
-| 两个真实移植方法 | [RoomPlayerRespawnService](../../../gd656conquest/org/mods/gd656conquest/server/room/runtime/RoomPlayerRespawnService.java)：onPlayerDeath 第 151 行、openManualDeathDeploy 第 172 行 | 原源码中实际实现，直接调用现有服务；不用编译占位或 ASM transplant |
+| 普通死亡手动门槛 | ManualDeathDeployService（反编译来源 `gd656conquest/org/mods/gd656conquest/server/room/entry/ManualDeathDeployService.java`）：begin 第 20 行、valid 第 30 行、request 第 52 行 | 同名新类，保留原 countdown map 所有权与现有延迟/双倍处罚 |
+| 两个真实移植方法 | RoomPlayerRespawnService（反编译来源 `gd656conquest/org/mods/gd656conquest/server/room/runtime/RoomPlayerRespawnService.java`）：onPlayerDeath 第 151 行、openManualDeathDeploy 第 172 行 | 原源码中实际实现，直接调用现有服务；不用编译占位或 ASM transplant |
 | 倒地快照/输入 | DownedDeployService.publish；DownedDeployModel；ClientDownedDeployState；ClientDownedState.requestReadyDeployment 第 311 行；downedDeployDelay 第 2283 行 | 三个新类 + 原倒地 tick/输入/发送的必要调用；原救援权威检查保留 |
 | 五列卡片/生命周期 | ClientKillerCardState，KillerCardModel/Layout；ClientManualDeathDeployState，ManualDeathDeployModel | 同名新类，原 render 委托、PREPARE/END/清理隐藏；使用已迁入 cardOpacity |
 | 原生聊天适配 | ClientRoomChatState、RoomChatLayout；KillerCardChatAccessor、RoomChatMixin/ScreenMixin/SuggestionsMixin | 六个新类/Mixin；四项 client 注册与当前 refmap |
 | 两个 S2C 快照 | KillerCardPacket、DownedDeployPacket；来源 DownedRagdollNetwork.register | 同名新包，独立 KillerCardNetwork 在所有已存在 ID 之后追加注册 |
 | 专用爆头图标 | assets/gd656conquest/textures/gui/killer_card/headshot.png | 原字节加入 src/main/resources，旧 assets/data 保留 |
 
-版本判断：完成独立 P3 剩余元数据/UI/输入消费链，定为 `0.0.7`。对应来源 `9d189a1`、`6cb882b` 的相关功能及最终修正；边界、载具处罚、补给/治疗、压制尚未迁入，不能称为最终 `.24` 完整等价。[一次性导入工具](../../tools/migrate_killer_card.py) 固定来源、转换 official 并拒绝覆盖新增文件。八个原类的调用/机制改动写在真实源码中。
+版本判断：完成独立 P3 剩余元数据/UI/输入消费链，定为 `0.0.7`。对应来源 `9d189a1`、`6cb882b` 的相关功能及最终修正；边界、载具处罚、补给/治疗、压制尚未迁入，不能称为最终 `.24` 完整等价。一次性导入工具（历史工具 `tools/migrate_killer_card.py`，已归档） 固定来源、转换 official 并拒绝覆盖新增文件。八个原类的调用/机制改动写在真实源码中。
 
 构建与验证（2026-10-11）：
 
@@ -313,7 +346,7 @@ RoomServerModule 先解析并保存快照，再将同一击杀者用于原标记
 - 主 JAR：`build/libs/gd656conquest-0.9.3-bf1-0.0.7.jar`，14,277,941 字节，保留前轮产物。
 - SHA-256：`04ef63e7d6a4603caa6c15985f9406509bd1cea6c674b946581b5ac4d6afd7e5`。
 - mod/manifest：`0.9.3-bf1-0.0.7`；追加两个明确 PLAY_TO_CLIENT 包，前序 ID 顺序保留；协议 `bf1-0.0.7`，客户端与服务端须一起更新。默认六项 bypass 均为 false。
-- [本轮验证入口](../../tools/verify-killer-card.ps1)：3433 项实际卡片原因/生命周期/对决/尺寸与聊天坐标/点按模型检查、18 项普通死亡等待/重试/聊天/输入模型、91 项真实数据包往返及非法字段拒绝，全部通过。多数布局断言来自尺寸组合，不是 3433 个独立游戏场景。
+- 本轮验证入口（历史工具 `tools/verify-killer-card.ps1`，已归档）：3433 项实际卡片原因/生命周期/对决/尺寸与聊天坐标/点按模型检查、18 项普通死亡等待/重试/聊天/输入模型、91 项真实数据包往返及非法字段拒绝，全部通过。多数布局断言来自尺寸组合，不是 3433 个独立游戏场景。
 - 9 项实际元数据扩展失败隔离及真实 Forge EventBus 注册/无关事件/反射失败检查；不提供伪造的 Minecraft 实体/世界接口。原始 TACZ 1.1.8 的 EntityHurtByGunEvent 实际 getHurtEntity/getBullet/isHeadShot API 已核对。
 - 实际 Mixin 引擎读取当前主 JAR/refmap 和 Forge SRG：CLIENT ChatComponent/ChatScreen/CommandSuggestions 三个目标成功，四个 Mixin 的渲染/宽度/行数/鼠标/输入/建议入口命中；SERVER 三个目标字节保持原样。
 - 2843 项当前/0.0.6 成品范围和静态调用审计通过：八个有意改动的原类之外，原生产 class 字节保留；其既有内嵌类只变动 source debug 行，剥离调试信息的实际指令/字段/注解一致。既有 assets/data 原字节保留。快照先于监听器、原因包先于卡片、手动门槛/双倍处罚/部署开启、倒地快照/输入与退出清理均有静态生产证据；不冒充完整游戏动态验收。
@@ -343,7 +376,7 @@ RoomServerModule 先解析并保存快照，再将同一击杀者用于原标记
 
 构建：`./build.ps1 -Offline`，Java 17、ForgeGradle 6、本工程离线缓存，最终 **BUILD SUCCESSFUL**（1m 9s）。
 
-- 主产物：[gd656conquest-0.9.3-bf1-0.0.8.jar](../../build/libs/gd656conquest-0.9.3-bf1-0.0.8.jar)
+- 主产物：[gd656conquest-0.9.3-bf1-0.0.8.jar](build/libs/gd656conquest-0.9.3-bf1-0.0.8.jar)
 - 大小：**14,320,495 字节**。
 - SHA-256：`c48b2b2c91e56379fe07352af6a369e18914c89cf5aacf7d5f2e378b9f9e5adb`。
 
@@ -363,25 +396,25 @@ RoomServerModule 先解析并保存快照，再将同一击杀者用于原标记
 
 | 功能 | 反编译源码对应位置 | 本轮实现/适配 |
 | --- | --- | --- |
-| 两轮初始发弹 | [SupportAmmoGrant](../../../gd656conquest/org/mods/gd656conquest/server/support/SupportAmmoGrant.java)，distribute 第 23 行、grant 第 40 行 | 同名新类转换 official；先按枪包组分格，再填同一批格子的实际容量；返回实际写入量，不向其他格子溢出 |
+| 两轮初始发弹 | SupportAmmoGrant（反编译来源 `gd656conquest/org/mods/gd656conquest/server/support/SupportAmmoGrant.java`），distribute 第 23 行、grant 第 40 行 | 同名新类转换 official；先按枪包组分格，再填同一批格子的实际容量；返回实际写入量，不向其他格子溢出 |
 | 部署持久上限/重新部署 | 同上，cap/readCap 第 88/93 行、finishLoadout 第 99 行；来源 RoomPlayerLoadoutService.applyLoadout 第 213 行 | 实际数量/弹池写入枪械 NBT；后续配备覆盖弹药格子时按最终背包重新分配上限；旧枪缺记录回退配置，显式 0 保留，重新部署覆盖旧记录 |
-| 同池合并与储备事务 | [SupportAmmo](../../../gd656conquest/org/mods/gd656conquest/server/support/SupportAmmo.java)，targets 第 15 行、Target.reserve/add 第 85/109 行 | 同名新类迁入目标、同池上限求和、TACZ 实体弹药/SBW 虚拟储备和配备/投掷物目标；只补储备，保留枪械已装填弹药及其他 NBT |
+| 同池合并与储备事务 | SupportAmmo（反编译来源 `gd656conquest/org/mods/gd656conquest/server/support/SupportAmmo.java`），targets 第 15 行、Target.reserve/add 第 85/109 行 | 同名新类迁入目标、同池上限求和、TACZ 实体弹药/SBW 虚拟储备和配备/投掷物目标；只补储备，保留枪械已装填弹药及其他 NBT |
 | 原发弹/部署链路 | 来源 RoomLoadoutGrantService.grantConfiguredWeaponAmmoByExtraData 第 150 行及 RoomPlayerLoadoutService.applyLoadout | 原源码改为委托 grant；配备/可选房间物品发放完成后调用 finishLoadout，再同步背包 |
 | 分阶段接入原箱包入口 | 来源 SupportAmmo.targets/Target.add，以及后续 SupportRuntime 的储备调用；原 Core/RoomSupportBox 接口 | 新 SupportAmmoRefill 复用真实房间、阵营、运行、倒地/部署状态；箱补所有允许目标、包优先当前手持枪且保留旧 maxRounds；原类两处入口委托，移除整套配装补给和旧包超过上限的追加补弹 |
 | 小容量空格补弹 | 原 RoomLoadoutGrantService.addTaczAmmoToPreferredSlots | 必要机制修正：空格数量同时取枪包组大小和真实 ItemStack 堆叠上限，防止组大小 64、实际上限 16 时创建超量堆叠 |
 
 新增三个业务类；只修改两个已有业务 Java 文件。SupportAmmo 不导入依赖后续 SupportContext/SupportRules/SupportRuntime 的 `bag(ServerPlayer)`；
 通过独立、实际可运行的 SupportAmmoRefill 接入现有入口，没有添加占位服务。原箱的权限检查继续由原 RoomSupportBoxService 提供。
-[一次性导入工具](../../tools/migrate_ammo_reserves.py) 固定来源、转换 official、拒绝覆盖目标 Java；上述原类适配直接在源码中实施。
+一次性导入工具（历史工具 `tools/migrate_ammo_reserves.py`，已归档） 固定来源、转换 official、拒绝覆盖目标 Java；上述原类适配直接在源码中实施。
 
 构建（2026-10-11）：`./build.ps1 -Offline`；Java 17.0.19、Gradle 8.8、ForgeGradle 6.0.54、MC 1.20.1 / Forge 47.4.18。
 小容量补弹回归暴露旧入口问题后修正并重建，最终 **BUILD SUCCESSFUL in 57s**，22 个任务（16 执行、6 up-to-date），含编译、refmap 和 reobfJar。
 
-- 主产物：[gd656conquest-0.9.3-bf1-0.0.9.jar](../../build/libs/gd656conquest-0.9.3-bf1-0.0.9.jar)，**14,336,957 字节**。
+- 主产物：[gd656conquest-0.9.3-bf1-0.0.9.jar](build/libs/gd656conquest-0.9.3-bf1-0.0.9.jar)，**14,336,957 字节**。
 - SHA-256：`9b0482d772f185aa2690b9d763e692411edaa5b2e6bf0e5de5bed4661cc07f0c`。
 - mods.toml/manifest：`0.9.3-bf1-0.0.9`；数据包、注册、协议保持 `bf1-0.0.8`，六项普通 bypass 为 false。
 
-[验证入口](../../tools/verify-ammo-reserves.ps1) 读取本轮主 JAR、真实 Forge SRG 和本工程依赖导出：
+验证入口（历史工具 `tools/verify-ammo-reserves.ps1`，已归档） 读取本轮主 JAR、真实 Forge SRG 和本工程依赖导出：
 
 - **473** 项实际 distribute/NBT 及成品调用检查：有限/扩容/小容量格子、重复/无效位置、实际写入失败、巨量请求、NBT 序列化、0/旧记录回退/重新部署覆盖。
 - **33** 项实际成品 grant/finishLoadout/targets/refill 与原 addTaczAmmoToPreferredSlots 方法的夹具检查：执行产物方法字节码，适配背包、房间及枪械元数据，使用真实 Minecraft NBT；覆盖最终格子覆盖、同弹池合并、实际储备补充、配置编辑不提高旧上限、无效玩家/房间/阵营、配备补充、容量/持枪/禁用目标、0 上限及 SBW 储备/弹匣分离。
@@ -403,19 +436,19 @@ Gradle test 为 NO-SOURCE。夹具隔离引擎/原生枪械元数据，不等于
 
 | 功能 | 固定反编译源码对应位置 | 本轮接入 |
 | --- | --- | --- |
-| 归属/跨房间/阵营/敌方开关 | [SupportContext](../../../gd656conquest/org/mods/gd656conquest/server/support/SupportContext.java)，of/available/stamp/allowed，stamp 第 27 行、allowed 第 34 行 | 同名新类与真实 Manager 状态；普通补给必须有房间和所有者，常驻箱公共、仍限当前房间；死亡奖励继续使用原击杀者拾取权 |
-| 投包/拾取/寿命 | [SupportRuntime](../../../gd656conquest/org/mods/gd656conquest/server/support/SupportRuntime.java)，useBag 第 151 行、pickup 第 191 行、toss 第 230 行、markDeathReward 第 249 行 | 两种原物品的 use/interact 委托；两个事件入口提前接管并停止旧路径；共享投放/拾取冷却，创造自己投包同样等待 10 tick；同种普通地面包最多三个，独立 UUID 防合并、600 tick 寿命 |
+| 归属/跨房间/阵营/敌方开关 | SupportContext（反编译来源 `gd656conquest/org/mods/gd656conquest/server/support/SupportContext.java`），of/available/stamp/allowed，stamp 第 27 行、allowed 第 34 行 | 同名新类与真实 Manager 状态；普通补给必须有房间和所有者，常驻箱公共、仍限当前房间；死亡奖励继续使用原击杀者拾取权 |
+| 投包/拾取/寿命 | SupportRuntime（反编译来源 `gd656conquest/org/mods/gd656conquest/server/support/SupportRuntime.java`），useBag 第 151 行、pickup 第 191 行、toss 第 230 行、markDeathReward 第 249 行 | 两种原物品的 use/interact 委托；两个事件入口提前接管并停止旧路径；共享投放/拾取冷却，创造自己投包同样等待 10 tick；同种普通地面包最多三个，独立 UUID 防合并、600 tick 寿命 |
 | Q 和背包/容器丢弃限制 | SupportDropGuard、mixin/server/SupportDropMixin | 新类与 official/refmap Mixin；两处原生 drop 调用重定向，单个 Q 使用 ThreadLocal finally 作用域；阻止 Ctrl+Q 和容器 THROW/外部点击丢包，退款失败进入真实待退还队列 |
 | 两包初始库存/独立恢复 | SupportRuntime.prepareLoadoutStack 第 246 行、recharge 第 342 行 | 原 placeLoadoutItem 接入初始 2 包；原 RoomItemReplenishService 改为仅补包，每 120 tick 恢复一个至 2；其他普通消耗品交给弹药箱 |
 | 弹药箱/包储备事务 | SupportRuntime.boxes 第 269 行、debitAmmo；SupportAmmo.bag 第 51 行；SupportRules.ammoBurst/Progress | 原两种 aura 入口委托，三个格内取最近合法箱；每秒最多一把普通枪轮转；包一次只补一把且优先手持，补量 max(两弹匣,4)；配备/投掷物按受赠者目标累计进度，离开暂停、满额清零、失败保留；沿用 0.0.9 实际部署上限和原禁补/英雄/枪械大师规则 |
 | 直接 HP 医疗/容量 | SupportRuntime.heal 第 137 行、tick/boxes/pickup | 包立即及每秒 2.5 HP、真实受伤终止；箱每 10 tick 1 HP，按实际 HP 扣普通箱 100 池；普通弹药箱 20 次成功事务，常驻无限；原箱初始化携带房间/归属，关闭旧交互、药水与医疗提示路径 |
-| 成功私人声音与客户端通道 | SupportRuntime.ammoSupplied 第 328 行、medicalSupplied；[ClientAmmoSupplySound](../../../gd656conquest/org/mods/gd656conquest/client/room/ClientAmmoSupplySound.java) filter 第 27 行；AmmoSupplySoundAccessor | 成功后通过真实 ServerPlayer.playNotifySound 向接受者发送一次原声音；服务端两音效分别合并同 tick；客户端分别读取真实通道，活动/待分配时合并、不打断/排队，通道结束后允许下次播放；退出/音频重载清理 |
+| 成功私人声音与客户端通道 | SupportRuntime.ammoSupplied 第 328 行、medicalSupplied；ClientAmmoSupplySound（反编译来源 `gd656conquest/org/mods/gd656conquest/client/room/ClientAmmoSupplySound.java`） filter 第 27 行；AmmoSupplySoundAccessor | 成功后通过真实 ServerPlayer.playNotifySound 向接受者发送一次原声音；服务端两音效分别合并同 tick；客户端分别读取真实通道，活动/待分配时合并、不打断/排队，通道结束后允许下次播放；退出/音频重载清理 |
 | 医疗冷却和配置复制 | RoomCommonConfig；描述注册与数字编辑；仓库/分组/模板/RoomCommands | 增加 nullable allowEnemySupportResupply（缺失 true）与 medicalBoxDamageCooldownSeconds（缺失/无效 3，0–60 秒），保留旧 49/51 参数构造器；四处实际复制构造传入全部已迁入四字段 |
 | 自然回血接入 | 来源旧构建 support.passiveRegen/regen.privateSound 接入；实际 PassiveRegenService | 有效医疗箱/包治疗时暂停，reset 同步清理补给状态；起始音效改为私人发送。本轮另检查 heal 前后实际 HP，外部取消回血时不播放成功音效；原回血量/等待/间隔保留 |
 
 新逻辑分布在 **七个新类/Mixin**（四个 server/support 类、客户端声音类及两个 Mixin），**16 个已有 Java 文件**只接入机制替换、配置/生命周期和成功声音。
-正常源码构建，无 ASM 成品补丁。[导入工具](../../tools/migrate_support.py) 固定来源，转换 official，拒绝覆盖新类；
-[调用接入工具](../../tools/migrate_support_hooks.py) 绑定提交的 0.0.9，拒绝重复激活。
+正常源码构建，无 ASM 成品补丁。导入工具（历史工具 `tools/migrate_support.py`，已归档） 固定来源，转换 official，拒绝覆盖新类；
+调用接入工具（历史工具 `tools/migrate_support_hooks.py`，已归档） 绑定提交的 0.0.9，拒绝重复激活。
 客户端声音 accessor 改用 official `instanceToChannel`，Q/容器入口、shadow/drop 描述符由 APT 生成 refmap，保留全部既有映射。
 
 分阶段边界：SupportRuntime/SupportRules 暂不导入 Suppression 状态、网络、近失弹和治疗阻断方法；
@@ -426,10 +459,10 @@ Gradle test 为 NO-SOURCE。夹具隔离引擎/原生枪械元数据，不等于
 
 - 命令：`./build.ps1 -Offline`；Java 17.0.19、Gradle 8.8、ForgeGradle 6.0.54、MC 1.20.1 / Forge 47.4.18、official 映射与离线缓存。
 - 最终 **BUILD SUCCESSFUL in 50s**；22 个任务，16 执行、6 up-to-date；源码、APT/refmap 与 reobfJar 完成。Gradle test 为 NO-SOURCE。
-- 主产物：[gd656conquest-0.9.3-bf1-0.0.10.jar](../../build/libs/gd656conquest-0.9.3-bf1-0.0.10.jar)，**14,357,730 字节**。
+- 主产物：[gd656conquest-0.9.3-bf1-0.0.10.jar](build/libs/gd656conquest-0.9.3-bf1-0.0.10.jar)，**14,357,730 字节**。
 - SHA-256：`2cd602ed0cdeab30ad33021860fae39aaa444a3ab9717206111e0c853c63b153`。
 - mods.toml/manifest：`0.9.3-bf1-0.0.10`；消息注册/格式及协议保持 `bf1-0.0.8`，六项普通 bypass 为 false。
-- [验证入口](../../tools/verify-support.ps1)：**100** 项实际 burst/进度/伤害时限与 Gson/编辑/仓库重载/模板/分组；**45** 项成品方法字节码的权限/拾取/治疗/光环/寿命/库存/Q 与自然回血成功音效夹具；**69** 项真实 Forge PlaySoundEvent/播放通道与实际 Minecraft 私人声音 API 检查。
+- 验证入口（历史工具 `tools/verify-support.ps1`，已归档）：**100** 项实际 burst/进度/伤害时限与 Gson/编辑/仓库重载/模板/分组；**45** 项成品方法字节码的权限/拾取/治疗/光环/寿命/库存/Q 与自然回血成功音效夹具；**69** 项真实 Forge PlaySoundEvent/播放通道与实际 Minecraft 私人声音 API 检查。
 - 实际 Mixin 引擎在当前 Forge SRG 上应用 ServerGamePacketListenerImpl 与 SoundEngine：CLIENT/SERVER 各 **3** 项，`require=2` 的 Q 重定向及容器 Inject 成功，SoundEngine accessor 命中，服务器不应用客户端 accessor。
 - **4177** 项 0.0.9 → 0.0.10 成品范围/调用/四处扩展构造检查：预期方法以外保留原指令、字段和注解；只规范化调试信息、外部 inner 元数据及 javac 重编号的 lambda，lambda 实际指令继续比较；其他生产类、网络/协议和既有资源原字节保留。refmap 全部旧条目保持，仅追加两个本轮目标。
 - 本轮 JAR 上回归 0.0.9：发弹/NBT/接入 **473** 项，实际储备事务夹具 **33** 项通过。ZIP 完整、Java 17 major 61、版本正确；无测试/运输/背包适配器和第三方类进入业务产物。来源工作区保持干净。
@@ -448,16 +481,16 @@ Gradle test 为 NO-SOURCE。夹具隔离引擎/原生枪械元数据，不等于
 
 | 功能 | 反编译来源对应 | 本轮实现/适配 |
 | --- | --- | --- |
-| 全局/房间来源与旧禁用迁移 | [RoomNaturalRegenConfig](../../../gd656conquest/org/mods/gd656conquest/server/room/model/RoomNaturalRegenConfig.java)，构造器、normalizeMode、resolve | 新 record；旧禁用变为房间来源及两个开关 false，保留等待/间隔/回复量；缺失采用房间/true/false/6秒/10tick/0.5HP，0 回复量保留，无效量回退、过大量上限 1024 |
-| 当前玩家策略解析 | [NaturalRegenService](../../../gd656conquest/org/mods/gd656conquest/server/player/regen/NaturalRegenService.java)，room/settings/enabled/startDelay/interval/amount/vanillaAllowed | 新类转换 official；房间来源覆盖全局，房间外被动回血读取全局；房间外饱食度回血保留原世界游戏规则 |
+| 全局/房间来源与旧禁用迁移 | RoomNaturalRegenConfig（反编译来源 `gd656conquest/org/mods/gd656conquest/server/room/model/RoomNaturalRegenConfig.java`），构造器、normalizeMode、resolve | 新 record；旧禁用变为房间来源及两个开关 false，保留等待/间隔/回复量；缺失采用房间/true/false/6秒/10tick/0.5HP，0 回复量保留，无效量回退、过大量上限 1024 |
+| 当前玩家策略解析 | NaturalRegenService（反编译来源 `gd656conquest/org/mods/gd656conquest/server/player/regen/NaturalRegenService.java`），room/settings/enabled/startDelay/interval/amount/vanillaAllowed | 新类转换 official；房间来源覆盖全局，房间外被动回血读取全局；房间外饱食度回血保留原世界游戏规则 |
 | 全局模型与持久化 | 来源 ServerConfigDataModel/ServerConfigStore 的新字段、访问器、normalize | 原类必要扩展 boolPassiveRegeneration、passiveRegenHealAmount；缺失 true/0.5，间隔缺省 10；明确保存的旧等待、间隔、开关保留，存储规范化和读取使用同一回复量规则 |
-| 被动回血实际机制 | 来源旧构建 [BuildRagdollJar](../../../build-project/tools/BuildRagdollJar.java) 的 support.passiveRegen/regen.amount 接入；实际 PassiveRegenService | 原 onPlayerTick 读取独立解析服务，保留原损伤/回血/起始音效计时和 reset；保留 0.0.10 的 heal 前后实际 HP 判断及私人声音；沿用真实箱包治疗暂停 |
-| 原版饱食度回血 | [SuppressedFoodRegenMixin](../../../gd656conquest/org/mods/gd656conquest/mixin/server/SuppressedFoodRegenMixin.java)，gd656$canHeal/gd656$roomFoodRule | 迁为 NaturalFoodRegenMixin；FoodData.tick 的两处 isHurt 与一处 GameRules.getBoolean 转换 official/APT/refmap；按房间独立开关选择，两种自然回血共用当前实际医疗暂停判定；后续扩展共享判定即可接入压制，不注册第二套同位置 Mixin |
-| 全局配置命令 | [NaturalRegenCommands](../../../gd656conquest/org/mods/gd656conquest/server/core/command/NaturalRegenCommands.java)，keys/normalize/read/get/set/suggest/showAdded；旧 BuildRagdollJar 的 commandHooks | 新类提供两键/别名/读写/补全；原 ConquestServerCommands 只接入七处调用，未知键继续原路径；开关严格 true/false，回复量有限 0–1024 HP |
+| 被动回血实际机制 | 来源旧构建 `BuildRagdollJar`（历史位置 `../../../build-project/tools/BuildRagdollJar.java`） 的 support.passiveRegen/regen.amount 接入；实际 PassiveRegenService | 原 onPlayerTick 读取独立解析服务，保留原损伤/回血/起始音效计时和 reset；保留 0.0.10 的 heal 前后实际 HP 判断及私人声音；沿用真实箱包治疗暂停 |
+| 原版饱食度回血 | SuppressedFoodRegenMixin（反编译来源 `gd656conquest/org/mods/gd656conquest/mixin/server/SuppressedFoodRegenMixin.java`），gd656$canHeal/gd656$roomFoodRule | 迁为 NaturalFoodRegenMixin；FoodData.tick 的两处 isHurt 与一处 GameRules.getBoolean 转换 official/APT/refmap；按房间独立开关选择，两种自然回血共用当前实际医疗暂停判定；后续扩展共享判定即可接入压制，不注册第二套同位置 Mixin |
+| 全局配置命令 | NaturalRegenCommands（反编译来源 `gd656conquest/org/mods/gd656conquest/server/core/command/NaturalRegenCommands.java`），keys/normalize/read/get/set/suggest/showAdded；旧 BuildRagdollJar 的 commandHooks | 新类提供两键/别名/读写/补全；原 ConquestServerCommands 只接入七处调用，未知键继续原路径；开关严格 true/false，回复量有限 0–1024 HP |
 | 房间编辑/复制 | 来源 RoomCommonConfig.naturalRegenConfig 与 RoomConfigDescriptorRegistry 的六项路径 | canonical 增至 54 参数，保留 49/51/53 参数 API；六个设置可通过原编辑器修改/删除；等待非负整数、间隔正整数、回复量有限 0–1024；四处仓库/分组/模板/武器白名单实际构造携带所有五个已迁入扩展字段 |
 
 四个新业务类/Mixin，12 个已有 Java 文件作机制及配置接入，新增逻辑优先放入独立类。
-[一次性导入/接入工具](../../tools/migrate_natural_regen.py) 绑定 `e80aa2b` 与固定来源，拒绝覆盖新类；
+一次性导入/接入工具（历史工具 `tools/migrate_natural_regen.py`，已归档） 绑定 `e80aa2b` 与固定来源，拒绝覆盖新类；
 实际成品通过原 ForgeGradle 源码构建，未使用 ASM 成品补丁。测试夹具使用 ASM 隔离引擎，不进入业务构建。
 相较来源编辑器，本轮在写入前拒绝 0 tick 间隔和超过 1024 HP 的回复量，避免构造器静默修正输入。
 P5 箱包/音效及所有前序网络、资源、压制预留边界均保留。
@@ -466,10 +499,10 @@ P5 箱包/音效及所有前序网络、资源、压制预留边界均保留。
 
 - 命令：`./build.ps1 -Offline`；Java 17.0.19、Gradle 8.8、ForgeGradle 6.0.54、Minecraft 1.20.1 / Forge 47.4.18，official/APT/refmap/reobfJar。
 - **BUILD SUCCESSFUL in 1m 10s**；22 个任务，18 执行、4 up-to-date；Gradle test 为 NO-SOURCE。
-- 主产物：[gd656conquest-0.9.3-bf1-0.0.11.jar](../../build/libs/gd656conquest-0.9.3-bf1-0.0.11.jar)，**14,370,196 字节**。
+- 主产物：[gd656conquest-0.9.3-bf1-0.0.11.jar](build/libs/gd656conquest-0.9.3-bf1-0.0.11.jar)，**14,370,196 字节**。
 - SHA-256：`3bc5df6c319dc35afe794578df99437a4ffba58517a4409b08a7addb80a08ec7`。
 - mods.toml/manifest：`0.9.3-bf1-0.0.11`；网络注册/格式/协议保持 `bf1-0.0.8`，六项普通 bypass 为 false。
-- [当前验证入口](../../tools/verify-natural-regen.ps1)，保留 0.0.10 主 JAR：**52** 项实际 Gson/旧禁用/默认值/全局存储规范化/配置编辑/仓库模板分组复制/命令；**158** 项实际成品解析服务、被动回血精确计时、两个开关、房间外策略及原版回血处理方法的夹具检查。
+- 当前验证入口（历史工具 `tools/verify-natural-regen.ps1`，已归档），保留 0.0.10 主 JAR：**52** 项实际 Gson/旧禁用/默认值/全局存储规范化/配置编辑/仓库模板分组复制/命令；**158** 项实际成品解析服务、被动回血精确计时、两个开关、房间外策略及原版回血处理方法的夹具检查。
 - 实际 Mixin 引擎对当前真实 Forge FoodData 在 CLIENT/SERVER 各 **5** 项检查通过；快/慢饱食度回血均接管、房间游戏规则正确替换、实际共享治疗判定和解析服务安装；旧丢弃/声音 Mixin 两侧各 **3** 项回归通过。
 - **5583** 项 0.0.10 → 0.0.11 成品范围/调用/构造 API/四处配置复制/refmap/包内容检查：预期方法外原代码保留，其余 class/资源/网络原字节一致；完整旧 Mixin 序列及 refmap 键值保留，只追加一个 FoodData 目标；无测试/运输/背包适配器或第三方 class，Java 17 major 61。
 - P5 回归：发弹/NBT **473**、实际储备事务 **33**、规则/配置 **100**、实际箱包运行时 **45**、真实声音事件/通道 **69** 项通过。来源保持干净，ZIP 完整与成品哈希核对通过。
@@ -490,17 +523,17 @@ P5 箱包/音效及所有前序网络、资源、压制预留边界均保留。
 
 | 功能 | 反编译来源对应位置 | 本轮实现/适配 |
 | --- | --- | --- |
-| 压制配置/累计/衰减/退出冷却 | [RoomSuppressionConfig](../../../gd656conquest/org/mods/gd656conquest/server/room/model/RoomSuppressionConfig.java)，defaults/构造器；[SupportRules](../../../gd656conquest/org/mods/gd656conquest/server/support/SupportRules.java)，nearGain、Suppression.value/add/blocksHealing | 新配置 record；真实规则补回现有 SupportRules；缺省半径 2、阈值 60、伤害系数 6、单次上限 40、1 秒后按 40/秒衰减、退出完整 2 秒恢复、暗角 0.25；重新进入后从下次退出重新等待 |
-| TACZ 头部近失弹与射击分组 | [TaczSuppression](../../../gd656conquest/org/mods/gd656conquest/server/support/TaczSuppression.java)，beginShot/endShot/tag/path | 新类转换 official；使用原 TACZ 头部 AABB（缺失回退眼部），投影有限线段并按弹丸当前位置真实伤害加权；只影响同房间敌方有效玩家；一弹丸一受赠者只记一次，同一次 shootOnce 各弹丸共享 UUID 和强度上限 |
+| 压制配置/累计/衰减/退出冷却 | RoomSuppressionConfig（反编译来源 `gd656conquest/org/mods/gd656conquest/server/room/model/RoomSuppressionConfig.java`），defaults/构造器；SupportRules（反编译来源 `gd656conquest/org/mods/gd656conquest/server/support/SupportRules.java`），nearGain、Suppression.value/add/blocksHealing | 新配置 record；真实规则补回现有 SupportRules；缺省半径 2、阈值 60、伤害系数 6、单次上限 40、1 秒后按 40/秒衰减、退出完整 2 秒恢复、暗角 0.25；重新进入后从下次退出重新等待 |
+| TACZ 头部近失弹与射击分组 | TaczSuppression（反编译来源 `gd656conquest/org/mods/gd656conquest/server/support/TaczSuppression.java`），beginShot/endShot/tag/path | 新类转换 official；使用原 TACZ 头部 AABB（缺失回退眼部），投影有限线段并按弹丸当前位置真实伤害加权；只影响同房间敌方有效玩家；一弹丸一受赠者只记一次，同一次 shootOnce 各弹丸共享 UUID 和强度上限 |
 | 原生 TACZ 接入与路径截断 | 来源 mixin/compat/tacz/SupportSuppressionMixin、SupportShotMixin、SupportBulletMixin、KineticBulletSupportAccessor | 四个 @Pseudo Mixin，外部目标 remap=false；普通弹到实际碰撞处，穿透弹按真实 pierce 数排序截断；原 shootOnce 首尾分组，所有弹丸构造完成标记；保留原伤害/射手计分代码 |
-| 共用治疗阻断/生命周期 | 来源 [SupportRuntime](../../../gd656conquest/org/mods/gd656conquest/server/support/SupportRuntime.java)，Recipient/reset/suppressionBlocks/pausePassive/tick/boxes | 补回 P5 有意分阶段省略的真实状态/方法，与最终映射源码完全一致；医疗箱及既有被动/饱食度入口共用压制和退出冷却判断；医疗包可直接治疗；房间/有效性/登出/克隆清理及过期射击缓存保留 |
-| 客户端同步与协议 | 来源 SuppressionNetwork.send、[SuppressionPacket](../../../gd656conquest/org/mods/gd656conquest/network/packet/SuppressionPacket.java)，构造器/encode/decode/handle | 新真实包与发送类；独立 register 追加于当前最后 ID 后并限制 PLAY_TO_CLIENT；handler 再检查方向，enqueueWork 后通过 DistExecutor 访问客户端；opacity 有限 0–0.6，无效回退 0.25；严格协议升级为 bf1-0.0.12 |
-| 世界暗角与出界合并 | 来源 [ClientSuppressionState](../../../gd656conquest/org/mods/gd656conquest/client/room/ClientSuppressionState.java)，accept/beginFrame/renderWorld/release/reset；SuppressionHudEvents.logout | 新客户端状态/注销监听；0.20 秒平滑进入、0.50 秒退出，死亡/旁观/部署/换世界清除；真实资源释放/尺寸变化；原 ClientBoundaryState 接入实际 opacity，出界生效时由出界 pass 取最大角落暗度，独立 pass 跳过 |
+| 共用治疗阻断/生命周期 | 来源 SupportRuntime（反编译来源 `gd656conquest/org/mods/gd656conquest/server/support/SupportRuntime.java`），Recipient/reset/suppressionBlocks/pausePassive/tick/boxes | 补回 P5 有意分阶段省略的真实状态/方法，与最终映射源码完全一致；医疗箱及既有被动/饱食度入口共用压制和退出冷却判断；医疗包可直接治疗；房间/有效性/登出/克隆清理及过期射击缓存保留 |
+| 客户端同步与协议 | 来源 SuppressionNetwork.send、SuppressionPacket（反编译来源 `gd656conquest/org/mods/gd656conquest/network/packet/SuppressionPacket.java`），构造器/encode/decode/handle | 新真实包与发送类；独立 register 追加于当前最后 ID 后并限制 PLAY_TO_CLIENT；handler 再检查方向，enqueueWork 后通过 DistExecutor 访问客户端；opacity 有限 0–0.6，无效回退 0.25；严格协议升级为 bf1-0.0.12 |
+| 世界暗角与出界合并 | 来源 ClientSuppressionState（反编译来源 `gd656conquest/org/mods/gd656conquest/client/room/ClientSuppressionState.java`），accept/beginFrame/renderWorld/release/reset；SuppressionHudEvents.logout | 新客户端状态/注销监听；0.20 秒平滑进入、0.50 秒退出，死亡/旁观/部署/换世界清除；真实资源释放/尺寸变化；原 ClientBoundaryState 接入实际 opacity，出界生效时由出界 pass 取最大角落暗度，独立 pass 跳过 |
 | 原生渲染钩子/资源 | 来源 SuppressionWorldMixin；suppression_world post/program JSON、fsh | official/APT/refmap；与前序滤镜一致，源中失效 m_6213_ 接口适配为实际 reloadShaders(ResourceProvider)，close 独立注入；三个资源原样迁入；世界 pass 位于 GUI 前，保留既有 HUD |
 | 六字段配置复制/兼容接口 | 来源 RoomCommonConfig.suppressionConfig、九个配置描述、四处仓库/分组/模板/武器白名单复制 | canonical 增至 55 参数，按字段名兼容 JSON；保留 49/51/53/54 参数 API；九项设置通过原编辑器写入，有限非负数解析和范围规范化遵循来源；实际四处构造传递全部六个扩展字段 |
 
 新增 **11 个业务类/Mixin**（12 个 class，包括新增 Suppression 内部状态），**11 个已有 Java 文件**只修改相关机制/调用及配置复制。
-三个资源原样导入；[一次性迁移工具](../../tools/migrate_suppression.py) 绑定当前提交与固定来源、拒绝覆盖新类，并核对
+三个资源原样导入；一次性迁移工具（历史工具 `tools/migrate_suppression.py`，已归档） 绑定当前提交与固定来源、拒绝覆盖新类，并核对
 SupportRules 的前阶段子集与 SupportRuntime 补回后完全匹配固定源码。业务由正常 ForgeGradle 源码构建，无 ASM 成品补丁。
 测试适配器新增捕获网络发送/引擎/头部元数据；旧自然回血夹具的医疗窗口断言改为精确测试截止 tick，避免受伤等待遮蔽该检查。
 
@@ -508,10 +541,10 @@ SupportRules 的前阶段子集与 SupportRuntime 补回后完全匹配固定源
 
 - 命令：`./build.ps1 -Offline`；Java 17.0.19、Gradle 8.8、ForgeGradle 6.0.54、Minecraft 1.20.1 / Forge 47.4.18、official/APT/refmap/reobfJar。
 - **BUILD SUCCESSFUL in 41s**；22 个任务，18 执行、4 up-to-date；Gradle test 为 NO-SOURCE。
-- 主产物：[gd656conquest-0.9.3-bf1-0.0.12.jar](../../build/libs/gd656conquest-0.9.3-bf1-0.0.12.jar)，**14,393,854 字节**。
+- 主产物：[gd656conquest-0.9.3-bf1-0.0.12.jar](build/libs/gd656conquest-0.9.3-bf1-0.0.12.jar)，**14,393,854 字节**。
 - SHA-256：`86cd74b03e6e75a4879811104309f617fddeec6d162d9c310ab7233a561822ba`。
 - mods.toml/manifest：`0.9.3-bf1-0.0.12`；**严格协议 bf1-0.0.12，两端须同步更新**；六项普通 bypass 为 false。
-- [当前验证入口](../../tools/verify-suppression.ps1)，保留 0.0.11 主 JAR；读取真实 Forge SRG、原始 TACZ 1.1.8、当前工程依赖及缓存原生 Minecraft 顶点着色器。
+- 当前验证入口（历史工具 `tools/verify-suppression.ps1`，已归档），保留 0.0.11 主 JAR；读取真实 Forge SRG、原始 TACZ 1.1.8、当前工程依赖及缓存原生 Minecraft 顶点着色器。
 - 来源业务规则测试 **68** 项：伤害加权、上限、阈值、完整退出冷却/再进入/小贡献/0和小数冷却、配置来源与迁移、分数编辑及仓库/模板复制。
 - 实际成品字节码夹具 **38** 项：同次/嵌套射击 UUID、散射上限、同弹去重、敌我/跨房间/无效玩家、配置头部与眼部回退、无效向量/伤害、客户端无服务器积累、普通/穿透截断、零长线段、医疗箱/被动回血的实际暂停与恢复、医疗包有效、私有目标发送、缓存过期与无效状态清理。
 - 实际客户端字节码 **125** 项：0.20/0.50 秒时间线与多帧率、重复状态、出界合并时跳过独立 pass、uniform/输出目标恢复、窗口 resize、reload 释放保留状态、死亡/旁观/部署/换世界/注销。
@@ -525,3 +558,14 @@ SupportRules 的前阶段子集与 SupportRuntime 补回后完全匹配固定源
 未执行 Minecraft/专用服务器/联机，实机需检查真实枪械连续/散射/穿透射击、压制进出/房间切换、
 医疗交互、多人同步和第三方着色器/资源重载。P6 源码部分完成，下一阶段进入 P7 资源与构建/验证收口。
 本轮未自动提交。
+
+## 0.0.12 实机补充确认
+
+2026-10-11，用户确认：“已经将 0.0.12 进行实机验证，表现符合预期”。
+该版本已提交为 `9164d5d`。接受此实机结论；未将其推断为所有多人、可选模组组合、
+旧配置升级、资源重载及第三方着色器/瞄具场景均已覆盖。
+上节“未执行 Minecraft”是当时代理自动验证的范围，保留历史记录。
+
+
+整理后构建：`./build.ps1 -Offline`，**BUILD SUCCESSFUL in 52s**；主 JAR **14,393,854 字节**，
+SHA-256：`fdd12f8753ee91baf473b421b5f5fe45eba21ebf9c1c93160c0574c6600ad318`。
