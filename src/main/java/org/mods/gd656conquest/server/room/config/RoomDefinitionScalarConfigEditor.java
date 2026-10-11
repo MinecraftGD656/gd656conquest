@@ -1,5 +1,6 @@
 package org.mods.gd656conquest.server.room.config;
 
+import org.mods.gd656conquest.common.match.OperationsSettlementTiming;
 import com.google.gson.Gson;
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
@@ -14,7 +15,6 @@ import org.mods.gd656conquest.server.room.model.RoomTroopBalanceReference;
 import org.mods.gd656conquest.server.room.model.RoomVehicleBackend;
 import org.mods.gd656conquest.server.room.model.RoomViewPosition;
 import org.mods.gd656conquest.server.room.model.RoomVoicePack;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -32,6 +32,8 @@ public final class RoomDefinitionScalarConfigEditor {
     public static RoomDefinition apply(RoomDefinition definition, RoomConfigDescriptor descriptor, String rawValue, ServerPlayer editor) {
         Objects.requireNonNull(definition, "definition");
         Objects.requireNonNull(descriptor, "descriptor");
+        if (!RoomConfigDescriptorRegistry.appliesTo(definition, descriptor))
+            throw new IllegalArgumentException("行动模式结算沿用战况简报镜头，无需配置对局结束展示位置");
         if (isDeleteToken(rawValue)) {
             return clear(definition, descriptor);
         }
@@ -226,6 +228,7 @@ public final class RoomDefinitionScalarConfigEditor {
             case "gamemode" -> parseGameMode(rawValue);
             case "vehiclebackend" -> RoomVehicleBackend.of(rawValue);
             case "campavoicepack", "campbvoicepack" -> RoomVoicePack.normalizeOrThrow(rawValue);
+            case "btsettlementtiming" -> OperationsSettlementTiming.of(rawValue);
             case "bttroopbalancereference" -> RoomTroopBalanceReference.of(rawValue);
             case "gmplayergroupingmode" -> RoomGunmasterGroupingMode.of(rawValue);
             case "scoremethod" -> parseScoreMethod(rawValue);

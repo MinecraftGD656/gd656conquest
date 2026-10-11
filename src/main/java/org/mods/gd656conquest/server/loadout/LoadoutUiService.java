@@ -1715,7 +1715,8 @@ public final class LoadoutUiService {
         List<String> configuredCaptureCodes = resolveEditorCaptureCodes(definition);
         for (RoomConfigScope scope : RoomConfigDescriptorRegistry.guiScopes()) {
             for (RoomConfigDescriptor descriptor : RoomConfigDescriptorRegistry.guiDescriptorsForScope(scope, configuredCaptureCodes)) {
-                addRoomConfigEntry(entries, dataManager, definition, descriptor, scope, missingItems, missingConfigIds);
+                if (RoomConfigDescriptorRegistry.appliesTo(definition, descriptor))
+                    addRoomConfigEntry(entries, dataManager, definition, descriptor, scope, missingItems, missingConfigIds);
             }
         }
         return entries;

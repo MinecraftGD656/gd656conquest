@@ -41,6 +41,7 @@ import java.util.Objects;
 import java.util.Set;
 
 public class LoadoutConfigScreen extends Screen {
+    public static final int ROOM_EDITOR_TAB_INDEX = 3;
     private static final ResourceLocation CLASS_ICON_ASSAULT = ResourceLocation.parse("gd656conquest:textures/gui/class_assault.png");
     private static final ResourceLocation CLASS_ICON_SUPPORT = ResourceLocation.parse("gd656conquest:textures/gui/class_support.png");
     private static final ResourceLocation CLASS_ICON_ENGINEER = ResourceLocation.parse("gd656conquest:textures/gui/class_engineer.png");
@@ -123,6 +124,8 @@ public class LoadoutConfigScreen extends Screen {
         updateOutOfGameTimer();
         rightContentScroll.reset();
 
+        // Preserve the selected tab when returning from the timeline or resizing the window.
+        int selectedTabIndex = header == null ? targetTabIndex : header.getSelectedTabIndex();
         // Create header and tabs
         header = new ConfigScreenHeader();
         header.addTab(new HomeTab());
@@ -137,8 +140,8 @@ public class LoadoutConfigScreen extends Screen {
         }
         header.addTab(getOrCreateParkourTab());
 
-        if (targetTabIndex > 0 && targetTabIndex < header.getTabCount()) {
-            header.setSelectedTab(targetTabIndex);
+        if (selectedTabIndex > 0 && selectedTabIndex < header.getTabCount()) {
+            header.setSelectedTab(selectedTabIndex);
         }
 
         rebuildButtons();
@@ -150,12 +153,13 @@ public class LoadoutConfigScreen extends Screen {
     private boolean isAdmin() {
         if (minecraft == null || minecraft.player == null) return false;
         ClientLoadoutUiState.Snapshot snapshot = ClientLoadoutUiState.snapshot();
-        return snapshot != null && snapshot.admin() && minecraft.player.hasPermissions(2);
+        var rooms = org.mods.gd656conquest.client.loadout.ClientRoomEditorState.snapshot();
+        return minecraft.player.hasPermissions(2) && ((snapshot != null && snapshot.admin()) || (rooms != null && rooms.admin()));
     }
 
     private void initAdminTabs() {
         vehicleEditorTab = new VehicleAdminEditorTabContent(minecraft);
-        roomEditorTab = new AdminRoomEditorTabContent(minecraft);
+        if (roomEditorTab == null) roomEditorTab = new AdminRoomEditorTabContent(minecraft);
         attachmentEditorTab = new AttachmentEditorTabContent(minecraft);
         itemEditorTab = new ItemEditorTabContent(minecraft);
     }
@@ -163,6 +167,16 @@ public class LoadoutConfigScreen extends Screen {
     private ParkourTabContent getOrCreateParkourTab() {
         if (parkourTab == null) parkourTab = new ParkourTabContent(minecraft);
         return parkourTab;
+    }
+
+    public boolean isRoomEditorTabOpen() {
+        return header != null && header.getSelectedTabContent() instanceof AdminRoomEditorTabContent;
+    }
+
+    public void openRoomEditorTab() {
+        if (header == null || !isAdmin()) return;
+        if (roomEditorTab == null) minecraft.setScreen(new LoadoutConfigScreen(parent, ROOM_EDITOR_TAB_INDEX));
+        else header.setSelectedTab(ROOM_EDITOR_TAB_INDEX);
     }
 
     public Screen parentScreen() {

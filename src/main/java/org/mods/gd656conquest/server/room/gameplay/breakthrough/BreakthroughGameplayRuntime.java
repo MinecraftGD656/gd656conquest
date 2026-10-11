@@ -1,6 +1,10 @@
 package org.mods.gd656conquest.server.room.gameplay.breakthrough;
 
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayOperationsConclusionProvider;
+import org.mods.gd656conquest.common.match.OperationsConclusion;
 import org.mods.gd656conquest.common.match.BattalionSequence;
+import org.mods.gd656conquest.common.match.BriefingTimeline;
+import org.mods.gd656conquest.network.packet.BriefingPlaybackPacket;
 import org.mods.gd656conquest.common.match.OperationsTroopRules;
 import org.mods.gd656conquest.network.packet.BattalionBriefingPacket;
 import org.mods.gd656conquest.server.room.model.RoomBattalionConfig;
@@ -10,7 +14,6 @@ import org.mods.gd656conquest.server.room.entry.RoomDeathCauseService;
 import org.mods.gd656conquest.server.player.lock.ServerPlayerLockService;
 import java.util.ArrayList;
 import net.minecraft.world.phys.Vec3;
-
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import org.mods.gd656conquest.network.NetworkManager;
@@ -58,7 +61,6 @@ import org.mods.gd656conquest.server.room.runtime.RoomPlayerRespawnService;
 import org.mods.gd656conquest.server.room.runtime.RoomSpawnCandidateSelectionService;
 import org.mods.gd656conquest.server.room.runtime.audio.RoomThirdPersonAudioCueRegistry;
 import org.mods.gd656conquest.server.room.vehicle.VehicleRuntimeRecord;
-
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -76,7 +78,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     RoomGameplayBoundaryHudProvider,
     RoomGameplayVehicleDeployRuleProvider,
     RoomGameplayIntermissionProvider,
-    RoomGameplayRetreatProvider {
+    RoomGameplayRetreatProvider,
+    RoomGameplayOperationsConclusionProvider {
     private static final int STAGE_ADVANCE_COUNTDOWN_SECONDS = 5;
     private static final long STAGE_REWARD_EVENT_TICKS = 5L * 20L;
     private static final String RETREAT_MARKER_ATTACKER_PREFIX = "bt_retreat_attackers_";
@@ -108,6 +111,12 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private RoomViewPosition briefingView;
     private List<BattalionBriefingPacket.Sector> briefingSectors = List.of();
     private int capturedBriefingSectors;
+    private OperationsConclusion finalConclusion;
+    private boolean settlementRequested;
+    private long timelineStartTick;
+    private String timelineScene = "last";
+    private BriefingTimeline.Track attackerTimeline = BriefingTimeline.Track.empty();
+    private BriefingTimeline.Track defenderTimeline = BriefingTimeline.Track.empty();
     private int battalionStartStage;
     private long battalionStartTick;
     private boolean battalionAttackersWon;
@@ -140,6 +149,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     public void onEnterMainPhase(RoomDefinition room, long gameTick) {
         enteredTick = gameTick + RoomPlayerRespawnService.initialCombatUnlockDelayTicks();
         pendingEndRequest = null;
+        finalConclusion = null;
+        settlementRequested = false;
         initialCombatSubtitleDispatched = false;
         attackTroopHalfSubtitleDispatched = false;
         attackTroopCriticalSubtitleDispatched = false;
@@ -174,10 +185,22 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private void beginBattalionConclusion(RoomDefinition room, long tick, boolean attackersWon, String reason) {
         if (!battalions.finish(tick, attackersWon, activeBattalionConfig.briefingSeconds(), activeBattalionConfig.preparationSeconds())) return;
         battalionAttackersWon = attackersWon;
+        if (battalions.terminal()) finalConclusion = new OperationsConclusion(
+            tick, activeBattalionConfig.briefingSeconds(), activeBattalionConfig.settlementTiming(), attackersWon);
+        timelineStartTick = tick;
+        timelineScene = BriefingTimeline.selectScene(battalions.battalion(), battalions.total(), attackersWon);
         battalionEndReason = reason;
         capturedBriefingSectors = attackersWon ? runtimeState.getMaxStageCount() : Math.max(0, runtimeState.getCurrentStageIndex() - 1);
         battalionReports.add(new BattalionReport(battalions.battalion(), battalionStartStage, runtimeState.getCurrentStageIndex(),
             Math.max(0, capturedBriefingSectors - battalionStartStage + 1), battalionStartTick, tick, reason));
+        var scene = activeBattalionConfig.timelines().stream().filter(t -> t.key().equals(timelineScene)).findFirst().orElse(null);
+        var variables = Map.of("当前营数", Integer.toString(battalions.battalion()), "总营数", Integer.toString(battalions.total()),
+            "剩余营数", Integer.toString(Math.max(0,battalions.total()-battalions.battalion())),
+            "本营攻占区域数", Integer.toString(Math.max(0,capturedBriefingSectors-battalionStartStage+1)),
+            "累计攻占区域数", Integer.toString(capturedBriefingSectors), "本营作战秒数", Long.toString(Math.max(0,(tick-battalionStartTick)/20)),
+            "结束原因", reason == null ? "" : reason);
+        attackerTimeline = scene == null ? BriefingTimeline.Track.empty() : scene.attacker().resolve(variables);
+        defenderTimeline = scene == null ? BriefingTimeline.Track.empty() : scene.defender().resolve(variables);
         briefingView = activeBattalionConfig.briefingViewPosition();
         if (briefingView == null) briefingView = room.breakthroughConfig().stageDeployViewPosition(runtimeState.getCurrentStageIndex());
         ArrayList<BattalionBriefingPacket.Sector> sectors = new ArrayList<>();
@@ -204,11 +227,25 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 ServerPlayerLockService.of(player.server).syncPlayer(player);
             }
         }
+        requestFinalSettlement(tick);
+    }
+
+    @Override
+    public Optional<OperationsConclusion> operationsConclusion() {
+        return Optional.ofNullable(finalConclusion);
+    }
+
+    private void requestFinalSettlement(long tick) {
+        if (finalConclusion == null || settlementRequested || !finalConclusion.settlementDue(tick)) return;
+        settlementRequested = true;
+        pendingEndRequest = new RoomMatchEndRequest(battalionAttackersWon ? RoomTeamId.CAMP_A : RoomTeamId.CAMP_B,
+            battalionAttackersWon ? "进攻方占领全部区域" : "进攻方全部营耗尽：" + battalionEndReason);
     }
 
     private void tickBattalionSequence(RoomDefinition room, long tick) {
         var previous = battalions.phase();
         battalions.tick(tick);
+        requestFinalSettlement(tick);
         if (previous == battalions.phase()) return;
         if (isDeploymentPreparation()) {
             runtimeState.restartCurrentStage(room.breakthroughConfig(), battalions.deadline());
@@ -220,9 +257,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         } else if (battalions.phase() == BattalionSequence.Phase.COMBAT) {
             broadcastStageStartSubtitles(tick);
             playStageAdvanceVoiceForAttackers();
-        } else if (battalions.phase() == BattalionSequence.Phase.FINISHED) {
-            pendingEndRequest = new RoomMatchEndRequest(battalionAttackersWon ? RoomTeamId.CAMP_A : RoomTeamId.CAMP_B,
-                battalionAttackersWon ? "进攻方占领全部区域" : "进攻方全部营耗尽：" + battalionEndReason);
         }
     }
 
@@ -236,7 +270,11 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             BattalionPlayerSync old = battalionPlayerSync.get(id);
             boolean fresh = old == null || old.player() != player || old.sequence() != battalions.sequenceId();
             if (phase == BattalionSequence.Phase.COMBAT && fresh) continue;
-            if (!fresh && old.phase() == phase) continue;
+            boolean phaseChanged = fresh || old.phase() != phase;
+            if (!phaseChanged) {
+                if (BriefingTimeline.STAGES.contains(phase) && tick % 20 == 0) sendTimelineSnapshot(room,player,tick,phase);
+                continue;
+            }
             if (phase != BattalionSequence.Phase.COMBAT
                 && phase != BattalionSequence.Phase.FINISHED && fresh)
                 respawns.prepareBattalionHold(room, runningState, player, tick);
@@ -247,7 +285,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 || phase == BattalionSequence.Phase.BRIEFING
                 || phase == BattalionSequence.Phase.BRIEFING_FADE_OUT
                 || phase == BattalionSequence.Phase.NEXT_ASSAULT
-                || phase == BattalionSequence.Phase.TRAVEL_TO_DEPLOY)
+                || phase == BattalionSequence.Phase.TRAVEL_TO_DEPLOY
+                || (phase == BattalionSequence.Phase.FINISHED && fresh))
                 respawns.moveBattalionView(room, player, view);
             if (isDeploymentPreparation()) respawns.prepareBattalionDeploy(room, runningState, player, tick, battalions.deadline());
             NetworkManager.sendToPlayer(player, new BattalionBriefingPacket(
@@ -256,7 +295,17 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 runningState.getRoomTeams().get(id) == RoomTeamId.CAMP_A, battalionAttackersWon, view, briefingSectors));
             ServerPlayerLockService.of(player.server).syncPlayer(player);
             battalionPlayerSync.put(id, new BattalionPlayerSync(player, battalions.sequenceId(), phase));
+            sendTimelineSnapshot(room,player,tick,phase);
         }
+    }
+
+    private void sendTimelineSnapshot(RoomDefinition room, ServerPlayer player, long tick, BattalionSequence.Phase phase) {
+        int timelineLength = BriefingTimeline.length(timelineScene, activeBattalionConfig.briefingSeconds());
+        boolean playing = BriefingTimeline.STAGES.contains(phase);
+        NetworkManager.sendToPlayer(player, new BriefingPlaybackPacket(
+            room.roomId(), runningState.getActiveMatchInstanceId(), battalions.sequenceId(), timelineScene,
+            activeBattalionConfig.briefingSeconds(), (int)Math.min(timelineLength, Math.max(0, tick-timelineStartTick)), playing,
+            runningState.getRoomTeams().get(player.getUUID()) == RoomTeamId.CAMP_A ? attackerTimeline : defenderTimeline));
     }
 
     @Override
@@ -451,7 +500,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (enteredTick < 0L || gameTick <= enteredTick) {
             return 0;
         }
-        return (int) ((gameTick - enteredTick) / 20L);
+        long durationEnd = finalConclusion == null ? gameTick : Math.min(gameTick, finalConclusion.battleEndTick());
+        return (int) Math.max(0, (durationEnd - enteredTick) / 20L);
     }
 
     @Override

@@ -1,10 +1,12 @@
 package org.mods.gd656conquest.server.room.config;
 
+import org.mods.gd656conquest.server.room.model.RoomGameplayId;
+import org.mods.gd656conquest.server.room.model.RoomDefinition;
+import org.mods.gd656conquest.common.match.OperationsSettlementTiming;
 import org.mods.gd656conquest.common.block.ConquestBlocks;
 import org.mods.gd656conquest.server.room.model.RoomVehicleBackend;
 import org.mods.gd656conquest.server.room.model.RoomTroopBalanceReference;
 import org.mods.gd656conquest.server.room.model.RoomVoicePack;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -69,6 +71,11 @@ public final class RoomConfigDescriptorRegistry {
             return Optional.of(descriptor);
         }
         return findDynamicDescriptor(normalized);
+    }
+
+    public static boolean appliesTo(RoomDefinition room, RoomConfigDescriptor descriptor) {
+        return room == null || !RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())
+            || !"commonConfig.resultConfig.endViewPosition".equals(descriptor.newPath());
     }
 
     public static List<String> suggestionValues(String configIdOrAlias) {
@@ -220,6 +227,7 @@ public final class RoomConfigDescriptorRegistry {
         breakthroughGroup(descriptors, RoomConfigCategory.TRANSPORT, "btAmmoBoxPositions", "突破对局弹药箱数据组", "breakthroughConfig.ammoBoxPositions", RoomConfigValueType.POSITION_GROUP);
         breakthroughGroup(descriptors, RoomConfigCategory.TRANSPORT, "btMedicalBoxPositions", "突破对局医疗箱数据组", "breakthroughConfig.medicalBoxPositions", RoomConfigValueType.POSITION_GROUP);
         breakthrough(descriptors, RoomConfigCategory.TRANSPORT, "btBriefingViewPosition", "战况简报位置与角度", "breakthroughConfig.battalionConfig.briefingViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
+        breakthrough(descriptors, RoomConfigCategory.RESULT, "btSettlementTiming", "行动结算触发时机", "breakthroughConfig.battalionConfig.settlementTiming", RoomConfigValueType.STRING, OperationsSettlementTiming.suggestions());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btBattalionCount", "进攻营总数(1-10)", "breakthroughConfig.battalionConfig.count", RoomConfigValueType.NUMBER, List.of("3"));
         breakthrough(descriptors, RoomConfigCategory.RULES, "btBriefingSeconds", "战况简报持续秒数(8-600)", "breakthroughConfig.battalionConfig.briefingSeconds", RoomConfigValueType.NUMBER, List.of("20"));
         breakthrough(descriptors, RoomConfigCategory.RULES, "btPreparationSeconds", "营切换部署准备秒数(1-300)", "breakthroughConfig.battalionConfig.preparationSeconds", RoomConfigValueType.NUMBER, List.of("10"));

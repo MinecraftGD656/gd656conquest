@@ -189,7 +189,13 @@ public final class ClientEventHandler {
     }
 
     public void renderMainHud(net.minecraftforge.client.gui.overlay.ForgeGui gui, net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
-        if (ClientBattalionBriefingState.isCinematicActive()) return;
+        if (ClientBattalionBriefingState.isCinematicActive()) {
+            if (ClientMatchResultOverlayState.isOperationsActive()) {
+                roomSessionController.renderSessionOverlay(guiGraphics, partialTick);
+                ClientMatchResultOverlayState.render(guiGraphics);
+            }
+            return;
+        }
         if (org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideAllHudButKeepHand()
             || org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideAllHudAndHand()
             || org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideTopHudOnly()) {

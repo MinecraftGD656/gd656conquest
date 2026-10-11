@@ -1,5 +1,9 @@
 package org.mods.gd656conquest.server.room.runtime;
 
+import java.util.Optional;
+import org.mods.gd656conquest.server.room.model.RoomGameplayId;
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayOperationsConclusionProvider;
+import org.mods.gd656conquest.common.match.OperationsConclusion;
 import net.minecraft.ChatFormatting;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,7 +24,6 @@ import org.mods.gd656conquest.server.room.gameplay.RoomTeamPresentationSupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.model.RoomViewPosition;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -57,6 +60,9 @@ public final class RoomResultRuntimeService {
         if (room == null || state == null || state.getResultSequenceEndTick() > 0) {
             return false;
         }
+        var conclusion = operationsConclusion(state);
+        if (conclusion.isPresent()) return beginOperationsEnd(room, state, winner, reason, gameTick, conclusion.get());
+        state.setOperationsPresentationEndTick(-1L);
         state.setResultWinnerTeam(winner);
         state.setResultWinnerPlayerId(winnerPlayerId);
         state.setResultReason(reason);
@@ -100,9 +106,63 @@ public final class RoomResultRuntimeService {
         return true;
     }
 
+    private Optional<OperationsConclusion> operationsConclusion(RunningRuntimeState state) {
+        return state.getGameplayRuntime()
+            .filter(RoomGameplayOperationsConclusionProvider.class::isInstance)
+            .map(RoomGameplayOperationsConclusionProvider.class::cast)
+            .flatMap(RoomGameplayOperationsConclusionProvider::operationsConclusion);
+    }
+
+    private boolean beginOperationsEnd(RoomDefinition room, RunningRuntimeState state, RoomTeamId winner, String reason,
+                                      long tick, OperationsConclusion conclusion) {
+        state.setOperationsPresentationEndTick(conclusion.presentationEndTick());
+        state.setResultWinnerTeam(winner);
+        state.setResultWinnerPlayerId(null);
+        state.setResultReason(reason);
+        state.setResultBlackStartTick(-1L);
+        state.setResultSequenceEndTick(conclusion.closeTick(MATCH_RESULT_CLOSE_WAIT_TICKS));
+        state.setResultCloseRemainAnnouncedSecond(-1);
+        state.setResultViewApplied(true);
+        state.getResultViewTransferPending().clear();
+        // Combat and camera preparation already ran. Settlement must not clear cinematic or audio state.
+        for (UUID id : List.copyOf(state.getRoomPlayers())) {
+            ServerPlayer player = server.getPlayerList().getPlayer(id);
+            if (player != null) sendOperationsResult(room, state, player, tick, true);
+        }
+        return true;
+    }
+
+    private void sendOperationsResult(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long tick, boolean awardExperience) {
+        UUID id = player.getUUID();
+        RoomTeamId team = state.getRoomTeams().get(id);
+        MatchResultType type = resolveResultType(id, team, state.getResultWinnerTeam(), null);
+        int remaining = (int)Math.max(1, state.getResultSequenceEndTick()-tick);
+        NetworkManager.sendToPlayer(player, new RoomMatchResultPacket(true, type, remaining, 0, 1, "", true));
+        player.setInvulnerable(true);
+        player.setDeltaMovement(0, 0, 0);
+        ServerPlayerLockService.of(server).syncPlayer(player);
+        sendResultChat(room, state, state.getResultWinnerTeam(), null, state.getResultReason(), player, type, team);
+        // A new spectator joining after settlement must remain ineligible after reconnecting.
+        if (!awardExperience) state.getResultAwardedPlayers().add(id);
+        if (awardExperience && state.getResultAwardedPlayers().add(id)) {
+            long battleEnd = operationsConclusion(state).map(OperationsConclusion::battleEndTick).orElse(tick);
+            awardMatchExperience(room, state, id, player, state.getResultWinnerTeam(), null, battleEnd);
+        }
+    }
+
+    private RoomViewPosition resultView(RoomDefinition room) {
+        return RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())
+            ? room.breakthroughConfig().battalionConfig().briefingViewPosition() : room.commonConfig().resultConfig().endViewPosition();
+    }
+
     public boolean tickEnding(RoomDefinition room, RunningRuntimeState state, long gameTick) {
         if (room == null || state == null || state.getResultSequenceEndTick() <= 0) {
             return false;
+        }
+        if (state.isOperationsResult()) {
+            if (gameTick < state.getOperationsPresentationEndTick()) return false;
+            broadcastCloseCountdown(state, gameTick);
+            return gameTick >= state.getResultSequenceEndTick();
         }
         applyMatchEndViewIfNeeded(room, state, gameTick);
         transferPlayersToEndView(room, state, gameTick);
@@ -142,6 +202,16 @@ public final class RoomResultRuntimeService {
         if (room == null || state == null || player == null || state.getResultSequenceEndTick() <= 0L) {
             return;
         }
+        if (state.isOperationsResult()) {
+            playerTransferQueueService.cancelPendingTransfers(player.getUUID());
+            state.clearRespawnFlow(player.getUUID());
+            ruleRuntimeService.clearPlayer(player.getUUID());
+            playerStateService.applyDeployHoldingState(player);
+            NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());
+            NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
+            sendOperationsResult(room, state, player, gameTick, awardExperience);
+            return;
+        }
         UUID playerId = player.getUUID();
         playerTransferQueueService.cancelPendingTransfers(playerId);
         state.clearRespawnFlow(playerId);
@@ -169,7 +239,7 @@ public final class RoomResultRuntimeService {
             awardMatchExperience(room, state, playerId, player, winner, winnerPlayerId, gameTick);
             state.getResultAwardedPlayers().add(playerId);
         }
-        RoomViewPosition endView = room.commonConfig().resultConfig().endViewPosition();
+        RoomViewPosition endView = resultView(room);
         if (state.isResultViewApplied()) {
             state.getResultViewTransferPending().remove(playerId);
             if (endView != null) {
@@ -191,7 +261,7 @@ public final class RoomResultRuntimeService {
         if (state.getResultBlackStartTick() <= 0 || gameTick < state.getResultBlackStartTick()) {
             return;
         }
-        RoomViewPosition endView = room.commonConfig().resultConfig().endViewPosition();
+        RoomViewPosition endView = resultView(room);
         if (endView == null) {
             state.setResultViewApplied(true);
             return;
@@ -226,7 +296,7 @@ public final class RoomResultRuntimeService {
         if (lastTransferTick >= 0 && gameTick - lastTransferTick < RESULT_VIEW_TRANSFER_INTERVAL_TICKS) {
             return;
         }
-        RoomViewPosition endView = room.commonConfig().resultConfig().endViewPosition();
+        RoomViewPosition endView = resultView(room);
         if (endView == null) {
             state.getResultViewTransferPending().clear();
             state.setResultLastViewTransferTick(gameTick);
@@ -331,7 +401,7 @@ public final class RoomResultRuntimeService {
         PlayerLevelService.MatchOutcome outcome = resolveMatchOutcome(playerId, state.getRoomTeams().get(playerId), winner, winnerPlayerId);
         
         int rank = -1;
-        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) && room.gunmasterConfig().isSoloGrouping()) {
+        if (RoomGameplayId.GUNMASTER.equals(room.gameplayId()) && room.gunmasterConfig().isSoloGrouping()) {
             rank = resolveGunmasterSoloRank(state, playerId);
         }
 
@@ -396,7 +466,7 @@ public final class RoomResultRuntimeService {
         if (room == null || state == null || playerId == null) {
             return "";
         }
-        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId())
+        if (RoomGameplayId.GUNMASTER.equals(room.gameplayId())
             && room.gunmasterConfig().isSoloGrouping()) {
             return "本次对局您的名次：" + resolveGunmasterSoloRank(state, playerId);
         }

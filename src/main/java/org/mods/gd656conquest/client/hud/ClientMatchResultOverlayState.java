@@ -7,6 +7,7 @@ import net.minecraft.util.Mth;
 import org.mods.gd656conquest.common.match.MatchResultType;
 
 public final class ClientMatchResultOverlayState {
+    private static boolean operations;
     private static boolean active;
     private static MatchResultType resultType = MatchResultType.DEFEAT;
     private static int elapsedTicks;
@@ -19,6 +20,7 @@ public final class ClientMatchResultOverlayState {
     }
 
     public static void start(MatchResultType matchResultType, int totalDurationTicks, int blackStartDurationTicks, int restoreDurationTicks, String subtitleOverride) {
+        operations = false;
         active = true;
         resultType = matchResultType == null ? MatchResultType.DRAW : matchResultType;
         elapsedTicks = 0;
@@ -28,7 +30,14 @@ public final class ClientMatchResultOverlayState {
         customSubtitle = subtitleOverride == null ? "" : subtitleOverride;
     }
 
+    public static void startOperations(MatchResultType type, int remainingTicks) {
+        start(type, remainingTicks, 0, 1, "");
+        operations = true;
+    }
+    public static boolean isOperationsActive() { return active && operations; }
+
     public static void clear() {
+        operations = false;
         active = false;
         elapsedTicks = 0;
         customSubtitle = "";
@@ -48,7 +57,7 @@ public final class ClientMatchResultOverlayState {
         if (!active) {
             return false;
         }
-        return elapsedTicks >= blackStartTicks;
+        return operations || elapsedTicks >= blackStartTicks;
     }
 
     public static void render(GuiGraphics gui) {
@@ -59,6 +68,12 @@ public final class ClientMatchResultOverlayState {
         Font font = minecraft.font;
         int width = minecraft.getWindow().getGuiScaledWidth();
         int height = minecraft.getWindow().getGuiScaledHeight();
+        if (operations) {
+            String outcome = switch (resultType) { case VICTORY -> "胜利"; case DEFEAT -> "失败"; case DRAW -> "平局"; };
+            String text = "行动结算 · " + outcome;
+            gui.drawString(font, text, width-font.width(text)-14, 36, 0xFFF4F4F4, true);
+            return;
+        }
         String title = switch (resultType) {
             case VICTORY -> "大获全胜";
             case DEFEAT -> "败北";

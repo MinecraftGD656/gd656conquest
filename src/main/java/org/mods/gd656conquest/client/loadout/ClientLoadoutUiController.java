@@ -20,6 +20,7 @@ public final class ClientLoadoutUiController {
             minecraft.setScreen(null);
         }
         ClientLoadoutUiState.clear();
+        ClientRoomEditorState.clear();
     }
 
     public void tick() {
@@ -27,6 +28,20 @@ public final class ClientLoadoutUiController {
         if (minecraft == null || minecraft.player == null) {
             return;
         }
+        if (ClientRoomEditorState.consumeOpenPanelRequest()) {
+            var snapshot = ClientRoomEditorState.snapshot();
+            if (snapshot != null && snapshot.admin()) {
+                if (minecraft.screen instanceof LoadoutConfigScreen screen) {
+                    screen.openRoomEditorTab();
+                } else {
+                    Screen parent = minecraft.screen instanceof net.minecraft.client.gui.screens.ChatScreen ? null : minecraft.screen;
+                    minecraft.setScreen(new LoadoutConfigScreen(parent, LoadoutConfigScreen.ROOM_EDITOR_TAB_INDEX));
+                }
+            }
+            return;
+        }
+        // Administrator room editing is independent of the combat/deployment UI lock.
+        if (org.mods.gd656conquest.client.room.ClientRoomLockState.requiresCombatFreeze()) return;
         if (ClientLoadoutUiState.consumeOpenPanelRequest()) {
             openConfigScreenFromServerRequest();
         }
@@ -49,10 +64,10 @@ public final class ClientLoadoutUiController {
         if (minecraft == null) {
             return;
         }
+        int targetTabIndex = ClientLoadoutUiState.consumeOpenTabIndex();
         if (isLoadoutScreen(minecraft.screen)) {
             return;
         }
-        int targetTabIndex = ClientLoadoutUiState.consumeOpenTabIndex();
         minecraft.setScreen(new LoadoutConfigScreen(minecraft.screen, targetTabIndex));
     }
 
@@ -70,6 +85,7 @@ public final class ClientLoadoutUiController {
             || screen instanceof LoadoutAttachmentEditorScreen
             || screen instanceof LoadoutItemEditorScreen
             || screen instanceof LoadoutRoomEditorScreen
-            || screen instanceof LoadoutVehicleAdminEditorScreen;
+            || screen instanceof LoadoutVehicleAdminEditorScreen
+            || screen instanceof org.mods.gd656conquest.client.loadout.screen.BriefingTimelineScreen;
     }
 }

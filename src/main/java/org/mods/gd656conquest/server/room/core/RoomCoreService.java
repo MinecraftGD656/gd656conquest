@@ -1,7 +1,7 @@
 package org.mods.gd656conquest.server.room.core;
 
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayOperationsConclusionProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayIntermissionProvider;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -65,7 +65,6 @@ import org.mods.gd656conquest.server.room.vehicle.RoomVehicleRuntimeService;
 import org.mods.gd656conquest.server.room.runtime.audio.RoomThirdPersonAudioCueRegistry;
 import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
 import org.mods.gd656conquest.server.compat.tacz.TaczServerPoseCompat;
-
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -1277,6 +1276,13 @@ public final class RoomCoreService {
     public void tickGameplay(String roomId, long gameTick) {
         runtimeRepository.find(roomId).ifPresent(slot -> {
             if (slot.room().lifecycleState() == RoomLifecycleState.ENDING) {
+                slot.runtime().getRunningState().getGameplayRuntime().ifPresent(runtime -> {
+                    if (runtime instanceof RoomGameplayOperationsConclusionProvider conclusion
+                        && conclusion.operationsConclusion().isPresent() && runtime instanceof RoomGameplayIntermissionProvider presentation) {
+                        runtime.tick(slot.room(), gameTick);
+                        presentation.synchronizeIntermissionPlayers(slot.room(), playerRespawnService, gameTick);
+                    }
+                });
                 syncRunningNametagsIfDue(slot.room(), slot.runtime().getRunningState(), gameTick);
                 slot.runtime().getRunningState().getGameplayRuntime()
                     .filter(RoomGameplayPresentationProvider.class::isInstance)
@@ -1924,7 +1930,10 @@ public final class RoomCoreService {
             return;
         }
         RunningRuntimeState state = slot.runtime().getRunningState();
-        if (state == null || state.getResultSequenceEndTick() > 0 || state.getRoomPlayers().isEmpty()) {
+        if (state == null || state.getResultSequenceEndTick() > 0 || state.getRoomPlayers().isEmpty()
+            || state.getGameplayRuntime().filter(RoomGameplayOperationsConclusionProvider.class::isInstance)
+                .map(RoomGameplayOperationsConclusionProvider.class::cast)
+                .flatMap(RoomGameplayOperationsConclusionProvider::operationsConclusion).isPresent()) {
             return;
         }
         boolean hasEnabledCampA = slot.room().commonConfig().matchingConfig().enabledTeams().contains(RoomTeamId.CAMP_A);

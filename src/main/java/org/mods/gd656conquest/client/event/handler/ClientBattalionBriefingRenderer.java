@@ -50,7 +50,7 @@ public final class ClientBattalionBriefingRenderer {
             return;
         }
         if (p.phase() == Phase.NEXT_ASSAULT) {
-            drawTrackedCentered(gui, mc.font, BattalionSequence.remainingAssaultText(p.battalion(), p.totalBattalions()),
+            drawTrackedCentered(gui, mc.font, BattalionSequence.conclusionText(p.battalion(), p.totalBattalions(), p.selfAttacker(), p.attackersWon()),
                 width * .5F, height * .385F, height * .049F / mc.font.lineHeight, 2.5F,
                 BattalionSequence.announcementAlpha(elapsed), width);
             return;

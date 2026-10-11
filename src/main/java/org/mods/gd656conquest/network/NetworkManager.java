@@ -66,7 +66,7 @@ import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "bf1-0.1.3";
+    private static final String PROTOCOL_VERSION = "bf1-0.1.4-r2";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -79,6 +79,10 @@ public final class NetworkManager {
     }
 
     public static void init() {
+        CHANNEL.registerMessage(packetId++, org.mods.gd656conquest.network.packet.BriefingTimelineEditPacket.class, org.mods.gd656conquest.network.packet.BriefingTimelineEditPacket::encode, org.mods.gd656conquest.network.packet.BriefingTimelineEditPacket::decode, org.mods.gd656conquest.network.packet.BriefingTimelineEditPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(packetId++, org.mods.gd656conquest.network.packet.BriefingTimelineSnapshotPacket.class, org.mods.gd656conquest.network.packet.BriefingTimelineSnapshotPacket::encode, org.mods.gd656conquest.network.packet.BriefingTimelineSnapshotPacket::decode, org.mods.gd656conquest.network.packet.BriefingTimelineSnapshotPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(packetId++, org.mods.gd656conquest.network.packet.BriefingPlaybackPacket.class, org.mods.gd656conquest.network.packet.BriefingPlaybackPacket::encode, org.mods.gd656conquest.network.packet.BriefingPlaybackPacket::decode, org.mods.gd656conquest.network.packet.BriefingPlaybackPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+
         CHANNEL.registerMessage(packetId++, BattalionBriefingPacket.class,
             BattalionBriefingPacket::encode,
             BattalionBriefingPacket::decode,

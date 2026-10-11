@@ -1,5 +1,6 @@
 package org.mods.gd656conquest.server.room.core;
 
+import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.data.roomdefinition.RoomDefinitionRepository;
 import org.mods.gd656conquest.server.room.gameplay.IRoomGameplayRuntime;
@@ -13,7 +14,6 @@ import org.mods.gd656conquest.server.room.model.RoomViewPosition;
 import org.mods.gd656conquest.server.room.objective.RoomObjectiveRuntimeProvider;
 import org.mods.gd656conquest.server.room.objective.RoomObjectiveRuntimeView;
 import org.mods.gd656conquest.server.room.runtime.RoomHudPayloadCodec;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -62,8 +62,9 @@ public final class RoomAdminDebugOverlayService {
         RoomObjectiveRuntimeView captureState = resolveCaptureState(runtimeState);
         appendCaptureCenters(builder, room, captureState);
         appendNamedPosition(builder, roomId, "QS", "N", room.commonConfig().queueSpawn(), "匹配队列重生点");
-        appendEndViewPosition(builder, roomId, room.commonConfig().resultConfig());
-        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
+        if (!RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId()))
+            appendEndViewPosition(builder, roomId, room.commonConfig().resultConfig());
+        if (RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
             appendTeamSpawnPoints(builder, roomId, room.breakthroughConfig().campABaseSpawnGroup(), "T", "BTA", "进攻方大本营重生");
             appendTeamSpawnPoints(builder, roomId, room.breakthroughConfig().campBBaseSpawnGroup(), "S", "BTB", "防守方大本营重生");
             appendBreakthroughViewPositions(builder, roomId, room);
@@ -252,7 +253,7 @@ public final class RoomAdminDebugOverlayService {
         if (room == null) {
             return;
         }
-        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
+        if (RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
             appendBoundaryRows(builder, room.breakthroughConfig().campABaseBoundary(), "T", "bt_debug_camp_a_base");
             appendBoundaryRows(builder, room.breakthroughConfig().campBBaseBoundary(), "S", "bt_debug_camp_b_base");
             for (int stageIndex = 1; stageIndex <= 6; stageIndex++) {

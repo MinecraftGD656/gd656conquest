@@ -18,16 +18,25 @@ public final class ClientBattalionBriefingState {
     public static void accept(BattalionBriefingPacket next) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) return;
-        if (level != mc.level) reset();
+        if (level != mc.level) { packet = null; ticks = 0; level = null; }
         if (packet != null && packet.roomId().equals(next.roomId()) && packet.matchId() == next.matchId()) {
             if (next.sequenceId() < packet.sequenceId()) return;
             if (next.sequenceId() == packet.sequenceId() && next.phase().presentationOrder() <= packet.phase().presentationOrder()) return;
         }
         level = mc.level;
         ticks = Math.max(0, next.elapsedTicks());
-        if (next.phase() == Phase.COMBAT || next.phase() == Phase.FINISHED) { packet = next; return; }
+        if (next.phase() == Phase.COMBAT || next.phase() == Phase.FINISHED) {
+            ClientBriefingPlayback.finish(next.roomId(),next.matchId(),next.sequenceId());
+            if (next.phase() == Phase.FINISHED && next.view() != null && (next.attackersWon() || next.battalion() >= next.totalBattalions())) {
+                var view = next.view();
+                ClientDeathFlowState.holdCinematicCameraAt(view.x()+.5,view.y(),view.z()+.5,view.yaw(),view.pitch());
+            }
+            packet = next;
+            return;
+        }
         ClientReviveState.reset();
-        if (mc.screen instanceof AbstractContainerScreen<?> || mc.screen instanceof LoadoutConfigScreen) mc.setScreen(null);
+        if (mc.screen instanceof AbstractContainerScreen<?>
+            || (mc.screen instanceof LoadoutConfigScreen config && !config.isRoomEditorTabOpen())) mc.setScreen(null);
         var view = next.view();
         switch (next.phase()) {
             case RESULT -> ClientDeathFlowState.holdCinematicCamera();
@@ -65,5 +74,5 @@ public final class ClientBattalionBriefingState {
     public static boolean showingBriefing() {
         return packet != null && (packet.phase() == Phase.BRIEFING || packet.phase() == Phase.BRIEFING_FADE_OUT);
     }
-    public static void reset() { packet = null; ticks = 0; level = null; }
+    public static void reset() { ClientBriefingPlayback.reset(); packet = null; ticks = 0; level = null; }
 }

@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 public final class RoomMatchResultPacket {
+    private final boolean operations;
     private final boolean active;
     private final MatchResultType resultType;
     private final int totalTicks;
@@ -20,6 +21,11 @@ public final class RoomMatchResultPacket {
     private final String subtitle;
 
     public RoomMatchResultPacket(boolean active, MatchResultType resultType, int totalTicks, int blackStartTicks, int restoreTicks, String subtitle) {
+        this(active, resultType, totalTicks, blackStartTicks, restoreTicks, subtitle, false);
+    }
+
+    public RoomMatchResultPacket(boolean active, MatchResultType resultType, int totalTicks, int blackStartTicks, int restoreTicks, String subtitle, boolean operations) {
+        this.operations = operations;
         this.active = active;
         this.resultType = Objects.requireNonNull(resultType, "resultType");
         this.totalTicks = totalTicks;
@@ -28,8 +34,13 @@ public final class RoomMatchResultPacket {
         this.subtitle = subtitle == null ? "" : subtitle;
     }
 
+    public boolean operations() { return operations; }
+    public int totalTicks() { return totalTicks; }
+    public MatchResultType resultType() { return resultType; }
+
     public static void encode(RoomMatchResultPacket message, FriendlyByteBuf buffer) {
         buffer.writeBoolean(message.active);
+        buffer.writeBoolean(message.operations);
         buffer.writeInt(message.resultType.networkId());
         buffer.writeInt(message.totalTicks);
         buffer.writeInt(message.blackStartTicks);
@@ -38,13 +49,14 @@ public final class RoomMatchResultPacket {
     }
 
     public static RoomMatchResultPacket decode(FriendlyByteBuf buffer) {
+        boolean active = buffer.readBoolean(), operations = buffer.readBoolean();
         return new RoomMatchResultPacket(
-            buffer.readBoolean(),
+            active,
             MatchResultType.fromNetworkId(buffer.readInt()),
             buffer.readInt(),
             buffer.readInt(),
             buffer.readInt(),
-            buffer.readUtf()
+            buffer.readUtf(), operations
         );
     }
 
@@ -53,7 +65,8 @@ public final class RoomMatchResultPacket {
         context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
             if (message.active) {
                 ClientMusicTriggerService.onMatchResult(message.resultType);
-                ClientMatchResultOverlayState.start(message.resultType, message.totalTicks, message.blackStartTicks, message.restoreTicks, message.subtitle);
+                if (message.operations) ClientMatchResultOverlayState.startOperations(message.resultType, message.totalTicks);
+                else ClientMatchResultOverlayState.start(message.resultType, message.totalTicks, message.blackStartTicks, message.restoreTicks, message.subtitle);
             } else {
                 ClientMatchResultOverlayState.clear();
             }

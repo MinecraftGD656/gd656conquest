@@ -91,10 +91,11 @@ final class ClientRoomSessionController {
         }
         org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedHudOnly(ClientRoomLockState.shouldForceHudOnly());
         org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedVisible(ClientRoomLockState.shouldForceVisibleHud());
+        loadoutUiController.tick();
         if (ClientRoomLockState.requiresCombatFreeze()) {
             while (org.mods.gd656conquest.client.input.ClientKeyMappings.OPEN_LOADOUT_SCREEN.consumeClick()) {}
             while (org.mods.gd656conquest.client.input.ClientKeyMappings.COMMON_USE.consumeClick()) {}
-        } else loadoutUiController.tick();
+        }
         uploadMainHandItemNameIfNeeded(minecraft);
         vehicleMountedHotbarLockService.tick(minecraft);
         while (org.mods.gd656conquest.client.input.ClientKeyMappings.OPEN_LOADOUT_SCREEN.consumeClick()) {

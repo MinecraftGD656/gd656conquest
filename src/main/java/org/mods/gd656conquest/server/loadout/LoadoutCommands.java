@@ -291,8 +291,10 @@ public final class LoadoutCommands {
 
     private static int executeOpenRoomEditor(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
+        // Initialize the unified configuration screen before its room-editor open request.
+        LoadoutUiService.sendSnapshot(player, false, true);
         LoadoutUiService.sendAdminRoomSnapshot(player, true);
-        return replyInfo(context.getSource(), "已打开房间配置界面");
+        return replyInfo(context.getSource(), "已请求打开房间配置界面");
     }
 
     private static int executeAddItem(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

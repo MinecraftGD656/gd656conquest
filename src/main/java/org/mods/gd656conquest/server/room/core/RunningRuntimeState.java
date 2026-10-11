@@ -87,6 +87,7 @@ public final class RunningRuntimeState {
     private final Map<UUID, TacticalMarker> autoTacticalMarkersByOwner = new LinkedHashMap<>();
     private final Map<String, TeamScopedTacticalMarker> gameplayTacticalMarkersByKey = new LinkedHashMap<>();
     private final Map<UUID, RejoinTicket> rejoinTickets = new LinkedHashMap<>();
+    private long operationsPresentationEndTick = -1L;
     private RoomTeamId resultWinnerTeam;
     private UUID resultWinnerPlayerId;
     private String resultReason = "-";
@@ -466,6 +467,10 @@ public final class RunningRuntimeState {
     public void setResultBlackStartTick(long resultBlackStartTick) {
         this.resultBlackStartTick = resultBlackStartTick;
     }
+
+    public boolean isOperationsResult() { return operationsPresentationEndTick >= 0; }
+    public long getOperationsPresentationEndTick() { return operationsPresentationEndTick; }
+    public void setOperationsPresentationEndTick(long tick) { operationsPresentationEndTick = tick; }
 
     public long getResultSequenceEndTick() {
         return resultSequenceEndTick;
@@ -950,6 +955,7 @@ public final class RunningRuntimeState {
     }
 
     public void clearResultState() {
+        operationsPresentationEndTick = -1L;
         resultWinnerTeam = null;
         resultWinnerPlayerId = null;
         resultReason = "-";

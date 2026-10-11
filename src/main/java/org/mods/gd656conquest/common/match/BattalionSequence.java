@@ -65,9 +65,9 @@ public final class BattalionSequence {
                 case RESULT -> enter(Phase.TRAVEL_TO_BRIEFING, nextStart, BRIEFING_TRAVEL_TICKS);
                 case TRAVEL_TO_BRIEFING -> enter(Phase.BRIEFING, nextStart, briefingTicks);
                 case BRIEFING -> enter(Phase.BRIEFING_FADE_OUT, nextStart, MASK_FADE_OUT_TICKS);
-                case BRIEFING_FADE_OUT -> enter(terminal ? Phase.FINISHED : Phase.NEXT_ASSAULT,
-                    nextStart, terminal ? 0 : ASSAULT_ANNOUNCEMENT_TICKS);
-                case NEXT_ASSAULT -> enter(Phase.TRAVEL_TO_DEPLOY, nextStart, DEPLOY_TRAVEL_TICKS);
+                case BRIEFING_FADE_OUT -> enter(Phase.NEXT_ASSAULT, nextStart, ASSAULT_ANNOUNCEMENT_TICKS);
+                case NEXT_ASSAULT -> enter(terminal ? Phase.FINISHED : Phase.TRAVEL_TO_DEPLOY,
+                    nextStart, terminal ? 0 : DEPLOY_TRAVEL_TICKS);
                 case TRAVEL_TO_DEPLOY -> {
                     battalion++;
                     enter(Phase.PREPARATION, nextStart, preparationTicks);
@@ -84,6 +84,7 @@ public final class BattalionSequence {
         phaseDuration = duration;
     }
 
+    public boolean terminal() { return terminal; }
     public boolean active() { return phase != Phase.COMBAT; }
     public int battalion() { return battalion; }
     public int total() { return total; }
@@ -118,6 +119,11 @@ public final class BattalionSequence {
     public static float announcementAlpha(double elapsedTicks) {
         return Math.min(clamp(elapsedTicks / TEXT_FADE_IN_TICKS),
             clamp((ASSAULT_ANNOUNCEMENT_TICKS - elapsedTicks) / ANNOUNCEMENT_FADE_OUT_TICKS));
+    }
+
+    public static String conclusionText(int battalion, int total, boolean selfAttacker, boolean attackersWon) {
+        if (attackersWon || battalion >= total) return selfAttacker == attackersWon ? "行动胜利" : "行动失败";
+        return remainingAssaultText(battalion, total);
     }
 
     public static String remainingAssaultText(int battalion, int total) {
