@@ -38,12 +38,12 @@ public final class ClientBriefingPlayback {
     }
     @SubscribeEvent public static void render(RenderGuiEvent.Post event) {
         var mc=Minecraft.getInstance();if(snapshot==null||!snapshot.active()||mc.options.hideGui||mc.screen instanceof org.mods.gd656conquest.client.loadout.screen.BriefingTimelineScreen)return;
-        GuiGraphics gui=event.getGuiGraphics();PLAYER.render(gui,gui.guiWidth()/2,(int)(gui.guiHeight()*.80), (int)(gui.guiWidth()*.85));
+        GuiGraphics gui=event.getGuiGraphics();PLAYER.renderAtGameplayPosition(gui,snapshot.subtitleScale());
     }
     @SubscribeEvent public static void logout(ClientPlayerNetworkEvent.LoggingOut event) {reset();}
     public static void finish(String roomId,long matchId,long sequenceId) {
         if(snapshot!=null && snapshot.roomId().equals(roomId) && snapshot.matchId()==matchId && sequenceId>=snapshot.sequenceId()) {
-            CLOCK.stop();PLAYER.stop(); snapshot=new BriefingPlaybackPacket(snapshot.roomId(),snapshot.matchId(),snapshot.sequenceId(),snapshot.scene(),snapshot.briefingSeconds(),snapshot.elapsedTicks(),false,snapshot.track());
+            CLOCK.stop();PLAYER.stop(); snapshot=new BriefingPlaybackPacket(snapshot.roomId(),snapshot.matchId(),snapshot.sequenceId(),snapshot.scene(),snapshot.briefingSeconds(),snapshot.elapsedTicks(),false,snapshot.track(),snapshot.subtitleScale());
         }
     }
     public static void reset() {CLOCK.reset();PLAYER.stop();snapshot=null;level=null;playerIdentity=null;ticks=0;}

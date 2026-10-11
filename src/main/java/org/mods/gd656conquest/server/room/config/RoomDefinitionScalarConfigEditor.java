@@ -34,6 +34,8 @@ public final class RoomDefinitionScalarConfigEditor {
         Objects.requireNonNull(descriptor, "descriptor");
         if (!RoomConfigDescriptorRegistry.appliesTo(definition, descriptor))
             throw new IllegalArgumentException("行动模式结算沿用战况简报镜头，无需配置对局结束展示位置");
+        if (descriptor.valueType() == RoomConfigValueType.EDITOR)
+            throw new IllegalArgumentException("请通过房间配置中的“战况时间轴”打开专用编辑器");
         if (isDeleteToken(rawValue)) {
             return clear(definition, descriptor);
         }
@@ -181,6 +183,7 @@ public final class RoomDefinitionScalarConfigEditor {
             case STRING -> parseStringValue(descriptor, rawValue);
             case POSITION -> parsePosition(rawValue, editor);
             case VIEW_POSITION -> parseViewPosition(rawValue, editor);
+            case EDITOR -> throw new IllegalArgumentException("专用编辑器不是标量配置");
             case POSITION_GROUP, DATA_GROUP -> throw new IllegalArgumentException("分组配置应使用列表编辑: " + descriptor.configId());
         };
     }

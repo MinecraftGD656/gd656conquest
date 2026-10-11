@@ -305,7 +305,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         NetworkManager.sendToPlayer(player, new BriefingPlaybackPacket(
             room.roomId(), runningState.getActiveMatchInstanceId(), battalions.sequenceId(), timelineScene,
             activeBattalionConfig.briefingSeconds(), (int)Math.min(timelineLength, Math.max(0, tick-timelineStartTick)), playing,
-            runningState.getRoomTeams().get(player.getUUID()) == RoomTeamId.CAMP_A ? attackerTimeline : defenderTimeline));
+            runningState.getRoomTeams().get(player.getUUID()) == RoomTeamId.CAMP_A ? attackerTimeline : defenderTimeline, activeBattalionConfig.subtitleScale()));
     }
 
     @Override

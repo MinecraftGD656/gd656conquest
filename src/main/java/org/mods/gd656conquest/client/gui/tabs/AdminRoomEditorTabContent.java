@@ -11,7 +11,6 @@ import org.mods.gd656conquest.client.gui.GuiConstants;
 import org.mods.gd656conquest.client.gui.elements.ChoiceListDialog;
 import org.mods.gd656conquest.client.gui.elements.ConfirmDialog;
 import org.mods.gd656conquest.client.gui.elements.GDRowRenderer;
-import org.mods.gd656conquest.client.gui.elements.GDButton;
 import org.mods.gd656conquest.network.packet.BriefingTimelineEditPacket;
 import org.mods.gd656conquest.client.gui.elements.GDScrollState;
 import org.mods.gd656conquest.client.gui.elements.TextInputDialog;
@@ -54,7 +53,6 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
     private final List<GDRowRenderer> rightRowRenderers = new ArrayList<>();
     private final List<String> expandedGroupKeys = new ArrayList<>();
     private final List<String> collapsedCategories = new ArrayList<>();
-    private GDButton timelineButton;
     private GDRowRenderer leftHeader;
     private GDRowRenderer rightHeader;
     private TextInputDialog textInputDialog;
@@ -125,7 +123,7 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
         int rightX1 = leftX2 + PADDING;
         int rightX2 = screenWidth - PADDING;
         int contentY1 = top + ROW_H + 1;
-        int contentY2 = screenHeight - PADDING - 24;
+        int contentY2 = screenHeight - PADDING;
 
         guiGraphics.drawString(minecraft.font, "房间数据编辑器", PADDING, top - 10, GuiConstants.COLOR_TITLE_TEXT, false);
         ClientRoomEditorState.RoomState selected = getSelectedRoom();
@@ -158,19 +156,6 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
                 hasMissing ? 0xFFFF8787 : 0xFFBDF5BD, false, true, null);
         rightHeader.render(guiGraphics, mouseX, mouseY, partialTick);
         renderRightRows(guiGraphics, mouseX, mouseY, partialTick, rightX1, rightX2, contentY1, contentY2);
-        if (timelineButton == null) timelineButton = new GDButton(PADDING, screenHeight-PADDING-18, 96, 18,
-            Component.literal("战况时间轴"), button -> {
-                var room = getSelectedRoom();
-                if (isOperationsRoom(room)) NetworkManager.getChannel().sendToServer(new BriefingTimelineEditPacket(room.roomId(),false,"",""));
-            });
-        timelineButton.setY(screenHeight-PADDING-18);
-        timelineButton.active = isOperationsRoom(selected);
-        timelineButton.render(guiGraphics,mouseX,mouseY,partialTick);
-    }
-
-    private boolean isOperationsRoom(ClientRoomEditorState.RoomState room) {
-        return room != null && room.configEntries().stream().anyMatch(entry -> entry.applicable()
-            && "breakthroughConfig.battalionConfig.briefingSeconds".equals(entry.keyPath()));
     }
 
     private void renderLeftRows(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick,
@@ -291,6 +276,10 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
         if (rowData == null || rowData.header || textInputDialog == null) return;
         ClientRoomEditorState.RoomState room = getSelectedRoom();
         if (room == null) return;
+        if ("EDITOR".equals(rowData.valueType)) {
+            if (rowData.applicable && rowData.editable) NetworkManager.getChannel().sendToServer(new BriefingTimelineEditPacket(room.roomId(),false,"",""));
+            return;
+        }
         if (rowData.groupParent) {
             if (fromValueColumn) {
                 if (mouseButton == GLFW.GLFW_MOUSE_BUTTON_RIGHT && supportsQuickGroupEditor(rowData))
@@ -702,12 +691,11 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
     public boolean mouseClickedContent(double mouseX, double mouseY, int button,
                                         int screenWidth, int screenHeight, int contentTop) {
         if (button == 0 || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            if (timelineButton != null && timelineButton.mouseClicked(mouseX,mouseY,button)) return true;
             int top = contentTop + 6;
             int split = (screenWidth - PADDING * 3) / 2;
             int lx1 = PADDING, lx2 = lx1 + split;
             int rx1 = lx2 + PADDING, rx2 = screenWidth - PADDING;
-            int cy1 = top + ROW_H + 1, cy2 = screenHeight - PADDING - 24;
+            int cy1 = top + ROW_H + 1, cy2 = screenHeight - PADDING;
             if (mouseX >= lx1 && mouseX <= lx2 && mouseY >= cy1 && mouseY <= cy2) {
                 for (int i = 0; i < leftRows.size() && i < roomEntries.size(); i++) {
                     int rt = cy1 + i * (ROW_H + ROW_GAP), rb = rt + ROW_H;
@@ -746,7 +734,7 @@ public class AdminRoomEditorTabContent implements ConfigScreenHeader.TabContent 
         int split = (screenWidth - PADDING * 3) / 2;
         int lx1 = PADDING, lx2 = lx1 + split;
         int rx1 = lx2 + PADDING, rx2 = screenWidth - PADDING;
-        int cy1 = top + ROW_H + 1, cy2 = screenHeight - PADDING - 24;
+        int cy1 = top + ROW_H + 1, cy2 = screenHeight - PADDING;
         if (mouseX >= lx1 && mouseX <= lx2 && mouseY >= cy1 && mouseY <= cy2)
             return leftScrollState.mouseScrolled(delta, cy2 - cy1, roomEntries.size() * (ROW_H + ROW_GAP));
         if (mouseX >= rx1 && mouseX <= rx2 && mouseY >= cy1 && mouseY <= cy2)

@@ -53,7 +53,6 @@ public class LoadoutRoomEditorScreen extends Screen {
     private GDRowRenderer rightHeader;
     private GDButton backButton;
     private GDButton refreshButton;
-    private GDButton timelineButton;
     private TextInputDialog textInputDialog;
     private ChoiceListDialog choiceListDialog;
     private ConfirmDialog confirmDialog;
@@ -73,9 +72,6 @@ public class LoadoutRoomEditorScreen extends Screen {
         super.init();
         this.backButton = new GDButton(this.width - 86, this.height - 28, 72, 20, Component.literal("返回"), btn -> closeToParent());
         this.refreshButton = new GDButton(this.width - 166, this.height - 28, 72, 20, Component.literal("刷新"), btn -> requestSnapshot(false));
-        this.timelineButton = new GDButton(18, this.height - 28, 96, 20, Component.literal("战况时间轴"), btn -> {
-            if (getSelectedRoom() != null) NetworkManager.getChannel().sendToServer(new org.mods.gd656conquest.network.packet.BriefingTimelineEditPacket(selectedRoomId,false,"",""));
-        });
         this.textInputDialog = new TextInputDialog(minecraft, null, null);
         this.choiceListDialog = new ChoiceListDialog(minecraft);
         this.confirmDialog = new ConfirmDialog(minecraft, null, null);
@@ -116,7 +112,6 @@ public class LoadoutRoomEditorScreen extends Screen {
             refreshButton.setY(this.height - 28);
             refreshButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick);
         }
-        if (timelineButton != null) { timelineButton.setY(this.height - 28); timelineButton.render(guiGraphics, baseMouseX, baseMouseY, partialTick); }
         if (choiceListDialog != null && choiceListDialog.isVisible()) {
             choiceListDialog.render(guiGraphics, mouseX, mouseY, partialTick);
         }
@@ -305,6 +300,11 @@ public class LoadoutRoomEditorScreen extends Screen {
         }
         ClientRoomEditorState.RoomState room = getSelectedRoom();
         if (room == null) {
+            return;
+        }
+        if ("EDITOR".equals(rowData.valueType)) {
+            if (rowData.applicable && rowData.editable) NetworkManager.getChannel().sendToServer(
+                new org.mods.gd656conquest.network.packet.BriefingTimelineEditPacket(room.roomId(),false,"",""));
             return;
         }
         if (rowData.groupParent) {
@@ -1036,7 +1036,6 @@ public class LoadoutRoomEditorScreen extends Screen {
             return true;
         }
         if (button == 0 || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            if (timelineButton != null && timelineButton.mouseClicked(mouseX, mouseY, button)) return true;
             if (backButton != null && backButton.mouseClicked(mouseX, mouseY, button)) {
                 return true;
             }

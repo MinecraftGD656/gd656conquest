@@ -7,5 +7,6 @@ public enum RoomConfigValueType {
     POSITION,
     VIEW_POSITION,
     POSITION_GROUP,
-    DATA_GROUP
+    DATA_GROUP,
+    EDITOR
 }

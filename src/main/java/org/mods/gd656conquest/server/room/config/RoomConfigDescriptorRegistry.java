@@ -229,6 +229,7 @@ public final class RoomConfigDescriptorRegistry {
         breakthrough(descriptors, RoomConfigCategory.TRANSPORT, "btBriefingViewPosition", "战况简报位置与角度", "breakthroughConfig.battalionConfig.briefingViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
         breakthrough(descriptors, RoomConfigCategory.RESULT, "btSettlementTiming", "行动结算触发时机", "breakthroughConfig.battalionConfig.settlementTiming", RoomConfigValueType.STRING, OperationsSettlementTiming.suggestions());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btBattalionCount", "进攻营总数(1-10)", "breakthroughConfig.battalionConfig.count", RoomConfigValueType.NUMBER, List.of("3"));
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btBriefingTimeline", "战况时间轴", "breakthroughConfig.battalionConfig.timelines", RoomConfigValueType.EDITOR, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btBriefingSeconds", "战况简报持续秒数(8-600)", "breakthroughConfig.battalionConfig.briefingSeconds", RoomConfigValueType.NUMBER, List.of("20"));
         breakthrough(descriptors, RoomConfigCategory.RULES, "btPreparationSeconds", "营切换部署准备秒数(1-300)", "breakthroughConfig.battalionConfig.preparationSeconds", RoomConfigValueType.NUMBER, List.of("10"));
         breakthrough(descriptors, RoomConfigCategory.RULES, "btStageDurationMinutes", "阶段持续分钟", "breakthroughConfig.stageDurationMinutes", RoomConfigValueType.NUMBER, List.of());
@@ -370,7 +371,7 @@ public final class RoomConfigDescriptorRegistry {
 
     private static List<String> legacyCommandIds(RoomConfigScope scope) {
         List<String> values = DESCRIPTORS.stream()
-            .filter(descriptor -> descriptor.scope() == scope)
+            .filter(descriptor -> descriptor.scope() == scope && descriptor.valueType() != RoomConfigValueType.EDITOR)
             .map(RoomConfigDescriptor::preferredLegacyId)
             .toList();
         if (scope == RoomConfigScope.CONQUEST) {

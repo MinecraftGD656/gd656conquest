@@ -28,7 +28,7 @@ public final class BriefingTimelineEditorService {
                 if (!revision(json).equals(request.revision())) throw new IllegalArgumentException("房间配置已改变，请重新打开时间轴后编辑");
                 var submitted = GSON.fromJson(request.json(), RoomBattalionConfig.class);
                 if (submitted == null) throw new IllegalArgumentException("无效时间轴配置");
-                var updated = new RoomBattalionConfig(current.count(),current.briefingViewPosition(),current.briefingSeconds(),current.preparationSeconds(),submitted.timelines(),current.settlementTiming());
+                var updated = current.withTimelineEdits(submitted.timelines(),submitted.subtitleScale());
                 if (GSON.toJson(updated).length()>262144) throw new IllegalArgumentException("时间轴配置过大");
                 var gameplay = GSON.toJsonTree(room.breakthroughConfig()).getAsJsonObject();
                 gameplay.add("battalionConfig",GSON.toJsonTree(updated));

@@ -9,20 +9,24 @@ import java.util.function.Supplier;
 import org.mods.gd656conquest.common.match.BriefingTimeline;
 
 public record BriefingPlaybackPacket(String roomId, long matchId, long sequenceId, String scene,
-    int briefingSeconds, int elapsedTicks, boolean active, BriefingTimeline.Track track) {
+    int briefingSeconds, int elapsedTicks, boolean active, BriefingTimeline.Track track, double subtitleScale) {
+    public BriefingPlaybackPacket(String roomId, long matchId, long sequenceId, String scene, int briefingSeconds, int elapsedTicks, boolean active, BriefingTimeline.Track track) {
+        this(roomId, matchId, sequenceId, scene, briefingSeconds, elapsedTicks, active, track, org.mods.gd656conquest.common.match.BriefingSubtitleStyle.DEFAULT_SCALE);
+    }
     private static final Gson GSON = new Gson();
     public BriefingPlaybackPacket {
         if (roomId == null || roomId.length() > 128 || !BriefingTimeline.validKey(scene) || briefingSeconds < 8 || briefingSeconds > 600
             || elapsedTicks < 0 || elapsedTicks > BriefingTimeline.length(scene, briefingSeconds)) throw new IllegalArgumentException("Invalid playback snapshot");
+        org.mods.gd656conquest.common.match.BriefingSubtitleStyle.validate(subtitleScale);
         track = track == null ? BriefingTimeline.Track.empty() : track;
         BriefingTimeline.validateTrack(track, scene, briefingSeconds);
     }
     public static void encode(BriefingPlaybackPacket p, FriendlyByteBuf b) {
         b.writeUtf(p.roomId,128); b.writeLong(p.matchId); b.writeLong(p.sequenceId); b.writeUtf(p.scene,32);
-        b.writeInt(p.briefingSeconds); b.writeInt(p.elapsedTicks); b.writeBoolean(p.active); b.writeUtf(GSON.toJson(p.track),262144);
+        b.writeInt(p.briefingSeconds); b.writeInt(p.elapsedTicks); b.writeBoolean(p.active); b.writeUtf(GSON.toJson(p.track),262144); b.writeDouble(p.subtitleScale);
     }
     public static BriefingPlaybackPacket decode(FriendlyByteBuf b) {
-        return new BriefingPlaybackPacket(b.readUtf(128),b.readLong(),b.readLong(),b.readUtf(32),b.readInt(),b.readInt(),b.readBoolean(),GSON.fromJson(b.readUtf(262144),BriefingTimeline.Track.class));
+        return new BriefingPlaybackPacket(b.readUtf(128),b.readLong(),b.readLong(),b.readUtf(32),b.readInt(),b.readInt(),b.readBoolean(),GSON.fromJson(b.readUtf(262144),BriefingTimeline.Track.class),b.readDouble());
     }
     public static void handle(BriefingPlaybackPacket p, Supplier<NetworkEvent.Context> supplier) {
         var c=supplier.get(); c.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> org.mods.gd656conquest.client.room.ClientBriefingPlayback.accept(p))); c.setPacketHandled(true);

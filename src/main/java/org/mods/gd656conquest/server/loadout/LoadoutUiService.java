@@ -1758,7 +1758,7 @@ public final class LoadoutUiService {
             renderDescriptorDisplayName(descriptor),
             scope == null ? RoomConfigScope.COMMON.displayName() : scope.displayName(),
             renderDescriptorCategory(descriptor),
-            stringifyRoomConfigValue(value),
+            descriptor.valueType() == org.mods.gd656conquest.server.room.config.RoomConfigValueType.EDITOR ? "点击编辑" : stringifyRoomConfigValue(value),
             !requiredMissing && hasConfiguredRoomConfigValue(value),
             requiredMissing,
             true,
