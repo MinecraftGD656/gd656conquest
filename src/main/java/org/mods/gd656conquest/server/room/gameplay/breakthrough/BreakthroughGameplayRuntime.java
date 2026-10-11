@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.server.room.gameplay.breakthrough;
 
 import org.mods.gd656conquest.common.match.BattalionSequence;
+import org.mods.gd656conquest.common.match.OperationsTroopRules;
 import org.mods.gd656conquest.network.packet.BattalionBriefingPacket;
 import org.mods.gd656conquest.server.room.model.RoomBattalionConfig;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayIntermissionProvider;
@@ -74,12 +75,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     RoomGameplayVehicleDeployRuleProvider,
     RoomGameplayIntermissionProvider {
     private static final int STAGE_ADVANCE_COUNTDOWN_SECONDS = 5;
-    private static final int ATTACK_TROOP_REFERENCE_PLAYERS = 12;
-    private static final int STAGE_REWARD_DIVISOR = 2;
     private static final long STAGE_REWARD_EVENT_TICKS = 5L * 20L;
-    private static final int BACK_TO_WALL_DURATION_SECONDS = 180;
-    private static final int BURN_BOATS_DURATION_SECONDS = 60;
-    private static final long DESPERATE_TRIGGER_EVENT_TICKS = 5L * 20L;
     private static final String RETREAT_MARKER_ATTACKER_PREFIX = "bt_retreat_attackers_";
     private static final String RETREAT_MARKER_DEFENDER_PREFIX = "bt_retreat_defenders_";
     private static final String RETREAT_MARKER_OWNER_NAME = "撤离标记";
@@ -109,7 +105,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private RoomViewPosition briefingView;
     private List<BattalionBriefingPacket.Sector> briefingSectors = List.of();
     private int capturedBriefingSectors;
-    private int battalionTroopCap;
     private int battalionStartStage;
     private long battalionStartTick;
     private boolean battalionAttackersWon;
@@ -152,10 +147,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         battalionReports.clear();
         battalionStartStage = runtimeState.getCurrentStageIndex();
         battalionStartTick = enteredTick;
-        battalionTroopCap = 0;
         initializeAttackTroopCapForOpeningStage(room);
-        battalionTroopCap = runtimeState.getAttackTroopCap();
-        applyStageReward(room);
         initializeObjectiveSubtitles(room);
         clearRetreatDefenderMarkers(room, gameTick);
         clearRetreatPersistentSubtitles();
@@ -191,6 +183,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         sectors.add(BattalionBriefingPacket.Sector.attackerBase(room.breakthroughConfig().campABaseBoundary()));
         sectors.add(BattalionBriefingPacket.Sector.defenderBase(room.breakthroughConfig().campBBaseBoundary()));
         briefingSectors = List.copyOf(sectors);
+        runtimeState.clearDesperateMode();
         titleService.clearCountdownTitles(runningState, runtimeState);
         titleService.clearRetreatTitles(runningState, runtimeState);
         clearRetreatDefenderMarkers(room, tick);
@@ -216,9 +209,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (previous == battalions.phase()) return;
         if (isDeploymentPreparation()) {
             runtimeState.restartCurrentStage(room.breakthroughConfig(), battalions.deadline());
-            battalionTroopCap = 0;
             initializeAttackTroopCapForOpeningStage(room);
-            battalionTroopCap = runtimeState.getAttackTroopCap();
             battalionStartStage = runtimeState.getCurrentStageIndex();
             battalionStartTick = battalions.deadline();
             attackTroopHalfSubtitleDispatched = attackTroopCriticalSubtitleDispatched = false;
@@ -280,7 +271,10 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT) {
             captureRuntimeService.tick(room, runningState, runtimeState, gameTick);
             tickObjectiveSubtitles(room);
-            if (runtimeState.areAllActiveObjectivesFullyCapturedByAttackers(room.breakthroughConfig())) {
+            var outcome = runtimeState.resolveCombatOutcome(room.breakthroughConfig(), gameTick);
+            if (outcome == BreakthroughRuntimeState.CombatOutcome.CAPTURED) {
+                // Capture wins over zero troops and timeout in the same server tick.
+                completeCapturedSector(room, gameTick);
                 if (runtimeState.getCurrentStageIndex() >= runtimeState.getMaxStageCount()) {
                     broadcastOutcomeSubtitle(
                         "bt_match_end_capture_" + gameTick,
@@ -304,13 +298,15 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                     titleService.syncRetreatTitles(room, runningState, runtimeState, captureRuntimeService, gameTick);
                     syncRetreatDefenderMarkers(room, gameTick);
                 }
-            }
-            if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT
-                && gameTick >= runtimeState.getStageDeadlineTick()) {
-                beginBattalionConclusion(room, gameTick, false, "本营进攻超时");
                 return;
             }
-            if (tickDesperateModeState(room, gameTick)) {
+            if (outcome == BreakthroughRuntimeState.CombatOutcome.ZERO_TROOP_CONTEST
+                || outcome == BreakthroughRuntimeState.CombatOutcome.EXHAUSTED) {
+                tickZeroTroopContest(room, gameTick);
+                return;
+            }
+            if (outcome == BreakthroughRuntimeState.CombatOutcome.TIMED_OUT) {
+                beginBattalionConclusion(room, gameTick, false, "本营进攻超时");
                 return;
             }
             return;
@@ -332,10 +328,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 clearRetreatDefenderMarkers(room, gameTick);
                 int previousStageIndex = runtimeState.getCurrentStageIndex();
                 runtimeState.advanceToNextStage(room.breakthroughConfig(), gameTick);
-                refreshAttackTroopCapForNextStage(room);
-                int rewardTroops = applyStageReward(room);
                 initializeObjectiveSubtitles(room);
-                runtimeState.markStageReward(gameTick, rewardTroops, runtimeState.getCurrentStageIndex());
                 broadcastStageStartSubtitles(gameTick);
                 playStageAdvanceVoiceForAttackers();
                 refreshDeployViewForRespawnPlayers(room, gameTick, previousStageIndex, runtimeState.getCurrentStageIndex());
@@ -370,7 +363,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         battalions.initialize(3);
         battalionPlayerSync.clear();
         battalionReports.clear();
-        battalionTroopCap = 0;
     }
 
     @Override
@@ -382,7 +374,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         int killerEntityId,
         long gameTick
     ) {
-        if ((reason != RoomPlayerInvalidationReason.DEATH && reason != RoomPlayerInvalidationReason.REDEPLOY) || pendingEndRequest != null || battalions.active()) {
+        if (room == null || (reason != RoomPlayerInvalidationReason.DEATH && reason != RoomPlayerInvalidationReason.REDEPLOY) || pendingEndRequest != null || battalions.active()) {
             return;
         }
         if (reason == RoomPlayerInvalidationReason.DEATH && teamId == RoomTeamId.CAMP_A && runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT) {
@@ -390,15 +382,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 return;
             }
             runtimeState.consumeAttackTroop(1);
-            if (runtimeState.getAttackTroops() <= 0) {
-                // Commit immediately to stop input; the final capture is checked before snapshotting.
-                if (runtimeState.areAllActiveObjectivesFullyCapturedByAttackers(room.breakthroughConfig())) {
-                    if (runtimeState.getCurrentStageIndex() >= runtimeState.getMaxStageCount())
-                        beginBattalionConclusion(room, gameTick, true, "进攻方占领全部区域");
-                    else startAdvanceCountdown(room, gameTick);
-                } else beginBattalionConclusion(room, gameTick, false, "本营兵力耗尽");
-                return;
-            }
+            // Adjudicate after the capture service updates all points, so a simultaneous
+            // last death and capture cannot incorrectly destroy a battalion.
         }
         if (reason == RoomPlayerInvalidationReason.REDEPLOY) {
             return;
@@ -433,7 +418,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             ? "ENDING"
             : buildAudioState(selfTeam, gameTick);
         return new RoomGameplayHudState(
-            runtimeState.isDesperateModeActive() ? -1 : runtimeState.getAttackTroops(),
+            runtimeState.getAttackTroops(),
             runtimeState.getCurrentStageIndex(),
             elapsedSeconds,
             "BREAKTHROUGH",
@@ -756,8 +741,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private int resolveRemainSeconds(long gameTick) {
         if (battalions.active()) return (battalions.remaining(gameTick) + 19) / 20;
         if (runtimeState.isDesperateModeActive()) {
-            long deadline = runtimeState.getDesperateModeDeadlineTick();
-            return deadline <= 0L || gameTick >= deadline ? 0 : (int) Math.max(0L, (deadline - gameTick + 19L) / 20L);
+            return -1;
         }
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN) {
             long deadline = runtimeState.getAdvanceCountdownEndTick();
@@ -780,11 +764,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (runtimeState.getCurrentStageIndex() <= 0) {
             return "等待阶段初始化";
         }
-        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BACK_TO_WALL) {
-            return hudStyledText("BT_LAST_STAND_STATUS", "背水一战");
-        }
-        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BURN_BOATS) {
-            return hudStyledText("BT_BURN_BOATS_STATUS", "破釜沉舟");
+        if (runtimeState.isDesperateModeActive()) {
+            return hudStyledText("BT_LAST_STAND_STATUS", "零兵力争夺");
         }
         String stageLabel = stageLabel(runtimeState.getCurrentStageIndex());
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) {
@@ -813,7 +794,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         clearRetreatDefenderMarkers(room, gameTick);
         runtimeState.startAdvanceCountdown(gameTick, STAGE_ADVANCE_COUNTDOWN_SECONDS);
         titleService.clearCountdownTitles(runningState, runtimeState);
-        broadcastStageTroopDeltaSubtitle(room, gameTick);
     }
 
     private void refreshDeployViewForRespawnPlayers(RoomDefinition room, long gameTick, int sourceStageIndex, int targetStageIndex) {
@@ -904,10 +884,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         runtimeState.initializeAttackTroops(resolveAttackTroopBalance(room).troopCap());
     }
 
-    private void refreshAttackTroopCapForNextStage(RoomDefinition room) {
-        runtimeState.setAttackTroopCap(resolveAttackTroopBalance(room).troopCap(), true);
-    }
-
     private void syncCombatNarrativeSubtitles(RoomDefinition room, long gameTick) {
         if (!initialCombatSubtitleDispatched && enteredTick > 0L && gameTick >= enteredTick) {
             broadcastPerspectiveSubtitleSequence(
@@ -948,9 +924,13 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         }
     }
 
-    private int applyStageReward(RoomDefinition room) {
+    private void completeCapturedSector(RoomDefinition room, long gameTick) {
         AttackTroopBalanceSnapshot balance = resolveAttackTroopBalance(room);
-        return runtimeState.refillAttackTroops(balance.troopCap(), balance.stageReward());
+        int reward = runtimeState.rewardSectorCapture(balance.troopCap(), balance.stageReward());
+        runtimeState.markStageReward(gameTick, reward, Math.min(runtimeState.getMaxStageCount(), runtimeState.getCurrentStageIndex() + 1));
+        runtimeState.clearDesperateMode();
+        clearDesperatePersistentSubtitles();
+        broadcastStageTroopDeltaSubtitle(gameTick);
     }
 
     private AttackTroopBalanceSnapshot resolveAttackTroopBalance(RoomDefinition room) {
@@ -958,9 +938,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (room == null) {
             return new AttackTroopBalanceSnapshot(referencePlayerCount, 0, 0);
         }
-        int configuredTroopCap = room.breakthroughConfig().maxAttackTroopsAt12Players();
-        int troopCap = battalionTroopCap > 0 ? battalionTroopCap : resolveCeilScaledValue(configuredTroopCap, referencePlayerCount, ATTACK_TROOP_REFERENCE_PLAYERS);
-        int stageReward = (troopCap + STAGE_REWARD_DIVISOR - 1) / STAGE_REWARD_DIVISOR;
+        var config = room.breakthroughConfig();
+        int troopCap = OperationsTroopRules.cap(config.troopsPerPlayer(), referencePlayerCount, config.maxAttackTroops());
+        int stageReward = config.stageTroopReward();
         return new AttackTroopBalanceSnapshot(referencePlayerCount, troopCap, stageReward);
     }
 
@@ -986,13 +966,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             }
         }
         return count;
-    }
-
-    private int resolveCeilScaledValue(int baseValue, int playerCount, int divisor) {
-        if (baseValue <= 0 || playerCount <= 0 || divisor <= 0) {
-            return 0;
-        }
-        return (int) Math.ceil(baseValue * playerCount / (double) divisor);
     }
 
     private void tickObjectiveSubtitles(RoomDefinition room) {
@@ -1274,8 +1247,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         return runtimeState.getCurrentStageIndex();
     }
 
-    private void broadcastStageTroopDeltaSubtitle(RoomDefinition room, long gameTick) {
-        int delta = previewStageTroopDelta(room);
+    private void broadcastStageTroopDeltaSubtitle(long gameTick) {
+        int delta = runtimeState.getLastStageRewardAmount();
         String attackerText = delta >= 0
             ? "我方得到 " + delta + " 名士兵"
             : "我方失去 " + Math.abs(delta) + " 名士兵";
@@ -1283,13 +1256,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             ? "敌军得到 " + delta + " 名士兵"
             : "敌军失去 " + Math.abs(delta) + " 名士兵";
         broadcastStageTransitionSubtitle("bt_stage_troop_delta_" + gameTick, attackerText, defenderText);
-    }
-
-    private int previewStageTroopDelta(RoomDefinition room) {
-        AttackTroopBalanceSnapshot balance = resolveAttackTroopBalance(room);
-        int currentTroops = runtimeState.getAttackTroops();
-        int targetTroops = Math.min(balance.troopCap(), currentTroops + balance.stageReward());
-        return targetTroops - currentTroops;
     }
 
     private void broadcastStageStartSubtitles(long gameTick) {
@@ -1354,14 +1320,12 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
 
     private String buildAudioState(RoomTeamId selfTeam, long gameTick) {
         if (battalions.active()) return "BT_INTERMISSION";
+        if (runtimeState.isDesperateModeActive()) return "BT_DESPERATE";
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT
             && gameTick < runtimeState.getStageStartTick() + 100L) {
             return org.mods.gd656conquest.common.audio.StageBeginMusicCue.state(
                 runningState.getActiveMatchInstanceId(), battalions.battalion(),
                 runtimeState.getCurrentStageIndex(), runtimeState.getStageStartTick());
-        }
-        if (runtimeState.isDesperateModeActive()) {
-            return "BT_DESPERATE";
         }
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) {
             return "BT_RETREAT";
@@ -1449,98 +1413,16 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         return "";
     }
 
-    private boolean tickDesperateModeState(RoomDefinition room, long gameTick) {
+    private void tickZeroTroopContest(RoomDefinition room, long gameTick) {
+        if (!runtimeState.canContinueZeroTroopContest(room.breakthroughConfig())) {
+            beginBattalionConclusion(room, gameTick, false, "本营兵力耗尽，防守方控制据点");
+            return;
+        }
         if (!runtimeState.isDesperateModeActive()) {
-            return false;
+            runtimeState.startZeroTroopContest();
+            clearFinalSegmentPersistentSubtitles();
         }
-        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BURN_BOATS
-            && areAllActiveObjectivesFullyControlledByDefenders(room)) {
-            failDesperateMode(gameTick, "破釜沉舟失败，进攻方兵力耗尽", "破釜沉舟失败", "敌军破釜沉舟失败");
-            return true;
-        }
-        long deadline = runtimeState.getDesperateModeDeadlineTick();
-        if (deadline > 0L && gameTick < deadline) {
-            return false;
-        }
-        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BACK_TO_WALL) {
-            if (shouldTriggerDesperateMode(room)) {
-                activateBurnBoats(gameTick);
-            } else {
-                failDesperateMode(gameTick, "背水一战结束，进攻方兵力耗尽", "背水一战失败，兵力耗尽", "敌军背水一战失败");
-            }
-            return true;
-        }
-        failDesperateMode(gameTick, "破釜沉舟结束，进攻方兵力耗尽", "破釜沉舟失败，兵力耗尽", "敌军破釜沉舟失败");
-        return true;
-    }
-
-    private boolean tryActivateBackToWall(RoomDefinition room, long gameTick) {
-        if (!isBackToWallEnabled(room) || runtimeState.isDesperateModeActive() || runtimeState.getPhase() != BreakthroughRuntimeState.Phase.COMBAT) {
-            return false;
-        }
-        if (!shouldTriggerDesperateMode(room)) {
-            return false;
-        }
-        activateBackToWall(gameTick);
-        return true;
-    }
-
-    private boolean isBackToWallEnabled(RoomDefinition room) {
-        return room != null && room.commonConfig().enableBackAgainstWall();
-    }
-
-    private boolean shouldTriggerDesperateMode(RoomDefinition room) {
-        if (room == null || runtimeState.getCurrentStageIndex() <= 0) {
-            return false;
-        }
-        List<RoomCapturePointDefinition> activePoints = room.breakthroughConfig().stageActivePoints(runtimeState.getCurrentStageIndex());
-        if (activePoints.isEmpty()) {
-            return false;
-        }
-        int neutralDrivenByAttackers = 0;
-        for (RoomCapturePointDefinition point : activePoints) {
-            String code = point.code();
-            RoomTeamId owner = runtimeState.getOwnerByCode().get(code);
-            RoomTeamId driving = runtimeState.getDrivingTeamByCode().get(code);
-            if (owner == null && driving == RoomTeamId.CAMP_A) {
-                neutralDrivenByAttackers++;
-                continue;
-            }
-            if (!runtimeState.isFullyControlledBy(code, RoomTeamId.CAMP_A)) {
-                return false;
-            }
-        }
-        return neutralDrivenByAttackers == 1;
-    }
-
-    private boolean areAllActiveObjectivesFullyControlledByDefenders(RoomDefinition room) {
-        if (room == null || runtimeState.getCurrentStageIndex() <= 0) {
-            return false;
-        }
-        List<RoomCapturePointDefinition> activePoints = room.breakthroughConfig().stageActivePoints(runtimeState.getCurrentStageIndex());
-        if (activePoints.isEmpty()) {
-            return false;
-        }
-        for (RoomCapturePointDefinition point : activePoints) {
-            if (!runtimeState.isFullyControlledBy(point.code(), RoomTeamId.CAMP_B)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private void activateBackToWall(long gameTick) {
-        runtimeState.startBackToWall(gameTick, BACK_TO_WALL_DURATION_SECONDS);
-    }
-
-    private void activateBurnBoats(long gameTick) {
-        runtimeState.startBurnBoats(gameTick, BURN_BOATS_DURATION_SECONDS);
-    }
-
-    private void failDesperateMode(long gameTick, String reason, String attackerText, String defenderText) {
-        runtimeState.clearDesperateMode();
-        broadcastOutcomeSubtitle("bt_desperate_fail_" + gameTick, attackerText, defenderText);
-        pendingEndRequest = new RoomMatchEndRequest(RoomTeamId.CAMP_B, reason);
+        syncDesperatePersistentSubtitles();
     }
 
     private void syncDesperatePersistentSubtitles() {
@@ -1579,13 +1461,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
 
 
     private String resolveDesperateEventText() {
-        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BACK_TO_WALL) {
-            return hudStyledText("BT_LAST_STAND_PERSISTENT", "背水一战");
-        }
-        if (runtimeState.getDesperateMode() == BreakthroughRuntimeState.DesperateMode.BURN_BOATS) {
-            return hudStyledText("BT_BURN_BOATS_PERSISTENT", "破釜沉舟");
-        }
-        return "-";
+        return runtimeState.isDesperateModeActive()
+            ? hudStyledText("BT_LAST_STAND_PERSISTENT", "零兵力争夺") : "-";
     }
 
     private String hudStyledText(String style, String text) {

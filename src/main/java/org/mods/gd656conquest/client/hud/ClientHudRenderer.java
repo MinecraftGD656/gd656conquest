@@ -184,7 +184,8 @@ public final class ClientHudRenderer {
         int displaySeconds = resolveTopCenterSeconds();
         int minute = displaySeconds / 60;
         int second = displaySeconds % 60;
-        String timeText = String.format(Locale.ROOT, "%02d:%02d", minute, second);
+        String timeText = ClientHudDebugState.getRemainSeconds() < 0 ? "--:--"
+            : String.format(Locale.ROOT, "%02d:%02d", minute, second);
         int timeColor = resolveBreakthroughTimerColor();
         String leftText = infiniteTroops ? "∞" : String.valueOf(attackTroops);
         String rightText = "区域" + stageLetter(stageIndex);
@@ -314,18 +315,17 @@ public final class ClientHudRenderer {
     }
 
     private void drawBreakthroughPreviewTopLine(GuiGraphics gui, Font font, int centerX, int y, String previewMode) {
-        boolean backToWall = "BREAKTHROUGH_BACK_TO_WALL_ATTACK".equals(previewMode) || "BREAKTHROUGH_BACK_TO_WALL_DEFEND".equals(previewMode);
-        boolean burnBoats = "BREAKTHROUGH_BURN_BOATS".equals(previewMode);
-        int attackTroops = backToWall || burnBoats ? -1 : 148;
+        boolean contest = !"BREAKTHROUGH".equals(previewMode);
+        int attackTroops = contest ? 0 : 148;
         int stageIndex = 3;
         int troopCap = 220;
         int stageCount = 6;
-        boolean selfCampB = false;
+        boolean selfCampB = "BREAKTHROUGH_BACK_TO_WALL_DEFEND".equals(previewMode);
         int themePrimary = selfCampB ? 0xFFFF4A4A : 0xFF4A96FF;
         int themeText = selfCampB ? 0xFFFF9B9B : 0xFF9BC2FF;
-        String timeText = burnBoats ? "01:00" : backToWall ? "03:00" : "07:28";
-        int timeColor = burnBoats ? 0xFFFF5555 : backToWall ? 0xFFA0D0F0 : 0xFFFFFFFF;
-        String leftText = attackTroops < 0 ? "∞" : String.valueOf(attackTroops);
+        String timeText = contest ? "--:--" : "07:28";
+        int timeColor = contest ? 0xFFA0D0F0 : 0xFFFFFFFF;
+        String leftText = String.valueOf(attackTroops);
         String rightText = "阶段" + stageLetter(stageIndex);
         int timeWidth = font.width(timeText);
         int timeHalf = Math.max(28, timeWidth / 2 + 6);
@@ -443,8 +443,8 @@ public final class ClientHudRenderer {
 
     private String resolveBreakthroughPreviewSubtitle(String previewMode) {
         return switch (previewMode) {
-            case "BREAKTHROUGH_BACK_TO_WALL_ATTACK", "BREAKTHROUGH_BACK_TO_WALL_DEFEND" -> "<hud:BT_LAST_STAND_PERSISTENT>背水一战";
-            case "BREAKTHROUGH_BURN_BOATS" -> "<hud:BT_BURN_BOATS_PERSISTENT>破釜沉舟";
+            case "BREAKTHROUGH_BACK_TO_WALL_ATTACK", "BREAKTHROUGH_BACK_TO_WALL_DEFEND" -> "<hud:BT_LAST_STAND_PERSISTENT>零兵力争夺";
+            case "BREAKTHROUGH_BURN_BOATS", "BREAKTHROUGH_ZERO_TROOP_CONTEST" -> "<hud:BT_LAST_STAND_PERSISTENT>零兵力争夺";
             default -> "";
         };
     }
@@ -455,7 +455,7 @@ public final class ClientHudRenderer {
         if ("破釜沉舟".equals(text)) {
             return 0xFFFF5555;
         }
-        if ("背水一战".equals(text)) {
+        if ("零兵力争夺".equals(text)) {
             return 0xFFA0D0F0;
         }
         return 0xFFFFFFFF;

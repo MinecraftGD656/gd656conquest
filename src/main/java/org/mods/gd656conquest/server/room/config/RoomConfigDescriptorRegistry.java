@@ -101,7 +101,6 @@ public final class RoomConfigDescriptorRegistry {
             RoomConfigValueType.BOOLEAN,
             List.of("true", "false")
         );
-        common(descriptors, RoomConfigCategory.RULES, "enableBackAgainstWall", "启用背水一战", "commonConfig.enableBackAgainstWall", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableBackAgainstWall");
         common(descriptors, RoomConfigCategory.RULES, "enableRandomLoadout", "启用随机配备", "commonConfig.enableRandomLoadout", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomLoadout");
         common(descriptors, RoomConfigCategory.RULES, "enableRandomAttachments", "启用房间随机配件", "commonConfig.enableRandomAttachments", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomAttachments");
         common(descriptors, RoomConfigCategory.RULES, "disableUndyingTotem", "是否禁用不死图腾", "commonConfig.disableUndyingTotem", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolDisableUndyingTotem");
@@ -226,9 +225,11 @@ public final class RoomConfigDescriptorRegistry {
         breakthrough(descriptors, RoomConfigCategory.RULES, "btPreparationSeconds", "营切换部署准备秒数(1-300)", "breakthroughConfig.battalionConfig.preparationSeconds", RoomConfigValueType.NUMBER, List.of("10"));
         breakthrough(descriptors, RoomConfigCategory.RULES, "btStageDurationMinutes", "阶段持续分钟", "breakthroughConfig.stageDurationMinutes", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btDefenderRetreatSeconds", "防守方撤退秒数", "breakthroughConfig.defenderRetreatSeconds", RoomConfigValueType.NUMBER, List.of());
-        breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopGainPerDefenderKill", "守方击杀补充兵力", "breakthroughConfig.troopGainPerDefenderKill", RoomConfigValueType.NUMBER, List.of());
-        breakthrough(descriptors, RoomConfigCategory.RULES, "btMaxAttackTroopsAt12Players", "12人进攻方最大兵力", "breakthroughConfig.maxAttackTroopsAt12Players", RoomConfigValueType.NUMBER, List.of());
-        breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopBalanceReference", "突破兵力计算基准", "breakthroughConfig.troopBalanceReference", RoomConfigValueType.STRING, RoomTroopBalanceReference.suggestions(), "troopBalanceReference");
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopGainPerDefenderKill", "击杀撤退守军补充兵力", "breakthroughConfig.troopGainPerDefenderKill", RoomConfigValueType.NUMBER, List.of("3"));
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopsPerPlayer", "每人提供兵力数", "breakthroughConfig.troopsPerPlayer", RoomConfigValueType.NUMBER, List.of("20"));
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btMaxAttackTroops", "最大兵力上限", "breakthroughConfig.maxAttackTroops", RoomConfigValueType.NUMBER, List.of("250"));
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btStageTroopReward", "每阶段固定补兵数", "breakthroughConfig.stageTroopReward", RoomConfigValueType.NUMBER, List.of("50"));
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopBalanceReference", "行动兵力计算基准", "breakthroughConfig.troopBalanceReference", RoomConfigValueType.STRING, RoomTroopBalanceReference.suggestions(), "troopBalanceReference");
 
         deathmatch(descriptors, RoomConfigCategory.CAPTURE, "dmMapID", "团队死斗地图ID", "deathmatchConfig.mapId", RoomConfigValueType.STRING, List.of());
         deathmatch(descriptors, RoomConfigCategory.RULES, "dmMatchDurationMinutes", "团队死斗对局时长(分钟)", "deathmatchConfig.matchDurationMinutes", RoomConfigValueType.NUMBER, List.of());

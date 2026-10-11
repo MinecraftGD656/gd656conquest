@@ -35,7 +35,9 @@ public record RoomBreakthroughConfig(
     int stageDurationMinutes,
     int defenderRetreatSeconds,
     int troopGainPerDefenderKill,
-    int maxAttackTroopsAt12Players,
+    Double troopsPerPlayer,
+    Integer maxAttackTroops,
+    Integer stageTroopReward,
     RoomTroopBalanceReference troopBalanceReference,
     List<RoomPosition> ammoBoxPositions,
     List<RoomPosition> medicalBoxPositions,
@@ -63,7 +65,10 @@ public record RoomBreakthroughConfig(
         stageDurationMinutes = Math.max(0, stageDurationMinutes);
         defenderRetreatSeconds = Math.max(0, defenderRetreatSeconds);
         troopGainPerDefenderKill = Math.max(0, troopGainPerDefenderKill);
-        maxAttackTroopsAt12Players = Math.max(0, maxAttackTroopsAt12Players);
+        troopsPerPlayer = troopsPerPlayer == null ? 20.0D
+            : Double.isFinite(troopsPerPlayer) ? Math.max(0.0D, troopsPerPlayer) : 0.0D;
+        maxAttackTroops = maxAttackTroops == null ? 250 : Math.max(0, maxAttackTroops);
+        stageTroopReward = stageTroopReward == null ? 50 : Math.max(0, stageTroopReward);
         troopBalanceReference = troopBalanceReference == null ? RoomTroopBalanceReference.defaultValue() : troopBalanceReference;
         ammoBoxPositions = copyPositions(ammoBoxPositions);
         medicalBoxPositions = copyPositions(medicalBoxPositions);
@@ -109,7 +114,7 @@ public record RoomBreakthroughConfig(
             campABaseDeployIconPosition, campBBaseDeployIconPosition, stageADeployViewPosition,
             stageBDeployViewPosition, stageCDeployViewPosition, stageDDeployViewPosition,
             stageEDeployViewPosition, stageFDeployViewPosition, stageDurationMinutes,
-            defenderRetreatSeconds, troopGainPerDefenderKill, maxAttackTroopsAt12Players,
+            defenderRetreatSeconds, troopGainPerDefenderKill, maxAttackTroopsAt12Players / 12.0D, 250, 50,
             troopBalanceReference, ammoBoxPositions, medicalBoxPositions, RoomBattalionConfig.defaults());
     }
 
@@ -141,11 +146,14 @@ public record RoomBreakthroughConfig(
             null,
             0,
             0,
-            0,
-            0,
+            3,
+            20.0D,
+            250,
+            50,
             RoomTroopBalanceReference.defaultValue(),
             List.of(),
-            List.of()
+            List.of(),
+            RoomBattalionConfig.defaults()
         );
     }
 
@@ -322,8 +330,11 @@ public record RoomBreakthroughConfig(
         if (breakthrough.troopGainPerDefenderKill() <= 0) {
             result.addMissing("breakthrough.troopGainPerDefenderKill", "btTroopGainPerDefenderKill");
         }
-        if (breakthrough.maxAttackTroopsAt12Players() <= 0) {
-            result.addMissing("breakthrough.maxAttackTroopsAt12Players", "btMaxAttackTroopsAt12Players");
+        if (breakthrough.troopsPerPlayer() <= 0) {
+            result.addMissing("breakthrough.troopsPerPlayer", "btTroopsPerPlayer");
+        }
+        if (breakthrough.maxAttackTroops() <= 0) {
+            result.addMissing("breakthrough.maxAttackTroops", "btMaxAttackTroops");
         }
         for (int stageIndex = 1; stageIndex <= breakthrough.stageCount(); stageIndex++) {
             org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateBoundaryGroup(

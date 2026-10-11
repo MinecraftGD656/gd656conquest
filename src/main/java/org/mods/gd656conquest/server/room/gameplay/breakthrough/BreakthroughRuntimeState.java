@@ -4,6 +4,7 @@ import org.mods.gd656conquest.server.room.model.RoomBreakthroughConfig;
 import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.objective.RoomObjectiveSupport;
+import org.mods.gd656conquest.common.match.OperationsTroopRules;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,8 +20,11 @@ public final class BreakthroughRuntimeState {
 
     public enum DesperateMode {
         NONE,
-        BACK_TO_WALL,
-        BURN_BOATS
+        ZERO_TROOP_CONTEST
+    }
+
+    public enum CombatOutcome {
+        IN_PROGRESS, CAPTURED, ZERO_TROOP_CONTEST, EXHAUSTED, TIMED_OUT
     }
 
     private final Map<String, Double> progressByCode = new LinkedHashMap<>();
@@ -49,7 +53,6 @@ public final class BreakthroughRuntimeState {
     private int lastStageRewardAmount;
     private int lastAdvancedStageIndex;
     private DesperateMode desperateMode = DesperateMode.NONE;
-    private long desperateModeDeadlineTick = -1L;
 
     public void initialize(RoomBreakthroughConfig config, long gameTick) {
         progressByCode.clear();
@@ -79,7 +82,6 @@ public final class BreakthroughRuntimeState {
         lastStageRewardAmount = 0;
         lastAdvancedStageIndex = 0;
         desperateMode = DesperateMode.NONE;
-        desperateModeDeadlineTick = -1L;
         synchronizeWithConfig(config);
     }
 
@@ -195,10 +197,6 @@ public final class BreakthroughRuntimeState {
         return desperateMode;
     }
 
-    public long getDesperateModeDeadlineTick() {
-        return desperateModeDeadlineTick;
-    }
-
     public void consumeAttackTroop(int amount) {
         attackTroops = Math.max(0, attackTroops - Math.max(0, amount));
     }
@@ -208,30 +206,21 @@ public final class BreakthroughRuntimeState {
         attackTroops = attackTroopCap;
     }
 
-    public void setAttackTroopCap(int cap, boolean clampCurrentTroops) {
+    public void setAttackTroopCap(int cap) {
         attackTroopCap = Math.max(0, cap);
-        if (clampCurrentTroops && attackTroops > attackTroopCap) {
-            attackTroops = attackTroopCap;
-        }
     }
 
-    public int refillAttackTroops(int cap, int desiredAdd) {
-        setAttackTroopCap(cap, true);
-        if (desiredAdd <= 0 || attackTroops >= attackTroopCap) {
-            return 0;
-        }
-        int actualAdd = Math.min(desiredAdd, attackTroopCap - attackTroops);
-        attackTroops += actualAdd;
-        return actualAdd;
+    public int rewardSectorCapture(int cap, int fixedReward) {
+        setAttackTroopCap(cap);
+        int previous = attackTroops;
+        attackTroops = OperationsTroopRules.afterSectorCapture(attackTroops, attackTroopCap, fixedReward);
+        return attackTroops - previous;
     }
 
     public int addAttackTroops(int amount) {
-        if (amount <= 0 || attackTroops >= attackTroopCap) {
-            return 0;
-        }
-        int actualAdd = Math.min(amount, Math.max(0, attackTroopCap - attackTroops));
-        attackTroops += actualAdd;
-        return actualAdd;
+        int previous = attackTroops;
+        attackTroops = OperationsTroopRules.add(attackTroops, attackTroopCap, amount);
+        return attackTroops - previous;
     }
 
     public void startRetreat(long gameTick, int retreatSeconds) {
@@ -267,7 +256,6 @@ public final class BreakthroughRuntimeState {
         advanceCountdownLastShownSecondsByPlayer.clear();
         retreatCountdownLastShownSecondsByPlayer.clear();
         desperateMode = DesperateMode.NONE;
-        desperateModeDeadlineTick = -1L;
         synchronizeWithConfig(config);
     }
 
@@ -331,23 +319,38 @@ public final class BreakthroughRuntimeState {
         return true;
     }
 
-    public void startBackToWall(long gameTick, int durationSeconds) {
-        desperateMode = DesperateMode.BACK_TO_WALL;
-        desperateModeDeadlineTick = gameTick + Math.max(0L, (long) durationSeconds * 20L);
-    }
-
-    public void startBurnBoats(long gameTick, int durationSeconds) {
-        desperateMode = DesperateMode.BURN_BOATS;
-        desperateModeDeadlineTick = gameTick + Math.max(0L, (long) durationSeconds * 20L);
+    public void startZeroTroopContest() {
+        desperateMode = DesperateMode.ZERO_TROOP_CONTEST;
     }
 
     public void clearDesperateMode() {
         desperateMode = DesperateMode.NONE;
-        desperateModeDeadlineTick = -1L;
     }
 
     public boolean isDesperateModeActive() {
         return desperateMode != DesperateMode.NONE;
+    }
+
+    /** Captured attacker points may remain. Every other point must still be contested or partially captured. */
+    public boolean canContinueZeroTroopContest(RoomBreakthroughConfig config) {
+        if (config == null || currentStageIndex <= 0) return false;
+        List<RoomCapturePointDefinition> activePoints = config.stageActivePoints(currentStageIndex);
+        if (activePoints.isEmpty()) return false;
+        for (RoomCapturePointDefinition point : activePoints) {
+            String code = RoomObjectiveSupport.normalizeCode(point.code());
+            boolean contested = campACountByCode.getOrDefault(code, 0) > 0
+                && campBCountByCode.getOrDefault(code, 0) > 0;
+            if (isFullyControlledBy(code, RoomTeamId.CAMP_B) && !contested) return false;
+        }
+        return true;
+    }
+
+    public CombatOutcome resolveCombatOutcome(RoomBreakthroughConfig config, long gameTick) {
+        if (areAllActiveObjectivesFullyCapturedByAttackers(config)) return CombatOutcome.CAPTURED;
+        if (attackTroops <= 0) return canContinueZeroTroopContest(config)
+            ? CombatOutcome.ZERO_TROOP_CONTEST : CombatOutcome.EXHAUSTED;
+        return stageDeadlineTick != Long.MAX_VALUE && gameTick >= stageDeadlineTick
+            ? CombatOutcome.TIMED_OUT : CombatOutcome.IN_PROGRESS;
     }
 
     public boolean isLastStageFinalFightPressure() {

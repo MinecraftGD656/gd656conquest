@@ -194,7 +194,7 @@ public final class RoomDefinitionScalarConfigEditor {
             if (value < min || value > max) throw new IllegalArgumentException("配置范围: " + min + "-" + max);
             return value;
         }
-        if ("progressspeed".equals(configId)) {
+        if ("progressspeed".equals(configId) || "bttroopsperplayer".equals(configId)) {
             return parsePositiveDouble(rawValue);
         }
         if ("invulnerableseconds".equals(configId) || "revivedinvulnerableseconds".equals(configId)) {
@@ -215,7 +215,7 @@ public final class RoomDefinitionScalarConfigEditor {
                 "aircraftoutsideboundarycleanupseconds", "playermaxy", "aircraftpassengermaxy",
                 "dmmatchdurationminutes", "dmtargetscore", "dmstartcountdownseconds", "dmrespawnseconds",
                 "gmmatchdurationminutes", "gmtargetscore", "gmstartcountdownseconds", "gmrespawnseconds",
-                "gmkillsperweaponswitch" -> true;
+                "gmkillsperweaponswitch", "btmaxattacktroops" -> true;
             default -> false;
         };
     }

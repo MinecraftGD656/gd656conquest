@@ -39,6 +39,17 @@ public final class RoomDefinitionTypeAdapter implements JsonDeserializer<RoomDef
         JsonElement configElement = obj.get("gameplayConfig");
         
         if ("breakthrough".equalsIgnoreCase(gameplayId)) {
+            // Preserve the old proportional value when reading existing room files.
+            // Serialize only the new fields, so subsequent saves cannot reconvert it.
+            if (configElement != null && configElement.isJsonObject()) {
+                JsonObject config = configElement.getAsJsonObject().deepCopy();
+                if (!config.has("troopGainPerDefenderKill")) config.addProperty("troopGainPerDefenderKill", 3);
+                if ((!config.has("troopsPerPlayer") || config.get("troopsPerPlayer").isJsonNull())
+                    && config.has("maxAttackTroopsAt12Players") && !config.get("maxAttackTroopsAt12Players").isJsonNull()) {
+                    config.addProperty("troopsPerPlayer", config.get("maxAttackTroopsAt12Players").getAsDouble() / 12.0D);
+                }
+                configElement = config;
+            }
             gameplayConfig = context.deserialize(configElement, RoomBreakthroughConfig.class);
         } else if ("deathmatch".equalsIgnoreCase(gameplayId)) {
             gameplayConfig = context.deserialize(configElement, RoomDeathmatchConfig.class);

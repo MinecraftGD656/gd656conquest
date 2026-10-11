@@ -18,11 +18,11 @@ public enum RoomTroopBalanceReference {
     }
 
     public static RoomTroopBalanceReference defaultValue() {
-        return ATTACKER;
+        return DEFENDER;
     }
 
     public static List<String> suggestions() {
-        return List.of(ATTACKER.displayName(), DEFENDER.displayName());
+        return List.of(DEFENDER.displayName(), ATTACKER.displayName());
     }
 
     public static RoomTroopBalanceReference of(String raw) {
