@@ -5,9 +5,19 @@ import java.util.function.BooleanSupplier;
 /** Command identity and pre-event fire metadata are scoped independently and restored on every exit. */
 public final class ScopedDeathAttribution<E, F> {
     private final ThreadLocal<E> command = new ThreadLocal<>();
+    private final ThreadLocal<E> retreatTimeout = new ThreadLocal<>();
     private final ThreadLocal<F> fire = new ThreadLocal<>();
 
     public E commandTarget() { return command.get(); }
+    public E retreatTimeoutTarget() { return retreatTimeout.get(); }
+    public void retreatTimeoutKill(E target, Runnable kill) {
+        E previous = retreatTimeout.get();
+        retreatTimeout.set(target);
+        try { kill.run(); }
+        finally {
+            if (previous == null) retreatTimeout.remove(); else retreatTimeout.set(previous);
+        }
+    }
     public F fireSnapshot() { return fire.get(); }
 
     public void commandKill(E target, Runnable kill) {

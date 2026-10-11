@@ -5,6 +5,8 @@ import org.mods.gd656conquest.common.match.OperationsTroopRules;
 import org.mods.gd656conquest.network.packet.BattalionBriefingPacket;
 import org.mods.gd656conquest.server.room.model.RoomBattalionConfig;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayIntermissionProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayRetreatProvider;
+import org.mods.gd656conquest.server.room.entry.RoomDeathCauseService;
 import org.mods.gd656conquest.server.player.lock.ServerPlayerLockService;
 import java.util.ArrayList;
 import net.minecraft.world.phys.Vec3;
@@ -73,7 +75,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     RoomGameplayBoundaryPolicyProvider,
     RoomGameplayBoundaryHudProvider,
     RoomGameplayVehicleDeployRuleProvider,
-    RoomGameplayIntermissionProvider {
+    RoomGameplayIntermissionProvider,
+    RoomGameplayRetreatProvider {
     private static final int STAGE_ADVANCE_COUNTDOWN_SECONDS = 5;
     private static final long STAGE_REWARD_EVENT_TICKS = 5L * 20L;
     private static final String RETREAT_MARKER_ATTACKER_PREFIX = "bt_retreat_attackers_";
@@ -284,8 +287,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                     beginBattalionConclusion(room, gameTick, true, "进攻方占领全部区域");
                     return;
                 }
-                int defenders = captureRuntimeService.countDefendersInStageBoundary(room, runningState, runtimeState.getCurrentStageIndex());
-                if (room.breakthroughConfig().defenderRetreatSeconds() <= 0 || defenders <= 0) {
+                Set<java.util.UUID> defenders = captureRuntimeService.collectDefendersInStageBoundary(room, runningState, runtimeState.getCurrentStageIndex());
+                if (room.breakthroughConfig().defenderRetreatSeconds() <= 0 || defenders.isEmpty()) {
                     startAdvanceCountdown(room, gameTick);
                 } else {
                     broadcastStageTransitionSubtitle(
@@ -294,6 +297,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                         "我方未能守住阶段 " + stageLabel(runtimeState.getCurrentStageIndex())
                     );
                     runtimeState.startRetreat(gameTick, room.breakthroughConfig().defenderRetreatSeconds());
+                    runtimeState.retreatRoster().begin(defenders);
                     syncRetreatPersistentSubtitles(room);
                     titleService.syncRetreatTitles(room, runningState, runtimeState, captureRuntimeService, gameTick);
                     syncRetreatDefenderMarkers(room, gameTick);
@@ -312,11 +316,22 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             return;
         }
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) {
+            refreshRetreatParticipants(room);
+            if (gameTick >= runtimeState.getRetreatDeadlineTick()) {
+                // Keep RETREAT active throughout the fatal callbacks, so every failure rewards once.
+                for (java.util.UUID id : runtimeState.retreatRoster().pending()) {
+                    ServerPlayer player = captureRuntimeService.findOnlinePlayer(id);
+                    if (player != null && player.isAlive() && !runningState.isInRespawnFlow(id)) {
+                        RoomDeathCauseService.retreatTimeoutKill(player);
+                    }
+                }
+                startAdvanceCountdown(room, gameTick);
+                return;
+            }
             syncRetreatPersistentSubtitles(room);
             titleService.syncRetreatTitles(room, runningState, runtimeState, captureRuntimeService, gameTick);
             syncRetreatDefenderMarkers(room, gameTick);
-            int defenders = captureRuntimeService.countDefendersInStageBoundary(room, runningState, runtimeState.getRetreatStageIndex());
-            if (defenders <= 0 || gameTick >= runtimeState.getRetreatDeadlineTick()) {
+            if (runtimeState.retreatRoster().size() == 0) {
                 startAdvanceCountdown(room, gameTick);
             }
             return;
@@ -386,22 +401,20 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             // last death and capture cannot incorrectly destroy a battalion.
         }
         if (reason == RoomPlayerInvalidationReason.REDEPLOY) {
+            runtimeState.retreatRoster().complete(playerId);
             return;
         }
         if (teamId != RoomTeamId.CAMP_B || room == null || runtimeState.getPhase() != BreakthroughRuntimeState.Phase.RETREAT) {
             return;
         }
         ServerPlayer deadPlayer = captureRuntimeService.findOnlinePlayer(playerId);
-        if (!captureRuntimeService.isInsideStageBoundary(room, deadPlayer, runtimeState.getRetreatStageIndex())) {
-            return;
-        }
-        ServerPlayer killerPlayer = captureRuntimeService.resolveKillerPlayer(deadPlayer, killerEntityId);
-        if (killerPlayer == null) {
-            return;
-        }
-        if (runningState.getRoomTeams().get(killerPlayer.getUUID()) == RoomTeamId.CAMP_A) {
+        boolean participant = runtimeState.retreatRoster().fail(playerId);
+        if (participant && RoomDeathCauseService.isRetreatFailure(deadPlayer)) {
             runtimeState.addAttackTroops(room.breakthroughConfig().troopGainPerDefenderKill());
         }
+        // Remove tracking immediately; the respawn service may move/heal the player proxy next.
+        titleService.syncRetreatTitles(room, runningState, runtimeState, captureRuntimeService, gameTick);
+        syncRetreatDefenderMarkers(room, gameTick);
     }
 
     @Override
@@ -535,6 +548,50 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         RoomTeamId teamId
     ) {
         return room == null || teamId == null ? List.of() : allowedBoundaries(room, teamId);
+    }
+
+    @Override
+    public List<List<RoomPosition>> resolveAllowedBoundariesForPlayer(
+        RoomDefinition room, RunningRuntimeState state, ServerPlayer player, RoomTeamId teamId
+    ) {
+        if (room != null && teamId == RoomTeamId.CAMP_B
+            && runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT
+            && !isRetreatingDefender(room, player)) {
+            return retreatDestinationBoundaries(room);
+        }
+        return resolveAllowedBoundaries(room, state, teamId);
+    }
+
+    @Override
+    public boolean isRetreatingDefender(RoomDefinition room, ServerPlayer player) {
+        if (room == null || player == null || runtimeState.getPhase() != BreakthroughRuntimeState.Phase.RETREAT
+            || runningState.getRoomTeams().get(player.getUUID()) != RoomTeamId.CAMP_B
+            || !runtimeState.retreatRoster().isRetreating(player.getUUID())) return false;
+        // This is also queried at the fatal event, before a server tick can observe arrival.
+        if (BreakthroughRetreatBoundaryPolicy.reachedDestination(
+            player.getX(), player.getZ(), retreatDestinationBoundaries(room))) {
+            runtimeState.retreatRoster().complete(player.getUUID());
+            return false;
+        }
+        return true;
+    }
+
+    private List<List<RoomPosition>> retreatDestinationBoundaries(RoomDefinition room) {
+        return BreakthroughRetreatBoundaryPolicy.destinations(
+            room.breakthroughConfig(), runtimeState.getRetreatStageIndex(), runtimeState.getMaxStageCount());
+    }
+
+    private void refreshRetreatParticipants(RoomDefinition room) {
+        for (java.util.UUID id : runtimeState.retreatRoster().pending()) {
+            ServerPlayer player = captureRuntimeService.findOnlinePlayer(id);
+            if (player == null || !runningState.getRoomPlayers().contains(id)
+                || runningState.getRoomTeams().get(id) != RoomTeamId.CAMP_B
+                || !player.isAlive() || player.isSpectator() || runningState.isInRespawnFlow(id)) {
+                runtimeState.retreatRoster().complete(id);
+            } else {
+                isRetreatingDefender(room, player);
+            }
+        }
     }
 
     @Override
@@ -1061,7 +1118,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             clearRetreatDefenderMarkers(room, gameTick);
             return;
         }
-        Set<java.util.UUID> currentDefenders = captureRuntimeService.collectDefendersInStageBoundary(room, runningState, retreatStageIndex);
+        Set<java.util.UUID> currentDefenders = runtimeState.retreatRoster().pending();
         boolean changed = false;
         for (java.util.UUID defenderId : new LinkedHashSet<>(retreatMarkedDefenders)) {
             if (currentDefenders.contains(defenderId)) {
@@ -1120,7 +1177,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             clearRetreatPersistentSubtitles();
             return;
         }
-        int defenders = captureRuntimeService.countDefendersInStageBoundary(room, runningState, runtimeState.getRetreatStageIndex());
+        int defenders = runtimeState.retreatRoster().size();
         for (java.util.UUID playerId : runningState.getRoomPlayers()) {
             ServerPlayer player = captureRuntimeService.findOnlinePlayer(playerId);
             if (player == null) {
@@ -1204,7 +1261,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             return resolveDesperateEventText();
         }
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) {
-            int defenders = captureRuntimeService.countDefendersInStageBoundary(room, runningState, runtimeState.getRetreatStageIndex());
+            int defenders = runtimeState.retreatRoster().size();
             return resolveRetreatPersistentSubtitle(selfTeam, defenders);
         }
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN) {

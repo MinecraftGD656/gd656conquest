@@ -22,12 +22,18 @@ public interface RoomGameplayBoundaryPolicyProvider {
         return List.of();
     }
 
+    default List<List<RoomPosition>> resolveAllowedBoundariesForPlayer(
+        RoomDefinition room, RunningRuntimeState state, ServerPlayer player, RoomTeamId teamId
+    ) {
+        return resolveAllowedBoundaries(room, state, teamId);
+    }
+
     default boolean isInsideAllowedBoundary(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, RoomTeamId teamId) {
-        return RoomBoundaryRuleEvaluator.isInsideAnyBoundary(player, resolveAllowedBoundaries(room, state, teamId));
+        return RoomBoundaryRuleEvaluator.isInsideAnyBoundary(player, resolveAllowedBoundariesForPlayer(room, state, player, teamId));
     }
 
     default boolean isOutsideAllowedBoundary(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, RoomTeamId teamId) {
-        return RoomBoundaryRuleEvaluator.isOutsideAllBoundaries(player, resolveAllowedBoundaries(room, state, teamId));
+        return RoomBoundaryRuleEvaluator.isOutsideAllBoundaries(player, resolveAllowedBoundariesForPlayer(room, state, player, teamId));
     }
 
     static RoomGameplayBoundaryPolicyProvider resolve(RunningRuntimeState state) {

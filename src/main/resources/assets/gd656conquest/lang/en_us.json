@@ -112,5 +112,6 @@
   "gd656conquest.death_cause.drowned": "DROWNED",
   "gd656conquest.death_cause.redeploy": "REDEPLOYING",
   "gd656conquest.death_cause.command_kill": "KILLED BY ADMINISTRATOR",
-  "gd656conquest.death_cause.killed_in_action": "KILLED IN ACTION"
+  "gd656conquest.death_cause.killed_in_action": "KILLED IN ACTION",
+  "gd656conquest.death_cause.retreat_failed": "RETREAT FAILED"
 }

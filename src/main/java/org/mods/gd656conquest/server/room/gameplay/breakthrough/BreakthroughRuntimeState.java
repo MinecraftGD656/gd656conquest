@@ -1,5 +1,7 @@
 package org.mods.gd656conquest.server.room.gameplay.breakthrough;
 
+import org.mods.gd656conquest.common.match.RetreatRoster;
+
 import org.mods.gd656conquest.server.room.model.RoomBreakthroughConfig;
 import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
@@ -37,6 +39,7 @@ public final class BreakthroughRuntimeState {
     private final Map<RoomTeamId, Long> lastTeamEventExpireTickByTeam = new LinkedHashMap<>();
     private final Map<UUID, Integer> advanceCountdownLastShownSecondsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Integer> retreatCountdownLastShownSecondsByPlayer = new LinkedHashMap<>();
+    private final RetreatRoster retreatRoster = new RetreatRoster();
     private int currentStageIndex;
     private int maxStageCount;
     private int attackTroops;
@@ -54,6 +57,8 @@ public final class BreakthroughRuntimeState {
     private int lastAdvancedStageIndex;
     private DesperateMode desperateMode = DesperateMode.NONE;
 
+    public RetreatRoster retreatRoster() { return retreatRoster; }
+
     public void initialize(RoomBreakthroughConfig config, long gameTick) {
         progressByCode.clear();
         ownerByCode.clear();
@@ -65,6 +70,7 @@ public final class BreakthroughRuntimeState {
         lastTeamEventExpireTickByTeam.clear();
         advanceCountdownLastShownSecondsByPlayer.clear();
         retreatCountdownLastShownSecondsByPlayer.clear();
+        retreatRoster.clear();
         currentStageIndex = config == null || config.stageCount() <= 0 ? 0 : 1;
         maxStageCount = config == null ? 0 : config.stageCount();
         attackTroops = 0;
@@ -232,6 +238,7 @@ public final class BreakthroughRuntimeState {
         advanceCountdownEndTick = -1L;
         advanceCountdownLastShownSecondsByPlayer.clear();
         retreatCountdownLastShownSecondsByPlayer.clear();
+        retreatRoster.clear();
     }
 
     public void startAdvanceCountdown(long gameTick, int countdownSeconds) {
@@ -240,6 +247,7 @@ public final class BreakthroughRuntimeState {
         advanceCountdownEndTick = gameTick + Math.max(0L, (long) countdownSeconds * 20L);
         advanceCountdownLastShownSecondsByPlayer.clear();
         retreatCountdownLastShownSecondsByPlayer.clear();
+        retreatRoster.clear();
     }
 
     public void advanceToNextStage(RoomBreakthroughConfig config, long gameTick) {
@@ -255,6 +263,7 @@ public final class BreakthroughRuntimeState {
         advanceCountdownEndTick = -1L;
         advanceCountdownLastShownSecondsByPlayer.clear();
         retreatCountdownLastShownSecondsByPlayer.clear();
+        retreatRoster.clear();
         desperateMode = DesperateMode.NONE;
         synchronizeWithConfig(config);
     }
@@ -269,6 +278,7 @@ public final class BreakthroughRuntimeState {
         clearDesperateMode();
         advanceCountdownLastShownSecondsByPlayer.clear();
         retreatCountdownLastShownSecondsByPlayer.clear();
+        retreatRoster.clear();
         lastStageRewardTick = -1;
         lastStageRewardAmount = 0;
         synchronizeWithConfig(config);

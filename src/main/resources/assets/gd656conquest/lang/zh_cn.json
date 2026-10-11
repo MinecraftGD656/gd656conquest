@@ -114,5 +114,6 @@
   "gd656conquest.death_cause.drowned": "溺死",
   "gd656conquest.death_cause.redeploy": "重新部署中",
   "gd656conquest.death_cause.command_kill": "被管理员杀死",
-  "gd656conquest.death_cause.killed_in_action": "阵亡"
+  "gd656conquest.death_cause.killed_in_action": "阵亡",
+  "gd656conquest.death_cause.retreat_failed": "撤退失败"
 }

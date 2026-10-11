@@ -113,7 +113,7 @@ public final class KillerIntelService {
     public static void capture(ServerPlayer victim, RunningRuntimeState room, long deathId, DeathCause cause,
                                ServerPlayer killer, DamageSource source) {
         SAVED.remove(victim.getUUID());
-        if (cause != DeathCause.PLAYER_KILL || killer == null || killer == victim) return;
+        if (cause == null || !cause.allowsKillerCard() || killer == null || killer == victim) return;
         Fatal fatal = FATAL.get();
         if (fatal == null || fatal.victim() != victim || fatal.killer() != killer) fatal = snapshot(victim, killer, source);
         MatchDuelStats.Score score = DUELS.computeIfAbsent(victim.server, unused -> new WeakHashMap<>())

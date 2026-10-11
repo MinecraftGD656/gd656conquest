@@ -45,6 +45,7 @@ public final class ClientDeathCauseState {
         if (!translated.equals(key) && !translated.isBlank()) return translated;
         // Display-only fallback, including incomplete third-party language/resource packs.
         return switch (cause) {
+            case RETREAT_FAILED -> "撤退失败";
             case ACCIDENT -> "意外阵亡";
             case FALL -> "摔死";
             case DESERTION -> "逃兵";

@@ -10,7 +10,6 @@ import net.minecraft.client.renderer.PostChain;
 import net.minecraft.resources.ResourceLocation;
 import org.mods.gd656conquest.client.audio.ClientAudioManager;
 import org.mods.gd656conquest.mixin.client.DeathPostChainAccessor;
-import org.mods.gd656conquest.server.room.runtime.BoundaryCountdown;
 
 /** Local warning: one presentation for infantry, ground vehicles and aircraft. */
 public final class ClientBoundaryState {
@@ -62,34 +61,9 @@ public final class ClientBoundaryState {
     public static void renderWarning(GuiGraphics gui) {
         Minecraft mc = Minecraft.getInstance();
         if (!active || remainingTicks <= 0 || mc.player == null) return;
-        int w = gui.guiWidth(), h = gui.guiHeight();
-        String title = "\u56de\u5230\u6218\u6597\u533a\u57df"; // Return to the combat area; encoding-independent literal.
-        float spacing = .8F; // Same glyph spacing as the existing death-cause subtitles.
-        float titleWidth = mc.font.width(title) + (title.codePointCount(0, title.length()) - 1) * spacing;
-        float titleScale = Math.max(.65F, h * .027F / 9F);
-        titleScale = Math.min(titleScale, w * .7F / Math.max(1, titleWidth));
-        drawCentered(gui, title, w * .5F, h * .33F, titleScale, spacing);
-        drawCentered(gui, Integer.toString(BoundaryCountdown.displaySeconds(remainingTicks)), w * .5F, h * .39F, titleScale * 1.8F, 0);
+        CombatAreaWarningRenderer.render(gui, "\u56de\u5230\u6218\u6597\u533a\u57df", remainingTicks);
     }
-    private static void drawCentered(GuiGraphics gui, String value, float x, float y, float scale, float spacing) {
-        var font = Minecraft.getInstance().font;
-        gui.pose().pushPose();
-        try {
-            gui.pose().translate(x, y - 4.5F * scale, 0);
-            gui.pose().scale(scale, scale, 1);
-            if (spacing == 0) {
-                gui.drawString(font, value, -font.width(value) / 2, 0, 0xFFFFFFFF, true);
-            } else {
-                int[] letters = value.codePoints().toArray();
-                float cursor = -(font.width(value) + (letters.length - 1) * spacing) / 2;
-                for (int letter : letters) {
-                    String glyph = new String(Character.toChars(letter));
-                    gui.drawString(font, glyph, Math.round(cursor), 0, 0xFFFFFFFF, true);
-                    cursor += font.width(glyph) + spacing;
-                }
-            }
-        } finally { gui.pose().popPose(); }
-    }
+    public static boolean isActive() { return active; }
     public static boolean hasWorldEffect() { return PRESENTATION.strength() > .0001F; }
     public static void renderWorld(float partialTick) {
         if (PRESENTATION.strength() <= .0001F) return;

@@ -1,6 +1,5 @@
 package org.mods.gd656conquest.server.room.gameplay.breakthrough;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.game.ClientboundClearTitlesPacket;
@@ -12,14 +11,14 @@ import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
-import org.mods.gd656conquest.server.social.chat.ServerActionBarService;
+import org.mods.gd656conquest.network.NetworkManager;
+import org.mods.gd656conquest.network.packet.RoomDeathFlowPacket;
 
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.UUID;
 
 public final class BreakthroughStageTransitionTitleService {
-    private static final String ACTIONBAR_SOURCE_RETREAT = "breakthrough_retreat";
     private static final int TITLE_FADE_IN_TICKS = 5;
     private static final int TITLE_STAY_TICKS = 20;
     private static final int TITLE_FADE_OUT_TICKS = 10;
@@ -33,7 +32,6 @@ public final class BreakthroughStageTransitionTitleService {
     private static final int COUNTDOWN_RED_COLOR = 0xFF5555;
     private static final int SUBTITLE_ATTACKER_COLOR = 0x55FFFF;
     private static final int SUBTITLE_DEFENDER_COLOR = 0xFF5555;
-    private static final int RETREAT_SUBTITLE_COLOR = 0xC6CCD1;
 
     private final MinecraftServer server;
 
@@ -83,9 +81,7 @@ public final class BreakthroughStageTransitionTitleService {
         if (room == null || state == null || runtimeState == null || captureRuntimeService == null || runtimeState.getRetreatDeadlineTick() <= 0L) {
             return;
         }
-        boolean useRetreatActionbar = room.breakthroughConfig().defenderRetreatSeconds() > 30;
         int remainingSeconds = (int) Math.max(1L, (runtimeState.getRetreatDeadlineTick() - gameTick + 19L) / 20L);
-        int retreatStageIndex = runtimeState.getRetreatStageIndex();
         for (UUID playerId : state.getRoomPlayers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player == null) {
@@ -96,23 +92,17 @@ public final class BreakthroughStageTransitionTitleService {
                 && !state.isInRespawnFlow(playerId)
                 && player.isAlive()
                 && !player.isSpectator()
-                && captureRuntimeService.isInsideStageBoundary(room, player, retreatStageIndex);
+                && runtimeState.retreatRoster().isRetreating(playerId);
             if (!shouldShow) {
                 clearSingleTitle(player, runtimeState.getRetreatCountdownLastShownSecondsByPlayer().remove(playerId) != null);
-                ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_RETREAT);
                 continue;
             }
             int lastShown = runtimeState.getRetreatCountdownLastShownSecondsByPlayer().getOrDefault(playerId, -1);
             if (lastShown == remainingSeconds) {
                 continue;
             }
-            if (useRetreatActionbar) {
-                clearSingleTitle(player, lastShown >= 0);
-                sendRetreatActionbar(player, remainingSeconds);
-            } else {
-                ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_RETREAT);
-                sendRetreatTitle(player, remainingSeconds, lastShown < 0);
-            }
+            NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.retreatUpdate(
+                (int) Math.max(0L, runtimeState.getRetreatDeadlineTick() - gameTick)));
             runtimeState.getRetreatCountdownLastShownSecondsByPlayer().put(playerId, remainingSeconds);
         }
     }
@@ -124,7 +114,6 @@ public final class BreakthroughStageTransitionTitleService {
         for (UUID playerId : new ArrayList<>(runtimeState.getRetreatCountdownLastShownSecondsByPlayer().keySet())) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             clearSingleTitle(player, true);
-            ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_RETREAT);
         }
         runtimeState.getRetreatCountdownLastShownSecondsByPlayer().clear();
     }
@@ -142,35 +131,6 @@ public final class BreakthroughStageTransitionTitleService {
         player.connection.send(new ClientboundSetSubtitleTextPacket(buildSubtitle(teamId)));
     }
 
-    private void sendRetreatTitle(ServerPlayer player, int remainingSeconds, boolean firstShow) {
-        if (player == null || player.connection == null) {
-            return;
-        }
-        player.connection.send(new ClientboundSetTitlesAnimationPacket(
-            firstShow ? TITLE_FADE_IN_TICKS : TITLE_REFRESH_FADE_IN_TICKS,
-            firstShow ? TITLE_STAY_TICKS : TITLE_REFRESH_STAY_TICKS,
-            firstShow ? TITLE_FADE_OUT_TICKS : TITLE_REFRESH_FADE_OUT_TICKS
-        ));
-        player.connection.send(new ClientboundSetTitleTextPacket(buildTitle(remainingSeconds)));
-        player.connection.send(new ClientboundSetSubtitleTextPacket(buildRetreatSubtitle()));
-    }
-
-    private void sendRetreatActionbar(ServerPlayer player, int remainingSeconds) {
-        if (player == null) {
-            return;
-        }
-        ServerActionBarService.showBuilder(
-            player,
-            ACTIONBAR_SOURCE_RETREAT,
-            ServerActionBarService.builder()
-                .text("请在", ChatFormatting.GRAY)
-                .append(Component.literal(String.valueOf(remainingSeconds))
-                    .withStyle(style -> style.withColor(resolveCountdownColor(remainingSeconds)).withBold(true)))
-                .text("秒 内撤离至下一阶段", ChatFormatting.GRAY),
-            30
-        );
-    }
-
     private Component buildTitle(int remainingSeconds) {
         return Component.literal(String.valueOf(remainingSeconds))
             .withStyle(style -> style.withBold(true).withColor(resolveCountdownColor(remainingSeconds)));
@@ -180,11 +140,6 @@ public final class BreakthroughStageTransitionTitleService {
         boolean attacker = teamId == RoomTeamId.CAMP_A;
         MutableComponent subtitle = Component.literal(attacker ? "准备夺取下个阶段" : "准备防守阵地");
         return subtitle.withStyle(style -> style.withColor(attacker ? SUBTITLE_ATTACKER_COLOR : SUBTITLE_DEFENDER_COLOR).withBold(true));
-    }
-
-    private Component buildRetreatSubtitle() {
-        return Component.literal("撤离至下个阶段区域")
-            .withStyle(style -> style.withColor(RETREAT_SUBTITLE_COLOR).withBold(true));
     }
 
     private int resolveCountdownColor(int remainingSeconds) {
@@ -207,6 +162,6 @@ public final class BreakthroughStageTransitionTitleService {
         if (!shouldClear || player == null || player.connection == null) {
             return;
         }
-        player.connection.send(new ClientboundClearTitlesPacket(true));
+        NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clearRetreat());
     }
 }

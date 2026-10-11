@@ -24,6 +24,8 @@ public final class RoomDeathFlowPacket {
     private static final int ACTION_MATCH_END_TRAVEL = 8;
     private static final int ACTION_OPEN_DEPLOY_INSTANT = 9;
     private static final int ACTION_OPEN_RESPAWN_WAIT = 10;
+    private static final int ACTION_RETREAT_ON = 11;
+    private static final int ACTION_RETREAT_OFF = 12;
     private final int action;
     private final double sourceX;
     private final double sourceY;
@@ -85,6 +87,13 @@ public final class RoomDeathFlowPacket {
         return new RoomDeathFlowPacket(ACTION_BOUNDARY_ON, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, mountedKind, remainingTicks, 0);
     }
 
+    public static RoomDeathFlowPacket retreatUpdate(int remainingTicks) {
+        return new RoomDeathFlowPacket(ACTION_RETREAT_ON, 0, 0, 0, 0, 0, 0, 0, 0, -1, remainingTicks, 0);
+    }
+    public static RoomDeathFlowPacket clearRetreat() {
+        return new RoomDeathFlowPacket(ACTION_RETREAT_OFF, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0);
+    }
+
     public static RoomDeathFlowPacket setBoundaryPenalty(boolean active) {
         return new RoomDeathFlowPacket(active ? ACTION_BOUNDARY_ON : ACTION_BOUNDARY_OFF, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F, -1, 0, 0);
     }
@@ -133,10 +142,12 @@ public final class RoomDeathFlowPacket {
         NetworkEvent.Context context = contextSupplier.get();
         context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
             if (ClientPacketBypassConfig.bypassDeathFlowPackets()) {
+                org.mods.gd656conquest.client.room.ClientRetreatState.reset();
                 ClientDeathFlowState.clear();
                 return;
             }
             if (message.action == ACTION_START_DEATH) {
+                org.mods.gd656conquest.client.room.ClientRetreatState.reset();
                 ClientMusicTriggerService.onDeathStarted();
                 ClientDeathFlowState.startDeathSequence(message.sourceX, message.sourceY, message.sourceZ, message.killerEntityId);
                 return;
@@ -169,6 +180,14 @@ public final class RoomDeathFlowPacket {
                 );
                 return;
             }
+            if (message.action == ACTION_RETREAT_ON) {
+                org.mods.gd656conquest.client.room.ClientRetreatState.accept(message.deployCountdownTicks);
+                return;
+            }
+            if (message.action == ACTION_RETREAT_OFF) {
+                org.mods.gd656conquest.client.room.ClientRetreatState.reset();
+                return;
+            }
             if (message.action == ACTION_BOUNDARY_ON) {
                 org.mods.gd656conquest.client.room.ClientBoundaryState.accept(message.deployCountdownTicks, message.killerEntityId);
                 return;
@@ -190,6 +209,7 @@ public final class RoomDeathFlowPacket {
                 ClientDeathFlowState.startMatchEndTransition(message.targetX, message.targetY, message.targetZ, message.targetYaw, message.targetPitch, message.transitionTicks);
                 return;
             }
+            org.mods.gd656conquest.client.room.ClientRetreatState.reset();
             ClientDeathFlowState.clear();
         }));
         context.setPacketHandled(true);

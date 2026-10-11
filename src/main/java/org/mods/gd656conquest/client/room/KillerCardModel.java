@@ -15,10 +15,10 @@ public final class KillerCardModel {
         return true;
     }
     public boolean accept(long id, KillerCardInfo value) {
-        if (closed || id != latestId || cause != DeathCause.PLAYER_KILL || info != null || value == null) return false;
+        if (closed || id != latestId || (cause == null || !cause.allowsKillerCard()) || info != null || value == null) return false;
         info = value; return true;
     }
-    public KillerCardInfo info() { return closed || cause != DeathCause.PLAYER_KILL ? null : info; }
+    public KillerCardInfo info() { return closed || cause == null || !cause.allowsKillerCard() ? null : info; }
     public void close() { closed = true; info = null; }
     public void reset() { latestId = 0; closed = true; cause = null; info = null; }
 }

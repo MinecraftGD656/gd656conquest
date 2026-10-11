@@ -13,6 +13,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import org.mods.gd656conquest.common.player.DeathCause;
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayRetreatProvider;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.DeathCausePacket;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
@@ -36,7 +37,17 @@ public final class RoomDeathCauseService {
         ATTRIBUTION.commandKill(target, target::kill);
     }
 
+    public static void retreatTimeoutKill(ServerPlayer player) {
+        ATTRIBUTION.retreatTimeoutKill(player, player::kill);
+    }
+
+    public static boolean isRetreatFailure(ServerPlayer player) {
+        Death death = current(player);
+        return death != null && death.cause() == DeathCause.RETREAT_FAILED;
+    }
+
     public static ServerPlayer attributedKiller(DamageSource source, Entity entity) {
+        if (ATTRIBUTION.retreatTimeoutTarget() == entity) return null;
         ServerPlayer killer = RoomDamageSourceResolver.resolveAttackingPlayer(source);
         FireOwner fire = ATTRIBUTION.fireSnapshot();
         if (killer == null && fire != null && fire.victim() == entity) killer = fire.owner();
@@ -53,7 +64,8 @@ public final class RoomDeathCauseService {
             .flatMap(manager::findRunningState).orElse(null);
         if (state == null) return killer;
         UUID victimId = victim.getUUID();
-        SystemDeath system = ATTRIBUTION.commandTarget() == victim ? SystemDeath.COMMAND
+        SystemDeath system = ATTRIBUTION.retreatTimeoutTarget() == victim ? SystemDeath.RETREAT_TIMEOUT
+            : ATTRIBUTION.commandTarget() == victim ? SystemDeath.COMMAND
             : state.getBoundaryDeathPendingPlayers().contains(victimId) ? SystemDeath.BOUNDARY
             : state.getDoubledRespawnPending().contains(victimId) ? SystemDeath.REDEPLOY : SystemDeath.NONE;
         // Forced system deaths have no player killer. The same result goes to the room and camera.
@@ -69,9 +81,18 @@ public final class RoomDeathCauseService {
         String type = source == null ? "" : source.typeHolder().unwrapKey()
             .map(key -> key.location().toString()).orElse("");
         boolean burning = source != null && source.is(DamageTypeTags.IS_FIRE);
-        DeathCause cause = DeathCauseClassifier.classify(new DeathCauseClassifier.Context(system, ownership, type, burning));
+        boolean retreating = false;
+        if (system == SystemDeath.NONE && ownership == Ownership.ENEMY) {
+            var retreat = state.getGameplayRuntime()
+                .filter(RoomGameplayRetreatProvider.class::isInstance)
+                .map(RoomGameplayRetreatProvider.class::cast).orElse(null);
+            var room = manager.findPlayerRoomId(victimId).flatMap(manager::findRoom).orElse(null);
+            retreating = retreat != null && retreat.isRetreatingDefender(room, victim);
+        }
+        DeathCause cause = DeathCauseClassifier.classify(
+            new DeathCauseClassifier.Context(system, ownership, type, burning), retreating);
         Entity legacy = source == null ? null : source.getEntity() == null ? source.getDirectEntity() : source.getEntity();
-        if (system == SystemDeath.BOUNDARY) legacy = null;
+        if (system == SystemDeath.BOUNDARY || system == SystemDeath.RETREAT_TIMEOUT) legacy = null;
         long deathId = ++nextDeath;
         FireOwner snapshot = ATTRIBUTION.fireSnapshot();
         boolean outside = snapshot != null && snapshot.victim() == victim ? snapshot.outsideBattlefield()
@@ -103,8 +124,7 @@ public final class RoomDeathCauseService {
 
     public static boolean skipDowned(ServerPlayer player) {
         Death death = current(player);
-        return death != null && (death.cause() == DeathCause.COMMAND_KILL
-            || death.cause() == DeathCause.DESERTION || death.outsideBattlefield());
+        return death != null && (death.cause().forbidsRevive() || death.outsideBattlefield());
     }
 
     public static boolean consumeBoundaryDeath(Set<?> pending, Object id, ServerPlayer player) {

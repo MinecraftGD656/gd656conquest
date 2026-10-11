@@ -4,13 +4,20 @@ import org.mods.gd656conquest.common.player.DeathCause;
 
 /** One deterministic result. Ownership has already been resolved by the room death entrypoint. */
 public final class DeathCauseClassifier {
-    public enum SystemDeath { NONE, COMMAND, BOUNDARY, REDEPLOY }
+    public enum SystemDeath { NONE, COMMAND, BOUNDARY, REDEPLOY, RETREAT_TIMEOUT }
     public enum Ownership { ENEMY, SELF, OTHER, NONE }
     public record Context(SystemDeath system, Ownership ownership, String damageType, boolean fire) {}
     private DeathCauseClassifier() {}
 
+    public static DeathCause classify(Context context, boolean retreatingDefender) {
+        if (retreatingDefender && context != null && context.system() == SystemDeath.NONE
+            && context.ownership() == Ownership.ENEMY) return DeathCause.RETREAT_FAILED;
+        return classify(context);
+    }
+
     public static DeathCause classify(Context context) {
         if (context == null) return DeathCause.KILLED_IN_ACTION;
+        if (context.system() == SystemDeath.RETREAT_TIMEOUT) return DeathCause.RETREAT_FAILED;
         if (context.system() == SystemDeath.COMMAND) return DeathCause.COMMAND_KILL;
         if (context.system() == SystemDeath.BOUNDARY) return DeathCause.DESERTION;
         if (context.system() == SystemDeath.REDEPLOY) return DeathCause.REDEPLOY;

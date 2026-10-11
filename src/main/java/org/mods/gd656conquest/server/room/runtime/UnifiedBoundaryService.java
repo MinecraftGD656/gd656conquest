@@ -67,7 +67,7 @@ public final class UnifiedBoundaryService {
         RoomGameplayBoundaryPolicyProvider policy = RoomGameplayBoundaryPolicyProvider.resolve(state);
         RoomTeamId team = state.getRoomTeams().get(player.getUUID());
         List<List<RoomPosition>> allowed = policy == null ? room.conquestConfig().allowedBoundariesForTeam(team)
-            : policy.resolveAllowedBoundaries(room, state, team);
+            : policy.resolveAllowedBoundariesForPlayer(room, state, player, team);
         Entity vehicle = player.getVehicle();
         boolean aircraft = VehicleCompatFacade.isVehicleEntity(vehicle) && VehicleCompatFacade.isAircraftEntity(vehicle);
         boolean horizontal = aircraft
