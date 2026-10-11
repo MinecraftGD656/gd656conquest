@@ -29,7 +29,7 @@ public class RoomSelectionTabContent implements ConfigScreenHeader.TabContent {
 
     private static final List<GameplayGroup> GAMEPLAY_GROUPS = List.of(
         new GameplayGroup("conquest", "征服-Conquest"),
-        new GameplayGroup("breakthrough", "突破-Breakthrough"),
+        new GameplayGroup("breakthrough", "行动-Operations"),
         new GameplayGroup("gunmaster", "枪神-Gunmaster"),
         new GameplayGroup("deathmatch", "团队死斗-TDM")
     );

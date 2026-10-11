@@ -38,7 +38,8 @@ public record RoomBreakthroughConfig(
     int maxAttackTroopsAt12Players,
     RoomTroopBalanceReference troopBalanceReference,
     List<RoomPosition> ammoBoxPositions,
-    List<RoomPosition> medicalBoxPositions
+    List<RoomPosition> medicalBoxPositions,
+    RoomBattalionConfig battalionConfig
 ) implements IRoomGameplayConfig {
     public RoomBreakthroughConfig {
         Objects.requireNonNull(points, "points");
@@ -66,7 +67,52 @@ public record RoomBreakthroughConfig(
         troopBalanceReference = troopBalanceReference == null ? RoomTroopBalanceReference.defaultValue() : troopBalanceReference;
         ammoBoxPositions = copyPositions(ammoBoxPositions);
         medicalBoxPositions = copyPositions(medicalBoxPositions);
+        battalionConfig = battalionConfig == null ? RoomBattalionConfig.defaults() : battalionConfig;
     }
+
+    /** Source compatibility for existing map builders. */
+    public RoomBreakthroughConfig(
+        Map<String, RoomCapturePointDefinition> points,
+        String mapId,
+        String campADisplayName,
+        String campBDisplayName,
+        int stageCount,
+        List<RoomPosition> campABaseBoundary,
+        List<RoomPosition> campBBaseBoundary,
+        List<RoomPosition> stageABoundary,
+        List<RoomPosition> stageBBoundary,
+        List<RoomPosition> stageCBoundary,
+        List<RoomPosition> stageDBoundary,
+        List<RoomPosition> stageEBoundary,
+        List<RoomPosition> stageFBoundary,
+        RoomSpawnGroupConfig campABaseSpawnGroup,
+        RoomSpawnGroupConfig campBBaseSpawnGroup,
+        RoomPosition campABaseDeployIconPosition,
+        RoomPosition campBBaseDeployIconPosition,
+        RoomViewPosition stageADeployViewPosition,
+        RoomViewPosition stageBDeployViewPosition,
+        RoomViewPosition stageCDeployViewPosition,
+        RoomViewPosition stageDDeployViewPosition,
+        RoomViewPosition stageEDeployViewPosition,
+        RoomViewPosition stageFDeployViewPosition,
+        int stageDurationMinutes,
+        int defenderRetreatSeconds,
+        int troopGainPerDefenderKill,
+        int maxAttackTroopsAt12Players,
+        RoomTroopBalanceReference troopBalanceReference,
+        List<RoomPosition> ammoBoxPositions,
+        List<RoomPosition> medicalBoxPositions
+    ) {
+        this(points, mapId, campADisplayName, campBDisplayName, stageCount,
+            campABaseBoundary, campBBaseBoundary, stageABoundary, stageBBoundary, stageCBoundary,
+            stageDBoundary, stageEBoundary, stageFBoundary, campABaseSpawnGroup, campBBaseSpawnGroup,
+            campABaseDeployIconPosition, campBBaseDeployIconPosition, stageADeployViewPosition,
+            stageBDeployViewPosition, stageCDeployViewPosition, stageDDeployViewPosition,
+            stageEDeployViewPosition, stageFDeployViewPosition, stageDurationMinutes,
+            defenderRetreatSeconds, troopGainPerDefenderKill, maxAttackTroopsAt12Players,
+            troopBalanceReference, ammoBoxPositions, medicalBoxPositions, RoomBattalionConfig.defaults());
+    }
+
 
     public static RoomBreakthroughConfig defaults() {
         return new RoomBreakthroughConfig(
@@ -267,7 +313,7 @@ public record RoomBreakthroughConfig(
         org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(result, "breakthrough.campBBaseSpawnGroup", "btCampBBaseSpawnGroup", breakthrough.campBBaseSpawnGroup(), true);
         org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomPosition(result, "breakthrough.campABaseDeployIconPosition", "btCampABaseDeployIconPosition", breakthrough.campABaseDeployIconPosition());
         org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomPosition(result, "breakthrough.campBBaseDeployIconPosition", "btCampBBaseDeployIconPosition", breakthrough.campBBaseDeployIconPosition());
-        if (breakthrough.stageDurationMinutes() <= 0) {
+        if (breakthrough.stageDurationMinutes() < 0) {
             result.addMissing("breakthrough.stageDurationMinutes", "btStageDurationMinutes");
         }
         if (breakthrough.defenderRetreatSeconds() <= 0) {
@@ -292,6 +338,10 @@ public record RoomBreakthroughConfig(
                 breakthroughStageViewConfigId(stageIndex),
                 breakthrough.stageDeployViewPosition(stageIndex)
             );
+        }
+        if (battalionConfig.count() > 1) {
+            org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomViewPosition(
+                result, "breakthrough.battalionConfig.briefingViewPosition", "btBriefingViewPosition", battalionConfig.briefingViewPosition());
         }
         boolean hasActivePoint = false;
         for (RoomCapturePointDefinition point : breakthrough.points().values()) {

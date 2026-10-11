@@ -1,5 +1,7 @@
 package org.mods.gd656conquest.server.room.core;
 
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayIntermissionProvider;
+
 import net.minecraft.core.BlockPos;
 import org.mods.gd656conquest.server.room.gameplay.IRoomGameplayRuntime;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
@@ -796,6 +798,16 @@ public final class RunningRuntimeState {
 
     public boolean isPlayerBeingRevived(UUID playerId) {
         return playerId != null && reviveReviverByTarget.containsKey(playerId);
+    }
+
+    public boolean isGameplayCombatPaused() {
+        return gameplayRuntime instanceof RoomGameplayIntermissionProvider provider
+            && provider.isCombatPaused();
+    }
+
+    public boolean isGameplayDeploymentPreparation() {
+        return gameplayRuntime instanceof RoomGameplayIntermissionProvider provider
+            && provider.isDeploymentPreparation();
     }
 
     public boolean isInRespawnFlow(UUID playerId) {

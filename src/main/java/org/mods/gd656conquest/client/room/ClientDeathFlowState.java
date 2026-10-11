@@ -29,6 +29,8 @@ public final class ClientDeathFlowState {
     private static final int PHASE_RESPAWN_HOLD = 9;
     private static final int PHASE_DOWNED_HOLD = 10;
     private static final int PHASE_DEATH_RECOVER = 11;
+    private static final int PHASE_CINEMATIC_TRAVEL = 12;
+    private static final int PHASE_CINEMATIC_HOLD = 13;
     private static final int DEATH_LOOK_UP_TICKS = 14;
     private static final int DEATH_FALL_TICKS = 8;
     private static final int DEATH_WAIT_TICKS = 4;
@@ -285,6 +287,51 @@ public final class ClientDeathFlowState {
         setCameraPose(targetX, targetY, targetZ, targetYaw, targetPitch, true);
     }
 
+    public static void holdCinematicCamera() {
+        Minecraft mc = Minecraft.getInstance();
+        Camera camera = mc.gameRenderer.getMainCamera();
+        Vec3 source = camera.getPosition();
+        holdCinematicCameraAt(source.x, source.y, source.z, camera.getYRot(), camera.getXRot());
+    }
+
+    public static void holdCinematicCameraAt(double x, double y, double z, float yaw, float pitch) {
+        ClientDownedCamera.handoffToDeployment();
+        DownedRagdollClientHooks.onDeployTransition();
+        Minecraft mc = Minecraft.getInstance();
+        TaczClientInputCompat.suppressCombatInputUntilRelease(mc);
+        disableDesaturate(mc);
+        active = true;
+        matchEndViewLocked = false;
+        deathVisualsActive = false;
+        phase = PHASE_CINEMATIC_HOLD;
+        currentDesaturation = targetDesaturation = deathDesaturationTarget = 0;
+        currentDeployIconAlpha = targetDeployIconAlpha = 0;
+        boundaryPenaltyActive = false;
+        ClientBoundaryState.setActive(false);
+        setCameraPose(x, y, z, yaw, pitch, true);
+    }
+
+    public static void travelCinematicCamera(double x, double y, double z, float yaw, float pitch, int ticks) {
+        if (!active) holdCinematicCamera();
+        travelFromX = currentCameraX; travelFromY = currentCameraY; travelFromZ = currentCameraZ;
+        travelFromYaw = currentCameraYaw; travelFromPitch = currentCameraPitch;
+        transitionTargetX = x; transitionTargetY = y; transitionTargetZ = z;
+        transitionTargetYaw = yaw; transitionTargetPitch = pitch;
+        travelElapsedTicks = 0;
+        travelTotalTicks = Math.max(1, ticks);
+        phase = PHASE_CINEMATIC_TRAVEL;
+    }
+
+    private static void tickCinematicTravel() {
+        double t = Math.min(1, ++travelElapsedTicks / (double) travelTotalTicks);
+        double smooth = t * t * (3 - 2 * t);
+        setCameraPose(Mth.lerp(smooth, travelFromX, transitionTargetX),
+            Mth.lerp(smooth, travelFromY, transitionTargetY), Mth.lerp(smooth, travelFromZ, transitionTargetZ),
+            Mth.rotLerp((float) smooth, travelFromYaw, transitionTargetYaw),
+            Mth.lerp((float) smooth, travelFromPitch, transitionTargetPitch), false);
+        if (t >= 1) phase = PHASE_CINEMATIC_HOLD;
+    }
+
     public static void tick() {
         if (!active) {
             return;
@@ -313,6 +360,8 @@ public final class ClientDeathFlowState {
             return;
         }
         switch (phase) {
+            case PHASE_CINEMATIC_TRAVEL -> tickCinematicTravel();
+            case PHASE_CINEMATIC_HOLD -> setCameraPose(currentCameraX, currentCameraY, currentCameraZ, currentCameraYaw, currentCameraPitch, false);
             case PHASE_DEATH_FALL -> tickDeathFall(player);
             case PHASE_DEATH_WAIT -> tickDeathWait(player);
             case PHASE_DEATH_RECOVER -> tickDeathRecover(player);
@@ -454,6 +503,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void clear() {
+        ClientBattalionBriefingState.reset();
         ClientDownedCamera.onDeathFlowCleared();
         ClientDeathCauseState.hide();
         Minecraft minecraft = Minecraft.getInstance();

@@ -189,7 +189,8 @@ public final class CapturePointBlock extends Block {
             config.maxAttackTroopsAt12Players(),
             config.troopBalanceReference(),
             config.ammoBoxPositions(),
-            config.medicalBoxPositions()
+            config.medicalBoxPositions(),
+            config.battalionConfig()
         );
         return new RoomDefinition(
             room.roomId(),

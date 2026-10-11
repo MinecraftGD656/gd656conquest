@@ -220,6 +220,10 @@ public final class RoomConfigDescriptorRegistry {
         breakthrough(descriptors, RoomConfigCategory.TRANSPORT, "btStageDeployViewF", "F阶段部署视角", "breakthroughConfig.stageFDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
         breakthroughGroup(descriptors, RoomConfigCategory.TRANSPORT, "btAmmoBoxPositions", "突破对局弹药箱数据组", "breakthroughConfig.ammoBoxPositions", RoomConfigValueType.POSITION_GROUP);
         breakthroughGroup(descriptors, RoomConfigCategory.TRANSPORT, "btMedicalBoxPositions", "突破对局医疗箱数据组", "breakthroughConfig.medicalBoxPositions", RoomConfigValueType.POSITION_GROUP);
+        breakthrough(descriptors, RoomConfigCategory.TRANSPORT, "btBriefingViewPosition", "战况简报位置与角度", "breakthroughConfig.battalionConfig.briefingViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btBattalionCount", "进攻营总数(1-10)", "breakthroughConfig.battalionConfig.count", RoomConfigValueType.NUMBER, List.of("3"));
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btBriefingSeconds", "战况简报持续秒数(8-600)", "breakthroughConfig.battalionConfig.briefingSeconds", RoomConfigValueType.NUMBER, List.of("20"));
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btPreparationSeconds", "营切换部署准备秒数(1-300)", "breakthroughConfig.battalionConfig.preparationSeconds", RoomConfigValueType.NUMBER, List.of("10"));
         breakthrough(descriptors, RoomConfigCategory.RULES, "btStageDurationMinutes", "阶段持续分钟", "breakthroughConfig.stageDurationMinutes", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btDefenderRetreatSeconds", "防守方撤退秒数", "breakthroughConfig.defenderRetreatSeconds", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopGainPerDefenderKill", "守方击杀补充兵力", "breakthroughConfig.troopGainPerDefenderKill", RoomConfigValueType.NUMBER, List.of());

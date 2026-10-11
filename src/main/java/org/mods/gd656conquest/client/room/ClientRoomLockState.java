@@ -21,7 +21,7 @@ public final class ClientRoomLockState {
     }
 
     public static boolean shouldLockInventory() {
-        return snapshot.lockInventory();
+        return ClientBattalionBriefingState.blocksAllInput() || snapshot.lockInventory();
     }
 
     public static boolean isDebugInventoryLockActive() {
@@ -29,7 +29,7 @@ public final class ClientRoomLockState {
     }
 
     public static boolean shouldLockMovement() {
-        return snapshot.lockMovement() || ClientReviveState.shouldLockMovement();
+        return ClientBattalionBriefingState.blocksAllInput() || snapshot.lockMovement() || ClientReviveState.shouldLockMovement();
     }
 
     public static boolean shouldForceCrouch() {
@@ -37,14 +37,15 @@ public final class ClientRoomLockState {
     }
 
     public static boolean shouldRestrictGameplayInteraction() {
-        return snapshot.lockGameplayInteraction();
+        return ClientBattalionBriefingState.blocksAllInput() || snapshot.lockGameplayInteraction();
     }
 
     public static boolean shouldRestrictHeldItemUse() {
-        return snapshot.lockGameplayInteraction() || ClientReviveState.isReviving();
+        return ClientBattalionBriefingState.blocksAllInput() || snapshot.lockGameplayInteraction() || ClientReviveState.isReviving();
     }
 
     public static boolean shouldLockHotbarSelection() {
+        if (ClientBattalionBriefingState.blocksAllInput() || "battalion_intermission".equals(snapshot.reason())) return true;
         if (!snapshot.lockHotbar()) {
             return false;
         }
@@ -55,7 +56,7 @@ public final class ClientRoomLockState {
     }
 
     public static boolean shouldBlockLookInput() {
-        return ClientDownedCamera.blocksLook() || (snapshot.lockLook() && !snapshot.releaseMouse());
+        return ClientBattalionBriefingState.blocksAllInput() || ClientDownedCamera.blocksLook() || (snapshot.lockLook() && !snapshot.releaseMouse());
     }
 
     public static boolean shouldReleaseMouse() {

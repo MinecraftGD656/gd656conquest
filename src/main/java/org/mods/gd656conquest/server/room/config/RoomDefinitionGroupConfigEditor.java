@@ -446,7 +446,8 @@ public final class RoomDefinitionGroupConfigEditor {
                 breakthrough.maxAttackTroopsAt12Players(),
                 breakthrough.troopBalanceReference(),
                 breakthrough.ammoBoxPositions(),
-                breakthrough.medicalBoxPositions()
+                breakthrough.medicalBoxPositions(),
+            breakthrough.battalionConfig()
             ));
         }
         if ("btcampbbasespawngroup".equals(canonical)) {
@@ -481,7 +482,8 @@ public final class RoomDefinitionGroupConfigEditor {
                 breakthrough.maxAttackTroopsAt12Players(),
                 breakthrough.troopBalanceReference(),
                 breakthrough.ammoBoxPositions(),
-                breakthrough.medicalBoxPositions()
+                breakthrough.medicalBoxPositions(),
+            breakthrough.battalionConfig()
             ));
         }
         if (canonical.startsWith("captureinnerspawngroup_")) {
@@ -596,7 +598,8 @@ public final class RoomDefinitionGroupConfigEditor {
             breakthrough.maxAttackTroopsAt12Players(),
             breakthrough.troopBalanceReference(),
             breakthrough.ammoBoxPositions(),
-            breakthrough.medicalBoxPositions()
+            breakthrough.medicalBoxPositions(),
+            breakthrough.battalionConfig()
         ));
     }
 
@@ -723,7 +726,8 @@ public final class RoomDefinitionGroupConfigEditor {
             breakthrough.maxAttackTroopsAt12Players(),
             breakthrough.troopBalanceReference(),
             breakthrough.ammoBoxPositions(),
-            breakthrough.medicalBoxPositions()
+            breakthrough.medicalBoxPositions(),
+            breakthrough.battalionConfig()
         ));
     }
 

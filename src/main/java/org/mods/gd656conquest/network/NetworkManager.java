@@ -1,5 +1,9 @@
 package org.mods.gd656conquest.network;
 
+import org.mods.gd656conquest.network.packet.BattalionBriefingPacket;
+import net.minecraftforge.network.NetworkDirection;
+import java.util.Optional;
+
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkRegistry;
@@ -62,7 +66,7 @@ import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "bf1-0.0.12";
+    private static final String PROTOCOL_VERSION = "bf1-0.1.0";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -75,6 +79,11 @@ public final class NetworkManager {
     }
 
     public static void init() {
+        CHANNEL.registerMessage(packetId++, BattalionBriefingPacket.class,
+            BattalionBriefingPacket::encode,
+            BattalionBriefingPacket::decode,
+            BattalionBriefingPacket::handle,
+            Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(
                 packetId++,
                 RoomHudSyncPacket.class,

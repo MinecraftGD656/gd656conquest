@@ -96,6 +96,9 @@ public final class LoadoutUiService {
         if (player == null || player.server == null) {
             return;
         }
+        var battalionManager = RoomCoreRuntimeManager.of(player.server);
+        var battalionState = battalionManager.findPlayerRoomId(player.getUUID()).flatMap(battalionManager::findRunningState).orElse(null);
+        if (battalionState != null && battalionState.isGameplayCombatPaused() && !battalionState.isGameplayDeploymentPreparation()) return;
         String normalizedAction = action == null ? "" : action.trim().toLowerCase(Locale.ROOT);
         switch (normalizedAction) {
             case "select_class" -> {

@@ -28,6 +28,21 @@ public abstract class ServerGamePacketListenerImplMixin {
     @Shadow
     public ServerPlayer player;
 
+    @Inject(method = "handleMovePlayer", at = @At("HEAD"), cancellable = true, require = 1)
+    private void gd656conquest$freezeBattalionPlayer(net.minecraft.network.protocol.game.ServerboundMovePlayerPacket packet, CallbackInfo ci) {
+        if (gd656conquest$isBattalionIntermission()) ci.cancel();
+    }
+
+    @Inject(method = "handleMoveVehicle", at = @At("HEAD"), cancellable = true, require = 1)
+    private void gd656conquest$freezeBattalionVehicle(net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket packet, CallbackInfo ci) {
+        if (gd656conquest$isBattalionIntermission()) ci.cancel();
+    }
+
+    private boolean gd656conquest$isBattalionIntermission() {
+        return player != null && player.server != null && player.server.isSameThread()
+            && "battalion_intermission".equals(ServerPlayerLockService.of(player.server).resolve(player).reason());
+    }
+
     @Inject(method = "handleChat", at = @At("HEAD"), cancellable = true, require = 0)
     private void gd656conquest$handleChat(ServerboundChatPacket packet, CallbackInfo ci) {
         if (packet == null || player == null || packet.message() == null) {
@@ -123,10 +138,11 @@ public abstract class ServerGamePacketListenerImplMixin {
         if (player == null || player.getServer() == null) {
             return false;
         }
-        if (player.hasPermissions(2)) {
+        ServerPlayerLockService lockService = ServerPlayerLockService.of(player.getServer());
+        if (player.hasPermissions(2) && !"battalion_intermission".equals(lockService.resolve(player).reason())) {
             return false;
         }
-        return ServerPlayerLockService.of(player.getServer()).shouldBlockGameplayInteraction(player);
+        return lockService.shouldBlockGameplayInteraction(player);
     }
 
     private boolean gd656conquest$shouldBlockManagedVehicleCreativeAmmoExtraction(ServerboundContainerClickPacket packet) {

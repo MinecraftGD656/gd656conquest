@@ -1,5 +1,7 @@
 package org.mods.gd656conquest.server.room.core;
 
+import org.mods.gd656conquest.server.room.gameplay.RoomGameplayIntermissionProvider;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -840,6 +842,7 @@ public final class RoomCoreService {
             .filter(slot -> slot.room().lifecycleState() == RoomLifecycleState.RUNNING)
             .map(slot -> {
                 RunningRuntimeState runningState = slot.runtime().getRunningState();
+                if (runningState.isGameplayCombatPaused()) return false;
                 if (!runningState.getRoomPlayers().contains(player.getUUID())) {
                     return false;
                 }
@@ -926,7 +929,8 @@ public final class RoomCoreService {
             || !state.getRoomPlayers().contains(playerId)) {
             return false;
         }
-        return player.isInvulnerable()
+        return state.isGameplayCombatPaused()
+            || player.isInvulnerable()
             || state.getResultSequenceEndTick() > 0
             || state.isInRespawnFlow(playerId);
     }
@@ -1294,8 +1298,10 @@ public final class RoomCoreService {
                 syncRunningHudIfDue(slot.room(), slot.runtime().getRunningState(), gameTick);
                 return;
             }
+            if (tickGameplayIntermission(slot, gameTick)) return;
             playerStateService.maintainRunningState(slot.room(), slot.runtime().getRunningState(), slot.runtime().getRunningState().getRoomPlayers());
             playerRespawnService.tick(slot.room(), slot.runtime().getRunningState(), gameTick);
+            if (tickGameplayIntermission(slot, gameTick)) return;
             itemReplenishService.tick(slot.room(), slot.runtime().getRunningState(), gameTick);
             ruleRuntimeService.tick(slot.room(), slot.runtime().getRunningState(), gameTick);
             squadBeaconService.tickRoom(slot.room(), slot.runtime().getRunningState(), gameTick);
@@ -1305,10 +1311,33 @@ public final class RoomCoreService {
             slot.runtime().getRunningState().getGameplayRuntime()
                 .ifPresent(runtime -> {
                     runtime.tick(slot.room(), gameTick);
+                    if (runtime instanceof RoomGameplayIntermissionProvider provider)
+                        provider.synchronizeIntermissionPlayers(slot.room(), playerRespawnService, gameTick);
                     runtime.pollMatchEndRequest().ifPresent(request -> beginMatchEnd(slot, request, gameTick));
                 });
             syncRunningHudIfDue(slot.room(), slot.runtime().getRunningState(), gameTick);
         });
+    }
+
+    private boolean tickGameplayIntermission(RoomRuntimeSlot<RoomRuntimeState> slot, long tick) {
+        RunningRuntimeState state = slot.runtime().getRunningState();
+        if (!state.isGameplayCombatPaused()) return false;
+        IRoomGameplayRuntime runtime = state.getGameplayRuntime().orElse(null);
+        if (!(runtime instanceof RoomGameplayIntermissionProvider provider)) return false;
+        for (UUID id : List.copyOf(state.getRoomPlayers())) {
+            if (state.getActiveShellingRequest(id) != null)
+                shellingRuntimeService.abortShellingRequest(slot.room(), state, playerLaunchService.findOnlinePlayer(id), id,
+                    RoomShellingRuntimeService.AbortReason.ROOM_UNAVAILABLE);
+            ruleRuntimeService.clearPlayer(id);
+        }
+        provider.synchronizeIntermissionPlayers(slot.room(), playerRespawnService, tick);
+        runtime.tick(slot.room(), tick);
+        provider.synchronizeIntermissionPlayers(slot.room(), playerRespawnService, tick);
+        playerStateService.maintainRunningState(slot.room(), state, state.getRoomPlayers());
+        if (provider.isDeploymentPreparation() || !provider.isCombatPaused()) playerRespawnService.tick(slot.room(), state, tick);
+        runtime.pollMatchEndRequest().ifPresent(request -> beginMatchEnd(slot, request, tick));
+        syncRunningHudIfDue(slot.room(), state, tick);
+        return true;
     }
 
     public void tickPlayerStates(long gameTick) {

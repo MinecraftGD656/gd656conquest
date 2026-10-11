@@ -237,6 +237,7 @@ public final class RoomPlayerRespawnService {
         if (room == null || state == null || player == null || action == null || action.isBlank()) {
             return false;
         }
+        if (state.isGameplayCombatPaused()) return false;
         if (org.mods.gd656conquest.server.room.entry.ManualDeathDeployService.request(this, room, state, player, action, gameTick)) return true;
         String normalized = action.trim();
         if ("surrender".equalsIgnoreCase(normalized)) {
@@ -295,6 +296,7 @@ public final class RoomPlayerRespawnService {
         if (room == null || state == null || player == null) {
             return "当前不在任何房间";
         }
+        if (state.isGameplayCombatPaused()) return "营间休整期间不能重新部署";
         if (room.lifecycleState() != org.mods.gd656conquest.server.room.model.RoomLifecycleState.RUNNING) {
             return "仅在对局进行中可用。 " + REDEPLOY_TRIGGER_REQUIREMENTS;
         }
@@ -363,6 +365,54 @@ public final class RoomPlayerRespawnService {
         return !RoomDeathEventDispatcher.isStillAliveOutsideDeployment(player);
     }
 
+    /** Administrative state transition: never emits a death or changes match scores. */
+    public void prepareBattalionHold(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long tick) {
+        UUID id = player.getUUID();
+        playerTransferQueueService.cancelPendingTransfers(id);
+        HeroKitSupportService.endHeroKitState(server, state, id, tick);
+        playerStateService.clearPlayerState(id);
+        state.clearRespawnFlow(id);
+        state.getDoubledRespawnPending().remove(id);
+        state.getInitialMovementLockedPlayers().remove(id);
+        state.getInitialMovementLockLastShownSeconds().remove(id);
+        state.getDeployReadyTicks().put(id, Long.MAX_VALUE);
+        player.closeContainer();
+        playerStateService.applyDeployHoldingState(player);
+        player.stopUsingItem();
+        clearRevivePresentation(player, player);
+        clearDownedRescueHint(player);
+        ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DOWNED);
+        ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DOWNED_BEING_RESCUED);
+        ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_WAIT);
+        ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
+        NetworkManager.sendToPlayer(player, RoomDownedStatePacket.clear());
+        NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
+        broadcastPlayerAnimatorState(state, id, 0, false);
+    }
+
+    public void moveBattalionView(RoomDefinition room, ServerPlayer player, RoomViewPosition view) {
+        if (view == null) return;
+        playerTransferQueueService.cancelPendingTransfers(player.getUUID());
+        playerLaunchService.teleportToViewPosition(player, room, view);
+        player.setDeltaMovement(0, 0, 0);
+    }
+
+    public void prepareBattalionDeploy(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long tick, long readyTick) {
+        UUID id = player.getUUID();
+        state.getDeployReadyTicks().put(id, readyTick);
+        state.getDeployAutoStartOnReadyPlayers().add(id);
+        state.getDeployAllowFallbackOnMissingSelectionPlayers().add(id);
+        state.getDeployExplicitConfirmRequiredPlayers().remove(id);
+        state.getDeployViewActivePlayers().add(id);
+        deploySelectionService.clearSelection(state, id);
+        RoomTeamId team = state.getRoomTeams().get(id);
+        if (team != null) deploySelectionService.applyInitialDefaultSelection(room, state, player, team);
+        playerStateService.applyDeployHoldingState(player);
+        moveBattalionView(room, player, RoomGameplayDeployPresentationSupport.resolveDeployViewPosition(room, state, player,
+            new RoomGameplayDeployViewRequest(RoomGameplayDeployViewKind.INITIAL, tick, (int) Math.max(0, readyTick - tick), true)));
+        LoadoutUiService.sendSnapshot(player, false, true);
+    }
+
     public void beginInitialDeploy(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long gameTick) {
         Objects.requireNonNull(room, "room");
         Objects.requireNonNull(state, "state");
@@ -415,6 +465,10 @@ public final class RoomPlayerRespawnService {
         if (player == null) {
             return;
         }
+        if (state.isGameplayCombatPaused()) {
+            prepareBattalionHold(room, state, player, gameTick);
+            return;
+        }
         UUID playerId = player.getUUID();
         playerStateService.clearPlayerState(playerId);
         TaczServerPoseCompat.clearCrawlState(player);
@@ -458,6 +512,10 @@ public final class RoomPlayerRespawnService {
         Objects.requireNonNull(room, "room");
         Objects.requireNonNull(state, "state");
         if (player == null) {
+            return;
+        }
+        if (state.isGameplayCombatPaused()) {
+            prepareBattalionHold(room, state, player, gameTick);
             return;
         }
         UUID playerId = player.getUUID();
@@ -509,6 +567,7 @@ public final class RoomPlayerRespawnService {
         if (player == null || !player.isAlive()) {
             return false;
         }
+        if (state.isGameplayCombatPaused() && !state.isGameplayDeploymentPreparation()) return false;
         UUID playerId = player.getUUID();
         Long deployReadyTick = state.getDeployReadyTicks().get(playerId);
         RoomTeamId teamId = state.getRoomTeams().get(playerId);
@@ -599,6 +658,7 @@ public final class RoomPlayerRespawnService {
         tickPendingDownedPlayers(room, state, gameTick);
         tickActiveRevives(room, state, gameTick);
         tickDownedPlayers(room, state, gameTick);
+        if (state.isGameplayCombatPaused() && !state.isGameplayDeploymentPreparation()) return;
         tickDownedRescueHints(state);
         ensureRespawnFlowPresentation(room, state);
 
@@ -1161,6 +1221,7 @@ public final class RoomPlayerRespawnService {
         }
         UUID playerId = player.getUUID();
         notifyGameplayConfirmedDeath(room, state, playerId, killerEntityId, gameTick);
+        if (state.isGameplayCombatPaused()) return;
         if (state.getDoubledRespawnPending().remove(playerId)) {
             deployDelayTicks *= 2;
         }

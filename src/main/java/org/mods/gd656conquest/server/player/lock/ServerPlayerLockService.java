@@ -99,7 +99,7 @@ public final class ServerPlayerLockService {
 
     public boolean shouldIgnoreAdminInventoryBypass(ServerPlayer player) {
         PlayerLockSnapshot snapshot = resolve(player);
-        return snapshot.lockInventory() && snapshot.reason().startsWith("debug_");
+        return snapshot.lockInventory() && (snapshot.reason().startsWith("debug_") || "battalion_intermission".equals(snapshot.reason()));
     }
 
     public boolean shouldBlockGameplayInteraction(ServerPlayer player) {
@@ -113,15 +113,16 @@ public final class ServerPlayerLockService {
         }
         long gameTick = player.server.getTickCount();
         DebugOverride debugOverride = resolveDebugOverride(player.getUUID(), gameTick);
-        if (debugOverride != null) {
-            return buildDebugSnapshot(debugOverride.strength());
-        }
         RoomLockContext context = resolveRoomContext(player);
         if (context == null || context.room() == null) {
-            return PlayerLockSnapshot.none();
+            return debugOverride == null ? PlayerLockSnapshot.none() : buildDebugSnapshot(debugOverride.strength());
         }
         RunningRuntimeState runningState = context.runningState();
         UUID playerId = player.getUUID();
+        if (runningState != null && runningState.isGameplayCombatPaused() && !runningState.isGameplayDeploymentPreparation()) {
+            return buildSnapshot(PlayerLockStrength.HARD_LOCK, "battalion_intermission", true, true, true, false, true, false, false);
+        }
+        if (debugOverride != null) return buildDebugSnapshot(debugOverride.strength());
         if (isMatchEndingActive(context.room(), runningState) && isPlayerInMatchEndViewPhase(runningState, playerId)) {
             return buildSnapshot(PlayerLockStrength.UI_CURSOR, "match_end", true, false, false, false, false, false, true);
         }

@@ -105,6 +105,9 @@ public final class RoomCommands {
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.argument("targets", EntityArgument.players())
                     .executes(RoomCommands::executeInvite)))
+            .then(Commands.literal("exhaustBattalion")
+                .requires(source -> source.hasPermission(2))
+                .executes(RoomCommands::executeExhaustBattalion))
             .then(Commands.literal("startRoom")
                 .requires(source -> source.hasPermission(2))
                 .executes(RoomCommands::executeStartRoom))
@@ -295,6 +298,20 @@ public final class RoomCommands {
         sendLine(context.getSource(), Component.literal("状态: " + room.lifecycleState().name()).withStyle(ChatFormatting.GRAY));
         sendLine(context.getSource(), Component.literal("队列人数: " + queueCount).withStyle(ChatFormatting.GRAY));
         sendLine(context.getSource(), Component.literal("对局人数: " + roomPlayerCount).withStyle(ChatFormatting.GRAY));
+        return 1;
+    }
+
+    private static int executeExhaustBattalion(CommandContext<CommandSourceStack> context) {
+        var manager = RoomCoreRuntimeManager.of(context.getSource().getServer());
+        String roomId = StringArgumentType.getString(context, "roomId");
+        RoomDefinition room = manager.findRoom(roomId).orElse(null);
+        var runtime = manager.findRunningState(roomId).flatMap(state -> state.getGameplayRuntime()).orElse(null);
+        if (!(runtime instanceof org.mods.gd656conquest.server.room.gameplay.breakthrough.BreakthroughGameplayRuntime breakthrough)
+            || room == null || room.lifecycleState() != RoomLifecycleState.RUNNING)
+            return replyFailure(context.getSource(), "该房间没有正在运行的行动模式");
+        if (!breakthrough.debugExhaustBattalion(room, context.getSource().getServer().getTickCount()))
+            return replyFailure(context.getSource(), "当前正在营间休整或分区推进，不能重复耗尽");
+        context.getSource().sendSuccess(() -> Component.literal("本营已耗尽，开始战况简报流程"), true);
         return 1;
     }
 

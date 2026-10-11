@@ -187,6 +187,13 @@ public final class RoomDefinitionScalarConfigEditor {
         Object boundaryValue = BoundaryConfigNumbers.parse(descriptor.configId(), rawValue);
         if (boundaryValue != null) return boundaryValue;
         String configId = normalizedConfigId(descriptor);
+        if ("btbattalioncount".equals(configId) || "btbriefingseconds".equals(configId) || "btpreparationseconds".equals(configId)) {
+            int value = parsePositiveInt(rawValue);
+            int min = "btbriefingseconds".equals(configId) ? 8 : 1;
+            int max = "btbattalioncount".equals(configId) ? 10 : "btbriefingseconds".equals(configId) ? 600 : 300;
+            if (value < min || value > max) throw new IllegalArgumentException("配置范围: " + min + "-" + max);
+            return value;
+        }
         if ("progressspeed".equals(configId)) {
             return parsePositiveDouble(rawValue);
         }

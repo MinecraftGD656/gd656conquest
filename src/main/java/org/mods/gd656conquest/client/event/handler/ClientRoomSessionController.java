@@ -1,5 +1,7 @@
 package org.mods.gd656conquest.client.event.handler;
 
+import org.mods.gd656conquest.client.room.ClientBattalionBriefingState;
+
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -89,7 +91,10 @@ final class ClientRoomSessionController {
         }
         org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedHudOnly(ClientRoomLockState.shouldForceHudOnly());
         org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedVisible(ClientRoomLockState.shouldForceVisibleHud());
-        loadoutUiController.tick();
+        if (ClientBattalionBriefingState.blocksAllInput()) {
+            while (org.mods.gd656conquest.client.input.ClientKeyMappings.OPEN_LOADOUT_SCREEN.consumeClick()) {}
+            while (org.mods.gd656conquest.client.input.ClientKeyMappings.COMMON_USE.consumeClick()) {}
+        } else loadoutUiController.tick();
         uploadMainHandItemNameIfNeeded(minecraft);
         vehicleMountedHotbarLockService.tick(minecraft);
         while (org.mods.gd656conquest.client.input.ClientKeyMappings.OPEN_LOADOUT_SCREEN.consumeClick()) {

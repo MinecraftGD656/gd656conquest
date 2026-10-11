@@ -49,3 +49,6 @@ Thumbs.db
 
 # Local development and migration utilities
 /tools/
+
+# Local-only battalion regression tests
+/src/battalionTest/

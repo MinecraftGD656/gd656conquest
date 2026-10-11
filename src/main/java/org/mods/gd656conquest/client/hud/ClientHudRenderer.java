@@ -187,7 +187,10 @@ public final class ClientHudRenderer {
         String timeText = String.format(Locale.ROOT, "%02d:%02d", minute, second);
         int timeColor = resolveBreakthroughTimerColor();
         String leftText = infiniteTroops ? "∞" : String.valueOf(attackTroops);
-        String rightText = "阶段" + stageLetter(stageIndex);
+        String rightText = "区域" + stageLetter(stageIndex);
+        String[] battalionPayload = ClientHudDebugState.getExtraPayload().split("\\|");
+        if (battalionPayload.length == 3 && "BATTALION".equals(battalionPayload[0]))
+            rightText += " · " + battalionPayload[1] + "/" + battalionPayload[2] + "营";
         int timeWidth = font.width(timeText);
         int timeHalf = Math.max(28, timeWidth / 2 + 6);
         int textNearGap = 4;

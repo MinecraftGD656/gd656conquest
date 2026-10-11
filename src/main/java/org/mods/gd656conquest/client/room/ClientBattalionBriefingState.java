@@ -1,0 +1,74 @@
+package org.mods.gd656conquest.client.room;
+
+import org.mods.gd656conquest.client.audio.ClientMusicTriggerService;
+
+import net.minecraft.client.Minecraft;
+import org.mods.gd656conquest.common.match.BattalionSequence.Phase;
+import org.mods.gd656conquest.network.packet.BattalionBriefingPacket;
+
+/** Presentation follows phase packets; it never unlocks gameplay on a local timer. */
+public final class ClientBattalionBriefingState {
+    private static BattalionBriefingPacket packet;
+    private static int ticks;
+    private static Object level;
+    private ClientBattalionBriefingState() {}
+
+    public static void accept(BattalionBriefingPacket next) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) return;
+        if (level != mc.level) reset();
+        if (packet != null && packet.roomId().equals(next.roomId()) && packet.matchId() == next.matchId()) {
+            if (next.sequenceId() < packet.sequenceId()) return;
+            if (next.sequenceId() == packet.sequenceId() && next.phase().presentationOrder() <= packet.phase().presentationOrder()) return;
+        }
+        level = mc.level;
+        ticks = Math.max(0, next.elapsedTicks());
+        if (next.phase() == Phase.COMBAT || next.phase() == Phase.FINISHED) { packet = next; return; }
+        ClientReviveState.reset();
+        if (mc.screen != null) mc.setScreen(null);
+        var view = next.view();
+        switch (next.phase()) {
+            case RESULT -> ClientDeathFlowState.holdCinematicCamera();
+            case TRAVEL_TO_BRIEFING, TRAVEL_TO_DEPLOY -> {
+                if (view != null) ClientDeathFlowState.travelCinematicCamera(view.x() + .5, view.y(), view.z() + .5,
+                    view.yaw(), view.pitch(), Math.max(1, next.durationTicks() - ticks));
+            }
+            case BRIEFING, BRIEFING_FADE_OUT, NEXT_ASSAULT -> {
+                if (view != null) ClientDeathFlowState.holdCinematicCameraAt(view.x() + .5, view.y(), view.z() + .5, view.yaw(), view.pitch());
+            }
+            case PREPARATION -> {
+                // Explicit handoff: remove briefing presentation and enter the existing deploy phase.
+                if (view != null) ClientDeathFlowState.openDeployInstant(view.x() + .5, view.y(), view.z() + .5,
+                    view.yaw(), view.pitch(), Math.max(0, next.durationTicks() - ticks));
+                ClientMusicTriggerService.onDeployOpened();
+            }
+            default -> {}
+        }
+        packet = next;
+        level = mc.level;
+        ticks = Math.max(0, next.elapsedTicks());
+    }
+
+    public static void tick() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null || mc.player == null || level != mc.level) { reset(); return; }
+        if (packet != null) ticks = Math.min(packet.durationTicks(), ticks + 1);
+        if (blocksAllInput()) {
+            if (mc.screen != null) mc.setScreen(null);
+            for (var key : mc.options.keyMappings) {
+                key.setDown(false);
+                while (key.consumeClick()) {}
+            }
+        }
+    }
+
+    public static BattalionBriefingPacket snapshot() { return packet; }
+    public static double elapsed(float partialTick) { return ticks + Math.max(0, Math.min(1, partialTick)); }
+    public static boolean blocksAllInput() {
+        return packet != null && packet.phase() != Phase.COMBAT && packet.phase() != Phase.PREPARATION && packet.phase() != Phase.FINISHED;
+    }
+    public static boolean showingBriefing() {
+        return packet != null && (packet.phase() == Phase.BRIEFING || packet.phase() == Phase.BRIEFING_FADE_OUT);
+    }
+    public static void reset() { packet = null; ticks = 0; level = null; }
+}

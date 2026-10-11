@@ -67,7 +67,8 @@ public final class BreakthroughRuntimeState {
         attackTroops = 0;
         attackTroopCap = 0;
         stageStartTick = gameTick;
-        stageDeadlineTick = gameTick + Math.max(0L, (long) (config == null ? 0 : config.stageDurationMinutes()) * 60L * 20L);
+        stageDeadlineTick = config == null || config.stageDurationMinutes() <= 0 ? Long.MAX_VALUE
+            : gameTick + (long) config.stageDurationMinutes() * 60L * 20L;
         phase = Phase.COMBAT;
         retreatStageIndex = 0;
         retreatStartTick = -1L;
@@ -255,7 +256,8 @@ public final class BreakthroughRuntimeState {
     public void advanceToNextStage(RoomBreakthroughConfig config, long gameTick) {
         currentStageIndex = Math.min(maxStageCount, currentStageIndex + 1);
         stageStartTick = gameTick;
-        stageDeadlineTick = gameTick + Math.max(0L, (long) (config == null ? 0 : config.stageDurationMinutes()) * 60L * 20L);
+        stageDeadlineTick = config == null || config.stageDurationMinutes() <= 0 ? Long.MAX_VALUE
+            : gameTick + (long) config.stageDurationMinutes() * 60L * 20L;
         phase = Phase.COMBAT;
         retreatStageIndex = 0;
         retreatStartTick = -1L;
@@ -266,6 +268,21 @@ public final class BreakthroughRuntimeState {
         retreatCountdownLastShownSecondsByPlayer.clear();
         desperateMode = DesperateMode.NONE;
         desperateModeDeadlineTick = -1L;
+        synchronizeWithConfig(config);
+    }
+
+    public void restartCurrentStage(RoomBreakthroughConfig config, long combatStartTick) {
+        phase = Phase.COMBAT;
+        stageStartTick = combatStartTick;
+        stageDeadlineTick = config == null || config.stageDurationMinutes() <= 0 ? Long.MAX_VALUE
+            : combatStartTick + (long) config.stageDurationMinutes() * 60 * 20;
+        retreatStageIndex = 0;
+        retreatStartTick = retreatDeadlineTick = advanceCountdownStartTick = advanceCountdownEndTick = -1;
+        clearDesperateMode();
+        advanceCountdownLastShownSecondsByPlayer.clear();
+        retreatCountdownLastShownSecondsByPlayer.clear();
+        lastStageRewardTick = -1;
+        lastStageRewardAmount = 0;
         synchronizeWithConfig(config);
     }
 

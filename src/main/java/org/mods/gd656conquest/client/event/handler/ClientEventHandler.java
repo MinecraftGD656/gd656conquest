@@ -1,5 +1,7 @@
 package org.mods.gd656conquest.client.event.handler;
 
+import org.mods.gd656conquest.client.room.ClientBattalionBriefingState;
+
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -85,11 +87,13 @@ public final class ClientEventHandler {
             return;
         }
         while (org.mods.gd656conquest.client.input.ClientKeyMappings.PLACE_TACTICAL_MARKER.consumeClick()) {
-            ClientRoomMarkerState.handleKeyPress(minecraft);
+            if (!ClientBattalionBriefingState.blocksAllInput())
+                ClientRoomMarkerState.handleKeyPress(minecraft);
         }
         ClientRoomMarkerState.tick();
         ClientParkourRuntimeState.tick(minecraft);
         ClientDeathFlowState.tick();
+        ClientBattalionBriefingState.tick();
         ClientPackAuditService.tick(minecraft);
         ClientBoundaryHeightReportService.tick(minecraft);
         ClientDownedState.tick();
@@ -112,7 +116,9 @@ public final class ClientEventHandler {
         }
         ClientDeathFlowState.renderFrame(event.getPartialTick());
         captureOverlayController.captureWorldProjectionState(event);
+        ClientBattalionBriefingRenderer.captureProjection(event);
         ClientRoomMarkerState.captureProjectionState(event);
+        if (ClientBattalionBriefingState.blocksAllInput()) return;
         try {
             captureOverlayController.renderCaptureBoundaryLines(event);
         } catch (Throwable ignored) {
@@ -174,11 +180,16 @@ public final class ClientEventHandler {
     }
 
     public void renderBaseHudEffects(net.minecraftforge.client.gui.overlay.ForgeGui gui, net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
+        if (ClientBattalionBriefingState.blocksAllInput()) {
+            ClientBattalionBriefingRenderer.render(guiGraphics, partialTick);
+            return;
+        }
         captureOverlayController.renderDeployBoundaryHudOverlay(guiGraphics, screenWidth, screenHeight);
         roomSessionController.renderVignetteOverlay(guiGraphics, screenWidth, screenHeight);
     }
 
     public void renderMainHud(net.minecraftforge.client.gui.overlay.ForgeGui gui, net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
+        if (ClientBattalionBriefingState.blocksAllInput()) return;
         if (org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideAllHudButKeepHand()
             || org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideAllHudAndHand()
             || org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideTopHudOnly()) {
@@ -241,10 +252,18 @@ public final class ClientEventHandler {
     }
 
     public void handleScreenOpening(ScreenEvent.Opening event) {
+        if (ClientBattalionBriefingState.blocksAllInput() && event.getNewScreen() != null) {
+            event.setCanceled(true);
+            return;
+        }
         roomSessionController.handleScreenOpening(event, captureOverlayController);
     }
 
     public void handleClientKeyInput(InputEvent.Key event) {
+        if (ClientBattalionBriefingState.blocksAllInput()) {
+            if (event.isCancelable()) event.setCanceled(true);
+            return;
+        }
         if (org.mods.gd656conquest.client.input.ClientFovScrollService.handleKeyInput(event)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
@@ -264,6 +283,10 @@ public final class ClientEventHandler {
     }
 
     public void handleMouseInput(InputEvent.MouseButton event) {
+        if (ClientBattalionBriefingState.blocksAllInput()) {
+            if (event.isCancelable()) event.setCanceled(true);
+            return;
+        }
         if (roomSessionController.handleMouseButton(event)) {
             return;
         }
@@ -280,6 +303,10 @@ public final class ClientEventHandler {
     }
 
     public void handleMouseScroll(InputEvent.MouseScrollingEvent event) {
+        if (ClientBattalionBriefingState.blocksAllInput()) {
+            if (event.isCancelable()) event.setCanceled(true);
+            return;
+        }
         if (org.mods.gd656conquest.client.input.ClientFovScrollService.handleMouseScroll(event)) {
             return;
         }
