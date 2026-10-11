@@ -5,6 +5,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import org.mods.gd656conquest.common.player.lock.PlayerLockSnapshot;
 import org.mods.gd656conquest.common.player.lock.PlayerLockStrength;
+import org.mods.gd656conquest.common.player.lock.PresentationLockPolicy;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.PlayerLockStatePacket;
 import org.mods.gd656conquest.server.compat.vehicle.VehicleCompatFacade;
@@ -99,7 +100,7 @@ public final class ServerPlayerLockService {
 
     public boolean shouldIgnoreAdminInventoryBypass(ServerPlayer player) {
         PlayerLockSnapshot snapshot = resolve(player);
-        return snapshot.lockInventory() && (snapshot.reason().startsWith("debug_") || "battalion_intermission".equals(snapshot.reason()));
+        return snapshot.lockInventory() && (snapshot.reason().startsWith("debug_") || PresentationLockPolicy.requiresCombatFreeze(snapshot));
     }
 
     public boolean shouldBlockGameplayInteraction(ServerPlayer player) {
@@ -119,13 +120,12 @@ public final class ServerPlayerLockService {
         }
         RunningRuntimeState runningState = context.runningState();
         UUID playerId = player.getUUID();
-        if (runningState != null && runningState.isGameplayCombatPaused() && !runningState.isGameplayDeploymentPreparation()) {
-            return buildSnapshot(PlayerLockStrength.HARD_LOCK, "battalion_intermission", true, true, true, false, true, false, false);
-        }
+        PlayerLockSnapshot presentationLock = PresentationLockPolicy.resolve(
+            runningState != null && isMatchEndingActive(context.room(), runningState),
+            runningState != null && runningState.isGameplayCombatPaused(),
+            runningState != null && runningState.isGameplayDeploymentPreparation());
+        if (presentationLock != null) return presentationLock;
         if (debugOverride != null) return buildDebugSnapshot(debugOverride.strength());
-        if (isMatchEndingActive(context.room(), runningState) && isPlayerInMatchEndViewPhase(runningState, playerId)) {
-            return buildSnapshot(PlayerLockStrength.UI_CURSOR, "match_end", true, false, false, false, false, false, true);
-        }
         if (runningState != null && runningState.isInitialMovementLockActive(playerId, gameTick)) {
             return buildSnapshot(PlayerLockStrength.MOVEMENT, "initial_movement_lock", false, false, false, false, false, false, false);
         }
@@ -241,16 +241,6 @@ public final class ServerPlayerLockService {
     private boolean isMatchEndingActive(RoomDefinition room, RunningRuntimeState runningState) {
         return (room != null && room.lifecycleState() == RoomLifecycleState.ENDING)
             || (runningState != null && runningState.getResultSequenceEndTick() > 0L);
-    }
-
-    private boolean isPlayerInMatchEndViewPhase(RunningRuntimeState runningState, UUID playerId) {
-        if (runningState == null || playerId == null) {
-            return false;
-        }
-        if (!runningState.isResultViewApplied()) {
-            return false;
-        }
-        return !runningState.getResultViewTransferPending().contains(playerId);
     }
 
     private PlayerLockSnapshot buildSnapshot(

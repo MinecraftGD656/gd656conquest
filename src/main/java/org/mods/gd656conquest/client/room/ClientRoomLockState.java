@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.client.room;
 
 import org.mods.gd656conquest.common.player.lock.PlayerLockSnapshot;
+import org.mods.gd656conquest.common.player.lock.PresentationLockPolicy;
 
 public final class ClientRoomLockState {
     private static PlayerLockSnapshot snapshot = PlayerLockSnapshot.none();
@@ -21,15 +22,19 @@ public final class ClientRoomLockState {
     }
 
     public static boolean shouldLockInventory() {
-        return ClientBattalionBriefingState.blocksAllInput() || snapshot.lockInventory();
+        return ClientBattalionBriefingState.isCinematicActive() || snapshot.lockInventory();
     }
 
     public static boolean isDebugInventoryLockActive() {
         return snapshot.lockInventory() && snapshot.reason().startsWith("debug_");
     }
 
+    public static boolean requiresCombatFreeze() {
+        return ClientBattalionBriefingState.isCinematicActive() || PresentationLockPolicy.requiresCombatFreeze(snapshot);
+    }
+
     public static boolean shouldLockMovement() {
-        return ClientBattalionBriefingState.blocksAllInput() || snapshot.lockMovement() || ClientReviveState.shouldLockMovement();
+        return ClientBattalionBriefingState.isCinematicActive() || snapshot.lockMovement() || ClientReviveState.shouldLockMovement();
     }
 
     public static boolean shouldForceCrouch() {
@@ -37,15 +42,15 @@ public final class ClientRoomLockState {
     }
 
     public static boolean shouldRestrictGameplayInteraction() {
-        return ClientBattalionBriefingState.blocksAllInput() || snapshot.lockGameplayInteraction();
+        return ClientBattalionBriefingState.isCinematicActive() || snapshot.lockGameplayInteraction();
     }
 
     public static boolean shouldRestrictHeldItemUse() {
-        return ClientBattalionBriefingState.blocksAllInput() || snapshot.lockGameplayInteraction() || ClientReviveState.isReviving();
+        return ClientBattalionBriefingState.isCinematicActive() || snapshot.lockGameplayInteraction() || ClientReviveState.isReviving();
     }
 
     public static boolean shouldLockHotbarSelection() {
-        if (ClientBattalionBriefingState.blocksAllInput() || "battalion_intermission".equals(snapshot.reason())) return true;
+        if (requiresCombatFreeze()) return true;
         if (!snapshot.lockHotbar()) {
             return false;
         }
@@ -56,15 +61,15 @@ public final class ClientRoomLockState {
     }
 
     public static boolean shouldBlockLookInput() {
-        return ClientBattalionBriefingState.blocksAllInput() || ClientDownedCamera.blocksLook() || (snapshot.lockLook() && !snapshot.releaseMouse());
+        return requiresCombatFreeze() || ClientDownedCamera.blocksLook() || (snapshot.lockLook() && !snapshot.releaseMouse());
     }
 
     public static boolean shouldReleaseMouse() {
-        return snapshot.releaseMouse();
+        return ClientBattalionBriefingState.isCinematicActive() || snapshot.releaseMouse();
     }
 
     public static boolean shouldReleaseMouseForUi() {
-        return snapshot.releaseMouse();
+        return shouldReleaseMouse();
     }
 
     public static boolean shouldHideHeldItems() {

@@ -6,12 +6,14 @@ import net.minecraft.world.level.Level;
 import org.mods.gd656conquest.client.hud.ClientHudDebugState;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.common.audio.AudioManager;
+import org.mods.gd656conquest.common.audio.StageBeginMusicCue;
 import org.mods.gd656conquest.common.match.MatchResultType;
 
 import java.util.Locale;
 
 final class ClientMusicDirector {
     private static final String NONE = "-";
+    private static final StageBeginMusicCue stageBeginMusic = new StageBeginMusicCue();
     private static final int DEPLOY_LOOP_FADE_TICKS = 60;
     private static final int RETREAT_LOOP_FADE_TICKS = 20;
     private static final int OBJECTIVE_LOOP_FADE_TICKS = 20;
@@ -20,7 +22,6 @@ final class ClientMusicDirector {
     private static final int LOBBY_LOOP_FADE_TICKS = 40;
 
     private static String lastRoomId = NONE;
-    private static String lastAudioState = NONE;
     private static String firstDeployTrackRoomId = NONE;
     private static String activeStrategicLoop = NONE;
     private static String activeFinaleLoop = NONE;
@@ -35,6 +36,7 @@ final class ClientMusicDirector {
     static void tick() {
         MusicContext context = MusicContext.capture();
         if (!context.inConquestDimension) {
+            stageBeginMusic.reset();
             deployLoopRequested = false;
             stopDeployLoop();
             stopObjectiveLoop();
@@ -42,7 +44,6 @@ final class ClientMusicDirector {
             stopFinaleLoop();
             wasInRoom = false;
             lastRoomId = NONE;
-            lastAudioState = NONE;
             return;
         }
         boolean roomChanged = wasInRoom && context.inRoom && !context.roomId.equals(lastRoomId);
@@ -62,6 +63,7 @@ final class ClientMusicDirector {
         }
 
         if (roomChanged || justLeft) {
+            stageBeginMusic.reset();
             deployLoopRequested = false;
             stopDeployLoop();
             stopObjectiveLoop();
@@ -73,12 +75,13 @@ final class ClientMusicDirector {
         updateStrategicLoop(context);
         updateObjectiveLoop(context);
         updateFinaleLoop(context);
-        triggerInitialStageBeginCueIfNeeded(context);
-        triggerStageAdvanceCueIfNeeded(context);
+        if (context.matchingState) stageBeginMusic.reset();
+        if (stageBeginMusic.update(context.audioState)) {
+            AudioManager.getInstance().playMusic(ClientMusicCatalog.MUSIC_STAGE_BEGIN, 1.0F, false);
+        }
 
         wasInRoom = context.inRoom;
         lastRoomId = context.roomId;
-        lastAudioState = context.audioState;
     }
 
     static void onDeathStarted() {
@@ -156,8 +159,8 @@ final class ClientMusicDirector {
     }
 
     static void reset() {
+        stageBeginMusic.reset();
         lastRoomId = NONE;
-        lastAudioState = NONE;
         firstDeployTrackRoomId = NONE;
         activeStrategicLoop = NONE;
         activeFinaleLoop = NONE;
@@ -255,18 +258,6 @@ final class ClientMusicDirector {
         activeFinaleLoop = desired;
         if (!NONE.equals(desired)) {
             playLoop(desired, fadeInTicks);
-        }
-    }
-
-    private static void triggerStageAdvanceCueIfNeeded(MusicContext context) {
-        if ("BT_STAGE_ADVANCE".equals(context.audioState) && !"BT_STAGE_ADVANCE".equals(lastAudioState)) {
-            AudioManager.getInstance().playMusic(ClientMusicCatalog.MUSIC_STAGE_BEGIN, 1.0F, false);
-        }
-    }
-
-    private static void triggerInitialStageBeginCueIfNeeded(MusicContext context) {
-        if ("INITIAL_STAGE_BEGIN".equals(context.audioState) && !"INITIAL_STAGE_BEGIN".equals(lastAudioState)) {
-            AudioManager.getInstance().playMusic(ClientMusicCatalog.MUSIC_STAGE_BEGIN, 1.0F, false);
         }
     }
 

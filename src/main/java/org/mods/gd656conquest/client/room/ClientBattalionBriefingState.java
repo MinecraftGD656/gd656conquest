@@ -3,6 +3,8 @@ package org.mods.gd656conquest.client.room;
 import org.mods.gd656conquest.client.audio.ClientMusicTriggerService;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import org.mods.gd656conquest.client.loadout.screen.LoadoutConfigScreen;
 import org.mods.gd656conquest.common.match.BattalionSequence.Phase;
 import org.mods.gd656conquest.network.packet.BattalionBriefingPacket;
 
@@ -25,7 +27,7 @@ public final class ClientBattalionBriefingState {
         ticks = Math.max(0, next.elapsedTicks());
         if (next.phase() == Phase.COMBAT || next.phase() == Phase.FINISHED) { packet = next; return; }
         ClientReviveState.reset();
-        if (mc.screen != null) mc.setScreen(null);
+        if (mc.screen instanceof AbstractContainerScreen<?> || mc.screen instanceof LoadoutConfigScreen) mc.setScreen(null);
         var view = next.view();
         switch (next.phase()) {
             case RESULT -> ClientDeathFlowState.holdCinematicCamera();
@@ -53,18 +55,11 @@ public final class ClientBattalionBriefingState {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || level != mc.level) { reset(); return; }
         if (packet != null) ticks = Math.min(packet.durationTicks(), ticks + 1);
-        if (blocksAllInput()) {
-            if (mc.screen != null) mc.setScreen(null);
-            for (var key : mc.options.keyMappings) {
-                key.setDown(false);
-                while (key.consumeClick()) {}
-            }
-        }
     }
 
     public static BattalionBriefingPacket snapshot() { return packet; }
     public static double elapsed(float partialTick) { return ticks + Math.max(0, Math.min(1, partialTick)); }
-    public static boolean blocksAllInput() {
+    public static boolean isCinematicActive() {
         return packet != null && packet.phase() != Phase.COMBAT && packet.phase() != Phase.PREPARATION && packet.phase() != Phase.FINISHED;
     }
     public static boolean showingBriefing() {

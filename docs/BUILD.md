@@ -35,10 +35,10 @@ Minecraft 1.20.1 / Forge 47.4.18 / official 1.20.1 映射。
 
 ## 输出
 
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.0.jar`：当前默认完整模组，网络协议为 `bf1-0.1.0`，六项客户端 bypass 开关均为 false。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.0-bypass.jar`：原工程已有的客户端绕过配置变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.0-nores.jar`：原工程已有的无 assets 变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.0-resources.zip`：原工程已有的 assets 资源包。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.1.jar`：当前默认完整模组，网络协议为 `bf1-0.1.1`，六项客户端 bypass 开关均为 false。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.1-bypass.jar`：原工程已有的客户端绕过配置变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.1-nores.jar`：原工程已有的无 assets 变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.1-resources.zip`：原工程已有的 assets 资源包。
 
 JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装选择没有变体后缀的主 JAR。
 构建日志保存在 `.build-logs/build.log`。
@@ -51,7 +51,7 @@ JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装
 ## 安装与兼容
 
 普通安装选择主 JAR，放入 Minecraft/Forge 实例的 mods 目录，不同时安装 bypass/nores 变体。
-客户端与服务端使用相同模组版本，当前严格网络协议为 `bf1-0.1.0`；
+客户端与服务端使用相同模组版本，当前严格网络协议为 `bf1-0.1.1`；
 旧反编译 `.24/114` 不作为当前协议兼容版。
 依赖按模组元数据安装；要使用布娃娃功能，客户端和服务端都需安装
 `ragdollified-1.20.1-1.1.1-hotfix-RELEASE.jar`，缺席时保留原倒地动画。
@@ -73,3 +73,5 @@ JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装
 - 固定 ForgeGradle 版本、启用 UTF-8，限制 Gradle worker 数为 2。
 - Wrapper 使用 Gradle 官方发行地址及 SHA-256 校验，复用当前工作区已经安装的 Gradle 8.8 缓存。
 
+
+0.1.1 修复末营结算鼠标锁定，保留简报与结果期间的聊天及界面操作；恢复弹药箱、医疗箱按装备配置自动补全，并在每区开战与换营后再次开战时播放阶段开始音乐。

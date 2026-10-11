@@ -87,7 +87,7 @@ public final class ClientEventHandler {
             return;
         }
         while (org.mods.gd656conquest.client.input.ClientKeyMappings.PLACE_TACTICAL_MARKER.consumeClick()) {
-            if (!ClientBattalionBriefingState.blocksAllInput())
+            if (!ClientBattalionBriefingState.isCinematicActive())
                 ClientRoomMarkerState.handleKeyPress(minecraft);
         }
         ClientRoomMarkerState.tick();
@@ -118,7 +118,7 @@ public final class ClientEventHandler {
         captureOverlayController.captureWorldProjectionState(event);
         ClientBattalionBriefingRenderer.captureProjection(event);
         ClientRoomMarkerState.captureProjectionState(event);
-        if (ClientBattalionBriefingState.blocksAllInput()) return;
+        if (ClientBattalionBriefingState.isCinematicActive()) return;
         try {
             captureOverlayController.renderCaptureBoundaryLines(event);
         } catch (Throwable ignored) {
@@ -180,7 +180,7 @@ public final class ClientEventHandler {
     }
 
     public void renderBaseHudEffects(net.minecraftforge.client.gui.overlay.ForgeGui gui, net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
-        if (ClientBattalionBriefingState.blocksAllInput()) {
+        if (ClientBattalionBriefingState.isCinematicActive()) {
             ClientBattalionBriefingRenderer.render(guiGraphics, partialTick);
             return;
         }
@@ -189,7 +189,7 @@ public final class ClientEventHandler {
     }
 
     public void renderMainHud(net.minecraftforge.client.gui.overlay.ForgeGui gui, net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
-        if (ClientBattalionBriefingState.blocksAllInput()) return;
+        if (ClientBattalionBriefingState.isCinematicActive()) return;
         if (org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideAllHudButKeepHand()
             || org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideAllHudAndHand()
             || org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideTopHudOnly()) {
@@ -252,7 +252,9 @@ public final class ClientEventHandler {
     }
 
     public void handleScreenOpening(ScreenEvent.Opening event) {
-        if (ClientBattalionBriefingState.blocksAllInput() && event.getNewScreen() != null) {
+        if (ClientRoomLockState.requiresCombatFreeze()
+            && (event.getNewScreen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>
+                || event.getNewScreen() instanceof org.mods.gd656conquest.client.loadout.screen.LoadoutConfigScreen)) {
             event.setCanceled(true);
             return;
         }
@@ -260,8 +262,8 @@ public final class ClientEventHandler {
     }
 
     public void handleClientKeyInput(InputEvent.Key event) {
-        if (ClientBattalionBriefingState.blocksAllInput()) {
-            if (event.isCancelable()) event.setCanceled(true);
+        if (ClientBattalionBriefingState.isCinematicActive()) {
+            roomSessionController.handleKeyInput(event);
             return;
         }
         if (org.mods.gd656conquest.client.input.ClientFovScrollService.handleKeyInput(event)) {
@@ -283,8 +285,8 @@ public final class ClientEventHandler {
     }
 
     public void handleMouseInput(InputEvent.MouseButton event) {
-        if (ClientBattalionBriefingState.blocksAllInput()) {
-            if (event.isCancelable()) event.setCanceled(true);
+        if (ClientBattalionBriefingState.isCinematicActive()) {
+            if (Minecraft.getInstance().screen == null && event.isCancelable()) event.setCanceled(true);
             return;
         }
         if (roomSessionController.handleMouseButton(event)) {
@@ -303,8 +305,8 @@ public final class ClientEventHandler {
     }
 
     public void handleMouseScroll(InputEvent.MouseScrollingEvent event) {
-        if (ClientBattalionBriefingState.blocksAllInput()) {
-            if (event.isCancelable()) event.setCanceled(true);
+        if (ClientBattalionBriefingState.isCinematicActive()) {
+            if (Minecraft.getInstance().screen == null && event.isCancelable()) event.setCanceled(true);
             return;
         }
         if (org.mods.gd656conquest.client.input.ClientFovScrollService.handleMouseScroll(event)) {

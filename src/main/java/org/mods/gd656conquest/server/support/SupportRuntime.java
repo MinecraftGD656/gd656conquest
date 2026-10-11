@@ -338,15 +338,21 @@ public final class SupportRuntime {
         s.lastMedicalSoundTick=now;
         p.playNotifySound(MEDICAL_SUPPLY_SOUND,SoundSource.PLAYERS,1.0F,1.0F);
     }
-    /** Only support bags recharge independently; other consumables require a nearby ammo box. */
+    /** Bags recharge in six seconds; support boxes retain their configured passive recharge. */
     public static boolean recharge(ServerPlayer p,org.mods.gd656conquest.server.room.runtime.RoomPlayerLoadoutService.ResolvedLoadoutItem item,long now,Map<Integer,Long> last) {
-        if(item==null || !SupportAmmo.isSupportBag(item.configuredStack()))return false;
+        if(item==null || item.entry()==null || item.hotbarSlot()<0 || item.configuredStack().isEmpty())return false;
+        ItemStack expected=item.configuredStack();
+        boolean bag=SupportAmmo.isSupportBag(expected);
+        boolean box=expected.getItem()==ConquestItems.AMMO_BOX.get() || expected.getItem()==ConquestItems.MED_BOX.get();
+        long interval=SupportRules.passiveRechargeInterval(bag,box,item.entry().getReplenishSeconds());
+        if(interval<=0)return false;
         ItemStack current=p.getInventory().getItem(item.hotbarSlot());
-        if(!current.isEmpty() && !ItemStack.isSameItemSameTags(current,item.configuredStack()))return false;
+        if(!current.isEmpty() && !ItemStack.isSameItemSameTags(current,expected))return false;
         int key=item.slot().getIndex();int count=current.isEmpty()?0:current.getCount();
-        if(count>=2){last.put(key,now);return false;}
-        long start=last.computeIfAbsent(key,k->now);if(now-start<120)return false;
-        ItemStack next=item.configuredStack().copy();next.setCount(count+1);
-        p.getInventory().setItem(item.hotbarSlot(),next);last.put(key,now);return true;
+        int cap=Math.min(expected.getMaxStackSize(),bag?2:expected.getCount());
+        int nextCount=SupportRules.rechargeCount(count,cap,interval,key,now,last);
+        if(nextCount<0)return false;
+        ItemStack next=expected.copy();next.setCount(nextCount);
+        p.getInventory().setItem(item.hotbarSlot(),next);return true;
     }
 }

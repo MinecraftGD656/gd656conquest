@@ -91,7 +91,7 @@ final class ClientRoomSessionController {
         }
         org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedHudOnly(ClientRoomLockState.shouldForceHudOnly());
         org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedVisible(ClientRoomLockState.shouldForceVisibleHud());
-        if (ClientBattalionBriefingState.blocksAllInput()) {
+        if (ClientRoomLockState.requiresCombatFreeze()) {
             while (org.mods.gd656conquest.client.input.ClientKeyMappings.OPEN_LOADOUT_SCREEN.consumeClick()) {}
             while (org.mods.gd656conquest.client.input.ClientKeyMappings.COMMON_USE.consumeClick()) {}
         } else loadoutUiController.tick();
@@ -181,7 +181,7 @@ final class ClientRoomSessionController {
             TaczClientInputCompat.clearTransientCombatState(minecraft);
             return;
         }
-        if (isAdmin(minecraft)) {
+        if (isAdmin(minecraft) && !ClientRoomLockState.requiresCombatFreeze()) {
             return;
         }
         if (shouldBlockGameplayKeyInput(minecraft, event)) {
@@ -636,7 +636,7 @@ final class ClientRoomSessionController {
         if (minecraft == null || minecraft.player == null || minecraft.level == null) {
             return false;
         }
-        if (minecraft.player.hasPermissions(2) && !ClientRoomLockState.isDebugInventoryLockActive()) {
+        if (minecraft.player.hasPermissions(2) && !ClientRoomLockState.isDebugInventoryLockActive() && !ClientRoomLockState.requiresCombatFreeze()) {
             return false;
         }
         return ClientRoomLockState.shouldLockInventory();
@@ -652,13 +652,14 @@ final class ClientRoomSessionController {
         if (event.getAction() != GLFW.GLFW_PRESS && event.getAction() != GLFW.GLFW_REPEAT) {
             return false;
         }
-        if (event.getKey() == GLFW.GLFW_KEY_ESCAPE) {
-            return false;
-        }
-        if (minecraft.options != null && minecraft.options.keyJump.matches(event.getKey(), event.getScanCode())) {
-            return false;
-        }
-        return true;
+        if (minecraft.options == null) return false;
+        // Restrict battlefield actions, leaving chat, commands and ordinary UI keys intact.
+        return minecraft.options.keyAttack.matches(event.getKey(), event.getScanCode())
+            || minecraft.options.keyUse.matches(event.getKey(), event.getScanCode())
+            || minecraft.options.keyPickItem.matches(event.getKey(), event.getScanCode())
+            || minecraft.options.keyDrop.matches(event.getKey(), event.getScanCode())
+            || minecraft.options.keySwapOffhand.matches(event.getKey(), event.getScanCode())
+            || minecraft.options.keyInventory.matches(event.getKey(), event.getScanCode());
     }
 
     private boolean shouldBlockGameplayMouseInput(Minecraft minecraft) {
@@ -807,7 +808,7 @@ final class ClientRoomSessionController {
     }
 
     private void tickDeployFovState(Minecraft minecraft, float deltaSeconds) {
-        boolean deployActiveNow = ClientRoomLockState.shouldReleaseMouse();
+        boolean deployActiveNow = ClientRoomLockState.isDeployUiActive();
         if (deployActiveNow) {
             if (!deployFovActive) {
                 deployFovActive = true;

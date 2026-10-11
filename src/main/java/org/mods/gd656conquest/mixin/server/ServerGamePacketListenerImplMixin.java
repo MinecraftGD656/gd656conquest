@@ -14,6 +14,7 @@ import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import org.mods.gd656conquest.server.compat.vehicle.VehicleCompatFacade;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.player.lock.ServerPlayerLockService;
+import org.mods.gd656conquest.common.player.lock.PresentationLockPolicy;
 import org.mods.gd656conquest.server.social.chat.ServerChatFormatService;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -29,18 +30,18 @@ public abstract class ServerGamePacketListenerImplMixin {
     public ServerPlayer player;
 
     @Inject(method = "handleMovePlayer", at = @At("HEAD"), cancellable = true, require = 1)
-    private void gd656conquest$freezeBattalionPlayer(net.minecraft.network.protocol.game.ServerboundMovePlayerPacket packet, CallbackInfo ci) {
-        if (gd656conquest$isBattalionIntermission()) ci.cancel();
+    private void gd656conquest$freezePresentationPlayer(net.minecraft.network.protocol.game.ServerboundMovePlayerPacket packet, CallbackInfo ci) {
+        if (gd656conquest$isCombatPresentationLocked()) ci.cancel();
     }
 
     @Inject(method = "handleMoveVehicle", at = @At("HEAD"), cancellable = true, require = 1)
-    private void gd656conquest$freezeBattalionVehicle(net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket packet, CallbackInfo ci) {
-        if (gd656conquest$isBattalionIntermission()) ci.cancel();
+    private void gd656conquest$freezePresentationVehicle(net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket packet, CallbackInfo ci) {
+        if (gd656conquest$isCombatPresentationLocked()) ci.cancel();
     }
 
-    private boolean gd656conquest$isBattalionIntermission() {
+    private boolean gd656conquest$isCombatPresentationLocked() {
         return player != null && player.server != null && player.server.isSameThread()
-            && "battalion_intermission".equals(ServerPlayerLockService.of(player.server).resolve(player).reason());
+            && PresentationLockPolicy.requiresCombatFreeze(ServerPlayerLockService.of(player.server).resolve(player));
     }
 
     @Inject(method = "handleChat", at = @At("HEAD"), cancellable = true, require = 0)
@@ -139,7 +140,7 @@ public abstract class ServerGamePacketListenerImplMixin {
             return false;
         }
         ServerPlayerLockService lockService = ServerPlayerLockService.of(player.getServer());
-        if (player.hasPermissions(2) && !"battalion_intermission".equals(lockService.resolve(player).reason())) {
+        if (player.hasPermissions(2) && !PresentationLockPolicy.requiresCombatFreeze(lockService.resolve(player))) {
             return false;
         }
         return lockService.shouldBlockGameplayInteraction(player);

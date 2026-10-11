@@ -428,11 +428,10 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         long gameTick
     ) {
         int elapsedSeconds = enteredTick < 0L || gameTick <= enteredTick ? 0 : (int) ((gameTick - enteredTick) / 20L);
-        boolean initialLockActive = state != null && player != null && state.isInitialMovementLockActive(player.getUUID(), gameTick);
         RoomTeamId selfTeam = state == null || player == null ? null : state.getRoomTeams().get(player.getUUID());
         String audioState = room != null && room.lifecycleState() == RoomLifecycleState.ENDING
             ? "ENDING"
-            : initialLockActive ? "INITIAL_STAGE_BEGIN" : buildAudioState(selfTeam);
+            : buildAudioState(selfTeam, gameTick);
         return new RoomGameplayHudState(
             runtimeState.isDesperateModeActive() ? -1 : runtimeState.getAttackTroops(),
             runtimeState.getCurrentStageIndex(),
@@ -1353,7 +1352,14 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         }
     }
 
-    private String buildAudioState(RoomTeamId selfTeam) {
+    private String buildAudioState(RoomTeamId selfTeam, long gameTick) {
+        if (battalions.active()) return "BT_INTERMISSION";
+        if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT
+            && gameTick < runtimeState.getStageStartTick() + 100L) {
+            return org.mods.gd656conquest.common.audio.StageBeginMusicCue.state(
+                runningState.getActiveMatchInstanceId(), battalions.battalion(),
+                runtimeState.getCurrentStageIndex(), runtimeState.getStageStartTick());
+        }
         if (runtimeState.isDesperateModeActive()) {
             return "BT_DESPERATE";
         }

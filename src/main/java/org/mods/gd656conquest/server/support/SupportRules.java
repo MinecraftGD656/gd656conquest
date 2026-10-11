@@ -5,6 +5,20 @@ import org.mods.gd656conquest.server.room.model.RoomSuppressionConfig;
 /** Deterministic rules shared by the server and standalone verification. All times are ticks. */
 public final class SupportRules {
     private SupportRules() {}
+    public static long passiveRechargeInterval(boolean bag, boolean box, int configuredSeconds) {
+        return bag ? 120L : box && configuredSeconds > 0 ? configuredSeconds * 20L : 0L;
+    }
+
+    /** Return -1 when unchanged; an occupied slot is validated before calling this. */
+    public static int rechargeCount(int count, int cap, long interval, int slot, long now, java.util.Map<Integer, Long> last) {
+        if (interval <= 0 || cap <= 0) return -1;
+        if (count >= cap) { last.put(slot, now); return -1; }
+        long start = last.computeIfAbsent(slot, ignored -> now);
+        if (now - start < interval) return -1;
+        last.put(slot, now);
+        return Math.min(cap, count + 1);
+    }
+
     public static boolean damageBlocksHealing(long tick, long lastDamage, double seconds) {
         return lastDamage >= 0 && tick < lastDamage + (long)Math.ceil(seconds * 20);
     }
