@@ -138,9 +138,16 @@ public final class TaczShellingTestService {
         );
     }
 
-    public SpawnResult spawnConfiguredShell(ServerPlayer owner, ShellingDataModel.ShellingEntry entry, Vec3 center) {
-        if (owner == null || entry == null || center == null) {
-            return SpawnResult.failure("炮弹只能由在线玩家在有效坐标上生成");
+    public SpawnResult spawnConfiguredShell(ServerPlayer owner,ShellingDataModel.ShellingEntry entry,Vec3 center) {
+        return spawnConfiguredShell(owner,entry,center,owner==null?null:ShellingPresentationProtection.scope(owner));
+    }
+    public SpawnResult spawnConfiguredShell(ServerPlayer owner, ShellingDataModel.ShellingEntry entry, Vec3 center,org.mods.gd656conquest.common.match.ShellingScopeLedger.Scope scope) {
+        return spawnConfiguredShell(owner, owner == null ? null : owner.serverLevel(), entry, center, scope);
+    }
+
+    public SpawnResult spawnConfiguredShell(ServerPlayer owner, ServerLevel level, ShellingDataModel.ShellingEntry entry, Vec3 center, org.mods.gd656conquest.common.match.ShellingScopeLedger.Scope scope) {
+        if (owner == null || level == null || entry == null || center == null || ShellingPresentationProtection.expired(server, scope)) {
+            return SpawnResult.failure("炮弹来源、维度或坐标无效");
         }
         String gunId = entry.getGunId();
         if (gunId.isBlank()) {
@@ -155,7 +162,6 @@ public final class TaczShellingTestService {
         }
         try {
             shellBridge.ensureGunResolved(gunId, entry.getGunItemSnbt());
-            ServerLevel level = owner.serverLevel();
             Vec3 spawnPos = resolveRandomSpawnPosition(center, entry.getRadius(), entry.getShellHeight());
             Entity shellEntity = shellBridge.spawnShell(
                 level,
@@ -166,6 +172,7 @@ public final class TaczShellingTestService {
                 gunId,
                 entry.getGunItemSnbt()
             );
+            ShellingPresentationProtection.tag(shellEntity,scope);
             ShellingImpactType impactType = entry.resolveImpactType();
             if (!impactType.isEmpty() && shellEntity != null) {
                 trackedImpactEffects.put(
@@ -175,7 +182,7 @@ public final class TaczShellingTestService {
                         owner.getUUID(),
                         level.dimension(),
                         impactType,
-                        server.getTickCount()
+                        server.getTickCount(), scope, owner
                     )
                 );
             }
@@ -236,6 +243,8 @@ public final class TaczShellingTestService {
             gunId == null ? "" : gunId.trim(),
             gunItemSnbt == null ? "" : gunItemSnbt.trim(),
             impactType == null ? ShellingImpactType.EMPTY : impactType,
+            ShellingPresentationProtection.scope(owner),
+            owner,
             intervalTicks,
             currentTick,
             endTickExclusive
@@ -268,6 +277,11 @@ public final class TaczShellingTestService {
         );
     }
 
+    public void stopRoom(String room) {
+        activeTasks.values().removeIf(task->task.scope()!=null&&room.equals(task.scope().roomId()));
+        trackedImpactEffects.values().removeIf(effect->effect.scope()!=null&&room.equals(effect.scope().roomId()));
+    }
+
     public void onServerTick(long gameTick) {
         cleanupTrackedImpactEffects(gameTick);
         if (activeTasks.isEmpty()) {
@@ -276,18 +290,21 @@ public final class TaczShellingTestService {
         Iterator<ActiveShellingTask> iterator = activeTasks.values().iterator();
         while (iterator.hasNext()) {
             ActiveShellingTask task = iterator.next();
-            if (task == null) {
+            if (task == null || ShellingPresentationProtection.expired(server,task.scope())) {
                 iterator.remove();
                 continue;
             }
             ServerPlayer owner = server.getPlayerList().getPlayer(task.ownerId());
-            if (owner == null || owner.isRemoved()) {
+            if ((owner == null || owner.isRemoved()) && task.scope() != null) {
+                owner = task.sourceOwner();
+            }
+            if (owner == null || (owner.isRemoved() && task.scope() == null)) {
                 ServerLogger.failure("炮击测试已停止：触发者离线 task=%s owner=%s", task.taskId(), task.ownerName());
                 iterator.remove();
                 continue;
             }
             ServerLevel level = server.getLevel(task.dimension());
-            if (level == null || !Objects.equals(owner.serverLevel().dimension(), task.dimension())) {
+            if (level == null || (task.scope() == null && !Objects.equals(owner.serverLevel().dimension(), task.dimension()))) {
                 ServerLogger.failure("炮击测试已停止：触发者已离开原维度 task=%s owner=%s", task.taskId(), task.ownerName());
                 iterator.remove();
                 continue;
@@ -315,6 +332,7 @@ public final class TaczShellingTestService {
         Vec3 spawnPos = resolveRandomSpawnPosition(task.center(), task.radius(), task.shellHeight());
         try {
             Entity shellEntity = shellBridge.spawnShell(level, owner, spawnPos, task.pitch(), task.yaw(), task.gunId(), task.gunItemSnbt());
+            ShellingPresentationProtection.tag(shellEntity,task.scope());
             if (!task.impactType().isEmpty() && shellEntity != null) {
                 trackedImpactEffects.put(
                     shellEntity.getUUID(),
@@ -323,7 +341,7 @@ public final class TaczShellingTestService {
                         owner.getUUID(),
                         level.dimension(),
                         task.impactType(),
-                        server.getTickCount()
+                        server.getTickCount(), task.scope(), owner
                     )
                 );
             }
@@ -364,11 +382,14 @@ public final class TaczShellingTestService {
             return;
         }
         PendingImpactEffect pending = trackedImpactEffects.remove(projectile.getUUID());
-        if (pending == null || pending.impactType().isEmpty()) {
+        if (pending == null || pending.impactType().isEmpty() || ShellingPresentationProtection.expired(server,pending.scope())) {
             return;
         }
         ServerPlayer owner = server.getPlayerList().getPlayer(pending.ownerId());
-        if (owner == null || owner.isRemoved()) {
+        if ((owner == null || owner.isRemoved()) && pending.scope() != null) {
+            owner = pending.sourceOwner();
+        }
+        if (owner == null) {
             return;
         }
         ServerLevel level = server.getLevel(pending.dimension());
@@ -376,8 +397,8 @@ public final class TaczShellingTestService {
             return;
         }
         Vec3 impactPos = projectile.position();
-        LrTacticalShellImpactCompatBridge.spawnImpactEffect(level, owner, impactPos, pending.impactType());
-        applyMissileImpactKill(level, owner, impactPos, pending.impactType());
+        LrTacticalShellImpactCompatBridge.spawnImpactEffect(level, owner, impactPos, pending.impactType(),pending.scope());
+        if(!ShellingPresentationProtection.harmless(server,pending.scope()))applyMissileImpactKill(level, owner, impactPos, pending.impactType());
         playImpactSound(level, impactPos, pending.impactType());
     }
 
@@ -431,7 +452,7 @@ public final class TaczShellingTestService {
         Iterator<PendingImpactEffect> iterator = trackedImpactEffects.values().iterator();
         while (iterator.hasNext()) {
             PendingImpactEffect pending = iterator.next();
-            if (pending == null) {
+            if (pending == null || ShellingPresentationProtection.expired(server,pending.scope())) {
                 iterator.remove();
                 continue;
             }
@@ -507,6 +528,8 @@ public final class TaczShellingTestService {
         String gunId,
         String gunItemSnbt,
         ShellingImpactType impactType,
+        org.mods.gd656conquest.common.match.ShellingScopeLedger.Scope scope,
+        ServerPlayer sourceOwner,
         long intervalTicks,
         long[] timing
     ) {
@@ -523,11 +546,13 @@ public final class TaczShellingTestService {
             String gunId,
             String gunItemSnbt,
             ShellingImpactType impactType,
+            org.mods.gd656conquest.common.match.ShellingScopeLedger.Scope scope,
+            ServerPlayer sourceOwner,
             long intervalTicks,
             long nextSpawnTick,
             long endTickExclusive
         ) {
-            this(taskId, ownerId, ownerName, dimension, center, radius, shellHeight, pitch, yaw, gunId, gunItemSnbt, impactType, intervalTicks, new long[]{nextSpawnTick, endTickExclusive});
+            this(taskId, ownerId, ownerName, dimension, center, radius, shellHeight, pitch, yaw, gunId, gunItemSnbt, impactType, scope, sourceOwner, intervalTicks, new long[]{nextSpawnTick, endTickExclusive});
         }
 
         long nextSpawnTick() {
@@ -548,7 +573,9 @@ public final class TaczShellingTestService {
         UUID ownerId,
         ResourceKey<Level> dimension,
         ShellingImpactType impactType,
-        long createdTick
+        long createdTick,
+        org.mods.gd656conquest.common.match.ShellingScopeLedger.Scope scope,
+        ServerPlayer sourceOwner
     ) {
     }
 

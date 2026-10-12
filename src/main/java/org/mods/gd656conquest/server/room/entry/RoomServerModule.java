@@ -69,12 +69,14 @@ public final class RoomServerModule implements ServerModule {
 
     @Override
     public void onLivingAttack(LivingAttackEvent event) {
+        if(org.mods.gd656conquest.server.compat.tacz.ShellingPresentationProtection.blocksDamage(event.getSource())) {event.setCanceled(true);return;}
         cancelFriendlyPlayerDamage(event);
         cancelFriendlySquadBeaconDamage(event);
     }
 
     @Override
     public void onLivingHurt(LivingHurtEvent event) {
+        if(org.mods.gd656conquest.server.compat.tacz.ShellingPresentationProtection.blocksDamage(event.getSource())) {event.setCanceled(true);return;}
         cancelFriendlyPlayerDamage(event);
         cancelFriendlySquadBeaconDamage(event);
         markDamagingPlayerAsCombatDeployBlocked(event);

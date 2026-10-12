@@ -76,7 +76,7 @@ public final class RoomShellingRuntimeService {
         if (room == null || state == null || player == null || shellingId == null || shellingId.isBlank()) {
             return StartRequestResult.failure(StartFailureReason.INVALID_CONTEXT, null, null);
         }
-        if (room.lifecycleState() != RoomLifecycleState.RUNNING) {
+        if (room.lifecycleState() != RoomLifecycleState.RUNNING || state.isGameplayCombatPaused()) {
             return StartRequestResult.failure(StartFailureReason.INVALID_CONTEXT, null, null);
         }
         UUID playerId = player.getUUID();
@@ -249,6 +249,8 @@ public final class RoomShellingRuntimeService {
             gameTick,
             shellCount
         );
+        sequence.scope = org.mods.gd656conquest.server.compat.tacz.ShellingPresentationProtection.scope(player);
+        sequence.sourceOwner = player;
         activeSequences.put(sequence.sequenceId, sequence);
         trackExecutionLock(
             sequence.sequenceId,
@@ -340,7 +342,7 @@ public final class RoomShellingRuntimeService {
         if (request == null) {
             return null;
         }
-        boolean refundScore = !request.confirmed() && reason.shouldRefundScore();
+        boolean refundScore = reason.shouldRefundScore() && (!request.confirmed() || reason==AbortReason.BATTALION_ENDED);
         boolean restoreSlot = player != null && reason.shouldRestoreSlot();
         clearRequestState(state, player, request, restoreSlot, refundScore);
         if (player != null && reason.feedbackMessage() != null && !reason.feedbackMessage().isBlank()) {
@@ -352,6 +354,21 @@ public final class RoomShellingRuntimeService {
             );
         }
         return request;
+    }
+
+    public void beginBattalionIntermission(RoomDefinition room, RunningRuntimeState state) {
+        org.mods.gd656conquest.server.compat.tacz.ShellingPresentationProtection.begin(server, room.roomId());
+        for (var request : List.copyOf(state.getActiveShellingsByPlayer().values())) {
+            abortShellingRequest(room, state, server.getPlayerList().getPlayer(request.playerId()), request.playerId(), AbortReason.BATTALION_ENDED);
+        }
+    }
+
+    public void endBattalionIntermission(RoomDefinition room) {
+        stopActiveSequencesForRoom(room.roomId());
+        stopExecutionLocksForRoom(room.roomId());
+        pendingSlotRestores.values().removeIf(restore -> room.roomId().equals(restore.roomId()));
+        TaczShellingTestService.of(server).stopRoom(room.roomId());
+        org.mods.gd656conquest.server.compat.tacz.ShellingPresentationProtection.terminate(server, room.roomId());
     }
 
     public void abortAllShellingRequests(
@@ -369,8 +386,7 @@ public final class RoomShellingRuntimeService {
             ServerPlayer player = server.getPlayerList().getPlayer(request.playerId());
             abortShellingRequest(room, state, player, request.playerId(), reason);
         }
-        stopActiveSequencesForRoom(room.roomId());
-        stopExecutionLocksForRoom(room.roomId());
+        endBattalionIntermission(room);
     }
 
     public boolean issueShellingIndicator(
@@ -549,12 +565,15 @@ public final class RoomShellingRuntimeService {
 
     private boolean spawnSequenceShell(RunningRuntimeState state, ActiveShellingSequence sequence) {
         ServerPlayer owner = server.getPlayerList().getPlayer(sequence.ownerId);
-        if (owner == null || owner.isRemoved()) {
+        if ((owner == null || owner.isRemoved()) && sequence.scope != null) {
+            owner = sequence.sourceOwner;
+        }
+        if (owner == null || server.getLevel(sequence.dimension) == null) {
             ServerLogger.failure("%s序列已中断：触发者离线 sequence=%s owner=%s", sequence.profile.displayName(), sequence.sequenceId, sequence.ownerName);
             return false;
         }
         TaczShellingTestService.SpawnResult spawnResult = TaczShellingTestService.of(server)
-            .spawnConfiguredShell(owner, sequence.shellingConfig.toEntry(), sequence.targetCenter);
+            .spawnConfiguredShell(owner, server.getLevel(sequence.dimension), sequence.shellingConfig.toEntry(), sequence.targetCenter, sequence.scope);
         if (!spawnResult.success()) {
             ServerLogger.failure("%s序列生成失败 sequence=%s owner=%s error=%s", sequence.profile.displayName(), sequence.sequenceId, sequence.ownerName, spawnResult.message());
             return false;
@@ -686,13 +705,17 @@ public final class RoomShellingRuntimeService {
     }
 
     private void stopSequenceLoop(ActiveShellingSequence sequence) {
+        stopSequenceLoop(sequence, LOOP_FADE_OUT_TICKS);
+    }
+
+    private void stopSequenceLoop(ActiveShellingSequence sequence, int fadeOutTicks) {
         if (sequence == null) {
             return;
         }
         for (UUID playerId : List.copyOf(sequence.loopRecipients)) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player != null) {
-                audioRuntimeService.stopLoopSoundToPlayer(player, sequence.profile.loopSoundId(), LOOP_FADE_OUT_TICKS);
+                audioRuntimeService.stopLoopSoundToPlayer(player, sequence.profile.loopSoundId(), fadeOutTicks);
             }
         }
         sequence.loopRecipients.clear();
@@ -710,7 +733,7 @@ public final class RoomShellingRuntimeService {
             if (sequence == null || !roomId.equals(sequence.roomId)) {
                 continue;
             }
-            stopSequenceLoop(sequence);
+            stopSequenceLoop(sequence, 0);
             iterator.remove();
         }
     }
@@ -858,16 +881,12 @@ public final class RoomShellingRuntimeService {
         if (state == null || request == null || request.playerId() == null) {
             return;
         }
+        if(!ShellingRequestCancellation.cancel(state,request,refundScore))return;
         pendingSlotRestores.remove(request.playerId());
         clearShellingActionBar(request.playerId());
-        if (refundScore && request.reservedCost() > 0) {
-            int currentSpent = SupportScoreService.getSpentScore(state, request.playerId());
-            SupportScoreService.setSpentScore(state, request.playerId(), currentSpent - request.reservedCost());
-        }
         if (restoreSlot && player != null) {
             restoreSupportSlot(player, request);
         }
-        state.clearShellingRequest(request.playerId());
     }
 
     private void scheduleSupportSlotRestore(RunningRuntimeState.ShellingRequestState request, long dueTick) {
@@ -1014,6 +1033,7 @@ public final class RoomShellingRuntimeService {
     }
 
     public enum AbortReason {
+        BATTALION_ENDED(true,true,"本营结束，等待中的炮击已取消并退还积分",ChatFormatting.YELLOW),
         TIMEOUT(true, true, "炮击释放流程已超时", ChatFormatting.YELLOW),
         PLAYER_DEATH(true, true, "炮击释放流程已中断", ChatFormatting.YELLOW),
         PLAYER_OFFLINE(true, false, "", ChatFormatting.YELLOW),

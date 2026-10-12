@@ -161,8 +161,8 @@ public final class ClientDownedCamera {
     }
     public static boolean observingDeath() { return stage==Stage.DOWNED && ordinaryDeath; }
     public static boolean usesFixedDeathCamera() { return observingDeath() && mode==DownedCameraMode.FIXED; }
-    public static boolean ownsCamera() { return automaticDowned() || stage == Stage.RETURN_PENDING || stage == Stage.RETURNING
-        || usesFixedDeathCamera() && !ClientDownedRagdollState.hasCameraOverride(); }
+    public static boolean ownsCamera() { return !ClientBattalionBriefingState.isCinematicActive() && (automaticDowned() || stage == Stage.RETURN_PENDING || stage == Stage.RETURNING
+        || usesFixedDeathCamera() && !ClientDownedRagdollState.hasCameraOverride()); }
     /** Called before the old deployment transition reads its starting pose. */
     public static void handoffToDeployment() {
         if(!observingDeath())return;
@@ -191,6 +191,7 @@ public final class ClientDownedCamera {
     public static void onRenderTick(TickEvent.RenderTickEvent event) {
         Minecraft mc = Minecraft.getInstance();
         if (event.phase == TickEvent.Phase.START && mc.player != null
+            && !ClientBattalionBriefingState.isCinematicActive()
             && (stage != Stage.IDLE || ClientDownedState.isActive())) forceFirstPerson(mc);
     }
 
@@ -200,6 +201,7 @@ public final class ClientDownedCamera {
         Minecraft mc = Minecraft.getInstance(); tick++;
         if (mc.level != level || mc.player != playerIdentity || mc.player == null) { reset(); return; }
         if (session != 0 && tick >= leaseTick) { closedSession = session; stopProne(); cancelCamera(); return; }
+        if(ClientBattalionBriefingState.isCinematicActive())return;
         if (stage != Stage.IDLE) forceFirstPerson(mc);
         if (prone) {
             RevivedPronePose.apply(mc.player);

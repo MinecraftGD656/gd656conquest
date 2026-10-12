@@ -36,6 +36,7 @@ public final class RunningRuntimeState {
     private final Map<UUID, Float> respawnTargetXRot = new LinkedHashMap<>();
     private final Map<UUID, net.minecraft.world.entity.Pose> respawnTargetPose = new LinkedHashMap<>();
     private final Map<UUID, VehicleDeployResolution> pendingVehicleDeployResolutions = new LinkedHashMap<>();
+    private final Map<UUID, Long> vehicleDeployRetryDeadlines = new LinkedHashMap<>();
     private final Map<UUID, String> deploySelectionKinds = new LinkedHashMap<>();
     private final Map<UUID, String> deploySelectionTargetIds = new LinkedHashMap<>();
     private final Map<UUID, Long> deploySelectionChangedTicks = new LinkedHashMap<>();
@@ -103,6 +104,8 @@ public final class RunningRuntimeState {
     private long lastHudSyncTick = -1L;
     private long lastNametagSyncTick = -1L;
     private IRoomGameplayRuntime gameplayRuntime;
+    private final org.mods.gd656conquest.common.match.BattalionIntermissionLifecycle battalionLifecycle=new org.mods.gd656conquest.common.match.BattalionIntermissionLifecycle();
+    public org.mods.gd656conquest.common.match.BattalionIntermissionLifecycle battalionLifecycle(){return battalionLifecycle;}
 
     public Optional<IRoomGameplayRuntime> getGameplayRuntime() {
         return Optional.ofNullable(gameplayRuntime);
@@ -182,6 +185,10 @@ public final class RunningRuntimeState {
 
     public Map<UUID, VehicleDeployResolution> getPendingVehicleDeployResolutions() {
         return pendingVehicleDeployResolutions;
+    }
+
+    public Map<UUID, Long> getVehicleDeployRetryDeadlines() {
+        return vehicleDeployRetryDeadlines;
     }
 
     public Map<UUID, String> getDeploySelectionKinds() {
@@ -640,6 +647,7 @@ public final class RunningRuntimeState {
         respawnTargetXRot.clear();
         respawnTargetPose.clear();
         pendingVehicleDeployResolutions.clear();
+        vehicleDeployRetryDeadlines.clear();
         deploySelectionKinds.clear();
         deploySelectionTargetIds.clear();
         deploySelectionChangedTicks.clear();
@@ -715,6 +723,7 @@ public final class RunningRuntimeState {
         respawnTargetXRot.remove(playerId);
         respawnTargetPose.remove(playerId);
         pendingVehicleDeployResolutions.remove(playerId);
+        vehicleDeployRetryDeadlines.remove(playerId);
         deploySelectionKinds.remove(playerId);
         deploySelectionKinds.remove(playerId);
         deploySelectionTargetIds.remove(playerId);
@@ -748,6 +757,7 @@ public final class RunningRuntimeState {
         respawnTargetXRot.remove(playerId);
         respawnTargetPose.remove(playerId);
         pendingVehicleDeployResolutions.remove(playerId);
+        vehicleDeployRetryDeadlines.remove(playerId);
         deploySelectionKinds.remove(playerId);
         deploySelectionTargetIds.remove(playerId);
         deploySelectionChangedTicks.remove(playerId);
@@ -779,6 +789,7 @@ public final class RunningRuntimeState {
         respawnTargetXRot.remove(playerId);
         respawnTargetPose.remove(playerId);
         pendingVehicleDeployResolutions.remove(playerId);
+        vehicleDeployRetryDeadlines.remove(playerId);
         deploySelectionKinds.remove(playerId);
         deploySelectionTargetIds.remove(playerId);
         deploySelectionChangedTicks.remove(playerId);
@@ -881,6 +892,7 @@ public final class RunningRuntimeState {
         respawnTargetXRot.remove(playerId);
         respawnTargetPose.remove(playerId);
         pendingVehicleDeployResolutions.remove(playerId);
+        vehicleDeployRetryDeadlines.remove(playerId);
         deploySelectionKinds.remove(playerId);
         deploySelectionTargetIds.remove(playerId);
         deploySelectionChangedTicks.remove(playerId);
@@ -903,6 +915,7 @@ public final class RunningRuntimeState {
         respawnTargetXRot.remove(playerId);
         respawnTargetPose.remove(playerId);
         pendingVehicleDeployResolutions.remove(playerId);
+        vehicleDeployRetryDeadlines.remove(playerId);
         deploySelectionKinds.remove(playerId);
         deploySelectionTargetIds.remove(playerId);
         deploySelectionChangedTicks.remove(playerId);

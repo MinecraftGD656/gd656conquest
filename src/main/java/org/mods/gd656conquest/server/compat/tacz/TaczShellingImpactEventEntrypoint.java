@@ -22,6 +22,13 @@ public final class TaczShellingImpactEventEntrypoint {
             return;
         }
         String className = event.getClass().getName();
+        if(className.equals("com.tacz.guns.api.event.common.EntityHurtByGunEvent$Pre")) {
+            try {
+                Object bullet=event.getClass().getMethod("getBullet").invoke(event);
+                if(bullet instanceof Entity entity&&event.isCancelable()&&ShellingPresentationProtection.harmless(entity))event.setCanceled(true);
+            } catch(ReflectiveOperationException error) {com.mojang.logging.LogUtils.getLogger().warn("Unable to inspect shelling gun damage",error);}
+            return;
+        }
         if (TACZ_AMMO_HIT_BLOCK_EVENT_CLASS.equals(className)) {
             handleHitBlock(event);
         } else if (TACZ_AMMO_HIT_ENTITY_EVENT_CLASS.equals(className) || TACZ_AMMO_HIT_ENTITY_EVENT_CLASS_ALT.equals(className)) {

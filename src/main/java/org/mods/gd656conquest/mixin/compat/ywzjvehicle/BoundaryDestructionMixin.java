@@ -12,6 +12,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Pseudo
 @Mixin(targets = "org.ywzj.vehicle.entity.vehicle.AbstractVehicle", remap = false)
 public abstract class BoundaryDestructionMixin {
+    @Inject(method="m_6469_(Lnet/minecraft/world/damagesource/DamageSource;F)Z",at=@At("HEAD"),cancellable=true,require=1)
+    private void gd656conquest$protectIntermission(net.minecraft.world.damagesource.DamageSource source,float damage,org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Boolean> ci) {
+        Entity vehicle=(Entity)(Object)this;
+        if(!vehicle.level().isClientSide()&&(org.mods.gd656conquest.server.room.vehicle.RoomVehicleRuntimeService.isSceneFrozen(vehicle)
+            ||org.mods.gd656conquest.server.compat.tacz.ShellingPresentationProtection.blocksDamage(source)))ci.setReturnValue(false);
+    }
+
     @Inject(method = "m_6469_(Lnet/minecraft/world/damagesource/DamageSource;F)Z", at = @At(value = "INVOKE",
         target = "Lorg/ywzj/vehicle/util/VehicleExplosion;explode(Ljava/util/List;)V"), require = 1)
     private void gd656conquest$beginBoundaryExplosion(DamageSource source, float damage, CallbackInfoReturnable<Boolean> ci) {

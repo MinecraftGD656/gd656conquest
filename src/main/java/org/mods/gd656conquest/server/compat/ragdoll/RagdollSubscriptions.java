@@ -59,6 +59,29 @@ public final class RagdollSubscriptions {
         }
         return t;
     }
+    /** Scene actors remain subscribed during flight; remove native bodies only at briefing start. */
+    public static void clearBattalionBodies(MinecraftServer s,org.mods.gd656conquest.server.room.model.RoomDefinition room,org.mods.gd656conquest.server.room.core.RunningRuntimeState state) {
+        if(!resolve())return;
+        var level=new org.mods.gd656conquest.server.room.runtime.RoomPlayerLaunchService(s).findRoomLevel(room).orElse(null);
+        if(level==null)return;
+        server(s);
+        try {
+            Method stop=Class.forName("com.raiiiden.ragdollified.api.RagdollifiedServerApi").getMethod("stopRagdoll",int.class);
+            for(Object record:List.copyOf(records().values())) {
+                var view=new RagdollRecordView(record);
+                if(!level.dimension().equals(view.dimension)||(!state.getRoomPlayers().contains(view.victim)&&!state.getRoomPlayers().contains(view.owner)
+                    &&!state.getRejoinTickets().containsKey(view.victim)&&!state.getRejoinTickets().containsKey(view.owner)))continue;
+                stop.invoke(null,view.id);
+                Track removed=TRACKS.remove(view.id);
+                if(removed!=null)for(var entry:VIEWERS.entrySet()) {
+                    ServerPlayer viewer=s.getPlayerList().getPlayer(entry.getKey());
+                    if(viewer!=null)pause(viewer,entry.getValue(),view.id,removed.token,RagdollSyncScope.serverGeneration(view.id),true);
+                    entry.getValue().known.remove(view.id);entry.getValue().selected.remove(view.id);entry.getValue().lastSent.remove(view.id);
+                }
+            }
+        } catch(ReflectiveOperationException error) {com.mojang.logging.LogUtils.getLogger().error("Unable to clear battalion ragdoll bodies",error);}
+    }
+
     public static boolean shouldReceive(ServerPlayer p,Object record,double originalRadius) {
         if(!resolve()||!DownedRagdollBridge.availableFor(p)) return false;
         Track t=track(record,p.server);

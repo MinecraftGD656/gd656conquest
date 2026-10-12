@@ -10,6 +10,8 @@ import java.util.Set;
 import java.util.UUID;
 
 public final class ActiveShellingSequence {
+    public org.mods.gd656conquest.common.match.ShellingScopeLedger.Scope scope;
+    public net.minecraft.server.level.ServerPlayer sourceOwner;
     public final UUID sequenceId;
     public final ShellingSequenceKind kind;
     public final String roomId;

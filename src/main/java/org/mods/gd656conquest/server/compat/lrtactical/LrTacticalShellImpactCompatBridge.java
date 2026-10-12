@@ -23,7 +23,7 @@ public final class LrTacticalShellImpactCompatBridge {
     private LrTacticalShellImpactCompatBridge() {
     }
 
-    public static boolean spawnImpactEffect(ServerLevel level, ServerPlayer owner, Vec3 impactPos, ShellingImpactType impactType) {
+    public static boolean spawnImpactEffect(ServerLevel level,ServerPlayer owner,Vec3 impactPos,ShellingImpactType impactType,org.mods.gd656conquest.common.match.ShellingScopeLedger.Scope scope) {
         if (level == null || owner == null || impactPos == null || impactType == null || impactType.isEmpty()) {
             return false;
         }
@@ -37,8 +37,8 @@ public final class LrTacticalShellImpactCompatBridge {
         }
         try {
             return switch (impactType) {
-                case SMOKESHELL -> BRIDGE.spawnSmoke(level, owner, impactPos);
-                case FLAMESHELL -> BRIDGE.spawnFlame(level, owner, impactPos);
+                case SMOKESHELL -> BRIDGE.spawnSmoke(level, owner, impactPos,scope);
+                case FLAMESHELL -> BRIDGE.spawnFlame(level, owner, impactPos,scope);
                 case EMPTY, LIGHTSHELL, MEDIUMSHELL, HEAVYSHELL, MISSILE -> false;
             };
         } catch (Exception exception) {
@@ -79,7 +79,7 @@ public final class LrTacticalShellImpactCompatBridge {
             return pos;
         }
 
-        boolean spawnSmoke(ServerLevel level, ServerPlayer owner, Vec3 impactPos) throws Exception {
+        boolean spawnSmoke(ServerLevel level, ServerPlayer owner, Vec3 impactPos,org.mods.gd656conquest.common.match.ShellingScopeLedger.Scope scope) throws Exception {
             Vec3 groundPos = findGround(level, impactPos);
             org.mods.gd656conquest.common.entity.ShellingSmokeEntity smoke = org.mods.gd656conquest.common.entity.ConquestEntities.SHELLING_SMOKE.get().create(level);
             if (smoke == null) {
@@ -87,10 +87,11 @@ public final class LrTacticalShellImpactCompatBridge {
             }
             smoke.setPos(groundPos.x, groundPos.y, groundPos.z);
             smoke.setDuration(600); // 30 秒
+            org.mods.gd656conquest.server.compat.tacz.ShellingPresentationProtection.tag(smoke,scope);
             return level.addFreshEntity(smoke);
         }
 
-        boolean spawnFlame(ServerLevel level, ServerPlayer owner, Vec3 impactPos) throws Exception {
+        boolean spawnFlame(ServerLevel level, ServerPlayer owner, Vec3 impactPos,org.mods.gd656conquest.common.match.ShellingScopeLedger.Scope scope) throws Exception {
             Vec3 groundPos = findGround(level, impactPos);
             Object created = flameCloudConstructor.newInstance(level, groundPos.x, groundPos.y, groundPos.z);
             if (!(created instanceof AreaEffectCloud cloud)) {
@@ -112,6 +113,7 @@ public final class LrTacticalShellImpactCompatBridge {
             if (flammable != null) {
                 cloud.addEffect(new MobEffectInstance(flammable, 100, 0, false, true, true));
             }
+            org.mods.gd656conquest.server.compat.tacz.ShellingPresentationProtection.tag(cloud,scope);
             return level.addFreshEntity(cloud);
         }
     }

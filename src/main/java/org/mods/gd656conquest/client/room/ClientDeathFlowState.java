@@ -287,16 +287,18 @@ public final class ClientDeathFlowState {
         setCameraPose(targetX, targetY, targetZ, targetYaw, targetPitch, true);
     }
 
-    public static void holdCinematicCamera() {
+    public static void holdCinematicCamera() {holdCinematicCamera(false);}
+    public static void holdCinematicCamera(boolean preserveScene) {
         Minecraft mc = Minecraft.getInstance();
         Camera camera = mc.gameRenderer.getMainCamera();
         Vec3 source = camera.getPosition();
-        holdCinematicCameraAt(source.x, source.y, source.z, camera.getYRot(), camera.getXRot());
+        holdCinematicCameraAt(source.x, source.y, source.z, camera.getYRot(), camera.getXRot(),preserveScene);
     }
 
-    public static void holdCinematicCameraAt(double x, double y, double z, float yaw, float pitch) {
+    public static void holdCinematicCameraAt(double x,double y,double z,float yaw,float pitch){holdCinematicCameraAt(x,y,z,yaw,pitch,false);}
+    private static void holdCinematicCameraAt(double x, double y, double z, float yaw, float pitch,boolean preserveScene) {
         ClientDownedCamera.handoffToDeployment();
-        DownedRagdollClientHooks.onDeployTransition();
+        if(!preserveScene)DownedRagdollClientHooks.onDeployTransition();
         Minecraft mc = Minecraft.getInstance();
         TaczClientInputCompat.suppressCombatInputUntilRelease(mc);
         disableDesaturate(mc);
@@ -393,7 +395,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void applyCameraOverride(Camera camera, float partialTick) {
-        if (!active || camera == null || ClientDownedCamera.ownsCamera() || ClientDownedRagdollState.hasCameraOverride()) {
+        if (!hasActiveCameraOverride() || camera == null) {
             return;
         }
         if (phase == PHASE_DOWNED_HOLD) {
@@ -414,7 +416,7 @@ public final class ClientDeathFlowState {
     }
 
     public static boolean hasActiveCameraOverride() {
-        return active && !ClientDownedCamera.ownsCamera() && !ClientDownedRagdollState.hasCameraOverride();
+        return active && (ClientBattalionBriefingState.isCinematicActive() || (!ClientDownedCamera.ownsCamera() && !ClientDownedRagdollState.hasCameraOverride()));
     }
 
     public static boolean shouldRenderDeployBoundaries() {

@@ -25,6 +25,15 @@ final class ClientAudioDebugState {
         return id;
     }
 
+    static void stopShellingEffects(SoundManager soundManager) {
+        ACTIVE_EFFECTS.entrySet().removeIf(entry -> {
+            DebugSoundEntry effect = entry.getValue();
+            if (!effect.soundId().startsWith("sfx.shelling.")) return false;
+            if (soundManager != null && effect.instance() != null) soundManager.stop(effect.instance());
+            return true;
+        });
+    }
+
     static void clear() {
         ACTIVE_EFFECTS.clear();
     }

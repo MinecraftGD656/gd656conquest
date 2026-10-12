@@ -76,6 +76,7 @@ public final class RoomPlayerRespawnService {
     private static final int REVIVE_SQUAD_HOLD_TICKS = 70;
     private static final int REVIVE_LRTACTICAL_BLIND_TICKS = 30;
     private static final int RESPAWN_TRAVEL_TICKS = 40;
+    private static final int VEHICLE_DEPLOY_RETRY_TICKS = 100;
     private static final int INITIAL_DEPLOY_DELAY_SECONDS = 30;
     private static final int INITIAL_MOVEMENT_LOCK_SECONDS = 5;
     private static final int TITLE_FADE_IN_TICKS = 5;
@@ -365,6 +366,12 @@ public final class RoomPlayerRespawnService {
         return !RoomDeathEventDispatcher.isStillAliveOutsideDeployment(player);
     }
 
+    /** Keep live actors, riders and downed bodies in place until briefing begins. */
+    public void freezeBattalionScene(ServerPlayer player) {
+        playerTransferQueueService.cancelPendingTransfers(player.getUUID());
+        player.stopUsingItem();player.setInvulnerable(true);player.setNoGravity(true);player.setRemainingFireTicks(0);player.setDeltaMovement(0,0,0);
+    }
+
     /** Administrative state transition: never emits a death or changes match scores. */
     public void prepareBattalionHold(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, long tick) {
         UUID id = player.getUUID();
@@ -467,6 +474,7 @@ public final class RoomPlayerRespawnService {
         }
         if (state.isGameplayCombatPaused()) {
             prepareBattalionHold(room, state, player, gameTick);
+            moveBattalionView(room,player,RoomGameplayDeployPresentationSupport.resolveDeployViewPosition(room,state,player,new RoomGameplayDeployViewRequest(RoomGameplayDeployViewKind.INITIAL,gameTick,0,true)));
             return;
         }
         UUID playerId = player.getUUID();
@@ -516,6 +524,7 @@ public final class RoomPlayerRespawnService {
         }
         if (state.isGameplayCombatPaused()) {
             prepareBattalionHold(room, state, player, gameTick);
+            moveBattalionView(room,player,RoomGameplayDeployPresentationSupport.resolveDeployViewPosition(room,state,player,new RoomGameplayDeployViewRequest(RoomGameplayDeployViewKind.INITIAL,gameTick,0,true)));
             return;
         }
         UUID playerId = player.getUUID();
@@ -744,8 +753,14 @@ public final class RoomPlayerRespawnService {
                     continue;
                 }
                 boolean started = tryStartSelectedDeploy(room, state, player, gameTick, allowFallbackOnMissingSelection);
-                if (!started && !allowFallbackOnMissingSelection) {
+                if (!started) {
                     state.getDeployAutoStartOnReadyPlayers().remove(playerId);
+                    if(allowFallbackOnMissingSelection&&"vehicle".equalsIgnoreCase(state.getDeploySelectionKinds().get(playerId))) {
+                        deploySelectionService.clearSelection(state,playerId);
+                        deploySelectionService.applyInitialDefaultSelection(room,state,player,state.getRoomTeams().get(playerId));
+                        showDeployNotice(player,"载具部署失败，已恢复可用出生点，请重新确认部署");
+                        LoadoutUiService.sendSnapshot(player,false,true);
+                    }
                 }
             }
         }
@@ -1499,6 +1514,7 @@ public final class RoomPlayerRespawnService {
         state.getDeployViewActivePlayers().remove(playerId);
         state.getRespawnTargetPositions().put(playerId, transitionPosition);
         state.getPendingVehicleDeployResolutions().put(playerId, resolution);
+        state.getVehicleDeployRetryDeadlines().put(playerId, gameTick + RESPAWN_TRAVEL_TICKS + VEHICLE_DEPLOY_RETRY_TICKS);
         state.getRespawnFinalizeTicks().put(playerId, gameTick + RESPAWN_TRAVEL_TICKS);
         ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_WAIT);
         ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
@@ -1863,6 +1879,11 @@ public final class RoomPlayerRespawnService {
             playerStateService.applyRespawnState(room, playerId, gameTick);
             VehicleDeployExecutionResult executionResult = vehicleDeployExecutionService.execute(room, state, player, pendingVehicleDeploy, gameTick);
             if (executionResult.retry()) {
+                long deadline = state.getVehicleDeployRetryDeadlines().computeIfAbsent(playerId, ignored -> gameTick + VEHICLE_DEPLOY_RETRY_TICKS);
+                if (gameTick >= deadline) {
+                    return returnPlayerToDeployAfterVehicleFailure(room, state, player, gameTick, "载具部署等待超时，请重新选择出生点");
+                }
+                playerStateService.setSpectator(player);
                 state.getRespawnFinalizeTicks().put(playerId, gameTick + 1L);
                 return false;
             }
@@ -1909,9 +1930,12 @@ public final class RoomPlayerRespawnService {
         state.getRespawnFinalizeTicks().remove(playerId);
         state.getRespawnTargetPositions().remove(playerId);
         state.getPendingVehicleDeployResolutions().remove(playerId);
+        state.getVehicleDeployRetryDeadlines().remove(playerId);
         state.getDeployAutoStartOnReadyPlayers().remove(playerId);
         state.getDeployAllowFallbackOnMissingSelectionPlayers().remove(playerId);
         state.getDeployReadyTicks().put(playerId, gameTick);
+        deploySelectionService.clearSelection(state, playerId);
+        deploySelectionService.applyInitialDefaultSelection(room, state, player, state.getRoomTeams().get(playerId));
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
         enterDeployHoldingState(room, state, player, false);
         openDeployView(room, state, player, new RoomGameplayDeployViewRequest(
@@ -1920,6 +1944,7 @@ public final class RoomPlayerRespawnService {
             0,
             false
         ));
+        LoadoutUiService.sendSnapshot(player, false, true);
         showDeployNotice(player, failureMessage);
         return false;
     }

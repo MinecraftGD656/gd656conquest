@@ -216,6 +216,18 @@ public final class VehicleRuntimeRecord {
         z = snapshot.z();
     }
 
+    public void resetForBattalion() {
+        clearSpawnedEntity();
+        waitingUntilTick = -1;
+        lastSeenTick = -1;
+        logicalState = VehicleLogicalState.READY;
+        displayState = VehicleDisplayState.READY_TO_DEPLOY;
+        ownershipState = VehicleOwnershipState.FRIENDLY;
+        x = configuredSpawnX;
+        y = configuredSpawnY;
+        z = configuredSpawnZ;
+    }
+
     public void clearSpawnedEntity() {
         spawnedEntityUuid = null;
         spawnedEntityId = -1;

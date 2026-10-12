@@ -168,6 +168,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         clearDesperatePersistentSubtitles();
     }
 
+    @Override public BattalionSequence.Phase intermissionPhase(){return battalions.phase();}
+    @Override public long intermissionSequenceId(){return battalions.sequenceId();}
     @Override public boolean isCombatPaused() { return battalions.active(); }
     @Override public boolean isDeploymentPreparation() {
         return battalions.phase() == BattalionSequence.Phase.PREPARATION;
@@ -221,7 +223,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             ServerPlayer player = captureRuntimeService.findOnlinePlayer(id);
             if (player != null) {
                 player.stopUsingItem();
-                player.stopRiding();
+                player.setInvulnerable(true);
                 player.setDeltaMovement(Vec3.ZERO);
                 NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.reset());
                 ServerPlayerLockService.of(player.server).syncPlayer(player);
@@ -247,14 +249,15 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         battalions.tick(tick);
         requestFinalSettlement(tick);
         if (previous == battalions.phase()) return;
-        if (isDeploymentPreparation()) {
+        if (isDeploymentPreparation() || (battalions.phase() == BattalionSequence.Phase.COMBAT && previous != BattalionSequence.Phase.PREPARATION)) {
             runtimeState.restartCurrentStage(room.breakthroughConfig(), battalions.deadline());
             initializeAttackTroopCapForOpeningStage(room);
             battalionStartStage = runtimeState.getCurrentStageIndex();
             battalionStartTick = battalions.deadline();
             attackTroopHalfSubtitleDispatched = attackTroopCriticalSubtitleDispatched = false;
             initializeObjectiveSubtitles(room);
-        } else if (battalions.phase() == BattalionSequence.Phase.COMBAT) {
+        }
+        if (battalions.phase() == BattalionSequence.Phase.COMBAT) {
             broadcastStageStartSubtitles(tick);
             playStageAdvanceVoiceForAttackers();
         }
@@ -271,18 +274,18 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             boolean fresh = old == null || old.player() != player || old.sequence() != battalions.sequenceId();
             if (phase == BattalionSequence.Phase.COMBAT && fresh) continue;
             boolean phaseChanged = fresh || old.phase() != phase;
+            if(org.mods.gd656conquest.common.match.BattalionIntermissionLifecycle.preservesScene(phase))respawns.freezeBattalionScene(player);
             if (!phaseChanged) {
                 if (BriefingTimeline.STAGES.contains(phase) && tick % 20 == 0) sendTimelineSnapshot(room,player,tick,phase);
                 continue;
             }
-            if (phase != BattalionSequence.Phase.COMBAT
-                && phase != BattalionSequence.Phase.FINISHED && fresh)
-                respawns.prepareBattalionHold(room, runningState, player, tick);
+            boolean preserve=org.mods.gd656conquest.common.match.BattalionIntermissionLifecycle.preservesScene(phase);
+            if(!preserve&&phase!=BattalionSequence.Phase.COMBAT&&(fresh||org.mods.gd656conquest.common.match.BattalionIntermissionLifecycle.preservesScene(old.phase())))
+                respawns.prepareBattalionHold(room,runningState,player,tick);
             RoomViewPosition view = phase == BattalionSequence.Phase.TRAVEL_TO_DEPLOY
                 || phase == BattalionSequence.Phase.PREPARATION
                 ? room.breakthroughConfig().stageDeployViewPosition(runtimeState.getCurrentStageIndex()) : briefingView;
-            if (phase == BattalionSequence.Phase.TRAVEL_TO_BRIEFING
-                || phase == BattalionSequence.Phase.BRIEFING
+            if (phase == BattalionSequence.Phase.BRIEFING
                 || phase == BattalionSequence.Phase.BRIEFING_FADE_OUT
                 || phase == BattalionSequence.Phase.NEXT_ASSAULT
                 || phase == BattalionSequence.Phase.TRAVEL_TO_DEPLOY

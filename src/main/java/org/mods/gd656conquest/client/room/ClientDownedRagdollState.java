@@ -98,7 +98,7 @@ public final class ClientDownedRagdollState {
 
     public static boolean hasCameraOverride() {
         Minecraft mc = Minecraft.getInstance();
-        return cameraAttached && mc.player != null && (ClientDownedCamera.observingDeath() && deathSnapshot()!=null
+        return !ClientBattalionBriefingState.isCinematicActive() && cameraAttached && mc.player != null && (ClientDownedCamera.observingDeath() && deathSnapshot()!=null
             || ClientDownedState.isActive() && isBodyReady(mc.player.getUUID()));
     }
     public static void beginDeathObservation(int id, UUID owner, Vec3 origin) {
@@ -152,7 +152,7 @@ public final class ClientDownedRagdollState {
         boolean attachForSelf = false;
         while (iterator.hasNext()) {
             Entry entry = iterator.next();
-            if (tick >= entry.expiresTick) {
+            if (tick >= entry.expiresTick && !ClientBattalionBriefingState.isCinematicActive()) {
                 release(entry);
                 iterator.remove();
                 continue;
@@ -167,7 +167,7 @@ public final class ClientDownedRagdollState {
             }
             invoke(api.hidden, entry.entityId, true);
             if (mc.player != null && entry.playerId.equals(mc.player.getUUID())
-                && ClientDownedState.isActive()) {
+                && ClientDownedState.isActive() && !ClientBattalionBriefingState.isCinematicActive()) {
                 attachForSelf = true;
                 if (ClientDownedCamera.ownsCamera()) {
                     if (cameraAttached) detachCamera();
@@ -180,7 +180,7 @@ public final class ClientDownedRagdollState {
                 ClientDeathFlowState.enterDownedView();
             }
         }
-        if (ClientDownedCamera.usesFixedDeathCamera() && deathSnapshot()!=null) {
+        if (!ClientBattalionBriefingState.isCinematicActive() && ClientDownedCamera.usesFixedDeathCamera() && deathSnapshot()!=null) {
             attachForSelf=true;
             if (!cameraAttached || cameraEntityId!=observedDeathId)
                 cameraAttached=Boolean.TRUE.equals(invoke(api.attach,observedDeathId,api.head,api.cameraOptions));

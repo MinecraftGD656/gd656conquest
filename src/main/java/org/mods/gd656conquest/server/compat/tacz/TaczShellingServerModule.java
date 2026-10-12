@@ -13,6 +13,7 @@ public final class TaczShellingServerModule implements ServerModule {
     @Override
     public void onServerStopped(MinecraftServer server) {
         TaczShellingTestService.forget(server);
+        ShellingPresentationProtection.forget(server);
     }
 
     @Override

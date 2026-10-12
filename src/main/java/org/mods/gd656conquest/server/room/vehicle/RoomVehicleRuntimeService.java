@@ -239,6 +239,59 @@ public final class RoomVehicleRuntimeService {
         return cleared;
     }
 
+    /** Managed vehicles belong to their tagged room even after being stolen or leaving its boundary. */
+    public boolean belongsToRoom(RoomDefinition room, Entity entity) {
+        String tagged = resolveManagedRoomId(entity).orElse("");
+        if (!tagged.isBlank()) return room.roomId().equalsIgnoreCase(tagged);
+        if (getRecords(room.roomId()).stream().anyMatch(record -> entity.getUUID().equals(record.getSpawnedEntityUuid()))) return true;
+        List<Entity> passengers = new ArrayList<>(entity.getPassengers());
+        for (int i = 0; i < passengers.size(); i++) {
+            Entity passenger = passengers.get(i);
+            if (passenger instanceof net.minecraft.server.level.ServerPlayer player
+                && org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager.of(server).findPlayerRoomId(player.getUUID())
+                    .filter(room.roomId()::equalsIgnoreCase).isPresent()) return true;
+            passengers.addAll(passenger.getPassengers());
+        }
+        var level = new org.mods.gd656conquest.server.room.runtime.RoomPlayerLaunchService(server).findRoomLevel(room).orElse(null);
+        if (entity.level() != level) return false;
+        var config = room.breakthroughConfig();
+        if (insideBoundary(entity, config.campABaseBoundary()) || insideBoundary(entity, config.campBBaseBoundary())) return true;
+        for (int stage = 1; stage <= config.stageCount(); stage++) {
+            if (insideBoundary(entity, config.stageBoundary(stage))) return true;
+        }
+        return false;
+    }
+
+    private boolean insideBoundary(Entity entity, List<org.mods.gd656conquest.server.room.model.RoomPosition> boundary) {
+        return boundary.size() >= 3 && org.mods.gd656conquest.server.room.runtime.RoomBoundaryPolygonSupport
+            .isPointInsideBoundary(entity.getX(), entity.getZ(), boundary);
+    }
+
+    public void clearBattalionScene(RoomDefinition room) {
+        for (var level : server.getAllLevels()) {
+            List<Entity> vehicles = new ArrayList<>();
+            for (Entity entity : level.getAllEntities()) {
+                if (VehicleCompatFacade.isVehicleEntity(entity) && belongsToRoom(room, entity)) vehicles.add(entity);
+            }
+            for (Entity vehicle : vehicles) {
+                vehicle.ejectPassengers();
+                vehicle.discard();
+            }
+        }
+        for (var record : getRecords(room.roomId())) record.clearSpawnedEntity();
+    }
+
+    public void prepareBattalionEntries(RoomDefinition room) {
+        syncConfiguredEntries(room.roomId(), room.gameplayId().value(), ConquestDataManager.of(server).serverConfig().getVehicleBackend());
+        for (var record : getRecords(room.roomId())) record.resetForBattalion();
+    }
+
+    public static boolean isSceneFrozen(Entity vehicle) {
+        return vehicle != null && !vehicle.level().isClientSide() && vehicle.getServer() != null
+            && org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager.of(vehicle.getServer())
+                .coreService().isVehicleIntermissionProtected(vehicle);
+    }
+
     public void clearRoom(String roomId) {
         roomStates.remove(normalizeRoomId(roomId));
     }

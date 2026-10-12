@@ -101,6 +101,7 @@ public final class RoomPlayerStateService {
             if (player == null) {
                 continue;
             }
+            if(state!=null&&state.isGameplayCombatPaused()){player.setInvulnerable(true);player.setDeltaMovement(0,0,0);continue;}
             if (player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR) {
                 if (!player.isInvulnerable()) {
                     player.setInvulnerable(true);

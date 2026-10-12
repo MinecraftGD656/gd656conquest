@@ -57,6 +57,19 @@ public final class ClientAudioManager {
         mainThreadTasks.offer(() -> stopLoopSoundInternal(soundId, fadeOutTicks));
     }
 
+    public void enqueueStopShellingPresentation() {
+        mainThreadTasks.offer(() -> {
+            SoundManager soundManager = Minecraft.getInstance().getSoundManager();
+            activeLoops.entrySet().removeIf(entry -> {
+                ResourceLocation id = entry.getKey();
+                if (!Gd656conquest.MODID.equals(id.getNamespace()) || !id.getPath().startsWith("sfx.shelling.")) return false;
+                if (soundManager != null) soundManager.stop(entry.getValue());
+                return true;
+            });
+            ClientAudioDebugState.stopShellingEffects(soundManager);
+        });
+    }
+
     public void enqueuePlaySound(String soundId, float volume, float pitch) {
         mainThreadTasks.offer(() -> playSoundInternal(soundId, volume, pitch));
     }

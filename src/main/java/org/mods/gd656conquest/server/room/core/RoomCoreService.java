@@ -1000,6 +1000,13 @@ public final class RoomCoreService {
         return squadBeaconService.shouldCancelDamageToSquadBeacon(attacker, squadBeacon);
     }
 
+    public boolean isVehicleIntermissionProtected(Entity vehicle) {
+        for(var slot:runtimeRepository.list())if(slot.runtime().getRunningState().isGameplayCombatPaused()
+            &&org.mods.gd656conquest.server.room.model.RoomGameplayId.BREAKTHROUGH.equals(slot.room().gameplayId())
+            &&vehicleRuntimeService.belongsToRoom(slot.room(),vehicle))return true;
+        return false;
+    }
+
     public boolean shouldCancelDamageToVehicle(ServerPlayer attacker, Entity vehicle) {
         if (attacker == null || vehicle == null || attacker.server == null || attacker.server != server) {
             return false;
@@ -1280,6 +1287,7 @@ public final class RoomCoreService {
                     if (runtime instanceof RoomGameplayOperationsConclusionProvider conclusion
                         && conclusion.operationsConclusion().isPresent() && runtime instanceof RoomGameplayIntermissionProvider presentation) {
                         runtime.tick(slot.room(), gameTick);
+                        processBattalionLifecycle(slot,presentation);
                         presentation.synchronizeIntermissionPlayers(slot.room(), playerRespawnService, gameTick);
                     }
                 });
@@ -1317,8 +1325,10 @@ public final class RoomCoreService {
             slot.runtime().getRunningState().getGameplayRuntime()
                 .ifPresent(runtime -> {
                     runtime.tick(slot.room(), gameTick);
-                    if (runtime instanceof RoomGameplayIntermissionProvider provider)
+                    if (runtime instanceof RoomGameplayIntermissionProvider provider) {
+                        processBattalionLifecycle(slot,provider);
                         provider.synchronizeIntermissionPlayers(slot.room(), playerRespawnService, gameTick);
+                    }
                     runtime.pollMatchEndRequest().ifPresent(request -> beginMatchEnd(slot, request, gameTick));
                 });
             syncRunningHudIfDue(slot.room(), slot.runtime().getRunningState(), gameTick);
@@ -1330,20 +1340,32 @@ public final class RoomCoreService {
         if (!state.isGameplayCombatPaused()) return false;
         IRoomGameplayRuntime runtime = state.getGameplayRuntime().orElse(null);
         if (!(runtime instanceof RoomGameplayIntermissionProvider provider)) return false;
-        for (UUID id : List.copyOf(state.getRoomPlayers())) {
-            if (state.getActiveShellingRequest(id) != null)
-                shellingRuntimeService.abortShellingRequest(slot.room(), state, playerLaunchService.findOnlinePlayer(id), id,
-                    RoomShellingRuntimeService.AbortReason.ROOM_UNAVAILABLE);
-            ruleRuntimeService.clearPlayer(id);
-        }
+        processBattalionLifecycle(slot,provider);
+        for(UUID id:List.copyOf(state.getRoomPlayers()))ruleRuntimeService.clearPlayer(id);
         provider.synchronizeIntermissionPlayers(slot.room(), playerRespawnService, tick);
         runtime.tick(slot.room(), tick);
+        processBattalionLifecycle(slot,provider);
         provider.synchronizeIntermissionPlayers(slot.room(), playerRespawnService, tick);
         playerStateService.maintainRunningState(slot.room(), state, state.getRoomPlayers());
+        shellingRuntimeService.tickRoom(slot.room(),state,tick);
         if (provider.isDeploymentPreparation() || !provider.isCombatPaused()) playerRespawnService.tick(slot.room(), state, tick);
         runtime.pollMatchEndRequest().ifPresent(request -> beginMatchEnd(slot, request, tick));
         syncRunningHudIfDue(slot.room(), state, tick);
         return true;
+    }
+
+    private void processBattalionLifecycle(RoomRuntimeSlot<RoomRuntimeState> slot,RoomGameplayIntermissionProvider provider) {
+        var state=slot.runtime().getRunningState();
+        var actions=state.battalionLifecycle().advance(provider.intermissionSequenceId(),provider.intermissionPhase());
+        if(actions.begin())shellingRuntimeService.beginBattalionIntermission(slot.room(),state);
+        if(actions.cleanup()) {
+            vehicleRuntimeService.clearBattalionScene(slot.room());
+            org.mods.gd656conquest.server.compat.ragdoll.RagdollSubscriptions.clearBattalionBodies(server,slot.room(),state);
+        }
+        if(actions.deploy()) {
+            shellingRuntimeService.endBattalionIntermission(slot.room());
+            vehicleRuntimeService.prepareBattalionEntries(slot.room());
+        }
     }
 
     public void tickPlayerStates(long gameTick) {

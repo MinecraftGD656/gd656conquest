@@ -221,6 +221,10 @@ public final class ClientDownedState {
 
     public static void tick() {
         Minecraft minecraft = Minecraft.getInstance();
+        if (ClientBattalionBriefingState.isCinematicActive()) {
+            ClientDeathFlowState.setDownedBlackoutStrength(0.0F);
+            return;
+        }
         ClientDownedDeployState.tick();
         boolean beingRevived = isBeingRevivedLocked();
         if (!active || minecraft.player == null) {
