@@ -14,6 +14,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 public final class ClientDeathFlowState {
+    private static Vec3 cinematicIntroFocus;
     private static final float HURT_FLASH_DURATION_SECONDS = 0.2F;
     private static final float VISUAL_SMOOTH_SHARPNESS = 4.5F;
     private static final float DEATH_DESATURATION_LEVEL = 0.92F;
@@ -295,8 +296,27 @@ public final class ClientDeathFlowState {
         holdCinematicCameraAt(source.x, source.y, source.z, camera.getYRot(), camera.getXRot(),preserveScene);
     }
 
+    public static void pullBackCinematicCamera(int elapsedTicks) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) return;
+        Vec3 body = ClientDownedRagdollState.cameraAnchor();
+        Vec3 focus = body != null ? body.add(0, .75, 0) : mc.player.isSpectator()
+            ? mc.gameRenderer.getMainCamera().getPosition() : mc.player.getEyePosition();
+        var shot = org.mods.gd656conquest.common.match.BattalionIntroCamera.resolve(focus,
+            mc.gameRenderer.getMainCamera().getYRot(), ClientDownedCamera::clipCinematicPath);
+        holdCinematicCamera(true);
+        int remaining = org.mods.gd656conquest.common.match.BattalionSequence.INTRO_PULL_TICKS - elapsedTicks;
+        if (remaining > 0) {
+            travelCinematicCamera(shot.position().x, shot.position().y, shot.position().z, shot.yaw(), shot.pitch(), remaining);
+        } else {
+            setCameraPose(shot.position().x, shot.position().y, shot.position().z, shot.yaw(), shot.pitch(), true);
+        }
+        cinematicIntroFocus = focus;
+    }
+
     public static void holdCinematicCameraAt(double x,double y,double z,float yaw,float pitch){holdCinematicCameraAt(x,y,z,yaw,pitch,false);}
     private static void holdCinematicCameraAt(double x, double y, double z, float yaw, float pitch,boolean preserveScene) {
+        cinematicIntroFocus = null;
         ClientDownedCamera.handoffToDeployment();
         if(!preserveScene)DownedRagdollClientHooks.onDeployTransition();
         Minecraft mc = Minecraft.getInstance();
@@ -314,6 +334,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void travelCinematicCamera(double x, double y, double z, float yaw, float pitch, int ticks) {
+        cinematicIntroFocus = null;
         if (!active) holdCinematicCamera();
         travelFromX = currentCameraX; travelFromY = currentCameraY; travelFromZ = currentCameraZ;
         travelFromYaw = currentCameraYaw; travelFromPitch = currentCameraPitch;
@@ -409,6 +430,8 @@ public final class ClientDeathFlowState {
             return;
         }
         Vec3 position = getInterpolatedCameraPosition(partialTick);
+        if (cinematicIntroFocus != null && (phase == PHASE_CINEMATIC_TRAVEL || phase == PHASE_CINEMATIC_HOLD))
+            position = ClientDownedCamera.clipCinematicPath(cinematicIntroFocus, position);
         float yaw = getInterpolatedCameraYaw(partialTick);
         float pitch = getInterpolatedCameraPitch(partialTick);
         invokeCameraPosition(camera, position);
@@ -505,6 +528,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void clear() {
+        cinematicIntroFocus = null;
         ClientBattalionBriefingState.reset();
         ClientDownedCamera.onDeathFlowCleared();
         ClientDeathCauseState.hide();

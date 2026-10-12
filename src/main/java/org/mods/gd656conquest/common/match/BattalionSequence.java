@@ -8,7 +8,13 @@ public final class BattalionSequence {
     public static final int MASK_FADE_TICKS = 20;
     public static final int MASK_FADE_OUT_TICKS = 20;
     public static final int ASSAULT_ANNOUNCEMENT_TICKS = 100;
-    public static final int TEXT_FADE_IN_TICKS = 10;
+    public static final int INTRO_PULL_TICKS = 10;
+    public static final int RESULT_TITLE_START_TICKS = INTRO_PULL_TICKS + 20;
+    public static final int RESULT_SUBTITLE_START_TICKS = RESULT_TITLE_START_TICKS + 20;
+    public static final int TEXT_FADE_IN_TICKS = 6;
+    public static final int RESULT_EXIT_FLIGHT_TICKS = 80;
+    public static final int BOUNDARY_ENTRY_FLIGHT_TICKS = 80;
+    public static final int MASK_ENTRY_FLIGHT_TICKS = 120;
     public static final int RESULT_FADE_OUT_TICKS = 20;
     public static final int ANNOUNCEMENT_FADE_OUT_TICKS = 10;
     public static final int SECTOR_CHANGE_TICKS = 10;
@@ -100,18 +106,36 @@ public final class BattalionSequence {
         return clamp(elapsedTicks / MASK_FADE_TICKS);
     }
 
+    public static float briefingBoundaryAlpha(Phase phase, double elapsedTicks) {
+        return switch (phase) {
+            case TRAVEL_TO_BRIEFING -> clamp((elapsedTicks - BOUNDARY_ENTRY_FLIGHT_TICKS) / MASK_FADE_TICKS);
+            case BRIEFING -> 1;
+            case BRIEFING_FADE_OUT -> clamp(1 - elapsedTicks / MASK_FADE_OUT_TICKS);
+            default -> 0;
+        };
+    }
+
     public static float briefingMaskAlpha(Phase phase, double elapsedTicks) {
         return switch (phase) {
-            case BRIEFING -> maskAlpha(elapsedTicks);
+            case TRAVEL_TO_BRIEFING -> clamp((elapsedTicks - MASK_ENTRY_FLIGHT_TICKS) / MASK_FADE_TICKS);
+            case BRIEFING -> 1;
             case BRIEFING_FADE_OUT -> clamp(1 - elapsedTicks / MASK_FADE_OUT_TICKS);
             default -> 0;
         };
     }
 
     public static float resultAlpha(Phase phase, double elapsedTicks) {
+        return resultTextAlpha(phase, elapsedTicks, RESULT_TITLE_START_TICKS);
+    }
+
+    public static float resultSubtitleAlpha(Phase phase, double elapsedTicks) {
+        return resultTextAlpha(phase, elapsedTicks, RESULT_SUBTITLE_START_TICKS);
+    }
+
+    private static float resultTextAlpha(Phase phase, double elapsedTicks, int startTicks) {
         return switch (phase) {
-            case RESULT -> clamp(elapsedTicks / TEXT_FADE_IN_TICKS);
-            case TRAVEL_TO_BRIEFING -> clamp((BRIEFING_TRAVEL_TICKS - elapsedTicks) / RESULT_FADE_OUT_TICKS);
+            case RESULT -> clamp((elapsedTicks - startTicks) / TEXT_FADE_IN_TICKS);
+            case TRAVEL_TO_BRIEFING -> clamp(1 - (elapsedTicks - RESULT_EXIT_FLIGHT_TICKS) / RESULT_FADE_OUT_TICKS);
             default -> 0;
         };
     }
@@ -121,20 +145,24 @@ public final class BattalionSequence {
             clamp((ASSAULT_ANNOUNCEMENT_TICKS - elapsedTicks) / ANNOUNCEMENT_FADE_OUT_TICKS));
     }
 
-    public static String conclusionText(int battalion, int total, boolean selfAttacker, boolean attackersWon) {
+    public static String conclusionText(int battalion, int total, boolean selfAttacker, boolean attackersWon, int remainingDefenseLines) {
         if (attackersWon || battalion >= total) return selfAttacker == attackersWon ? "行动胜利" : "行动失败";
-        return remainingAssaultText(battalion, total);
+        return selfAttacker ? remainingAssaultText(battalion, total) : remainingDefenseText(remainingDefenseLines);
     }
 
     public static String remainingAssaultText(int battalion, int total) {
         int remaining = Math.max(0, total - battalion);
-        return remaining == 0 ? "" : remaining == 1 ? "最后攻势" : "还有" + remaining + "波攻势";
+        return remaining == 0 ? "" : remaining == 1 ? "最后攻势" : "剩余" + remaining + "轮攻势";
+    }
+
+    public static String remainingDefenseText(int remaining) {
+        return remaining <= 0 ? "" : remaining == 1 ? "最后防线" : "剩余" + remaining + "道防线";
     }
 
     /** Sector numbers are one-based; only fully secured sectors change ownership. */
     public static float capturedBlend(int sector, int capturedSectors, double elapsedTicks) {
         if (sector < 1 || sector > capturedSectors) return 0;
-        return clamp((elapsedTicks - MASK_FADE_TICKS - (sector - 1) * SECTOR_CHANGE_TICKS) / SECTOR_CHANGE_TICKS);
+        return elapsedTicks >= (sector - 1) * SECTOR_CHANGE_TICKS ? 1 : 0;
     }
 
     private static float clamp(double value) { return (float) Math.max(0, Math.min(1, value)); }

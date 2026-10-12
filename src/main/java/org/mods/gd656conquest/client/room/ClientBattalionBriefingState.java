@@ -43,7 +43,7 @@ public final class ClientBattalionBriefingState {
             || (mc.screen instanceof LoadoutConfigScreen config && !config.isRoomEditorTabOpen())) mc.setScreen(null);
         var view = next.view();
         switch (next.phase()) {
-            case RESULT -> ClientDeathFlowState.holdCinematicCamera(true);
+            case RESULT -> ClientDeathFlowState.pullBackCinematicCamera(ticks);
             case TRAVEL_TO_BRIEFING, TRAVEL_TO_DEPLOY -> {
                 if (view != null) ClientDeathFlowState.travelCinematicCamera(view.x() + .5, view.y(), view.z() + .5,
                     view.yaw(), view.pitch(), Math.max(1, next.durationTicks() - ticks));
@@ -81,7 +81,7 @@ public final class ClientBattalionBriefingState {
         return packet != null && packet.phase() != Phase.COMBAT && packet.phase() != Phase.PREPARATION && packet.phase() != Phase.FINISHED;
     }
     public static boolean showingBriefing() {
-        return packet != null && (packet.phase() == Phase.BRIEFING || packet.phase() == Phase.BRIEFING_FADE_OUT);
+        return packet != null && org.mods.gd656conquest.common.match.BattalionSequence.briefingBoundaryAlpha(packet.phase(), ticks + 1) > 0;
     }
     private static void restoreCameraType(){if(originalCameraType!=null){Minecraft.getInstance().options.setCameraType(originalCameraType);originalCameraType=null;}}
     public static void reset() {restoreCameraType(); ClientBriefingPlayback.reset(); packet = null; ticks = 0; level = null; }

@@ -461,6 +461,10 @@ public final class ClientDownedCamera {
         if (current != null && ownsCamera()) { fov=current.fov();event.setFOV(fov); }
         else { fov=baseFov;event.setFOV(fov); }
     }
+    static Vec3 clipCinematicPath(Vec3 from, Vec3 desired) {
+        return clip(from, desired);
+    }
+
     private static Vec3 clip(Vec3 from,Vec3 desired) {
         Minecraft mc=Minecraft.getInstance();
         if (from==null || mc.level==null) return desired;

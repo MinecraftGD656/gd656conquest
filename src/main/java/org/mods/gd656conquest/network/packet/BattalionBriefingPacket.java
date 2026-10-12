@@ -23,13 +23,21 @@ public record BattalionBriefingPacket(String roomId, long matchId, long sequence
         public static Sector attackerBase(List<RoomPosition> points) { return new Sector(ATTACKER_BASE_INDEX, points); }
         public static Sector defenderBase(List<RoomPosition> points) { return new Sector(DEFENDER_BASE_INDEX, points); }
 
+        public boolean visibleInBriefing() { return index != DEFENDER_BASE_INDEX; }
+
         public float attackerControl(Phase phase, int capturedSectors, double elapsedTicks) {
             if (index == ATTACKER_BASE_INDEX) return 1;
             if (index == DEFENDER_BASE_INDEX) return 0;
+            if (phase == Phase.TRAVEL_TO_BRIEFING || phase == Phase.RESULT) return 0;
             // Fade the completed snapshot; do not replay its ownership animation.
             double animationTicks = phase == Phase.BRIEFING_FADE_OUT ? BattalionSequence.MIN_BRIEFING_SECONDS * 20 : elapsedTicks;
             return BattalionSequence.capturedBlend(index, capturedSectors, animationTicks);
         }
+    }
+
+    public int remainingDefenseLines() {
+        int totalSectors = sectors.stream().mapToInt(Sector::index).filter(index -> index > 0).max().orElse(0);
+        return Math.max(0, totalSectors - capturedSectors);
     }
 
     public static void encode(BattalionBriefingPacket p, FriendlyByteBuf b) {

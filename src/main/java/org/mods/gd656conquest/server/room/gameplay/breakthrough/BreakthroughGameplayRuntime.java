@@ -209,7 +209,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         for (int stage = 1; stage <= runtimeState.getMaxStageCount(); stage++)
             sectors.add(new BattalionBriefingPacket.Sector(stage, room.breakthroughConfig().stageBoundary(stage)));
         sectors.add(BattalionBriefingPacket.Sector.attackerBase(room.breakthroughConfig().campABaseBoundary()));
-        sectors.add(BattalionBriefingPacket.Sector.defenderBase(room.breakthroughConfig().campBBaseBoundary()));
         briefingSectors = List.copyOf(sectors);
         runtimeState.clearDesperateMode();
         titleService.clearCountdownTitles(runningState, runtimeState);

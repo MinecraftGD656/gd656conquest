@@ -46,35 +46,28 @@ public final class ClientBattalionBriefingRenderer {
             drawTrackedCentered(gui, mc.font, title, width * .5F, height * .18F,
                 height * .070F / mc.font.lineHeight, 2.5F, alpha, width);
             drawTrackedCentered(gui, mc.font, sub, width * .5F, height * .268F,
-                height * .034F / mc.font.lineHeight, 1.5F, alpha, width);
-            return;
+                height * .034F / mc.font.lineHeight, 1.5F, BattalionSequence.resultSubtitleAlpha(p.phase(), elapsed), width);
         }
         if (p.phase() == Phase.NEXT_ASSAULT) {
-            drawTrackedCentered(gui, mc.font, BattalionSequence.conclusionText(p.battalion(), p.totalBattalions(), p.selfAttacker(), p.attackersWon()),
+            drawTrackedCentered(gui, mc.font, BattalionSequence.conclusionText(p.battalion(), p.totalBattalions(), p.selfAttacker(), p.attackersWon(), p.remainingDefenseLines()),
                 width * .5F, height * .385F, height * .049F / mc.font.lineHeight, 2.5F,
                 BattalionSequence.announcementAlpha(elapsed), width);
             return;
         }
-        if (p.phase() != Phase.BRIEFING && p.phase() != Phase.BRIEFING_FADE_OUT) return;
-        float fade = BattalionSequence.briefingMaskAlpha(p.phase(), elapsed);
-        if (fade <= 0) return;
-        int headingColor = (Math.round(255 * fade) << 24) | 0xFFFFFF;
-        if ((headingColor >>> 24) > 3)
-            gui.drawCenteredString(mc.font, "战况简报 · 第 " + p.battalion() + "/" + p.totalBattalions() + " 营", width / 2, 20, headingColor);
-        if (projection == null) return;
+        float boundaryFade = BattalionSequence.briefingBoundaryAlpha(p.phase(), elapsed);
+        float maskFade = BattalionSequence.briefingMaskAlpha(p.phase(), elapsed);
+        if (boundaryFade <= 0 || projection == null) return;
         for (var sector : p.sectors()) {
-            List<Point> points = new ArrayList<>();
-            for (var world : sector.points()) {
-                var point = ClientWorldHudProjectionSupport.projectToScreen(mc, projection, new Vec3(world.x() + .5, world.y(), world.z() + .5));
-                if (point == null) { points.clear(); break; }
-                points.add(new Point(point.screenX(), point.screenY()));
-            }
+            if (!sector.visibleInBriefing()) continue;
+            var polygon = sector.points().stream().map(world -> new Vec3(world.x() + .5, world.y(), world.z() + .5)).toList();
+            List<Point> points = org.mods.gd656conquest.common.match.BriefingPolygonProjection.project(polygon, projection, width, height)
+                .stream().map(point -> new Point(point.x(), point.y())).toList();
             if (points.size() < 3) continue;
             float blend = sector.attackerControl(p.phase(), p.capturedSectors(), elapsed);
             int from = p.selfAttacker() ? ENEMY : ALLY, to = p.selfAttacker() ? ALLY : ENEMY;
             int color = mix(from, to, blend);
-            fillPolygon(gui, points, color | (Math.round(255 * .28F * fade) << 24), width, height);
-            drawBorder(gui, points, color, fade);
+            if (maskFade > 0) fillPolygon(gui, points, color | (Math.round(255 * .28F * maskFade) << 24), width, height);
+            drawBorder(gui, points, color, boundaryFade);
         }
     }
 
