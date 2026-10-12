@@ -37,7 +37,7 @@ public final class ClientManualDeathDeployState {
     @SubscribeEvent public static void render(RenderGuiEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
         if (!MODEL.active() || !ClientDownedCamera.observingDeath() || mc.level != level
-            || mc.options == null || mc.options.hideGui) return;
+            || mc.options == null || mc.options.hideGui || ClientBattalionBriefingState.shouldHidePlayerHud()) return;
         int seconds = MODEL.seconds(now());
         ClientKillerCardState.renderConfirmedDeath(event.getGuiGraphics(), mc.font,
             seconds == 0 ? "已可部署" : "下一次部署 " + seconds + " 秒", seconds == 0);

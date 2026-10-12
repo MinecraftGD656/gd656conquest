@@ -28,5 +28,6 @@ public final class ClientRetreatState {
             CombatAreaWarningRenderer.render(gui, "撤退至下一区域", remainingTicks);
         }
     }
+    public static boolean isActive() { return remainingTicks > 0; }
     public static void reset() { remainingTicks = 0; level = null; player = null; }
 }

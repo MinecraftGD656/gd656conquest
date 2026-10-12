@@ -35,11 +35,6 @@ public record BattalionBriefingPacket(String roomId, long matchId, long sequence
         }
     }
 
-    public int remainingDefenseLines() {
-        int totalSectors = sectors.stream().mapToInt(Sector::index).filter(index -> index > 0).max().orElse(0);
-        return Math.max(0, totalSectors - capturedSectors);
-    }
-
     public static void encode(BattalionBriefingPacket p, FriendlyByteBuf b) {
         b.writeUtf(p.roomId); b.writeLong(p.matchId); b.writeLong(p.sequenceId); b.writeEnum(p.phase);
         b.writeInt(p.durationTicks); b.writeInt(p.elapsedTicks); b.writeInt(p.battalion);

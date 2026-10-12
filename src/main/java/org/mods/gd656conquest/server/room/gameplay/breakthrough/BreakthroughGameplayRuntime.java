@@ -1,5 +1,7 @@
 package org.mods.gd656conquest.server.room.gameplay.breakthrough;
 
+import org.mods.gd656conquest.common.match.OperationsAttackTimer;
+
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayOperationsConclusionProvider;
 import org.mods.gd656conquest.common.match.OperationsConclusion;
 import org.mods.gd656conquest.common.match.BattalionSequence;
@@ -102,7 +104,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private final Map<java.util.UUID, String> endingSubtitleByPlayer = new LinkedHashMap<>();
     private final Map<java.util.UUID, String> retreatSubtitleByPlayer = new LinkedHashMap<>();
     private final Map<java.util.UUID, String> finalSegmentSubtitleByPlayer = new LinkedHashMap<>();
-    private final Map<java.util.UUID, String> desperateSubtitleByPlayer = new LinkedHashMap<>();
     private final Set<java.util.UUID> retreatMarkedDefenders = new LinkedHashSet<>();
 
     private final BattalionSequence battalions = new BattalionSequence();
@@ -130,8 +131,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private long enteredTick = -1L;
     private RoomMatchEndRequest pendingEndRequest;
     private boolean initialCombatSubtitleDispatched;
-    private boolean attackTroopHalfSubtitleDispatched;
-    private boolean attackTroopCriticalSubtitleDispatched;
 
     public BreakthroughGameplayRuntime(
         RunningRuntimeState runningState,
@@ -152,8 +151,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         finalConclusion = null;
         settlementRequested = false;
         initialCombatSubtitleDispatched = false;
-        attackTroopHalfSubtitleDispatched = false;
-        attackTroopCriticalSubtitleDispatched = false;
         runtimeState.initialize(room == null ? null : room.breakthroughConfig(), enteredTick);
         activeBattalionConfig = room.breakthroughConfig().battalionConfig();
         battalions.initialize(activeBattalionConfig.count());
@@ -165,7 +162,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         initializeObjectiveSubtitles(room);
         clearRetreatDefenderMarkers(room, gameTick);
         clearRetreatPersistentSubtitles();
-        clearDesperatePersistentSubtitles();
     }
 
     @Override public BattalionSequence.Phase intermissionPhase(){return battalions.phase();}
@@ -215,7 +211,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         titleService.clearRetreatTitles(runningState, runtimeState);
         clearRetreatDefenderMarkers(room, tick);
         clearRetreatPersistentSubtitles();
-        clearDesperatePersistentSubtitles();
         clearFinalSegmentPersistentSubtitles();
         objectiveSubtitleRuntimeService.resetAllPlayers(objectiveSubtitleState, runningState);
         for (java.util.UUID id : List.copyOf(runningState.getRoomPlayers())) {
@@ -253,7 +248,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             initializeAttackTroopCapForOpeningStage(room);
             battalionStartStage = runtimeState.getCurrentStageIndex();
             battalionStartTick = battalions.deadline();
-            attackTroopHalfSubtitleDispatched = attackTroopCriticalSubtitleDispatched = false;
             initializeObjectiveSubtitles(room);
         }
         if (battalions.phase() == BattalionSequence.Phase.COMBAT) {
@@ -320,7 +314,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             return;
         }
         syncCombatNarrativeSubtitles(room, gameTick);
-        syncDesperatePersistentSubtitles();
         syncFinalSegmentPersistentSubtitles();
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT) {
             captureRuntimeService.tick(room, runningState, runtimeState, gameTick);
@@ -409,14 +402,11 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         objectiveSubtitleRuntimeService.resetAllPlayers(objectiveSubtitleState, runningState);
         clearRetreatDefenderMarkers(room, gameTick);
         clearRetreatPersistentSubtitles();
-        clearDesperatePersistentSubtitles();
         clearFinalSegmentPersistentSubtitles();
         endingSubtitleByPlayer.clear();
         enteredTick = -1L;
         pendingEndRequest = null;
         initialCombatSubtitleDispatched = false;
-        attackTroopHalfSubtitleDispatched = false;
-        attackTroopCriticalSubtitleDispatched = false;
         for (java.util.UUID id : List.copyOf(runningState.getRoomPlayers())) {
             ServerPlayer player = captureRuntimeService.findOnlinePlayer(id);
             if (player != null) NetworkManager.sendToPlayer(player, new BattalionBriefingPacket(
@@ -712,10 +702,10 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         Integer stageIndex = normalizeVehicleStageIndex(record);
         int currentStageIndex = runtimeState.getCurrentStageIndex();
         if (stageIndex == null) {
-            return "该载具未配置阶段，当前无法在突破模式部署";
+            return "该载具未配置阶段，当前无法在行动模式部署";
         }
         if (currentStageIndex <= 0) {
-            return "突破模式阶段尚未开始，当前无法部署载具";
+            return "行动模式阶段尚未开始，当前无法部署载具";
         }
         if (stageIndex > currentStageIndex) {
             return "该载具将在后续阶段开放";
@@ -848,9 +838,11 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private int resolveRemainSeconds(long gameTick) {
+        // Hide the HUD clock for the whole unlimited stage, including zero-troop contest.
+        if (!OperationsAttackTimer.isLimited(runtimeState.getStageDeadlineTick())) return OperationsAttackTimer.HIDDEN;
         if (battalions.active()) return (battalions.remaining(gameTick) + 19) / 20;
         if (runtimeState.isDesperateModeActive()) {
-            return -1;
+            return OperationsAttackTimer.CONTEST;
         }
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN) {
             long deadline = runtimeState.getAdvanceCountdownEndTick();
@@ -860,21 +852,13 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             long deadline = runtimeState.getRetreatDeadlineTick();
             return deadline <= 0L || gameTick >= deadline ? 0 : (int) Math.max(0L, (deadline - gameTick + 19L) / 20L);
         }
-        long deadline = runtimeState.getStageDeadlineTick();
-        if (deadline == Long.MAX_VALUE) return -1;
-        if (deadline <= 0L || gameTick >= deadline) {
-            return 0;
-        }
-        return (int) Math.max(0L, (deadline - gameTick + 19L) / 20L);
+        return OperationsAttackTimer.combatRemainingSeconds(runtimeState.getStageDeadlineTick(), gameTick, false);
     }
 
     private String resolveTopStatus(boolean inDeployFlow, long gameTick) {
         if (battalions.active()) return isDeploymentPreparation() ? "下一营部署准备中" : "战况简报";
         if (runtimeState.getCurrentStageIndex() <= 0) {
             return "等待阶段初始化";
-        }
-        if (runtimeState.isDesperateModeActive()) {
-            return hudStyledText("BT_LAST_STAND_STATUS", "零兵力争夺");
         }
         String stageLabel = stageLabel(runtimeState.getCurrentStageIndex());
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) {
@@ -1002,35 +986,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             );
             initialCombatSubtitleDispatched = true;
         }
-        if (enteredTick <= 0L || gameTick < enteredTick) {
-            return;
-        }
-        syncAttackTroopThresholdSubtitles(gameTick);
-    }
-
-    private void syncAttackTroopThresholdSubtitles(long gameTick) {
-        if (runtimeState.getAttackTroopCap() <= 0 || runtimeState.isDesperateModeActive()) {
-            return;
-        }
-        double ratio = runtimeState.getAttackTroops() / (double) runtimeState.getAttackTroopCap();
-        if (!attackTroopCriticalSubtitleDispatched && ratio <= 0.2D) {
-            broadcastStageTransitionSubtitle(
-                "bt_attack_troops_critical_" + gameTick,
-                "我军仅剩20%兵力",
-                "敌军仅剩20%兵力"
-            );
-            attackTroopCriticalSubtitleDispatched = true;
-            attackTroopHalfSubtitleDispatched = true;
-            return;
-        }
-        if (!attackTroopHalfSubtitleDispatched && ratio <= 0.5D) {
-            broadcastStageTransitionSubtitle(
-                "bt_attack_troops_half_" + gameTick,
-                "我方还有50%兵力",
-                "敌军还有50%兵力"
-            );
-            attackTroopHalfSubtitleDispatched = true;
-        }
     }
 
     private void completeCapturedSector(RoomDefinition room, long gameTick) {
@@ -1038,7 +993,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         int reward = runtimeState.rewardSectorCapture(balance.troopCap(), balance.stageReward());
         runtimeState.markStageReward(gameTick, reward, Math.min(runtimeState.getMaxStageCount(), runtimeState.getCurrentStageIndex() + 1));
         runtimeState.clearDesperateMode();
-        clearDesperatePersistentSubtitles();
         broadcastStageTroopDeltaSubtitle(gameTick);
     }
 
@@ -1305,13 +1259,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (runtimeState.getCurrentStageIndex() <= 0) {
             return "-";
         }
-        if (runtimeState.isDesperateModeActive()) {
-            String teamEvent = runtimeState.resolveTeamEvent(selfTeam, gameTick);
-            if (!"-".equals(teamEvent)) {
-                return teamEvent;
-            }
-            return resolveDesperateEventText();
-        }
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) {
             int defenders = runtimeState.retreatRoster().size();
             return resolveRetreatPersistentSubtitle(selfTeam, defenders);
@@ -1531,47 +1478,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             runtimeState.startZeroTroopContest();
             clearFinalSegmentPersistentSubtitles();
         }
-        syncDesperatePersistentSubtitles();
-    }
-
-    private void syncDesperatePersistentSubtitles() {
-        boolean active = runtimeState.isDesperateModeActive();
-        for (java.util.UUID playerId : runningState.getRoomPlayers()) {
-            ServerPlayer player = captureRuntimeService.findOnlinePlayer(playerId);
-            if (player == null) {
-                desperateSubtitleByPlayer.remove(playerId);
-                continue;
-            }
-            String desired = active ? resolveDesperateEventText() : "";
-            String previous = desperateSubtitleByPlayer.getOrDefault(playerId, "");
-            if (desired.equals(previous)) {
-                continue;
-            }
-            if (desired.isBlank()) {
-                NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.clearPersistent("bt_desperate_mode"));
-                desperateSubtitleByPlayer.remove(playerId);
-                continue;
-            }
-            NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.setPersistent("bt_desperate_mode", desired));
-            desperateSubtitleByPlayer.put(playerId, desired);
-        }
-    }
-
-    private void clearDesperatePersistentSubtitles() {
-        for (java.util.UUID playerId : new LinkedHashSet<>(desperateSubtitleByPlayer.keySet())) {
-            ServerPlayer player = captureRuntimeService.findOnlinePlayer(playerId);
-            if (player != null) {
-                NetworkManager.sendToPlayer(player, RoomHudSubtitlePacket.clearPersistent("bt_desperate_mode"));
-            }
-        }
-        desperateSubtitleByPlayer.clear();
-    }
-
-
-
-    private String resolveDesperateEventText() {
-        return runtimeState.isDesperateModeActive()
-            ? hudStyledText("BT_LAST_STAND_PERSISTENT", "零兵力争夺") : "-";
     }
 
     private String hudStyledText(String style, String text) {

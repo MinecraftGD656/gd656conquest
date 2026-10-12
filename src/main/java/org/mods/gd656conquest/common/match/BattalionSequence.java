@@ -16,7 +16,8 @@ public final class BattalionSequence {
     public static final int BOUNDARY_ENTRY_FLIGHT_TICKS = 80;
     public static final int MASK_ENTRY_FLIGHT_TICKS = 120;
     public static final int RESULT_FADE_OUT_TICKS = 20;
-    public static final int ANNOUNCEMENT_FADE_OUT_TICKS = 10;
+    public static final int ANNOUNCEMENT_FADE_IN_TICKS = 2;
+    public static final int ANNOUNCEMENT_FADE_OUT_TICKS = 2;
     public static final int SECTOR_CHANGE_TICKS = 10;
     public static final int MIN_BRIEFING_SECONDS = 8;
 
@@ -141,18 +142,27 @@ public final class BattalionSequence {
     }
 
     public static float announcementAlpha(double elapsedTicks) {
-        return Math.min(clamp(elapsedTicks / TEXT_FADE_IN_TICKS),
+        return Math.min(clamp(elapsedTicks / ANNOUNCEMENT_FADE_IN_TICKS),
             clamp((ASSAULT_ANNOUNCEMENT_TICKS - elapsedTicks) / ANNOUNCEMENT_FADE_OUT_TICKS));
     }
 
-    public static String conclusionText(int battalion, int total, boolean selfAttacker, boolean attackersWon, int remainingDefenseLines) {
+    public static String resultTitle(boolean selfAttacker, boolean attackersWon) {
+        return selfAttacker == attackersWon ? "我们赢了" : "我们输了";
+    }
+
+    public static String resultSubtitle(boolean selfAttacker, boolean attackersWon) {
+        return attackersWon ? (selfAttacker ? "已拿下所有区域" : "所有区域皆已沦陷")
+            : (selfAttacker ? "无法拿下本区域" : "成功防守本区域");
+    }
+
+    public static String conclusionText(int battalion, int total, boolean selfAttacker, boolean attackersWon) {
         if (attackersWon || battalion >= total) return selfAttacker == attackersWon ? "行动胜利" : "行动失败";
-        return selfAttacker ? remainingAssaultText(battalion, total) : remainingDefenseText(remainingDefenseLines);
+        return selfAttacker ? remainingAssaultText(battalion, total) : remainingDefenseText(Math.max(0, total - battalion));
     }
 
     public static String remainingAssaultText(int battalion, int total) {
         int remaining = Math.max(0, total - battalion);
-        return remaining == 0 ? "" : remaining == 1 ? "最后攻势" : "剩余" + remaining + "轮攻势";
+        return remaining == 0 ? "" : remaining == 1 ? "最后攻势" : "剩余" + remaining + "轮进攻";
     }
 
     public static String remainingDefenseText(int remaining) {

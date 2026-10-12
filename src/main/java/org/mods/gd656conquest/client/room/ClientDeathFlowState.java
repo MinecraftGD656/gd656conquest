@@ -528,6 +528,7 @@ public final class ClientDeathFlowState {
     }
 
     public static void clear() {
+        ClientCombatCountdownState.reset();
         cinematicIntroFocus = null;
         ClientBattalionBriefingState.reset();
         ClientDownedCamera.onDeathFlowCleared();

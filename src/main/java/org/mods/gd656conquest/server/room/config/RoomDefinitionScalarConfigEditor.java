@@ -114,7 +114,7 @@ public final class RoomDefinitionScalarConfigEditor {
         if (stageCode != null) {
             return updateBreakthroughPoint(definition, stageCode, point -> point.withStageIndex(parsePositiveInt(rawValue)));
         }
-        throw new IllegalArgumentException("不支持的动态突破配置项: " + configId);
+        throw new IllegalArgumentException("不支持的动态行动配置项: " + configId);
     }
 
     private static RoomDefinition clearDynamicBreakthroughPoint(RoomDefinition definition, String configId) {
@@ -133,7 +133,7 @@ public final class RoomDefinitionScalarConfigEditor {
             RoomCapturePointDefinition defaults = defaultBreakthroughPoint(stageCode);
             return updateBreakthroughPoint(definition, stageCode, point -> point.withStageIndex(defaults.stageIndex()));
         }
-        throw new IllegalArgumentException("不支持的动态突破配置项: " + configId);
+        throw new IllegalArgumentException("不支持的动态行动配置项: " + configId);
     }
 
     private static RoomDefinition updateConquestPoint(

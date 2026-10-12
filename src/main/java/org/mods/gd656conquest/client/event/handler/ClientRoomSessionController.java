@@ -241,6 +241,14 @@ final class ClientRoomSessionController {
         }
         double mouseX = minecraft.mouseHandler.xpos() * minecraft.getWindow().getGuiScaledWidth() / Math.max(1, minecraft.getWindow().getScreenWidth());
         double mouseY = minecraft.mouseHandler.ypos() * minecraft.getWindow().getGuiScaledHeight() / Math.max(1, minecraft.getWindow().getScreenHeight());
+        // UI hit testing precedes gun/input locks; the click is still consumed before reaching combat.
+        if (event.getAction() == GLFW.GLFW_PRESS && event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && handleCornerActionButtonsClick(mouseX, mouseY, event.getButton())) {
+            if (event.isCancelable()) {
+                event.setCanceled(true);
+            }
+            TaczClientInputCompat.clearTransientCombatState(minecraft);
+            return true;
+        }
         if (event.getAction() == GLFW.GLFW_PRESS
             && event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT
             && ClientDownedState.handleLeftClick()) {
@@ -266,12 +274,6 @@ final class ClientRoomSessionController {
             return true;
         }
         if (!allowReleasedMouseUiClick && shouldBlockGameplayMouseInput(minecraft)) {
-            if (event.isCancelable()) {
-                event.setCanceled(true);
-            }
-            return true;
-        }
-        if (event.getAction() == GLFW.GLFW_PRESS && event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && handleCornerActionButtonsClick(mouseX, mouseY, event.getButton())) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }

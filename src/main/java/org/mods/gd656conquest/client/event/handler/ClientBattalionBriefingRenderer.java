@@ -38,18 +38,16 @@ public final class ClientBattalionBriefingRenderer {
         int width = mc.getWindow().getGuiScaledWidth(), height = mc.getWindow().getGuiScaledHeight();
         double elapsed = ClientBattalionBriefingState.elapsed(partialTick);
         if (p.phase() == Phase.RESULT || p.phase() == Phase.TRAVEL_TO_BRIEFING) {
-            boolean won = p.selfAttacker() == p.attackersWon();
             float alpha = BattalionSequence.resultAlpha(p.phase(), elapsed);
-            String title = won ? "我们赢了" : "我们输了";
-            String sub = p.attackersWon() ? (p.selfAttacker() ? "成功拿下全部区域" : "无法守住本区域")
-                : p.selfAttacker() ? "无法拿下本区域" : "成功防守本区域";
+            String title = BattalionSequence.resultTitle(p.selfAttacker(), p.attackersWon());
+            String sub = BattalionSequence.resultSubtitle(p.selfAttacker(), p.attackersWon());
             drawTrackedCentered(gui, mc.font, title, width * .5F, height * .18F,
                 height * .070F / mc.font.lineHeight, 2.5F, alpha, width);
             drawTrackedCentered(gui, mc.font, sub, width * .5F, height * .268F,
                 height * .034F / mc.font.lineHeight, 1.5F, BattalionSequence.resultSubtitleAlpha(p.phase(), elapsed), width);
         }
         if (p.phase() == Phase.NEXT_ASSAULT) {
-            drawTrackedCentered(gui, mc.font, BattalionSequence.conclusionText(p.battalion(), p.totalBattalions(), p.selfAttacker(), p.attackersWon(), p.remainingDefenseLines()),
+            drawTrackedCentered(gui, mc.font, BattalionSequence.conclusionText(p.battalion(), p.totalBattalions(), p.selfAttacker(), p.attackersWon()),
                 width * .5F, height * .385F, height * .049F / mc.font.lineHeight, 2.5F,
                 BattalionSequence.announcementAlpha(elapsed), width);
             return;

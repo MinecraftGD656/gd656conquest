@@ -124,7 +124,7 @@ final class RoomConfigBindingAccess {
             throw new IllegalArgumentException("当前房间玩法不是 conquest，无法写入征服配置");
         }
         if ("breakthroughConfig".equals(alias) && !RoomGameplayId.BREAKTHROUGH.equals(definition.gameplayId())) {
-            throw new IllegalArgumentException("当前房间玩法不是 breakthrough，无法写入突破配置");
+            throw new IllegalArgumentException("当前房间玩法不是 breakthrough，无法写入行动配置");
         }
         if (isArenaGameplayAlias(alias) && !definition.isArenaGameplay()) {
             throw new IllegalArgumentException("当前房间玩法不是竞技场模式，无法写入该配置");

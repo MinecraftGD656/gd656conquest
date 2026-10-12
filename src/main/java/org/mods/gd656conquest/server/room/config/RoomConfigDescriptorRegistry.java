@@ -75,7 +75,8 @@ public final class RoomConfigDescriptorRegistry {
 
     public static boolean appliesTo(RoomDefinition room, RoomConfigDescriptor descriptor) {
         return room == null || !RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())
-            || !"commonConfig.resultConfig.endViewPosition".equals(descriptor.newPath());
+            || (!"commonConfig.resultConfig.endViewPosition".equals(descriptor.newPath())
+                && !"drawDurationMinutes".equals(descriptor.configId()));
     }
 
     public static List<String> suggestionValues(String configIdOrAlias) {
@@ -202,7 +203,7 @@ public final class RoomConfigDescriptorRegistry {
         conquest(descriptors, RoomConfigCategory.CAPTURE, "initialCaptureOwnership", "初始据点归属", "conquestConfig.captureConfig.initialCaptureOwnership", RoomConfigValueType.STRING, List.of("EMPTY", "CAMP_A", "CAMP_B"));
         descriptors.add(new RoomConfigDescriptor("capturePoints", RoomConfigScope.CONQUEST, RoomConfigCategory.CAPTURE, "征服据点列表", "conquestConfig.captureConfig.points", RoomConfigValueType.DATA_GROUP, List.of(), List.of(), RoomConfigGroupOperationMode.ADD_DEL_LIST, null, false));
 
-        breakthrough(descriptors, RoomConfigCategory.CAPTURE, "btMapID", "突破地图ID", "breakthroughConfig.mapId", RoomConfigValueType.STRING, List.of());
+        breakthrough(descriptors, RoomConfigCategory.CAPTURE, "btMapID", "行动地图ID", "breakthroughConfig.mapId", RoomConfigValueType.STRING, List.of());
         breakthrough(descriptors, RoomConfigCategory.CAPTURE, "btCampADisplayName", "进攻方名称", "breakthroughConfig.campADisplayName", RoomConfigValueType.STRING, List.of());
         breakthrough(descriptors, RoomConfigCategory.CAPTURE, "btCampBDisplayName", "防守方名称", "breakthroughConfig.campBDisplayName", RoomConfigValueType.STRING, List.of());
         breakthrough(descriptors, RoomConfigCategory.ROOM, "btStageCount", "阶段数量", "breakthroughConfig.stageCount", RoomConfigValueType.NUMBER, List.of());
@@ -224,15 +225,15 @@ public final class RoomConfigDescriptorRegistry {
         breakthrough(descriptors, RoomConfigCategory.TRANSPORT, "btStageDeployViewD", "D阶段部署视角", "breakthroughConfig.stageDDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
         breakthrough(descriptors, RoomConfigCategory.TRANSPORT, "btStageDeployViewE", "E阶段部署视角", "breakthroughConfig.stageEDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
         breakthrough(descriptors, RoomConfigCategory.TRANSPORT, "btStageDeployViewF", "F阶段部署视角", "breakthroughConfig.stageFDeployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
-        breakthroughGroup(descriptors, RoomConfigCategory.TRANSPORT, "btAmmoBoxPositions", "突破对局弹药箱数据组", "breakthroughConfig.ammoBoxPositions", RoomConfigValueType.POSITION_GROUP);
-        breakthroughGroup(descriptors, RoomConfigCategory.TRANSPORT, "btMedicalBoxPositions", "突破对局医疗箱数据组", "breakthroughConfig.medicalBoxPositions", RoomConfigValueType.POSITION_GROUP);
+        breakthroughGroup(descriptors, RoomConfigCategory.TRANSPORT, "btAmmoBoxPositions", "行动对局弹药箱数据组", "breakthroughConfig.ammoBoxPositions", RoomConfigValueType.POSITION_GROUP);
+        breakthroughGroup(descriptors, RoomConfigCategory.TRANSPORT, "btMedicalBoxPositions", "行动对局医疗箱数据组", "breakthroughConfig.medicalBoxPositions", RoomConfigValueType.POSITION_GROUP);
         breakthrough(descriptors, RoomConfigCategory.TRANSPORT, "btBriefingViewPosition", "战况简报位置与角度", "breakthroughConfig.battalionConfig.briefingViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
         breakthrough(descriptors, RoomConfigCategory.RESULT, "btSettlementTiming", "行动结算触发时机", "breakthroughConfig.battalionConfig.settlementTiming", RoomConfigValueType.STRING, OperationsSettlementTiming.suggestions());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btBattalionCount", "进攻营总数(1-10)", "breakthroughConfig.battalionConfig.count", RoomConfigValueType.NUMBER, List.of("3"));
         breakthrough(descriptors, RoomConfigCategory.RULES, "btBriefingTimeline", "战况时间轴", "breakthroughConfig.battalionConfig.timelines", RoomConfigValueType.EDITOR, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btBriefingSeconds", "战况简报持续秒数(8-600)", "breakthroughConfig.battalionConfig.briefingSeconds", RoomConfigValueType.NUMBER, List.of("20"));
         breakthrough(descriptors, RoomConfigCategory.RULES, "btPreparationSeconds", "营切换部署准备秒数(1-300)", "breakthroughConfig.battalionConfig.preparationSeconds", RoomConfigValueType.NUMBER, List.of("10"));
-        breakthrough(descriptors, RoomConfigCategory.RULES, "btStageDurationMinutes", "阶段持续分钟", "breakthroughConfig.stageDurationMinutes", RoomConfigValueType.NUMBER, List.of());
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btStageDurationMinutes", "进攻方进攻时间（分钟，0为无限）", "breakthroughConfig.stageDurationMinutes", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btDefenderRetreatSeconds", "防守方撤退秒数", "breakthroughConfig.defenderRetreatSeconds", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopGainPerDefenderKill", "击杀撤退守军补充兵力", "breakthroughConfig.troopGainPerDefenderKill", RoomConfigValueType.NUMBER, List.of("3"));
         breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopsPerPlayer", "每人提供兵力数", "breakthroughConfig.troopsPerPlayer", RoomConfigValueType.NUMBER, List.of("20"));
@@ -443,13 +444,13 @@ public final class RoomConfigDescriptorRegistry {
             };
         }
         return switch (kind) {
-            case "display" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureDisplayName_" + code, "突破据点 " + code + " 名称", "breakthroughConfig.points[" + code + "].displayName", RoomConfigValueType.STRING, List.of("ALPHA", "BRAVO", "CHARLIE"), false, RoomConfigGroupOperationMode.NONE, null, "btCaptureName_" + code);
-            case "center" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureCenterPosition_" + code, "突破据点 " + code + " 中心点", "breakthroughConfig.points[" + code + "].centerPosition", RoomConfigValueType.POSITION, List.of("here"), false, RoomConfigGroupOperationMode.NONE, null, "btCaptureCenter_" + code);
-            case "inner" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureInnerSpawnGroup_" + code, "突破据点 " + code + " 内圈出生组", "breakthroughConfig.points[" + code + "].innerSpawnGroup", RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "btCaptureSpawns_" + code, "btCaptureRespawn_" + code);
-            case "stage" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureStageIndex_" + code, "突破据点 " + code + " 阶段", "breakthroughConfig.points[" + code + "].stageIndex", RoomConfigValueType.NUMBER, List.of("1", "2", "3", "4", "5", "6"), false, RoomConfigGroupOperationMode.NONE, null, "btCaptureStage_" + code);
-            case "outerA" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureCampAOuterSpawnGroup_" + code, "突破据点 " + code + " 攻方外圈出生组", "breakthroughConfig.points[" + code + "].teamOuterSpawnGroups[CAMP_A]", RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "btCaptureCampAOuterSpawns_" + code, "btCaptureAttackerSpawns_" + code);
-            case "outerB" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureCampBOuterSpawnGroup_" + code, "突破据点 " + code + " 守方外圈出生组", "breakthroughConfig.points[" + code + "].teamOuterSpawnGroups[CAMP_B]", RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "btCaptureCampBOuterSpawns_" + code, "btCaptureDefenderSpawns_" + code);
-            default -> throw new IllegalArgumentException("未知动态突破配置类型: " + kind);
+            case "display" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureDisplayName_" + code, "行动据点 " + code + " 名称", "breakthroughConfig.points[" + code + "].displayName", RoomConfigValueType.STRING, List.of("ALPHA", "BRAVO", "CHARLIE"), false, RoomConfigGroupOperationMode.NONE, null, "btCaptureName_" + code);
+            case "center" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureCenterPosition_" + code, "行动据点 " + code + " 中心点", "breakthroughConfig.points[" + code + "].centerPosition", RoomConfigValueType.POSITION, List.of("here"), false, RoomConfigGroupOperationMode.NONE, null, "btCaptureCenter_" + code);
+            case "inner" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureInnerSpawnGroup_" + code, "行动据点 " + code + " 内圈出生组", "breakthroughConfig.points[" + code + "].innerSpawnGroup", RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "btCaptureSpawns_" + code, "btCaptureRespawn_" + code);
+            case "stage" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureStageIndex_" + code, "行动据点 " + code + " 阶段", "breakthroughConfig.points[" + code + "].stageIndex", RoomConfigValueType.NUMBER, List.of("1", "2", "3", "4", "5", "6"), false, RoomConfigGroupOperationMode.NONE, null, "btCaptureStage_" + code);
+            case "outerA" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureCampAOuterSpawnGroup_" + code, "行动据点 " + code + " 攻方外圈出生组", "breakthroughConfig.points[" + code + "].teamOuterSpawnGroups[CAMP_A]", RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "btCaptureCampAOuterSpawns_" + code, "btCaptureAttackerSpawns_" + code);
+            case "outerB" -> descriptor(scope, RoomConfigCategory.CAPTURE, "btCaptureCampBOuterSpawnGroup_" + code, "行动据点 " + code + " 守方外圈出生组", "breakthroughConfig.points[" + code + "].teamOuterSpawnGroups[CAMP_B]", RoomConfigValueType.DATA_GROUP, List.of(), false, RoomConfigGroupOperationMode.ADD_DEL_LIST, null, "btCaptureCampBOuterSpawns_" + code, "btCaptureDefenderSpawns_" + code);
+            default -> throw new IllegalArgumentException("未知动态行动配置类型: " + kind);
         };
     }
 

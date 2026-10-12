@@ -1,6 +1,8 @@
 package org.mods.gd656conquest.client.hud;
 
 import org.mods.gd656conquest.client.audio.ClientAudioManager;
+import org.mods.gd656conquest.common.match.OperationsHudText;
+import org.mods.gd656conquest.common.match.OperationsAttackTimer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -12,6 +14,8 @@ import java.util.Locale;
 import java.util.ArrayList;
 
 public final class ClientHudRenderer {
+    private static final float OPERATIONS_NOTICE_SCALE = 1.15F;
+    private static final int OPERATIONS_NOTICE_Y_OFFSET = 14;
     private static final int GUNMASTER_BAR_HEIGHT = 7;
     private static final int GUNMASTER_EDGE_BAR_HEIGHT = 9;
     private static final int GUNMASTER_BAR_GAP = 3;
@@ -109,16 +113,6 @@ public final class ClientHudRenderer {
 
     private void drawBreakthroughPreview(GuiGraphics gui, Font font, int centerX, int y, String previewMode) {
         drawBreakthroughPreviewTopLine(gui, font, centerX, y, previewMode);
-        String subtitle = resolveBreakthroughPreviewSubtitle(previewMode);
-        if (!subtitle.isBlank()) {
-            int subtitleY = 43;
-            if (previewMode.startsWith("GUNMASTER")) {
-                subtitleY = 26;
-            } else if (previewMode.startsWith("DEATHMATCH")) {
-                subtitleY = 25;
-            }
-            ClientHudSubtitleManager.renderPreviewText(gui, font, centerX, subtitleY, subtitle);
-        }
     }
 
     private void drawTopScoreLine(GuiGraphics gui, Font font, int centerX, int y) {
@@ -181,19 +175,24 @@ public final class ClientHudRenderer {
         boolean selfCampB = selfTeam != null && (selfTeam.contains("CampB") || selfTeam.contains("阵营B"));
         int themePrimary = selfCampB ? 0xFFFF4A4A : 0xFF4A96FF;
         int themeText = selfCampB ? 0xFFFF9B9B : 0xFF9BC2FF;
-        int displaySeconds = resolveTopCenterSeconds();
-        int minute = displaySeconds / 60;
-        int second = displaySeconds % 60;
-        String timeText = ClientHudDebugState.getRemainSeconds() < 0 ? "--:--"
-            : String.format(Locale.ROOT, "%02d:%02d", minute, second);
+        String timeText = OperationsAttackTimer.text(ClientHudDebugState.getRemainSeconds());
         int timeColor = resolveBreakthroughTimerColor();
         String leftText = infiniteTroops ? "∞" : String.valueOf(attackTroops);
         String rightText = "区域" + stageLetter(stageIndex);
         String[] battalionPayload = ClientHudDebugState.getExtraPayload().split("\\|");
-        if (battalionPayload.length == 3 && "BATTALION".equals(battalionPayload[0]))
-            rightText += " · " + battalionPayload[1] + "/" + battalionPayload[2] + "营";
+        int battalion = 0, totalBattalions = 0;
+        if (battalionPayload.length == 3 && "BATTALION".equals(battalionPayload[0])) {
+            try {
+                battalion = Integer.parseInt(battalionPayload[1]);
+                totalBattalions = Integer.parseInt(battalionPayload[2]);
+            } catch (NumberFormatException ignored) {
+                battalion = totalBattalions = 0;
+            }
+            if (battalion > 0 && totalBattalions >= battalion)
+                rightText += " · " + battalion + "/" + totalBattalions + "营";
+        }
         int timeWidth = font.width(timeText);
-        int timeHalf = Math.max(28, timeWidth / 2 + 6);
+        int timeHalf = timeText.isEmpty() ? 8 : Math.max(28, timeWidth / 2 + 6);
         int textNearGap = 4;
         int textToBarGap = 7;
         int barWidth = 96;
@@ -211,7 +210,12 @@ public final class ClientHudRenderer {
         drawProgressBar(gui, rightBarLeft, y + 3, barWidth, barHeight, stageRatio, themePrimary, false, true);
         drawScaledBoldText(gui, font, leftText, leftScoreLeft, y + 1, themeText, 1.1F);
         drawScaledBoldText(gui, font, rightText, rightScoreLeft, y + 1, themeText, 1.0F);
-        drawScaledText(gui, font, timeText, centerX - timeWidth / 2, y + 1, timeColor, 1.1F, true);
+        if (!timeText.isEmpty())
+            drawScaledText(gui, font, timeText, centerX - timeWidth / 2, y + 1, timeColor, 1.1F, true);
+        if (selfCampA || selfCampB) {
+            drawOperationsNotice(gui, font, centerX, y,
+                OperationsHudText.notice(ClientHudDebugState.getCampAScore(), battalion, totalBattalions, selfCampA));
+        }
     }
 
     private void drawGunmasterPreview(GuiGraphics gui, Font font, int centerX, int y, String previewMode) {
@@ -347,6 +351,7 @@ public final class ClientHudRenderer {
         drawScaledBoldText(gui, font, leftText, leftScoreLeft, y + 1, themeText, 1.1F);
         drawScaledBoldText(gui, font, rightText, rightScoreLeft, y + 1, themeText, 1.0F);
         drawScaledText(gui, font, timeText, centerX - timeWidth / 2, y + 1, timeColor, 1.1F, true);
+        drawOperationsNotice(gui, font, centerX, y, OperationsHudText.notice(attackTroops, 3, 3, !selfCampB));
     }
 
     private void drawProgressBar(GuiGraphics gui, int x, int y, int w, int h, float ratio, int color, boolean reverse, boolean withBackground) {
@@ -441,24 +446,15 @@ public final class ClientHudRenderer {
         };
     }
 
-    private String resolveBreakthroughPreviewSubtitle(String previewMode) {
-        return switch (previewMode) {
-            case "BREAKTHROUGH_BACK_TO_WALL_ATTACK", "BREAKTHROUGH_BACK_TO_WALL_DEFEND" -> "<hud:BT_LAST_STAND_PERSISTENT>零兵力争夺";
-            case "BREAKTHROUGH_BURN_BOATS", "BREAKTHROUGH_ZERO_TROOP_CONTEST" -> "<hud:BT_LAST_STAND_PERSISTENT>零兵力争夺";
-            default -> "";
-        };
+    private int resolveBreakthroughTimerColor() {
+        return "BT_DESPERATE".equals(ClientHudDebugState.getAudioState()) ? 0xFFA0D0F0 : 0xFFFFFFFF;
     }
 
-    private int resolveBreakthroughTimerColor() {
-        ClientHudStyledText.Descriptor status = ClientHudStyledText.parse(ClientHudDebugState.getCaptureStatus(), 0xFFFFFFFF);
-        String text = status.text();
-        if ("破釜沉舟".equals(text)) {
-            return 0xFFFF5555;
-        }
-        if ("零兵力争夺".equals(text)) {
-            return 0xFFA0D0F0;
-        }
-        return 0xFFFFFFFF;
+    private void drawOperationsNotice(GuiGraphics gui, Font font, int centerX, int barY, String text) {
+        if (text.isBlank()) return;
+        int x = Math.round(centerX - font.width(text) * OPERATIONS_NOTICE_SCALE / 2);
+        drawScaledText(gui, font, text, x, barY + OPERATIONS_NOTICE_Y_OFFSET,
+            0xFFFFFFFF, OPERATIONS_NOTICE_SCALE, true);
     }
 
     private int resolveGunmasterStageWidth(int playerCount) {

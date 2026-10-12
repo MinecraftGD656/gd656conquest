@@ -1,11 +1,5 @@
 package org.mods.gd656conquest.server.room.gameplay.breakthrough;
 
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.protocol.game.ClientboundClearTitlesPacket;
-import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
-import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
-import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
@@ -13,26 +7,14 @@ import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.RoomDeathFlowPacket;
+import org.mods.gd656conquest.network.packet.RoomCombatCountdownPacket;
+import org.mods.gd656conquest.common.match.CombatCountdownState.Kind;
 
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.UUID;
 
 public final class BreakthroughStageTransitionTitleService {
-    private static final int TITLE_FADE_IN_TICKS = 5;
-    private static final int TITLE_STAY_TICKS = 20;
-    private static final int TITLE_FADE_OUT_TICKS = 10;
-    private static final int TITLE_REFRESH_FADE_IN_TICKS = 0;
-    private static final int TITLE_REFRESH_STAY_TICKS = 22;
-    private static final int TITLE_REFRESH_FADE_OUT_TICKS = 4;
-    private static final int COUNTDOWN_NORMAL_COLOR = 0x55FFFF;
-    private static final int COUNTDOWN_GREEN_COLOR = 0x55FF55;
-    private static final int COUNTDOWN_YELLOW_COLOR = 0xFFFF55;
-    private static final int COUNTDOWN_ORANGE_COLOR = 0xFF9900;
-    private static final int COUNTDOWN_RED_COLOR = 0xFF5555;
-    private static final int SUBTITLE_ATTACKER_COLOR = 0x55FFFF;
-    private static final int SUBTITLE_DEFENDER_COLOR = 0xFF5555;
-
     private final MinecraftServer server;
 
     public BreakthroughStageTransitionTitleService(MinecraftServer server) {
@@ -43,7 +25,12 @@ public final class BreakthroughStageTransitionTitleService {
         if (state == null || runtimeState == null || runtimeState.getAdvanceCountdownEndTick() <= 0L) {
             return;
         }
-        int remainingSeconds = (int) Math.max(1L, (runtimeState.getAdvanceCountdownEndTick() - gameTick + 19L) / 20L);
+        int remainingTicks = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, runtimeState.getAdvanceCountdownEndTick() - gameTick));
+        if (remainingTicks == 0) {
+            clearCountdownTitles(state, runtimeState);
+            return;
+        }
+        int remainingSeconds = (int) ((remainingTicks + 19L) / 20L);
         for (UUID playerId : state.getRoomPlayers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player == null) {
@@ -53,7 +40,9 @@ public final class BreakthroughStageTransitionTitleService {
             if (lastShown == remainingSeconds) {
                 continue;
             }
-            sendTitle(player, state.getRoomTeams().get(playerId), remainingSeconds, lastShown < 0);
+            boolean attacker = state.getRoomTeams().get(playerId) == RoomTeamId.CAMP_A;
+            NetworkManager.sendToPlayer(player, new RoomCombatCountdownPacket(Kind.ADVANCE, remainingTicks,
+                attacker ? "准备夺取下个阶段" : "准备防守阵地"));
             runtimeState.getAdvanceCountdownLastShownSecondsByPlayer().put(playerId, remainingSeconds);
         }
     }
@@ -65,7 +54,7 @@ public final class BreakthroughStageTransitionTitleService {
         for (UUID playerId : new ArrayList<>(runtimeState.getAdvanceCountdownLastShownSecondsByPlayer().keySet())) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player != null && player.connection != null) {
-                player.connection.send(new ClientboundClearTitlesPacket(true));
+                NetworkManager.sendToPlayer(player, RoomCombatCountdownPacket.clear(Kind.ADVANCE));
             }
         }
         runtimeState.getAdvanceCountdownLastShownSecondsByPlayer().clear();
@@ -116,46 +105,6 @@ public final class BreakthroughStageTransitionTitleService {
             clearSingleTitle(player, true);
         }
         runtimeState.getRetreatCountdownLastShownSecondsByPlayer().clear();
-    }
-
-    private void sendTitle(ServerPlayer player, RoomTeamId teamId, int remainingSeconds, boolean firstShow) {
-        if (player == null || player.connection == null) {
-            return;
-        }
-        player.connection.send(new ClientboundSetTitlesAnimationPacket(
-            firstShow ? TITLE_FADE_IN_TICKS : TITLE_REFRESH_FADE_IN_TICKS,
-            firstShow ? TITLE_STAY_TICKS : TITLE_REFRESH_STAY_TICKS,
-            firstShow ? TITLE_FADE_OUT_TICKS : TITLE_REFRESH_FADE_OUT_TICKS
-        ));
-        player.connection.send(new ClientboundSetTitleTextPacket(buildTitle(remainingSeconds)));
-        player.connection.send(new ClientboundSetSubtitleTextPacket(buildSubtitle(teamId)));
-    }
-
-    private Component buildTitle(int remainingSeconds) {
-        return Component.literal(String.valueOf(remainingSeconds))
-            .withStyle(style -> style.withBold(true).withColor(resolveCountdownColor(remainingSeconds)));
-    }
-
-    private Component buildSubtitle(RoomTeamId teamId) {
-        boolean attacker = teamId == RoomTeamId.CAMP_A;
-        MutableComponent subtitle = Component.literal(attacker ? "准备夺取下个阶段" : "准备防守阵地");
-        return subtitle.withStyle(style -> style.withColor(attacker ? SUBTITLE_ATTACKER_COLOR : SUBTITLE_DEFENDER_COLOR).withBold(true));
-    }
-
-    private int resolveCountdownColor(int remainingSeconds) {
-        if (remainingSeconds <= 1) {
-            return COUNTDOWN_RED_COLOR;
-        }
-        if (remainingSeconds == 2) {
-            return COUNTDOWN_ORANGE_COLOR;
-        }
-        if (remainingSeconds == 3) {
-            return COUNTDOWN_YELLOW_COLOR;
-        }
-        if (remainingSeconds <= 5) {
-            return COUNTDOWN_GREEN_COLOR;
-        }
-        return COUNTDOWN_NORMAL_COLOR;
     }
 
     private void clearSingleTitle(ServerPlayer player, boolean shouldClear) {

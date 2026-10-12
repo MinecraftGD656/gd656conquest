@@ -98,8 +98,9 @@ public final class LoadoutUiService {
         }
         var battalionManager = RoomCoreRuntimeManager.of(player.server);
         var battalionState = battalionManager.findPlayerRoomId(player.getUUID()).flatMap(battalionManager::findRunningState).orElse(null);
-        if (battalionState != null && battalionState.isGameplayCombatPaused() && !battalionState.isGameplayDeploymentPreparation()) return;
         String normalizedAction = action == null ? "" : action.trim().toLowerCase(Locale.ROOT);
+        if (battalionState != null && org.mods.gd656conquest.common.player.lock.PresentationLockPolicy.blocksLoadoutAction(
+            normalizedAction, battalionState.isGameplayCombatPaused(), battalionState.isGameplayDeploymentPreparation())) return;
         switch (normalizedAction) {
             case "select_class" -> {
                 if (applyClassSelection(player, classKey)) {

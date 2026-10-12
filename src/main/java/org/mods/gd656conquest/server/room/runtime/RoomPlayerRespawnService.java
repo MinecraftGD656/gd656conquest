@@ -6,7 +6,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.game.ClientboundClearTitlesPacket;
 import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
@@ -32,6 +31,8 @@ import org.mods.gd656conquest.network.packet.RoomDownedStatePacket;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.network.packet.RoomDeathFlowPacket;
+import org.mods.gd656conquest.network.packet.RoomCombatCountdownPacket;
+import org.mods.gd656conquest.common.match.CombatCountdownState.Kind;
 import org.mods.gd656conquest.server.data.ConquestDataManager;
 import org.mods.gd656conquest.server.loadout.LoadoutUiService;
 import org.mods.gd656conquest.server.loadout.TaczDisplayNameResolver;
@@ -647,7 +648,7 @@ public final class RoomPlayerRespawnService {
         state.getDeployExplicitConfirmRequiredPlayers().add(playerId);
         state.getRespawnCountdownLastShownSeconds().remove(playerId);
         ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
-        clearInitialCombatCountdownTitle(player);
+        clearRespawnCountdownTitle(player);
         enterDeployHoldingState(room, state, player, false);
         openDeployView(room, state, player, new RoomGameplayDeployViewRequest(
             RoomGameplayDeployViewKind.RESPAWN,
@@ -712,7 +713,7 @@ public final class RoomPlayerRespawnService {
                 int remainSeconds = (int) Math.ceil(remainTicks / 20.0D);
                 if (isArenaGameplay(room)) {
                     if (state.getDeployViewActivePlayers().contains(playerId)) {
-                        clearInitialCombatCountdownTitle(player);
+                        clearRespawnCountdownTitle(player);
                         state.getRespawnCountdownLastShownSeconds().remove(playerId);
                         ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
                         if (!state.getDeployExplicitConfirmRequiredPlayers().contains(playerId)) {
@@ -739,7 +740,7 @@ public final class RoomPlayerRespawnService {
                 ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_WAIT);
                 playerStateService.setSpectator(player);
                 if (isArenaGameplay(room)) {
-                    clearInitialCombatCountdownTitle(player);
+                    clearRespawnCountdownTitle(player);
                     state.getRespawnCountdownLastShownSeconds().remove(playerId);
                     ServerActionBarService.clearSource(player, ACTIONBAR_SOURCE_DEPLOY_HINT);
                     if (!state.getDeployViewActivePlayers().contains(playerId)
@@ -1969,7 +1970,8 @@ public final class RoomPlayerRespawnService {
                 }
                 int lastShown = state.getInitialMovementLockLastShownSeconds().getOrDefault(playerId, -1);
                 if (lastShown != remainingSeconds) {
-                    sendInitialCombatCountdownTitle(room, player, state.getRoomTeams().get(playerId), remainingSeconds, lastShown < 0);
+                    sendInitialCombatCountdown(room, player, state.getRoomTeams().get(playerId),
+                        (int) Math.min(Integer.MAX_VALUE, Math.max(0L, unlockTick - gameTick)));
                     state.getInitialMovementLockLastShownSeconds().put(playerId, remainingSeconds);
                 }
             }
@@ -1978,7 +1980,7 @@ public final class RoomPlayerRespawnService {
         for (UUID playerId : new ArrayList<>(state.getInitialMovementLockedPlayers())) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player != null && player.isAlive()) {
-                clearInitialCombatCountdownTitle(player);
+                clearInitialCombatCountdown(player);
                 audioRuntimeService.emitPlayerThirdPersonCue(room, state, player, RoomThirdPersonAudioCueRegistry.PLAYER_GOGOGO);
             }
             state.getInitialMovementLockLastShownSeconds().remove(playerId);
@@ -2173,17 +2175,10 @@ public final class RoomPlayerRespawnService {
         player.removeAllEffects();
     }
 
-    private void sendInitialCombatCountdownTitle(RoomDefinition room, ServerPlayer player, RoomTeamId teamId, int remainingSeconds, boolean firstShow) {
-        if (player == null || player.connection == null) {
-            return;
-        }
-        player.connection.send(new ClientboundSetTitlesAnimationPacket(
-            firstShow ? TITLE_FADE_IN_TICKS : TITLE_REFRESH_FADE_IN_TICKS,
-            firstShow ? TITLE_STAY_TICKS : TITLE_REFRESH_STAY_TICKS,
-            firstShow ? TITLE_FADE_OUT_TICKS : TITLE_REFRESH_FADE_OUT_TICKS
-        ));
-        player.connection.send(new ClientboundSetTitleTextPacket(buildInitialCombatCountdownTitle(remainingSeconds)));
-        player.connection.send(new ClientboundSetSubtitleTextPacket(buildInitialCombatCountdownSubtitle(room, teamId)));
+    private void sendInitialCombatCountdown(RoomDefinition room, ServerPlayer player, RoomTeamId teamId, int remainingTicks) {
+        if (player == null || player.connection == null) return;
+        NetworkManager.sendToPlayer(player, new RoomCombatCountdownPacket(Kind.INITIAL, remainingTicks,
+            buildInitialCombatCountdownText(room, teamId)));
     }
 
     private void sendRespawnCountdownTitle(ServerPlayer player, int remainingSeconds, boolean firstShow) {
@@ -2207,18 +2202,10 @@ public final class RoomPlayerRespawnService {
             .withStyle(style -> style.withBold(true).withColor(resolveInitialCountdownColor(remainingSeconds)));
     }
 
-    private Component buildInitialCombatCountdownSubtitle(RoomDefinition room, RoomTeamId teamId) {
-        if (room != null && RoomGameplayId.GUNMASTER.equals(room.gameplayId())) {
-            return Component.literal("击杀敌军升级枪械")
-                .withStyle(style -> style.withColor(INITIAL_SUBTITLE_COLOR).withBold(true));
-        }
-        if (isArenaGameplay(room)) {
-            return Component.literal("击杀敌人并完成竞技模式目标")
-                .withStyle(style -> style.withColor(INITIAL_SUBTITLE_COLOR).withBold(true));
-        }
-        boolean attacker = teamId == RoomTeamId.CAMP_A;
-        MutableComponent subtitle = Component.literal(attacker ? "逐个占领全部据点" : "准备防守全部区域");
-        return subtitle.withStyle(style -> style.withColor(INITIAL_SUBTITLE_COLOR).withBold(true));
+    private String buildInitialCombatCountdownText(RoomDefinition room, RoomTeamId teamId) {
+        if (room != null && RoomGameplayId.GUNMASTER.equals(room.gameplayId())) return "击杀敌军升级枪械";
+        if (isArenaGameplay(room)) return "击杀敌人并完成竞技模式目标";
+        return teamId == RoomTeamId.CAMP_A ? "逐个占领全部据点" : "准备防守全部区域";
     }
 
     private int resolveInitialCountdownColor(int remainingSeconds) {
@@ -2237,7 +2224,13 @@ public final class RoomPlayerRespawnService {
         return COUNTDOWN_NORMAL_COLOR;
     }
 
-    private void clearInitialCombatCountdownTitle(ServerPlayer player) {
+    private void clearInitialCombatCountdown(ServerPlayer player) {
+        if (player != null && player.connection != null)
+            NetworkManager.sendToPlayer(player, RoomCombatCountdownPacket.clear(Kind.INITIAL));
+    }
+
+    private void clearRespawnCountdownTitle(ServerPlayer player) {
+        clearInitialCombatCountdown(player);
         if (player == null || player.connection == null) {
             return;
         }

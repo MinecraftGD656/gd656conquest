@@ -19,4 +19,8 @@ public final class PresentationLockPolicy {
     public static boolean blocksPointerMovement(boolean lookLocked, boolean releasedForUi, boolean screenOpen, boolean mouseGrabbed) {
         return lookLocked && mouseGrabbed && !releasedForUi && !screenOpen;
     }
+
+    public static boolean blocksLoadoutAction(String action, boolean combatPaused, boolean preparation) {
+        return combatPaused && !preparation && !"leave_session".equals(action);
+    }
 }

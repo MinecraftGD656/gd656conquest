@@ -73,7 +73,7 @@ public final class ClientDeathCauseState {
         lastFrame = now;
         BANNER.advance(elapsed, ClientDeathFilter.deathActive());
         float alpha = BANNER.alpha();
-        if (alpha <= .01F || mc.options.hideGui) return;
+        if (alpha <= .01F || mc.options.hideGui || ClientBattalionBriefingState.shouldHidePlayerHud()) return;
         String text = label(BANNER.cause());
         if (text.isEmpty()) return;
         int[] letters = text.codePoints().toArray();

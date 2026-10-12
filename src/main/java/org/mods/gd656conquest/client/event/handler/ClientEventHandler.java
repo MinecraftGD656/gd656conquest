@@ -118,7 +118,7 @@ public final class ClientEventHandler {
         captureOverlayController.captureWorldProjectionState(event);
         ClientBattalionBriefingRenderer.captureProjection(event);
         ClientRoomMarkerState.captureProjectionState(event);
-        if (ClientBattalionBriefingState.isCinematicActive()) return;
+        if (ClientBattalionBriefingState.shouldHidePlayerHud()) return;
         try {
             captureOverlayController.renderCaptureBoundaryLines(event);
         } catch (Throwable ignored) {
@@ -180,7 +180,7 @@ public final class ClientEventHandler {
     }
 
     public void renderBaseHudEffects(net.minecraftforge.client.gui.overlay.ForgeGui gui, net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
-        if (ClientBattalionBriefingState.isCinematicActive()) {
+        if (ClientBattalionBriefingState.shouldHidePlayerHud()) {
             ClientBattalionBriefingRenderer.render(guiGraphics, partialTick);
             return;
         }
@@ -189,8 +189,8 @@ public final class ClientEventHandler {
     }
 
     public void renderMainHud(net.minecraftforge.client.gui.overlay.ForgeGui gui, net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
-        if (ClientBattalionBriefingState.isCinematicActive()) {
-            if (ClientMatchResultOverlayState.isOperationsActive()) {
+        if (ClientBattalionBriefingState.shouldHidePlayerHud()) {
+            if (ClientRoomLockState.isEndingState() || ClientMatchResultOverlayState.isOperationsActive()) {
                 roomSessionController.renderSessionOverlay(guiGraphics, partialTick);
                 ClientMatchResultOverlayState.render(guiGraphics);
             }
@@ -223,7 +223,8 @@ public final class ClientEventHandler {
         if (event == null) {
             return;
         }
-        if (org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideAllHudAndHand()) {
+        if (ClientBattalionBriefingState.shouldHidePlayerHud()
+            || org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.shouldHideAllHudAndHand()) {
             event.setCanceled(true);
         }
     }
@@ -292,6 +293,7 @@ public final class ClientEventHandler {
 
     public void handleMouseInput(InputEvent.MouseButton event) {
         if (ClientBattalionBriefingState.isCinematicActive()) {
+            if (ClientRoomLockState.isEndingState() && roomSessionController.handleMouseButton(event)) return;
             if (Minecraft.getInstance().screen == null && event.isCancelable()) event.setCanceled(true);
             return;
         }

@@ -483,7 +483,7 @@ public class LoadoutRoomEditorScreen extends Screen {
         }
         List<String> scopes = List.of("COMMON", "CONQUEST", "BREAKTHROUGH", "DEATHMATCH", "GUNMASTER");
         for (String scope : scopes) {
-            rightRows.add(RightRow.header(scope, scope));
+            rightRows.add(RightRow.header(scope, "BREAKTHROUGH".equals(scope) ? "行动模式" : scope));
             if (!isCategoryExpanded(scope)) {
                 continue;
             }

@@ -14,12 +14,15 @@ import net.minecraftforge.fml.common.Mod;
 public final class BoundaryHudEvents {
     private BoundaryHudEvents() {}
     @SubscribeEvent public static void tick(TickEvent.ClientTickEvent event) {
-        if (event.phase == TickEvent.Phase.END) { ClientBoundaryState.tick(); ClientRetreatState.tick(); }
+        if (event.phase == TickEvent.Phase.END) { ClientBoundaryState.tick(); ClientRetreatState.tick(); ClientCombatCountdownState.tick(); }
     }
     @SubscribeEvent(priority = EventPriority.HIGHEST) public static void overlay(RenderGuiOverlayEvent.Pre event) {
         if (event.getOverlay().id().equals(VanillaGuiOverlay.CROSSHAIR.id()) && ClientBoundaryState.hidePlayerCrosshair())
             event.setCanceled(true);
     }
-    @SubscribeEvent public static void hud(RenderGuiEvent.Post event) { ClientBoundaryState.renderWarning(event.getGuiGraphics()); ClientRetreatState.renderWarning(event.getGuiGraphics()); }
-    @SubscribeEvent public static void logout(ClientPlayerNetworkEvent.LoggingOut event) { ClientBoundaryState.reset(); ClientRetreatState.reset(); }
+    @SubscribeEvent public static void hud(RenderGuiEvent.Post event) {
+        if (ClientBattalionBriefingState.shouldHidePlayerHud()) return;
+        ClientBoundaryState.renderWarning(event.getGuiGraphics()); ClientRetreatState.renderWarning(event.getGuiGraphics()); ClientCombatCountdownState.render(event.getGuiGraphics());
+    }
+    @SubscribeEvent public static void logout(ClientPlayerNetworkEvent.LoggingOut event) { ClientBoundaryState.reset(); ClientRetreatState.reset(); ClientCombatCountdownState.reset(); }
 }

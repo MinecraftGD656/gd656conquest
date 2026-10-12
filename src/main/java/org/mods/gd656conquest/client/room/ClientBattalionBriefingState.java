@@ -80,6 +80,10 @@ public final class ClientBattalionBriefingState {
     public static boolean isCinematicActive() {
         return packet != null && packet.phase() != Phase.COMBAT && packet.phase() != Phase.PREPARATION && packet.phase() != Phase.FINISHED;
     }
+    public static boolean shouldHidePlayerHud() {
+        return packet != null && org.mods.gd656conquest.common.match.BattalionHudVisibility.hidesPlayerHud(packet.phase(),
+            packet.view() != null && (packet.attackersWon() || packet.battalion() >= packet.totalBattalions()));
+    }
     public static boolean showingBriefing() {
         return packet != null && org.mods.gd656conquest.common.match.BattalionSequence.briefingBoundaryAlpha(packet.phase(), ticks + 1) > 0;
     }

@@ -693,7 +693,7 @@ public final class RoomDefinitionGroupConfigEditor {
             case "btstagedboundary" -> stageD;
             case "btstageeboundary" -> stageE;
             case "btstagefboundary" -> stageF;
-            default -> throw new IllegalArgumentException("未知突破边界: " + canonical);
+            default -> throw new IllegalArgumentException("未知行动边界: " + canonical);
         };
         if (clearAll) {
             target.clear();
@@ -749,7 +749,7 @@ public final class RoomDefinitionGroupConfigEditor {
             case "btstagedboundary" -> breakthrough.stageDBoundary();
             case "btstageeboundary" -> breakthrough.stageEBoundary();
             case "btstagefboundary" -> breakthrough.stageFBoundary();
-            default -> throw new IllegalArgumentException("未知突破边界: " + canonical);
+            default -> throw new IllegalArgumentException("未知行动边界: " + canonical);
         };
     }
 

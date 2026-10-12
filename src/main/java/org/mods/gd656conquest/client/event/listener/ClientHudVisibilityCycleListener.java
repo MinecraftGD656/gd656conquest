@@ -8,9 +8,12 @@ import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import org.lwjgl.glfw.GLFW;
 import org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
+import org.mods.gd656conquest.client.room.ClientBattalionBriefingState;
+import org.mods.gd656conquest.common.match.BattalionHudVisibility;
 
 public final class ClientHudVisibilityCycleListener {
     private static final ResourceLocation SIMPLE_HEALTH_BAR_OVERLAY = new ResourceLocation("simplehealthbar", "health_bar");
@@ -35,13 +38,17 @@ public final class ClientHudVisibilityCycleListener {
         ClientHudVisibilityCycleService.tick();
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onRenderHudPre(RenderGuiOverlayEvent.Pre event) {
         if (event == null || event.getOverlay() == null) {
             return;
         }
 
         ResourceLocation id = event.getOverlay().id();
+        if (ClientBattalionBriefingState.shouldHidePlayerHud()) {
+            if (!BattalionHudVisibility.keepsOverlay(id.toString())) event.setCanceled(true);
+            return;
+        }
 
         if (ClientHudVisibilityCycleService.shouldApplyForcedHudOnlyFilter() && shouldHideOverlay(event)) {
             event.setCanceled(true);
