@@ -15,8 +15,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.List;
-import java.util.ArrayDeque;
 import org.mods.gd656conquest.common.audio.OperationsVoiceCue;
+import org.mods.gd656conquest.common.audio.OperationsVoiceQueue;
+import org.mods.gd656conquest.network.packet.OperationsVoicePacket;
 
 public final class ClientAudioManager {
     private static final ClientAudioManager INSTANCE = new ClientAudioManager();
@@ -25,10 +26,10 @@ public final class ClientAudioManager {
     private final ConcurrentLinkedQueue<Runnable> mainThreadTasks = new ConcurrentLinkedQueue<>();
     private final Map<ResourceLocation, ManagedMusicSound> activeMusic = new ConcurrentHashMap<>();
     private final Map<ResourceLocation, ManagedLoopSound> activeLoops = new ConcurrentHashMap<>();
-    private final ArrayDeque<OperationVoiceRequest> operationVoices = new ArrayDeque<>();
+    private final OperationsVoiceQueue operationVoices = new OperationsVoiceQueue();
     private OneShotSound activeOperationVoice;
     private int operationVoiceGraceTicks;
-    private record OperationVoiceRequest(ResourceLocation id, float volume, float pitch) {}
+    private long operationVoiceTick;
     private ResourceKey<Level> lastDimension;
     private boolean wasConnected;
 
@@ -88,7 +89,7 @@ public final class ClientAudioManager {
         mainThreadTasks.offer(() -> {
             ResourceLocation id = parseSoundId(soundId);
             if (id != null && OperationsVoiceCue.contains(id.toString())) {
-                operationVoices.addLast(new OperationVoiceRequest(id, clampVolume(volume), clampPitch(pitch)));
+                operationVoices.enqueue(new OperationsVoiceQueue.Request(id.toString(), clampVolume(volume), clampPitch(pitch)));
             } else {
                 playSoundInternal(soundId, volume, pitch);
             }
@@ -97,6 +98,15 @@ public final class ClientAudioManager {
 
     public void enqueueClearOperationVoices() {
         mainThreadTasks.offer(() -> clearOperationVoices(Minecraft.getInstance().getSoundManager()));
+    }
+
+    public void enqueueOperationVoice(OperationsVoicePacket packet) {
+        mainThreadTasks.offer(() -> {
+            if (operationVoices.updateContext(packet.context())) stopActiveOperationVoice(Minecraft.getInstance().getSoundManager());
+            var cue = OperationsVoiceCue.fromId(packet.soundId());
+            if (cue != null) operationVoices.enqueue(new OperationsVoiceQueue.Request(cue.soundId(), 1, 1, packet.context(),
+                packet.followup(), Math.max(0, packet.gapTicks()), cue.reminder() ? 2 : 1));
+        });
     }
 
     public void enqueuePlaySoundAt(String soundId, float volume, float pitch, double x, double y, double z) {
@@ -181,6 +191,7 @@ public final class ClientAudioManager {
     }
 
     private void tickOperationVoices(SoundManager soundManager) {
+        operationVoiceTick++;
         if (activeOperationVoice != null) {
             if (operationVoiceGraceTicks > 0) {
                 operationVoiceGraceTicks--;
@@ -189,17 +200,22 @@ public final class ClientAudioManager {
             if (soundManager.isActive(activeOperationVoice)) return;
             soundManager.stop(activeOperationVoice);
             activeOperationVoice = null;
+            operationVoices.finished(operationVoiceTick);
         }
-        OperationVoiceRequest next = operationVoices.pollFirst();
+        var next = operationVoices.poll(operationVoiceTick);
         if (next == null) return;
-        activeOperationVoice = new OneShotSound(next.id(), next.volume(), next.pitch());
+        activeOperationVoice = new OneShotSound(ResourceLocation.parse(next.id()), next.volume(), next.pitch());
         operationVoiceGraceTicks = 20;
-        ClientAudioDebugState.registerEffect(ClientAudioDebugState.DebugSoundKind.SOUND, next.id().toString(), activeOperationVoice);
+        ClientAudioDebugState.registerEffect(ClientAudioDebugState.DebugSoundKind.SOUND, next.id(), activeOperationVoice);
         soundManager.play(activeOperationVoice);
     }
 
     private void clearOperationVoices(SoundManager soundManager) {
         operationVoices.clear();
+        stopActiveOperationVoice(soundManager);
+    }
+
+    private void stopActiveOperationVoice(SoundManager soundManager) {
         if (activeOperationVoice != null && soundManager != null) soundManager.stop(activeOperationVoice);
         activeOperationVoice = null;
         operationVoiceGraceTicks = 0;

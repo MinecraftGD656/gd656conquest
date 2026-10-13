@@ -834,6 +834,24 @@
       }
     ]
   },
+  "voice.operation.sector_taken": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_sector_taken", "stream": false}]
+  },
+  "voice.operation.sector_fallen": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_sector_fallen", "stream": false}]
+  },
+  "voice.operation.cleanup_initiate_attackers": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_cleanup_initiate_attackers", "stream": false}]
+  },
+  "voice.operation.cleanup_initiate_defenders": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_cleanup_initiate_defenders", "stream": false}]
+  },
+  "voice.operation.cleanup_togofew_attackers": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_cleanup_togofew_attackers", "stream": false}]
+  },
+  "voice.operation.cleanup_togofew_defenders": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_cleanup_togofew_defenders", "stream": false}]
+  },
   "voice.operation.kills_halfway_attackers": {
     "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_kills_halfway_attackers", "stream": false}]
   },

@@ -13,6 +13,10 @@ import org.mods.gd656conquest.common.audio.OperationsFinaleState;
 import org.mods.gd656conquest.common.audio.OperationsMusicSnapshot;
 import org.mods.gd656conquest.common.audio.OperationsMusicSnapshot.Mode;
 import org.mods.gd656conquest.network.packet.OperationsMusicPacket;
+import org.mods.gd656conquest.network.packet.OperationsVoicePacket;
+import org.mods.gd656conquest.common.audio.OperationsVoiceContext;
+import org.mods.gd656conquest.common.audio.OperationsRetreatVoiceCue;
+import org.mods.gd656conquest.common.audio.OperationsSectorVoiceRules;
 import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.network.packet.BattalionBriefingPacket;
 import org.mods.gd656conquest.server.room.model.RoomBattalionConfig;
@@ -115,6 +119,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private final BattalionSequence battalions = new BattalionSequence();
     private final OperationsFinaleState finaleMusic = new OperationsFinaleState();
     private final Map<java.util.UUID, MusicSync> musicSync = new LinkedHashMap<>();
+    private final Map<java.util.UUID, VoiceSync> voiceSync = new LinkedHashMap<>();
+    private record VoiceSync(ServerPlayer player, OperationsVoiceContext context) {}
+    private final OperationsRetreatVoiceCue retreatVoice = new OperationsRetreatVoiceCue();
     private record MusicSync(ServerPlayer player, OperationsMusicSnapshot snapshot) {}
     private String finaleMusicStage = "";
     private long operationRoundStartTick;
@@ -163,6 +170,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         operationRoundStartTick = enteredTick;
         operationRoundVariant = 1;
         finaleMusic.reset(); finaleMusicStage = ""; musicSync.clear();
+        voiceSync.clear();
         pendingEndRequest = null;
         finalConclusion = null;
         settlementRequested = false;
@@ -277,6 +285,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
 
     @Override
     public void synchronizeIntermissionPlayers(RoomDefinition room, RoomPlayerRespawnService respawns, long tick) {
+        synchronizeVoiceContexts(room);
         synchronizeOperationMusic(room, tick);
         var phase = battalions.phase();
         battalionPlayerSync.keySet().removeIf(id -> !runningState.getRoomPlayers().contains(id));
@@ -353,6 +362,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 }
                 Set<java.util.UUID> defenders = captureRuntimeService.collectDefendersInStageBoundary(room, runningState, runtimeState.getCurrentStageIndex());
                 if (room.breakthroughConfig().defenderRetreatSeconds() <= 0 || defenders.isEmpty()) {
+                    broadcastSectorVoices(room, false);
                     startAdvanceCountdown(room, gameTick);
                 } else {
                     broadcastStageTransitionSubtitle(
@@ -362,6 +372,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                     );
                     runtimeState.startRetreat(gameTick, room.breakthroughConfig().defenderRetreatSeconds());
                     runtimeState.retreatRoster().begin(defenders);
+                    retreatVoice.begin(room.breakthroughConfig().defenderRetreatSeconds());
+                    broadcastSectorVoices(room, true);
                     syncRetreatPersistentSubtitles(room);
                     titleService.syncRetreatTitles(room, runningState, runtimeState, captureRuntimeService, gameTick);
                     syncRetreatDefenderMarkers(room, gameTick);
@@ -381,6 +393,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         }
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) {
             refreshRetreatParticipants(room);
+            synchronizeVoiceContexts(room);
             if (gameTick >= runtimeState.getRetreatDeadlineTick()) {
                 // Keep RETREAT active throughout the fatal callbacks, so every failure rewards once.
                 for (java.util.UUID id : runtimeState.retreatRoster().pending()) {
@@ -391,6 +404,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 }
                 startAdvanceCountdown(room, gameTick);
                 return;
+            }
+            if (retreatVoice.update(runtimeState.getRetreatDeadlineTick() - gameTick, runtimeState.retreatRoster().size())) {
+                broadcastRetreatReminder(room);
             }
             syncRetreatPersistentSubtitles(room);
             titleService.syncRetreatTitles(room, runningState, runtimeState, captureRuntimeService, gameTick);
@@ -440,6 +456,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         }
         runtimeState.initialize(null, 0L);
         finaleMusic.reset(); finaleMusicStage = ""; musicSync.clear();
+        voiceSync.clear();
         battalions.initialize(3);
         battalionPlayerSync.clear();
         battalionReports.clear();
@@ -469,6 +486,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         }
         if (reason == RoomPlayerInvalidationReason.REDEPLOY) {
             runtimeState.retreatRoster().complete(playerId);
+            synchronizeVoiceContext(room, playerId);
             return;
         }
         if (teamId != RoomTeamId.CAMP_B || room == null || runtimeState.getPhase() != BreakthroughRuntimeState.Phase.RETREAT) {
@@ -476,6 +494,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         }
         ServerPlayer deadPlayer = captureRuntimeService.findOnlinePlayer(playerId);
         boolean participant = runtimeState.retreatRoster().fail(playerId);
+        synchronizeVoiceContext(room, playerId);
         if (participant && RoomDeathCauseService.isRetreatFailure(deadPlayer)) {
             runtimeState.addAttackTroops(room.breakthroughConfig().troopGainPerDefenderKill());
         }
@@ -640,6 +659,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             player.getX(), player.getZ(), retreatDestinationBoundaries(room))) {
             if (runtimeState.retreatRoster().complete(player.getUUID()) && player.isAlive()
                 && !player.isSpectator() && !runningState.isInRespawnFlow(player.getUUID())) {
+                synchronizeVoiceContext(room, player.getUUID());
                 playOperationVoice(player, OperationsVoiceCue.RETREAT_SUCCESS);
             }
             return false;
@@ -914,11 +934,12 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN) return;
         operationRoundStartTick = gameTick;
         operationRoundVariant = 1;
-        broadcastOperationVoice(OperationsVoiceCue.CLEANUP_ENDED, null);
         clearRetreatPersistentSubtitles();
         titleService.clearRetreatTitles(runningState, runtimeState);
         clearRetreatDefenderMarkers(room, gameTick);
         runtimeState.startAdvanceCountdown(gameTick, STAGE_ADVANCE_COUNTDOWN_SECONDS);
+        synchronizeVoiceContexts(room);
+        broadcastOperationVoice(OperationsVoiceCue.CLEANUP_ENDED, null);
         titleService.clearCountdownTitles(runningState, runtimeState);
     }
 
@@ -1050,6 +1071,50 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 NetworkManager.sendToPlayer(player, new OperationsMusicPacket(snapshot));
                 musicSync.put(id, new MusicSync(player, snapshot));
             }
+        }
+    }
+
+    private OperationsVoiceContext voiceContext(RoomDefinition room, java.util.UUID id) {
+        return new OperationsVoiceContext(room.roomId(), runningState.getActiveMatchInstanceId(), battalions.battalion(),
+            runtimeState.getCurrentStageIndex(), !battalions.active(),
+            !battalions.active() && runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT,
+            runningState.getRoomTeams().get(id) == RoomTeamId.CAMP_A, runtimeState.retreatRoster().isRetreating(id));
+    }
+    private void synchronizeVoiceContext(RoomDefinition room, java.util.UUID id) {
+        ServerPlayer player = captureRuntimeService.findOnlinePlayer(id);
+        if (player == null || !runningState.getRoomPlayers().contains(id)) return;
+        var context = voiceContext(room, id);
+        var previous = voiceSync.get(id);
+        if (previous == null || previous.player() != player || !previous.context().equals(context)) {
+            NetworkManager.sendToPlayer(player, OperationsVoicePacket.state(context));
+            voiceSync.put(id, new VoiceSync(player, context));
+        }
+    }
+    private void synchronizeVoiceContexts(RoomDefinition room) {
+        voiceSync.keySet().retainAll(runningState.getRoomPlayers());
+        for (java.util.UUID id : List.copyOf(runningState.getRoomPlayers())) synchronizeVoiceContext(room, id);
+    }
+    private void broadcastSectorVoices(RoomDefinition room, boolean retreat) {
+        for (java.util.UUID id : List.copyOf(runningState.getRoomPlayers())) {
+            RoomTeamId team = runningState.getRoomTeams().get(id);
+            if (team != RoomTeamId.CAMP_A && team != RoomTeamId.CAMP_B) continue;
+            ServerPlayer player = captureRuntimeService.findOnlinePlayer(id);
+            if (player == null) continue;
+            var context = voiceContext(room, id);
+            OperationsVoiceCue cue = OperationsSectorVoiceRules.captured(runtimeState.getCurrentStageIndex(), runtimeState.getMaxStageCount(),
+                context.attacker(), context.pendingDefender(), retreat);
+            if (cue == null) continue;
+            NetworkManager.sendToPlayer(player, OperationsVoicePacket.cue(context, cue, retreat && team == RoomTeamId.CAMP_A));
+            voiceSync.put(id, new VoiceSync(player, context));
+        }
+    }
+    private void broadcastRetreatReminder(RoomDefinition room) {
+        for (java.util.UUID id : List.copyOf(runningState.getRoomPlayers())) {
+            var context = voiceContext(room, id);
+            if (!context.attacker() && !context.pendingDefender()) continue;
+            ServerPlayer player = captureRuntimeService.findOnlinePlayer(id);
+            if (player != null) NetworkManager.sendToPlayer(player, OperationsVoicePacket.cue(context,
+                context.attacker() ? OperationsVoiceCue.CLEANUP_FEW_ATTACKERS : OperationsVoiceCue.CLEANUP_FEW_DEFENDERS, false));
         }
     }
 
