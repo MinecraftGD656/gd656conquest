@@ -15,6 +15,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.List;
+import java.util.ArrayDeque;
+import org.mods.gd656conquest.common.audio.OperationsVoiceCue;
 
 public final class ClientAudioManager {
     private static final ClientAudioManager INSTANCE = new ClientAudioManager();
@@ -23,6 +25,10 @@ public final class ClientAudioManager {
     private final ConcurrentLinkedQueue<Runnable> mainThreadTasks = new ConcurrentLinkedQueue<>();
     private final Map<ResourceLocation, ManagedMusicSound> activeMusic = new ConcurrentHashMap<>();
     private final Map<ResourceLocation, ManagedLoopSound> activeLoops = new ConcurrentHashMap<>();
+    private final ArrayDeque<OperationVoiceRequest> operationVoices = new ArrayDeque<>();
+    private OneShotSound activeOperationVoice;
+    private int operationVoiceGraceTicks;
+    private record OperationVoiceRequest(ResourceLocation id, float volume, float pitch) {}
     private ResourceKey<Level> lastDimension;
     private boolean wasConnected;
 
@@ -79,7 +85,18 @@ public final class ClientAudioManager {
     }
 
     public void enqueuePlaySound(String soundId, float volume, float pitch) {
-        mainThreadTasks.offer(() -> playSoundInternal(soundId, volume, pitch));
+        mainThreadTasks.offer(() -> {
+            ResourceLocation id = parseSoundId(soundId);
+            if (id != null && OperationsVoiceCue.contains(id.toString())) {
+                operationVoices.addLast(new OperationVoiceRequest(id, clampVolume(volume), clampPitch(pitch)));
+            } else {
+                playSoundInternal(soundId, volume, pitch);
+            }
+        });
+    }
+
+    public void enqueueClearOperationVoices() {
+        mainThreadTasks.offer(() -> clearOperationVoices(Minecraft.getInstance().getSoundManager()));
     }
 
     public void enqueuePlaySoundAt(String soundId, float volume, float pitch, double x, double y, double z) {
@@ -141,6 +158,7 @@ public final class ClientAudioManager {
         }
         boolean hasConnection = minecraft.getConnection() != null;
         if (!hasConnection) {
+            clearOperationVoices(soundManager);
             if (wasConnected) {
                 stopAllManagedAudioImmediate(soundManager);
             }
@@ -159,6 +177,32 @@ public final class ClientAudioManager {
             stopAllManagedAudioImmediate(soundManager);
         }
         lastDimension = currentDimension;
+        tickOperationVoices(soundManager);
+    }
+
+    private void tickOperationVoices(SoundManager soundManager) {
+        if (activeOperationVoice != null) {
+            if (operationVoiceGraceTicks > 0) {
+                operationVoiceGraceTicks--;
+                return;
+            }
+            if (soundManager.isActive(activeOperationVoice)) return;
+            soundManager.stop(activeOperationVoice);
+            activeOperationVoice = null;
+        }
+        OperationVoiceRequest next = operationVoices.pollFirst();
+        if (next == null) return;
+        activeOperationVoice = new OneShotSound(next.id(), next.volume(), next.pitch());
+        operationVoiceGraceTicks = 20;
+        ClientAudioDebugState.registerEffect(ClientAudioDebugState.DebugSoundKind.SOUND, next.id().toString(), activeOperationVoice);
+        soundManager.play(activeOperationVoice);
+    }
+
+    private void clearOperationVoices(SoundManager soundManager) {
+        operationVoices.clear();
+        if (activeOperationVoice != null && soundManager != null) soundManager.stop(activeOperationVoice);
+        activeOperationVoice = null;
+        operationVoiceGraceTicks = 0;
     }
 
     private void playMusicInternal(String soundId, float volume, boolean loop, int fadeInTicks) {
@@ -293,6 +337,7 @@ public final class ClientAudioManager {
     }
 
     private void stopAllManagedAudioImmediate(SoundManager soundManager) {
+        clearOperationVoices(soundManager);
         stopAllMusicImmediate(soundManager);
         stopAllLoopSoundsImmediate(soundManager);
     }

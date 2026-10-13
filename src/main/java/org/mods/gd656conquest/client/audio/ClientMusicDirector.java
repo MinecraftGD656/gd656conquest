@@ -117,6 +117,7 @@ final class ClientMusicDirector {
         var update = intermissionAudio.accept(packet.roomId(), packet.matchId(), packet.sequenceId(),
             packet.phase(), packet.elapsedTicks(), packet.battalion(), packet.totalBattalions(), packet.attackersWon());
         if (!update.accepted()) return;
+        if (packet.phase() == Phase.RESULT) ClientAudioManager.getInstance().enqueueClearOperationVoices();
         if (update.startBackground()) {
             stopIntermissionMusic(0);
             boolean terminal = packet.phase() != Phase.PREPARATION
@@ -146,6 +147,7 @@ final class ClientMusicDirector {
     }
 
     static void resetIntermissionAudio() {
+        ClientAudioManager.getInstance().enqueueClearOperationVoices();
         stopIntermissionMusic(0);
         intermissionAudio.reset();
         intermissionWorld = null;

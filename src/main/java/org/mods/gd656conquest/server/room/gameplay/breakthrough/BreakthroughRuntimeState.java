@@ -7,6 +7,7 @@ import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.objective.RoomObjectiveSupport;
 import org.mods.gd656conquest.common.match.OperationsTroopRules;
+import org.mods.gd656conquest.common.audio.OperationsTroopVoiceCue;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -42,6 +43,7 @@ public final class BreakthroughRuntimeState {
     private final RetreatRoster retreatRoster = new RetreatRoster();
     private int currentStageIndex;
     private int maxStageCount;
+    private final OperationsTroopVoiceCue troopVoiceCue = new OperationsTroopVoiceCue();
     private int attackTroops;
     private int attackTroopCap;
     private long stageStartTick;
@@ -74,6 +76,7 @@ public final class BreakthroughRuntimeState {
         currentStageIndex = config == null || config.stageCount() <= 0 ? 0 : 1;
         maxStageCount = config == null ? 0 : config.stageCount();
         attackTroops = 0;
+        troopVoiceCue.reset();
         attackTroopCap = 0;
         stageStartTick = gameTick;
         stageDeadlineTick = config == null || config.stageDurationMinutes() <= 0 ? Long.MAX_VALUE
@@ -203,11 +206,14 @@ public final class BreakthroughRuntimeState {
         return desperateMode;
     }
 
-    public void consumeAttackTroop(int amount) {
+    public List<OperationsTroopVoiceCue.Threshold> consumeAttackTroop(int amount) {
+        int before = attackTroops;
         attackTroops = Math.max(0, attackTroops - Math.max(0, amount));
+        return troopVoiceCue.onLoss(before, attackTroops, attackTroopCap);
     }
 
     public void initializeAttackTroops(int cap) {
+        troopVoiceCue.reset();
         attackTroopCap = Math.max(0, cap);
         attackTroops = attackTroopCap;
     }
@@ -251,6 +257,7 @@ public final class BreakthroughRuntimeState {
     }
 
     public void advanceToNextStage(RoomBreakthroughConfig config, long gameTick) {
+        troopVoiceCue.reset();
         currentStageIndex = Math.min(maxStageCount, currentStageIndex + 1);
         stageStartTick = gameTick;
         stageDeadlineTick = config == null || config.stageDurationMinutes() <= 0 ? Long.MAX_VALUE
@@ -269,6 +276,7 @@ public final class BreakthroughRuntimeState {
     }
 
     public void restartCurrentStage(RoomBreakthroughConfig config, long combatStartTick) {
+        troopVoiceCue.reset();
         phase = Phase.COMBAT;
         stageStartTick = combatStartTick;
         stageDeadlineTick = config == null || config.stageDurationMinutes() <= 0 ? Long.MAX_VALUE

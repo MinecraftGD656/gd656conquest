@@ -35,10 +35,10 @@ Minecraft 1.20.1 / Forge 47.4.18 / official 1.20.1 映射。
 
 ## 输出
 
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.12.jar`：当前默认完整模组，网络协议为 `bf1-0.1.12`，六项客户端 bypass 开关均为 false。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.12-bypass.jar`：原工程已有的客户端绕过配置变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.12-nores.jar`：原工程已有的无 assets 变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.12-resources.zip`：原工程已有的 assets 资源包。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.13.jar`：当前默认完整模组，网络协议为 `bf1-0.1.13`，六项客户端 bypass 开关均为 false。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.13-bypass.jar`：原工程已有的客户端绕过配置变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.13-nores.jar`：原工程已有的无 assets 变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.13-resources.zip`：原工程已有的 assets 资源包。
 
 JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装选择没有变体后缀的主 JAR。
 构建日志保存在 `.build-logs/build.log`。
@@ -107,3 +107,5 @@ JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装
 0.1.11-fix TACZ 射击兼容：手柄射击同时支持 1.1.7 的两个旧入口和 1.1.8 的 `shootControllerTick(boolean)`，新旧注入组要求至少命中一个入口；锁定期间拒绝手柄按下但允许释放，避免残留开火状态。服务端显式匹配三个 `shoot` 重载，回调省略目标参数。协议为 `bf1-0.1.11-fix`，客户端与服务端须同时更新。真实 Mixin 验证覆盖 1.1.7-hotfix 和 1.1.8-release，详见 [TACZ 射击兼容](tacz-shoot-compat.md)。
 
 0.1.12 行动音乐修复：本营与整场结果曲直接单次起播，接续部署循环同样直接起播，取消这两条路径的零音量淡入；实际播放的时间轴声音期间将胜负曲音量压低至 25%，全部结束后恢复，音量更新不会重播曲子。行动胜利／失败页面不再额外启动结果音乐，沿用本营结束时的胜负曲，终局曲自然结束后不接部署循环。协议为 `bf1-0.1.12`，客户端与服务端须一起升级；保留 0.1.11-fix 的 TACZ 兼容修复。
+
+0.1.13 行动 HUD 与播报：下移行动模式顶部据点队列及当前据点图标，为兵力提示和字幕留出空间；新增半数、50、20 兵力双方语音，每营每阶段每档仅一次，下一阶段或下一营重新允许播报；加入本人撤退成功、进攻方清理结束及最后区域推进倒计时结束时的双方语音。10 个新素材转为 OGG，转换验证后删除 WAV 原件；重叠的自动播报依次播放，结果演出与退房清理播报队列。协议为 `bf1-0.1.13`，客户端与服务端须一起更新。

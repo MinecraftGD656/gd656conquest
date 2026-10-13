@@ -44,6 +44,26 @@
       {
         "name": "gd656conquest:music/loop_deploy_screen",
         "stream": true
+      },
+      {
+        "name": "gd656conquest:music/loop_deploy_screen1",
+        "stream": true
+      },
+      {
+        "name": "gd656conquest:music/loop_deploy_screen2",
+        "stream": true
+      },
+      {
+        "name": "gd656conquest:music/loop_deploy_screen3",
+        "stream": true
+      },
+      {
+        "name": "gd656conquest:music/loop_deploy_screen4",
+        "stream": true
+      },
+      {
+        "name": "gd656conquest:music/loop_deploy_screen5",
+        "stream": true
       }
     ]
   },
@@ -771,6 +791,36 @@
         "name": "gd656conquest:voice/shelling/artillery_friendly_3"
       }
     ]
+  },
+  "voice.operation.kills_halfway_attackers": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_kills_halfway_attackers", "stream": false}]
+  },
+  "voice.operation.kills_halfway_defenders": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_kills_halfway_defenders", "stream": false}]
+  },
+  "voice.operation.kills_togo50_attackers": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_kills_togo50_attackers", "stream": false}]
+  },
+  "voice.operation.kills_togo50_defenders": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_kills_togo50_defenders", "stream": false}]
+  },
+  "voice.operation.kills_togo20_attackers": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_kills_togo20_attackers", "stream": false}]
+  },
+  "voice.operation.kills_togo20_defenders": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_kills_togo20_defenders", "stream": false}]
+  },
+  "voice.operation.cleanup_retreatsuccess_defenders": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_cleanup_retreatsuccess_defenders", "stream": false}]
+  },
+  "voice.operation.cleanup_ended_attackers": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_cleanup_ended_attackers", "stream": false}]
+  },
+  "voice.operation.winning": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_winning", "stream": false}]
+  },
+  "voice.operation.losing": {
+    "sounds": [{"name": "gd656conquest:voice/operation/vo_mp_mother_breakthrough_losing", "stream": false}]
   },
   "voice.broadcast.leaving_area": {
     "sounds": [

@@ -17,6 +17,7 @@ import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.Cap
 import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.HudIconLayoutState;
 import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.TeamToken;
 import org.mods.gd656conquest.client.render.CaptureDiamondRenderer;
+import org.mods.gd656conquest.client.hud.ClientHudDebugState;
 
 import java.util.List;
 import java.util.Set;
@@ -36,9 +37,11 @@ final class ClientCaptureHudQueueRenderer {
             return;
         }
         int centerX = gui.guiWidth() / 2;
-        float queueY = 29.0F;
+        // Keep the operation troop notice and HUD subtitle above the objective queue.
+        boolean operations = "BREAKTHROUGH".equalsIgnoreCase(ClientHudDebugState.getScoreMethod());
+        float queueY = operations ? 62.0F : 29.0F;
         float focusX = centerX;
-        float focusY = 67.0F;
+        float focusY = operations ? 100.0F : 67.0F;
         String focusCode = state.currentCaptureFocus == null ? null : state.currentCaptureFocus.code();
         int spacing = 24;
         CaptureIconEntry focusEntry = focusCode == null ? null : state.objectiveEntryByCode.get(focusCode);

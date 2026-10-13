@@ -8,6 +8,8 @@ import org.mods.gd656conquest.common.match.BattalionSequence;
 import org.mods.gd656conquest.common.match.BriefingTimeline;
 import org.mods.gd656conquest.network.packet.BriefingPlaybackPacket;
 import org.mods.gd656conquest.common.match.OperationsTroopRules;
+import org.mods.gd656conquest.common.audio.OperationsVoiceCue;
+import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.network.packet.BattalionBriefingPacket;
 import org.mods.gd656conquest.server.room.model.RoomBattalionConfig;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayIntermissionProvider;
@@ -390,6 +392,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 initializeObjectiveSubtitles(room);
                 broadcastStageStartSubtitles(gameTick);
                 playStageAdvanceVoiceForAttackers();
+                if (runtimeState.getCurrentStageIndex() == runtimeState.getMaxStageCount()) {
+                    broadcastOperationVoice(OperationsVoiceCue.WINNING, OperationsVoiceCue.LOSING);
+                }
                 refreshDeployViewForRespawnPlayers(room, gameTick, previousStageIndex, runtimeState.getCurrentStageIndex());
             }
         }
@@ -437,7 +442,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             if (runtimeState.isDesperateModeActive()) {
                 return;
             }
-            runtimeState.consumeAttackTroop(1);
+            for (var threshold : runtimeState.consumeAttackTroop(1)) {
+                broadcastOperationVoice(threshold.forTeam(true), threshold.forTeam(false));
+            }
             // Adjudicate after the capture service updates all points, so a simultaneous
             // last death and capture cannot incorrectly destroy a battalion.
         }
@@ -612,7 +619,10 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         // This is also queried at the fatal event, before a server tick can observe arrival.
         if (BreakthroughRetreatBoundaryPolicy.reachedDestination(
             player.getX(), player.getZ(), retreatDestinationBoundaries(room))) {
-            runtimeState.retreatRoster().complete(player.getUUID());
+            if (runtimeState.retreatRoster().complete(player.getUUID()) && player.isAlive()
+                && !player.isSpectator() && !runningState.isInRespawnFlow(player.getUUID())) {
+                playOperationVoice(player, OperationsVoiceCue.RETREAT_SUCCESS);
+            }
             return false;
         }
         return true;
@@ -882,6 +892,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private void startAdvanceCountdown(RoomDefinition room, long gameTick) {
+        if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN) return;
+        broadcastOperationVoice(OperationsVoiceCue.CLEANUP_ENDED, null);
         clearRetreatPersistentSubtitles();
         titleService.clearRetreatTitles(runningState, runtimeState);
         clearRetreatDefenderMarkers(room, gameTick);
@@ -975,6 +987,19 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
 
     private void initializeAttackTroopCapForOpeningStage(RoomDefinition room) {
         runtimeState.initializeAttackTroops(resolveAttackTroopBalance(room).troopCap());
+    }
+
+    private void broadcastOperationVoice(OperationsVoiceCue attackers, OperationsVoiceCue defenders) {
+        for (java.util.UUID id : List.copyOf(runningState.getRoomPlayers())) {
+            RoomTeamId team = runningState.getRoomTeams().get(id);
+            OperationsVoiceCue cue = team == RoomTeamId.CAMP_A ? attackers : team == RoomTeamId.CAMP_B ? defenders : null;
+            ServerPlayer player = captureRuntimeService.findOnlinePlayer(id);
+            if (player != null && cue != null) playOperationVoice(player, cue);
+        }
+    }
+
+    private static void playOperationVoice(ServerPlayer player, OperationsVoiceCue cue) {
+        NetworkManager.sendToPlayer(player, ClientShortSoundPacket.oneShot(cue.soundId(), 1.0F, 1.0F));
     }
 
     private void syncCombatNarrativeSubtitles(RoomDefinition room, long gameTick) {
