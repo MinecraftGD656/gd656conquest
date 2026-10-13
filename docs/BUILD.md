@@ -35,10 +35,10 @@ Minecraft 1.20.1 / Forge 47.4.18 / official 1.20.1 映射。
 
 ## 输出
 
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.10.jar`：当前默认完整模组，网络协议为 `bf1-0.1.10`，六项客户端 bypass 开关均为 false。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.10-bypass.jar`：原工程已有的客户端绕过配置变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.10-nores.jar`：原工程已有的无 assets 变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.10-resources.zip`：原工程已有的 assets 资源包。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.11.jar`：当前默认完整模组，网络协议为 `bf1-0.1.11`，六项客户端 bypass 开关均为 false。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.11-bypass.jar`：原工程已有的客户端绕过配置变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.11-nores.jar`：原工程已有的无 assets 变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.11-resources.zip`：原工程已有的 assets 资源包。
 
 JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装选择没有变体后缀的主 JAR。
 构建日志保存在 `.build-logs/build.log`。
@@ -51,7 +51,7 @@ JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装
 ## 安装与兼容
 
 普通安装选择主 JAR，放入 Minecraft/Forge 实例的 mods 目录，不同时安装 bypass/nores 变体。
-客户端与服务端使用相同模组版本，当前严格网络协议为 `bf1-0.1.10`；
+客户端与服务端使用相同模组版本，当前严格网络协议为 `bf1-0.1.11`；
 旧反编译 `.24/114` 不作为当前协议兼容版。
 依赖按模组元数据安装；要使用布娃娃功能，客户端和服务端都需安装
 `ragdollified-1.20.1-1.1.1-hotfix-RELEASE.jar`，缺席时保留原倒地动画。
@@ -101,3 +101,5 @@ JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装
 0.1.9 暂停操作改为黑名单：保留普通界面、鼠标与聊天，营间可以保存下次部署配装；当前实际兵种与下次部署选择分离，发放配装时更新。战场操作在各自执行入口限制，HUD 只隐藏明确识别的战斗叠加层，未知普通界面默认保留。客户端与服务端须同时更新，协议为 `bf1-0.1.9`。
 
 0.1.10 行动音乐：修复阶段开始曲在首次部署准备期提前播放；换营时双方按本轮胜负单次播放现有胜利／失败素材，延续到个人部署；播完仍等待时淡入部署循环；剩余攻势／防线与最后攻势／防线分别播放新增提示音。音轨与自定义时间轴独立。协议更新为 `bf1-0.1.10`，客户端与服务端须同时更新。资源包替换路径与验收步骤见 [行动模式音乐](operations-battalions.md#行动音乐与攻势提示音0110)。
+
+0.1.11 FrontVoice 联动：适配 `gd656frontvoice-0.0.11-meow1-1.20.1-forge.jar` 的七国 BF1 语音，房间编辑器提供标准国家 ID；旧配置兼容 `US→USA`、`CN→ENG`、`RU→RUS`，补充非法语音包校验、同房间友军判断和倒地求救资源 ID。协议更新为 `bf1-0.1.11`，客户端与服务端须同时更新。配置说明见 [阵营语音联动](frontvoice-compat.md)。

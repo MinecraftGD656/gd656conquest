@@ -5,7 +5,6 @@ import org.mods.gd656conquest.server.loadout.domain.CustomLoadoutSlot;
 
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 
 public record RoomCommonConfig(
     RoomMatchingConfig matchingConfig,
@@ -437,7 +436,7 @@ public record RoomCommonConfig(
     }
 
     private static String normalizeVoicePack(String voicePack) {
-        return voicePack == null ? "" : voicePack.trim().toUpperCase(Locale.ROOT);
+        return RoomVoicePack.normalizeForStorage(voicePack);
     }
 
     private static String normalizeEquipmentSetId(String value) {

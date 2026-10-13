@@ -169,14 +169,16 @@ public final class RoomConfigValidator {
     }
 
     public static void validateVoicePack(RoomConfigValidationResult result, String fieldName, String configId, RoomVoicePack voicePack) {
-        if (voicePack == null || voicePack.id() == null || voicePack.id().isBlank()) {
-            // Optional, don't fail validation
-        }
+        validateVoicePack(result, fieldName, configId, voicePack == null ? null : voicePack.id());
     }
     
     public static void validateVoicePack(RoomConfigValidationResult result, String fieldName, String configId, String voicePack) {
         if (voicePack == null || voicePack.isBlank()) {
-            // Optional, don't fail validation
+            return;
+        }
+        if (!RoomVoicePack.isSupported(voicePack)) {
+            result.addMissing(fieldName + " 语音包无效: " + voicePack
+                + "（支持 " + String.join(" / ", RoomVoicePack.suggestions()) + "）", configId);
         }
     }
 }

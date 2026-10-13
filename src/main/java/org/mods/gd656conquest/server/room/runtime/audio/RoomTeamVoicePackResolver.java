@@ -10,7 +10,7 @@ public final class RoomTeamVoicePackResolver {
 
     public static RoomVoicePack resolve(RoomDefinition room, RoomTeamId teamId) {
         if (room == null) {
-            return RoomVoicePack.US;
+            return RoomVoicePack.USA;
         }
         if (teamId == RoomTeamId.CAMP_A) {
             return RoomVoicePack.resolveOrDefault(room.commonConfig().campAVoicePack());
@@ -18,7 +18,7 @@ public final class RoomTeamVoicePackResolver {
         if (teamId == RoomTeamId.CAMP_B) {
             return RoomVoicePack.resolveOrDefault(room.commonConfig().campBVoicePack());
         }
-        return RoomVoicePack.US;
+        return RoomVoicePack.USA;
     }
 
     public static String resolveDownedHelpSoundId(RoomDefinition room, RoomTeamId teamId) {

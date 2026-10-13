@@ -25,7 +25,7 @@ public final class FrontlineVoiceGdcqCompatApi {
             return null;
         }
         RoomVoicePack voicePack = RoomTeamVoicePackResolver.resolve(room, teamId);
-        return voicePack == null ? null : voicePack.name();
+        return voicePack == null ? null : voicePack.id();
     }
 
     public static boolean isSameCamp(ServerPlayer left, ServerPlayer right) {
@@ -33,6 +33,11 @@ public final class FrontlineVoiceGdcqCompatApi {
             return false;
         }
         RoomCoreRuntimeManager runtimeManager = RoomCoreRuntimeManager.of(left.server);
+        String leftRoomId = runtimeManager.findPlayerRoomId(left.getUUID()).orElse(null);
+        String rightRoomId = runtimeManager.findPlayerRoomId(right.getUUID()).orElse(null);
+        if (leftRoomId == null || !leftRoomId.equals(rightRoomId)) {
+            return false;
+        }
         RoomTeamId leftTeam = runtimeManager.findCurrentTeam(left.getUUID()).orElse(null);
         RoomTeamId rightTeam = runtimeManager.findCurrentTeam(right.getUUID()).orElse(null);
         return leftTeam != null && leftTeam == rightTeam;
