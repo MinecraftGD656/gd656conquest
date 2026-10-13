@@ -6,6 +6,7 @@ import org.mods.gd656conquest.client.room.ClientRoomLockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Group;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -22,8 +23,17 @@ public abstract class PresentationShootInputMixin {
         }
     }
 
-    @Inject(method = {"autoShootController", "semiShootController"}, at = @At("HEAD"), cancellable = true, require = 1)
+    @Group(name = "gd656$controllerShoot", min = 1)
+    @Inject(method = {"autoShootController()Z", "semiShootController(Z)Z"}, at = @At("HEAD"), cancellable = true, require = 0)
     private static void gd656$blockControllerGunInput(CallbackInfoReturnable<Boolean> cir) {
         if (ClientRoomLockState.shouldRestrictHeldItemUse()) cir.setReturnValue(false);
+    }
+
+    @Group(name = "gd656$controllerShoot", min = 1)
+    @Inject(method = "shootControllerTick(Z)Z", at = @At("HEAD"), cancellable = true, require = 0)
+    private static void gd656$blockControllerTick(boolean pressed, CallbackInfoReturnable<Boolean> cir) {
+        // TACZ 1.1.8 merges the legacy controller handlers into this state setter.
+        // Let release calls clear its held state even while gameplay is locked.
+        if (pressed && ClientRoomLockState.shouldRestrictHeldItemUse()) cir.setReturnValue(false);
     }
 }
