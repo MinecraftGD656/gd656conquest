@@ -67,6 +67,48 @@
       }
     ]
   },
+  "music.operation.round_start1": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_roundstart1_wave", "stream": true}]
+  },
+  "music.operation.round_start2": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_roundstart2_wave", "stream": true}]
+  },
+  "music.operation.round_start3": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_roundstart3_wave", "stream": true}]
+  },
+  "music.operation.attackers_advance1": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_attackersadvance_wave1", "stream": true}]
+  },
+  "music.operation.attackers_advance2": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_attackersadvance_wave2", "stream": true}]
+  },
+  "music.operation.attackers_advance3": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_attackersadvance_wave3", "stream": true}]
+  },
+  "music.operation.attackers_advance4": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_attackersadvance_wave4", "stream": true}]
+  },
+  "music.operation.attackers_advance5": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_attackersadvance_wave5", "stream": true}]
+  },
+  "music.operation.pre_eor_01": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_preeor_01_wave", "stream": true}]
+  },
+  "music.operation.pre_eor_02": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_preeor_02_wave", "stream": true}]
+  },
+  "music.operation.pre_eor_03": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_preeor_03_wave", "stream": true}]
+  },
+  "music.operation.pre_eor_overlay": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_preeor_overlay_wave", "stream": true}]
+  },
+  "music.operation.eor_win": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_eor_win_wave", "stream": true}]
+  },
+  "music.operation.eor_lose": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_eor_lose_wave", "stream": true}]
+  },
   "music.operation_victory": {
     "sounds": [
       {

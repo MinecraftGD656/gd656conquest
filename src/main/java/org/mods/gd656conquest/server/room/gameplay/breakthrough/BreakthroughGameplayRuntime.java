@@ -9,6 +9,10 @@ import org.mods.gd656conquest.common.match.BriefingTimeline;
 import org.mods.gd656conquest.network.packet.BriefingPlaybackPacket;
 import org.mods.gd656conquest.common.match.OperationsTroopRules;
 import org.mods.gd656conquest.common.audio.OperationsVoiceCue;
+import org.mods.gd656conquest.common.audio.OperationsFinaleState;
+import org.mods.gd656conquest.common.audio.OperationsMusicSnapshot;
+import org.mods.gd656conquest.common.audio.OperationsMusicSnapshot.Mode;
+import org.mods.gd656conquest.network.packet.OperationsMusicPacket;
 import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.network.packet.BattalionBriefingPacket;
 import org.mods.gd656conquest.server.room.model.RoomBattalionConfig;
@@ -109,6 +113,13 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private final Set<java.util.UUID> retreatMarkedDefenders = new LinkedHashSet<>();
 
     private final BattalionSequence battalions = new BattalionSequence();
+    private final OperationsFinaleState finaleMusic = new OperationsFinaleState();
+    private final Map<java.util.UUID, MusicSync> musicSync = new LinkedHashMap<>();
+    private record MusicSync(ServerPlayer player, OperationsMusicSnapshot snapshot) {}
+    private String finaleMusicStage = "";
+    private long operationRoundStartTick;
+    private long operationResultStartTick;
+    private int operationRoundVariant = 1;
     private final Map<java.util.UUID, BattalionPlayerSync> battalionPlayerSync = new LinkedHashMap<>();
     private RoomBattalionConfig activeBattalionConfig;
     private RoomViewPosition briefingView;
@@ -149,6 +160,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     @Override
     public void onEnterMainPhase(RoomDefinition room, long gameTick) {
         enteredTick = gameTick + RoomPlayerRespawnService.initialCombatUnlockDelayTicks();
+        operationRoundStartTick = enteredTick;
+        operationRoundVariant = 1;
+        finaleMusic.reset(); finaleMusicStage = ""; musicSync.clear();
         pendingEndRequest = null;
         finalConclusion = null;
         settlementRequested = false;
@@ -185,6 +199,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private void beginBattalionConclusion(RoomDefinition room, long tick, boolean attackersWon, String reason) {
         if (!battalions.finish(tick, attackersWon, activeBattalionConfig.briefingSeconds(), activeBattalionConfig.preparationSeconds())) return;
         battalionAttackersWon = attackersWon;
+        operationResultStartTick = tick;
         if (battalions.terminal()) finalConclusion = new OperationsConclusion(
             tick, activeBattalionConfig.briefingSeconds(), activeBattalionConfig.settlementTiming(), attackersWon);
         timelineStartTick = tick;
@@ -250,6 +265,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             initializeAttackTroopCapForOpeningStage(room);
             battalionStartStage = runtimeState.getCurrentStageIndex();
             battalionStartTick = battalions.deadline();
+            operationRoundStartTick = battalionStartTick;
+            operationRoundVariant = battalions.battalion();
             initializeObjectiveSubtitles(room);
         }
         if (battalions.phase() == BattalionSequence.Phase.COMBAT) {
@@ -260,6 +277,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
 
     @Override
     public void synchronizeIntermissionPlayers(RoomDefinition room, RoomPlayerRespawnService respawns, long tick) {
+        synchronizeOperationMusic(room, tick);
         var phase = battalions.phase();
         battalionPlayerSync.keySet().removeIf(id -> !runningState.getRoomPlayers().contains(id));
         for (java.util.UUID id : List.copyOf(runningState.getRoomPlayers())) {
@@ -421,6 +439,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 runningState.getRoomTeams().get(id) == RoomTeamId.CAMP_A, battalionAttackersWon, null, List.of()));
         }
         runtimeState.initialize(null, 0L);
+        finaleMusic.reset(); finaleMusicStage = ""; musicSync.clear();
         battalions.initialize(3);
         battalionPlayerSync.clear();
         battalionReports.clear();
@@ -893,6 +912,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
 
     private void startAdvanceCountdown(RoomDefinition room, long gameTick) {
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN) return;
+        operationRoundStartTick = gameTick;
+        operationRoundVariant = 1;
         broadcastOperationVoice(OperationsVoiceCue.CLEANUP_ENDED, null);
         clearRetreatPersistentSubtitles();
         titleService.clearRetreatTitles(runningState, runtimeState);
@@ -987,6 +1008,49 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
 
     private void initializeAttackTroopCapForOpeningStage(RoomDefinition room) {
         runtimeState.initializeAttackTroops(resolveAttackTroopBalance(room).troopCap());
+    }
+
+    private void synchronizeOperationMusic(RoomDefinition room, long tick) {
+        int sector = runtimeState.getCurrentStageIndex();
+        Mode mode;
+        if (battalions.active()) mode = isDeploymentPreparation() ? Mode.PREPARATION : Mode.RESULT;
+        else if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) mode = Mode.ADVANCE;
+        else if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN) {
+            mode = Mode.ROUND_START; sector++;
+        } else mode = tick < operationRoundStartTick ? Mode.PREPARATION : Mode.COMBAT;
+        boolean strong = battalions.battalion() == battalions.total() || sector == runtimeState.getMaxStageCount();
+        int level = 0;
+        if (mode == Mode.COMBAT) {
+            String key = battalions.battalion() + "|" + sector;
+            if (!key.equals(finaleMusicStage)) { finaleMusic.reset(); finaleMusicStage = key; }
+            var points = room.breakthroughConfig().stageActivePoints(sector).stream().map(point -> {
+                String code = org.mods.gd656conquest.server.room.objective.RoomObjectiveSupport.normalizeCode(point.code());
+                RoomTeamId owner = runtimeState.getOwnerByCode().get(code);
+                return new OperationsFinaleState.Objective(code, owner == RoomTeamId.CAMP_A, owner == null,
+                    owner == RoomTeamId.CAMP_B && runtimeState.isFullyControlledBy(code, RoomTeamId.CAMP_B),
+                    runtimeState.getProgressByCode().getOrDefault(code, 0.0D) > 0.001D);
+            }).toList();
+            level = finaleMusic.update(tick, runtimeState.getAttackTroops(), battalions.battalion() == battalions.total(),
+                sector == runtimeState.getMaxStageCount(), runtimeState.isDesperateModeActive(), points);
+        }
+        musicSync.keySet().retainAll(runningState.getRoomPlayers());
+        for (java.util.UUID id : List.copyOf(runningState.getRoomPlayers())) {
+            ServerPlayer player = captureRuntimeService.findOnlinePlayer(id);
+            if (player == null) continue;
+            var snapshot = new OperationsMusicSnapshot(room.roomId(), runningState.getActiveMatchInstanceId(), tick,
+                mode, battalions.battalion(), sector, operationRoundVariant, operationRoundStartTick,
+                battalions.sequenceId(), level, strong, battalions.terminal(),
+                (runningState.getRoomTeams().get(id) == RoomTeamId.CAMP_A) == battalionAttackersWon,
+                (int)Math.min(Integer.MAX_VALUE, Math.max(0, tick - operationResultStartTick)));
+            MusicSync old = musicSync.get(id);
+            boolean changed = old == null || old.player() != player || old.snapshot().mode() != mode
+                || !old.snapshot().stageKey().equals(snapshot.stageKey()) || old.snapshot().finaleLevel() != level
+                || old.snapshot().resultSequence() != snapshot.resultSequence() || old.snapshot().victory() != snapshot.victory();
+            if (changed || tick % 20 == 0) {
+                NetworkManager.sendToPlayer(player, new OperationsMusicPacket(snapshot));
+                musicSync.put(id, new MusicSync(player, snapshot));
+            }
+        }
     }
 
     private void broadcastOperationVoice(OperationsVoiceCue attackers, OperationsVoiceCue defenders) {

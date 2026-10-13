@@ -66,7 +66,7 @@ import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
-    private static final String PROTOCOL_VERSION = "bf1-0.1.13";
+    private static final String PROTOCOL_VERSION = "bf1-0.1.14";
     private static int packetId;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(Gd656conquest.MODID, "main"),
@@ -79,6 +79,10 @@ public final class NetworkManager {
     }
 
     public static void init() {
+        CHANNEL.registerMessage(packetId++, org.mods.gd656conquest.network.packet.OperationsMusicPacket.class,
+            org.mods.gd656conquest.network.packet.OperationsMusicPacket::encode,
+            org.mods.gd656conquest.network.packet.OperationsMusicPacket::decode,
+            org.mods.gd656conquest.network.packet.OperationsMusicPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(packetId++, org.mods.gd656conquest.network.packet.RoomCombatCountdownPacket.class,
             org.mods.gd656conquest.network.packet.RoomCombatCountdownPacket::encode,
             org.mods.gd656conquest.network.packet.RoomCombatCountdownPacket::decode,

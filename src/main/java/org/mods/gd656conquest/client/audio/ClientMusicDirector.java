@@ -38,12 +38,28 @@ final class ClientMusicDirector {
     private static boolean deployLoopRequested;
     private static Object intermissionWorld;
     private static float intermissionMusicVolume = 1.0F;
+    private static boolean operationExclusive;
 
     private ClientMusicDirector() {
     }
 
     static void tick() {
         MusicContext context = MusicContext.capture();
+        boolean operations = context.inConquestDimension && context.inRoom && !context.matchingState && !context.maintenanceState
+            && ("BREAKTHROUGH".equalsIgnoreCase(ClientHudDebugState.getScoreMethod()) || ClientOperationsMusicDirector.ownsRoom(context.roomId));
+        if (operations) {
+            if (!operationExclusive) {
+                resetIntermissionAudio(); stopObjectiveLoop(); stopStrategicLoop(); stopFinaleLoop();
+                AudioManager.getInstance().stopMusic(ClientMusicCatalog.MUSIC_STAGE_BEGIN, 0);
+                AudioManager.getInstance().stopMusic(ClientMusicCatalog.MUSIC_DEATH, 0);
+            }
+            operationExclusive = true;
+            ClientOperationsMusicDirector.tick();
+            wasInRoom = true; lastRoomId = context.roomId;
+            return;
+        }
+        if (operationExclusive || ClientOperationsMusicDirector.active()) ClientOperationsMusicDirector.reset();
+        operationExclusive = false;
         if (!context.inConquestDimension) {
             resetIntermissionAudio();
             stageBeginMusic.reset();
@@ -106,6 +122,7 @@ final class ClientMusicDirector {
     }
 
     static void onDeathStarted() {
+        if (operationExclusive || ClientOperationsMusicDirector.active()) return;
         stopObjectiveLoop();
         AudioManager.getInstance().playMusic(ClientMusicCatalog.MUSIC_DEATH, 1.0F, false);
     }
@@ -118,27 +135,7 @@ final class ClientMusicDirector {
             packet.phase(), packet.elapsedTicks(), packet.battalion(), packet.totalBattalions(), packet.attackersWon());
         if (!update.accepted()) return;
         if (packet.phase() == Phase.RESULT) ClientAudioManager.getInstance().enqueueClearOperationVoices();
-        if (update.startBackground()) {
-            stopIntermissionMusic(0);
-            boolean terminal = packet.phase() != Phase.PREPARATION
-                && (packet.attackersWon() || packet.battalion() >= packet.totalBattalions());
-            intermissionMusic.start(packet.selfAttacker(), packet.attackersWon(), terminal);
-            deployLoopRequested = false;
-            // Stop only managed battle tracks; authored TimelineSound instances remain untouched.
-            stopLoop(ClientMusicCatalog.LOOP_DEPLOY_SCREEN, 0);
-            stopLoop(ClientMusicCatalog.LOOP_IN_OBJECTIVE, 0);
-            stopStrategicLoop();
-            stopFinaleLoop();
-            AudioManager.getInstance().stopMusic(ClientMusicCatalog.MUSIC_FIRST_DEPLOY, 0);
-            AudioManager.getInstance().stopMusic(ClientMusicCatalog.MUSIC_STAGE_BEGIN, 0);
-            AudioManager.getInstance().stopMusic(ClientMusicCatalog.MUSIC_DEATH, 0);
-            intermissionMusicVolume = intermissionMusic.volume(ClientBriefingPlayback.hasActiveSounds(packet.roomId()));
-            AudioManager.getInstance().playMusic(intermissionResultTrack(), intermissionMusicVolume, false);
-        }
-        if (!intermissionAudio.isBackgroundActive() && packet.phase() != Phase.COMBAT
-            && !intermissionMusic.isTerminalConclusion()) {
-            stopIntermissionMusic(0);
-        }
+        // Main BGM is owned by OperationsMusicPacket; this packet keeps only its UI announcement effects.
         switch (update.announcement()) {
             case NEXT_ASSAULT -> AudioManager.getInstance().playSound(ClientMusicCatalog.SOUND_OPERATION_NEXT_ASSAULT, 1.0F, 1.0F);
             case LAST_ASSAULT -> AudioManager.getInstance().playSound(ClientMusicCatalog.SOUND_OPERATION_LAST_ASSAULT, 1.0F, 1.0F);
@@ -154,6 +151,8 @@ final class ClientMusicDirector {
     }
 
     static void onDeployTravelStarted() {
+        ClientOperationsMusicDirector.onDeployOpened();
+        if (ClientOperationsMusicDirector.active()) return;
         if (intermissionMusic.isActive()) {
             deployLoopRequested = true;
             firstDeployOpenMusicPlayed = true;
@@ -180,6 +179,8 @@ final class ClientMusicDirector {
     }
 
     static void onDeployOpened() {
+        ClientOperationsMusicDirector.onDeployOpened();
+        if (ClientOperationsMusicDirector.active()) return;
         if (intermissionMusic.isActive()) {
             deployLoopRequested = true;
             firstDeployOpenMusicPlayed = true;
@@ -204,6 +205,8 @@ final class ClientMusicDirector {
     }
 
     static void onRespawnTransitionStarted() {
+        ClientOperationsMusicDirector.onDeployed();
+        if (ClientOperationsMusicDirector.active()) return;
         stopDeployLoop();
         stopIntermissionMusic(0);
         deployLoopRequested = false;
@@ -213,6 +216,7 @@ final class ClientMusicDirector {
     }
 
     static void onMatchEndTransitionStarted() {
+        if (ClientOperationsMusicDirector.active()) return;
         resetIntermissionAudio();
         deployLoopRequested = false;
         stopDeployLoop();
@@ -235,6 +239,7 @@ final class ClientMusicDirector {
     }
 
     static void reset() {
+        ClientOperationsMusicDirector.reset(); operationExclusive = false;
         resetIntermissionAudio();
         stageBeginMusic.reset();
         lastRoomId = NONE;

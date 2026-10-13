@@ -404,6 +404,9 @@ public final class ClientAudioManager {
         public void tick() {
         }
 
+        @Override
+        public boolean canStartSilent() { return true; }
+
         private synchronized void beginFadeOut(int ticks) {
             int safeTicks = Math.max(1, ticks);
             this.fadeTicksTotal = safeTicks;
