@@ -6,6 +6,10 @@ public final class StageBeginMusicCue {
     private String lastStage = "";
     private String previousAudioState = "";
 
+    public static boolean isOpeningWindow(long tick, long startTick) {
+        return tick >= startTick && tick - startTick < 100L;
+    }
+
     public static String state(long match, int battalion, int stage, long startTick) {
         return PREFIX + match + "|" + battalion + "|" + stage + "|" + startTick;
     }

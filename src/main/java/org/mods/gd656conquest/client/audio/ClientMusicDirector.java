@@ -7,6 +7,10 @@ import org.mods.gd656conquest.client.hud.ClientHudDebugState;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.common.audio.AudioManager;
 import org.mods.gd656conquest.common.audio.StageBeginMusicCue;
+import org.mods.gd656conquest.common.audio.OperationsIntermissionAudioCue;
+import org.mods.gd656conquest.common.audio.OperationsIntermissionMusicCue;
+import org.mods.gd656conquest.common.match.BattalionSequence.Phase;
+import org.mods.gd656conquest.network.packet.BattalionBriefingPacket;
 import org.mods.gd656conquest.common.match.MatchResultType;
 
 import java.util.Locale;
@@ -14,6 +18,9 @@ import java.util.Locale;
 final class ClientMusicDirector {
     private static final String NONE = "-";
     private static final StageBeginMusicCue stageBeginMusic = new StageBeginMusicCue();
+    private static final OperationsIntermissionAudioCue intermissionAudio = new OperationsIntermissionAudioCue();
+    private static final OperationsIntermissionMusicCue intermissionMusic = new OperationsIntermissionMusicCue();
+    private static final int INTERMISSION_FADE_TICKS = 20;
     private static final int DEPLOY_LOOP_FADE_TICKS = 60;
     private static final int RETREAT_LOOP_FADE_TICKS = 20;
     private static final int OBJECTIVE_LOOP_FADE_TICKS = 20;
@@ -29,6 +36,7 @@ final class ClientMusicDirector {
     private static boolean firstDeployCompleted;
     private static boolean firstDeployOpenMusicPlayed;
     private static boolean deployLoopRequested;
+    private static Object intermissionWorld;
 
     private ClientMusicDirector() {
     }
@@ -36,6 +44,7 @@ final class ClientMusicDirector {
     static void tick() {
         MusicContext context = MusicContext.capture();
         if (!context.inConquestDimension) {
+            resetIntermissionAudio();
             stageBeginMusic.reset();
             deployLoopRequested = false;
             stopDeployLoop();
@@ -63,6 +72,7 @@ final class ClientMusicDirector {
         }
 
         if (roomChanged || justLeft) {
+            if (justLeft || !intermissionAudio.isForRoom(context.roomId)) resetIntermissionAudio();
             stageBeginMusic.reset();
             deployLoopRequested = false;
             stopDeployLoop();
@@ -71,12 +81,20 @@ final class ClientMusicDirector {
             stopFinaleLoop();
         }
 
+        if (context.maintenanceState || context.matchingState || !context.inRoom) resetIntermissionAudio();
+        if (intermissionMusic.isActive() && intermissionWorld != Minecraft.getInstance().level) resetIntermissionAudio();
+        if (intermissionMusic.resultFinished(ClientAudioManager.getInstance().isMusicManaged(intermissionResultTrack()))) {
+            // Natural completion releases only this track; authored timeline sounds keep playing.
+            deployLoopRequested = true;
+            playLoop(ClientMusicCatalog.LOOP_DEPLOY_SCREEN, INTERMISSION_FADE_TICKS);
+        }
+
         updateDeployLoop(context);
         updateStrategicLoop(context);
         updateObjectiveLoop(context);
         updateFinaleLoop(context);
         if (context.matchingState) stageBeginMusic.reset();
-        if (stageBeginMusic.update(context.audioState)) {
+        if (!intermissionAudio.isBackgroundActive() && stageBeginMusic.update(context.audioState)) {
             AudioManager.getInstance().playMusic(ClientMusicCatalog.MUSIC_STAGE_BEGIN, 1.0F, false);
         }
 
@@ -89,7 +107,49 @@ final class ClientMusicDirector {
         AudioManager.getInstance().playMusic(ClientMusicCatalog.MUSIC_DEATH, 1.0F, false);
     }
 
+    static void onBattalionPhase(BattalionBriefingPacket packet) {
+        Object world = Minecraft.getInstance().level;
+        if (intermissionWorld != null && intermissionWorld != world) resetIntermissionAudio();
+        intermissionWorld = world;
+        var update = intermissionAudio.accept(packet.roomId(), packet.matchId(), packet.sequenceId(),
+            packet.phase(), packet.elapsedTicks(), packet.battalion(), packet.totalBattalions(), packet.attackersWon());
+        if (!update.accepted()) return;
+        if (update.startBackground()) {
+            stopIntermissionMusic(0);
+            intermissionMusic.start(packet.selfAttacker(), packet.attackersWon());
+            deployLoopRequested = false;
+            // Stop only managed battle tracks; authored TimelineSound instances remain untouched.
+            stopLoop(ClientMusicCatalog.LOOP_DEPLOY_SCREEN, 0);
+            stopLoop(ClientMusicCatalog.LOOP_IN_OBJECTIVE, 0);
+            stopStrategicLoop();
+            stopFinaleLoop();
+            AudioManager.getInstance().stopMusic(ClientMusicCatalog.MUSIC_FIRST_DEPLOY, 0);
+            AudioManager.getInstance().stopMusic(ClientMusicCatalog.MUSIC_STAGE_BEGIN, 0);
+            AudioManager.getInstance().stopMusic(ClientMusicCatalog.MUSIC_DEATH, 0);
+            AudioManager.getInstance().playMusic(intermissionResultTrack(), 1.0F, false, INTERMISSION_FADE_TICKS);
+        }
+        if (!intermissionAudio.isBackgroundActive() && packet.phase() != Phase.COMBAT) {
+            stopIntermissionMusic(packet.phase() == Phase.FINISHED ? 0 : INTERMISSION_FADE_TICKS);
+        }
+        switch (update.announcement()) {
+            case NEXT_ASSAULT -> AudioManager.getInstance().playSound(ClientMusicCatalog.SOUND_OPERATION_NEXT_ASSAULT, 1.0F, 1.0F);
+            case LAST_ASSAULT -> AudioManager.getInstance().playSound(ClientMusicCatalog.SOUND_OPERATION_LAST_ASSAULT, 1.0F, 1.0F);
+            case NONE -> { }
+        }
+    }
+
+    static void resetIntermissionAudio() {
+        stopIntermissionMusic(0);
+        intermissionAudio.reset();
+        intermissionWorld = null;
+    }
+
     static void onDeployTravelStarted() {
+        if (intermissionMusic.isActive()) {
+            deployLoopRequested = true;
+            firstDeployOpenMusicPlayed = true;
+            return;
+        }
         MusicContext context = MusicContext.capture();
         boolean suppressDeployMusic = shouldSuppressDeployLoopForFinale(context);
         if (!firstDeployCompleted && !firstDeployOpenMusicPlayed) {
@@ -111,6 +171,11 @@ final class ClientMusicDirector {
     }
 
     static void onDeployOpened() {
+        if (intermissionMusic.isActive()) {
+            deployLoopRequested = true;
+            firstDeployOpenMusicPlayed = true;
+            return;
+        }
         MusicContext context = MusicContext.capture();
         boolean suppressDeployMusic = shouldSuppressDeployLoopForFinale(context);
         if (!firstDeployCompleted && !firstDeployOpenMusicPlayed) {
@@ -131,6 +196,7 @@ final class ClientMusicDirector {
 
     static void onRespawnTransitionStarted() {
         stopDeployLoop();
+        stopIntermissionMusic(INTERMISSION_FADE_TICKS);
         deployLoopRequested = false;
         if (!firstDeployCompleted && wasInRoom) {
             firstDeployCompleted = true;
@@ -138,6 +204,7 @@ final class ClientMusicDirector {
     }
 
     static void onMatchEndTransitionStarted() {
+        resetIntermissionAudio();
         deployLoopRequested = false;
         stopDeployLoop();
         stopObjectiveLoop();
@@ -159,6 +226,7 @@ final class ClientMusicDirector {
     }
 
     static void reset() {
+        resetIntermissionAudio();
         stageBeginMusic.reset();
         lastRoomId = NONE;
         firstDeployTrackRoomId = NONE;
@@ -171,6 +239,12 @@ final class ClientMusicDirector {
     }
 
     private static void updateDeployLoop(MusicContext context) {
+        if (intermissionMusic.music() == OperationsIntermissionMusicCue.Music.DEPLOY) {
+            if (!ClientAudioManager.getInstance().isMusicManaged(ClientMusicCatalog.LOOP_DEPLOY_SCREEN)) {
+                playLoop(ClientMusicCatalog.LOOP_DEPLOY_SCREEN, INTERMISSION_FADE_TICKS);
+            }
+            return;
+        }
         boolean shouldPlay = context.inGameWorld
             && deployLoopRequested
             && ClientDeathFlowState.shouldRenderDeployBoundaries()
@@ -178,14 +252,14 @@ final class ClientMusicDirector {
             && !shouldSuppressDeployLoopForFinale(context);
         if (shouldPlay) {
             playLoop(ClientMusicCatalog.LOOP_DEPLOY_SCREEN, 0);
-        } else if (ClientAudioManager.getInstance().isMusicActive(ClientMusicCatalog.LOOP_DEPLOY_SCREEN)) {
+        } else if (ClientAudioManager.getInstance().isMusicManaged(ClientMusicCatalog.LOOP_DEPLOY_SCREEN)) {
             stopDeployLoop();
         }
     }
 
     private static void updateStrategicLoop(MusicContext context) {
         String desired = NONE;
-        if (!deployLoopRequested) {
+        if (!deployLoopRequested && !intermissionAudio.isBackgroundActive() && !intermissionMusic.isActive()) {
             if (context.inGameWorld && context.inRoom && context.matchingState) {
                 desired = ClientMusicCatalog.LOOP_QUEUE;
             } else if (context.inConquestDimension && context.inGameWorld && (context.maintenanceState || (!context.inRoom && !wasInRoom))) {
@@ -219,7 +293,8 @@ final class ClientMusicDirector {
     }
 
     private static void updateObjectiveLoop(MusicContext context) {
-        boolean shouldPlay = !deployLoopRequested && !context.maintenanceState && shouldPlayObjectiveLoop(context);
+        boolean shouldPlay = !deployLoopRequested && !intermissionAudio.isBackgroundActive() && !intermissionMusic.isActive()
+            && !context.maintenanceState && shouldPlayObjectiveLoop(context);
         if (shouldPlay) {
             playLoop(ClientMusicCatalog.LOOP_IN_OBJECTIVE, 0);
             return;
@@ -262,11 +337,11 @@ final class ClientMusicDirector {
     }
 
     private static boolean shouldSuppressDeployLoopForFinale(MusicContext context) {
-        return !NONE.equals(resolveDesiredFinaleLoop(context));
+        return intermissionAudio.isBackgroundActive() || intermissionMusic.isResultPlaying() || !NONE.equals(resolveDesiredFinaleLoop(context));
     }
 
     private static String resolveDesiredFinaleLoop(MusicContext context) {
-        if (context.maintenanceState) {
+        if (context.maintenanceState || intermissionAudio.isBackgroundActive() || intermissionMusic.isActive()) {
             return NONE;
         }
         if ("BT_DESPERATE".equals(context.audioState)) {
@@ -326,6 +401,21 @@ final class ClientMusicDirector {
 
     private static void playLoop(String soundId, int fadeInTicks) {
         AudioManager.getInstance().playMusic(soundId, 1.0F, true, fadeInTicks);
+    }
+
+    private static String intermissionResultTrack() {
+        return switch (intermissionMusic.music()) {
+            case VICTORY -> ClientMusicCatalog.MUSIC_OPERATION_VICTORY;
+            case DEFEAT -> ClientMusicCatalog.MUSIC_OPERATION_DEFEAT;
+            default -> NONE;
+        };
+    }
+
+    private static void stopIntermissionMusic(int fadeOutTicks) {
+        if (intermissionMusic.isResultPlaying()) stopLoop(intermissionResultTrack(), fadeOutTicks);
+        else if (intermissionMusic.music() == OperationsIntermissionMusicCue.Music.DEPLOY)
+            stopLoop(ClientMusicCatalog.LOOP_DEPLOY_SCREEN, fadeOutTicks);
+        intermissionMusic.reset();
     }
 
     private static void stopLoop(String soundId, int fadeOutTicks) {

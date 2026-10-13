@@ -22,6 +22,8 @@ public final class ClientBattalionBriefingState {
             if (next.sequenceId() < packet.sequenceId()) return;
             if (next.sequenceId() == packet.sequenceId() && next.phase().presentationOrder() <= packet.phase().presentationOrder()) return;
         }
+        // Audio survives the ordinary death/camera clears sent when briefing begins.
+        ClientMusicTriggerService.onBattalionPhase(next);
         level = mc.level;
         boolean preserve=org.mods.gd656conquest.common.match.BattalionIntermissionLifecycle.preservesScene(next.phase());
         if(preserve){if(originalCameraType==null)originalCameraType=mc.options.getCameraType();mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);}

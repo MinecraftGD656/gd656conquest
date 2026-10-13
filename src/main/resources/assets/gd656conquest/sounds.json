@@ -47,6 +47,36 @@
       }
     ]
   },
+  "music.operation_victory": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/music_victory",
+        "stream": true
+      }
+    ]
+  },
+  "music.operation_defeat": {
+    "sounds": [
+      {
+        "name": "gd656conquest:music/music_defeat",
+        "stream": true
+      }
+    ]
+  },
+  "sfx.operation.next_assault": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/operation/ui_show_newobjective_wave"
+      }
+    ]
+  },
+  "sfx.operation.last_assault": {
+    "sounds": [
+      {
+        "name": "gd656conquest:sounds/operation/ui_show_objectivecomplete_wave"
+      }
+    ]
+  },
   "loop.retreat": {
     "sounds": [
       {

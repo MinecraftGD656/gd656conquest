@@ -1378,7 +1378,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (battalions.active()) return "BT_INTERMISSION";
         if (runtimeState.isDesperateModeActive()) return "BT_DESPERATE";
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT
-            && gameTick < runtimeState.getStageStartTick() + 100L) {
+            && org.mods.gd656conquest.common.audio.StageBeginMusicCue.isOpeningWindow(gameTick, runtimeState.getStageStartTick())) {
             return org.mods.gd656conquest.common.audio.StageBeginMusicCue.state(
                 runningState.getActiveMatchInstanceId(), battalions.battalion(),
                 runtimeState.getCurrentStageIndex(), runtimeState.getStageStartTick());

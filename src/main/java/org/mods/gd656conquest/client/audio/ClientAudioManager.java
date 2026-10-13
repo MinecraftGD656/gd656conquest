@@ -91,6 +91,13 @@ public final class ClientAudioManager {
         return soundManager != null && soundManager.isActive(sound);
     }
 
+    /** Includes tracks still loading, so recovery after a resource reload does not restart a fade-in each tick. */
+    public boolean isMusicManaged(String soundId) {
+        ResourceLocation key = parseSoundId(soundId);
+        ManagedMusicSound sound = key == null ? null : activeMusic.get(key);
+        return sound != null && !sound.isFadingOut();
+    }
+
     public List<String> snapshotDebugLines() {
         return ClientAudioDebugState.snapshotLines(Minecraft.getInstance().getSoundManager(), activeMusic);
     }

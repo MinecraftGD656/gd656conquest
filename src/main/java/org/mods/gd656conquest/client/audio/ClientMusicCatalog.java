@@ -8,6 +8,10 @@ public final class ClientMusicCatalog {
     public static final String MUSIC_DEATH = "gd656conquest:music.death";
 
     public static final String LOOP_DEPLOY_SCREEN = "gd656conquest:loop.deploy_screen";
+    public static final String MUSIC_OPERATION_VICTORY = "gd656conquest:music.operation_victory";
+    public static final String MUSIC_OPERATION_DEFEAT = "gd656conquest:music.operation_defeat";
+    public static final String SOUND_OPERATION_NEXT_ASSAULT = "gd656conquest:sfx.operation.next_assault";
+    public static final String SOUND_OPERATION_LAST_ASSAULT = "gd656conquest:sfx.operation.last_assault";
     public static final String LOOP_RETREAT = "gd656conquest:loop.retreat";
     public static final String LOOP_ATTACK = "gd656conquest:loop.attack";
     public static final String LOOP_LOBBY = "gd656conquest:loop.lobby";

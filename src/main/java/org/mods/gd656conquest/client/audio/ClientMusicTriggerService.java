@@ -1,6 +1,7 @@
 package org.mods.gd656conquest.client.audio;
 
 import org.mods.gd656conquest.common.match.MatchResultType;
+import org.mods.gd656conquest.network.packet.BattalionBriefingPacket;
 
 public final class ClientMusicTriggerService {
     private ClientMusicTriggerService() {
@@ -13,6 +14,10 @@ public final class ClientMusicTriggerService {
 
     public static void onDeathStarted() {
         ClientMusicDirector.onDeathStarted();
+    }
+
+    public static void onBattalionPhase(BattalionBriefingPacket packet) {
+        ClientMusicDirector.onBattalionPhase(packet);
     }
 
     public static void onMatchEndTransitionStarted() {
