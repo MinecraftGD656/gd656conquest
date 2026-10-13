@@ -32,4 +32,20 @@ public enum OperationsVoiceCue {
     }
     public boolean reminder() { return this == CLEANUP_FEW_ATTACKERS || this == CLEANUP_FEW_DEFENDERS; }
     public boolean initiate() { return this == CLEANUP_INITIATE_ATTACKERS || this == CLEANUP_INITIATE_DEFENDERS; }
+    public int troopRank() {
+        return switch (this) {
+            case HALFWAY_ATTACKERS, HALFWAY_DEFENDERS -> 1;
+            case FIFTY_ATTACKERS, FIFTY_DEFENDERS -> 2;
+            case TWENTY_ATTACKERS, TWENTY_DEFENDERS -> 3;
+            default -> 0;
+        };
+    }
+    public boolean attackerVariant() {
+        return this == HALFWAY_ATTACKERS || this == FIFTY_ATTACKERS || this == TWENTY_ATTACKERS;
+    }
+    public int queueLifetimeTicks() {
+        if (reminder()) return 60;
+        if (troopRank() > 0 || this == RETREAT_SUCCESS || this == CLEANUP_ENDED) return 100;
+        return this == WINNING || this == LOSING ? 200 : 0;
+    }
 }

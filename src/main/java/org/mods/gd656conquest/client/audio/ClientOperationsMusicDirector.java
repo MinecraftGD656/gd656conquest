@@ -4,11 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import org.mods.gd656conquest.client.hud.ClientHudDebugState;
-import org.mods.gd656conquest.client.room.ClientBriefingPlayback;
 import org.mods.gd656conquest.common.audio.OperationsMusicCatalog;
 import org.mods.gd656conquest.common.audio.OperationsMusicPositions;
 import org.mods.gd656conquest.common.audio.OperationsMusicSnapshot;
 import org.mods.gd656conquest.common.audio.OperationsMusicSnapshot.Mode;
+import org.mods.gd656conquest.common.audio.OperationsOpeningMusicState;
 import org.mods.gd656conquest.common.audio.AudioManager;
 
 /** One primary operation BGM, outgoing fade tails, and one optional upgrade overlay. */
@@ -16,11 +16,12 @@ public final class ClientOperationsMusicDirector {
     private static OperationsMusicSnapshot snapshot;
     private static Object world;
     private static final OperationsMusicPositions positions = new OperationsMusicPositions();
+    private static final OperationsOpeningMusicState opening = new OperationsOpeningMusicState();
     private static final List<OperationMusicSound> tails = new ArrayList<>();
     private static OperationMusicSound main, overlay;
-    private static String mainId = "", stage = "", result = "", resultId = "", advance = "", roundId = "", failedId = "";
-    private static boolean roundFinished, resultFinished, deployed, deployOpened;
-    private static int grace, overlayGrace, playedLevel;
+    private static String mainId = "", result = "", resultId = "", openingId = "", failedId = "";
+    private static boolean resultFinished, deployed, deployOpened;
+    private static int grace, overlayGrace, playedLevel, openingFadeOutTicks;
     private static long localTicks, acceptedAt;
     private ClientOperationsMusicDirector() {}
 
@@ -43,11 +44,8 @@ public final class ClientOperationsMusicDirector {
                 if (OperationMusicResources.playable(OperationsMusicCatalog.advance(n))) OperationMusicResources.duration(OperationsMusicCatalog.advance(n));
             }
         }
-        if (next.mode() == Mode.PREPARATION || next.mode() == Mode.ROUND_START || next.mode() == Mode.COMBAT) {
-            int selected = OperationsMusicCatalog.numbered(next.roundVariant(), 3,
-                n -> OperationMusicResources.playable(OperationsMusicCatalog.round(n)));
-            if (selected > 0) OperationMusicResources.duration(OperationsMusicCatalog.round(selected));
-        }
+        String nextOpening = selectOpening(next);
+        if (!nextOpening.isEmpty()) OperationMusicResources.duration(nextOpening);
     }
     static boolean ownsRoom(String roomId) { return snapshot != null && snapshot.roomId().equals(roomId); }
     static boolean active() { return snapshot != null; }
@@ -68,7 +66,7 @@ public final class ClientOperationsMusicDirector {
         if (main != null && --grace <= 0 && (main.isStopped() || !manager.isActive(main))) {
             positions.save(mainId, main.position());
             main.cancel(); manager.stop(main); main = null;
-            if (mainId.equals(roundId)) roundFinished = true;
+            if (mainId.equals(openingId)) opening.finish();
             if (mainId.equals(OperationsMusicCatalog.WIN) || mainId.equals(OperationsMusicCatalog.LOSE)) resultFinished = true;
         }
         if (snapshot.mode() == Mode.RESULT || (snapshot.mode() == Mode.PREPARATION && !result.isEmpty())) {
@@ -77,11 +75,11 @@ public final class ClientOperationsMusicDirector {
                 result = snapshot.resultKey(); resultFinished = deployed = deployOpened = false;
                 resultId = snapshot.victory() ? OperationsMusicCatalog.WIN : OperationsMusicCatalog.LOSE;
                 playedLevel = 0; failedId = "";
+                opening.reset(); openingId = "";
                 ClientAudioManager.getInstance().enqueueClearOperationVoices();
             }
             if (!resultFinished && !deployed) {
                 ensure(resultId, false, 0, 0, false, false, Math.max(0, snapshot.resultElapsedTicks() + localTicks - acceptedAt) / 20.0);
-                if (main != null) main.duck(ClientBriefingPlayback.hasActiveSounds(snapshot.roomId()) ? .25F : 1);
             } else if (resultFinished && !deployed && !snapshot.terminal()) playDeployment();
             return;
         }
@@ -89,41 +87,41 @@ public final class ClientOperationsMusicDirector {
             if (deployOpened && !deployed) playDeployment();
             return;
         }
-        if (snapshot.mode() == Mode.ADVANCE) {
-            if (!advance.equals(snapshot.stageKey())) {
-                advance = snapshot.stageKey(); stopOverlay(); playedLevel = 0;
-            }
-            int selected = OperationsMusicCatalog.numbered(snapshot.sector(), 5,
-                n -> OperationMusicResources.playable(OperationsMusicCatalog.advance(n)));
-            if (selected > 0) ensure(OperationsMusicCatalog.advance(selected), true, 0, 0, false, false, 0);
-            return;
-        }
-        if (!stage.equals(snapshot.stageKey())) {
+        if (opening.accept(snapshot, localTicks)) {
             if (main == null) stopTails();
             boolean resultTrack = mainId.equals(OperationsMusicCatalog.WIN) || mainId.equals(OperationsMusicCatalog.LOSE);
-            stopMain(resultTrack ? 0 : 10);
-            stage = snapshot.stageKey(); positions.reset(); stopOverlay(); stopDeployment();
-            roundFinished = false; result = ""; playedLevel = 0; failedId = "";
-            int selected = OperationsMusicCatalog.numbered(snapshot.roundVariant(), 3,
-                n -> OperationMusicResources.playable(OperationsMusicCatalog.round(n)));
-            roundId = selected == 0 ? "" : OperationsMusicCatalog.round(selected);
-            if (roundId.isEmpty()) roundFinished = true;
+            openingFadeOutTicks = resultTrack ? 0 : opening.snapshot().advanceOpening() ? 20 : 10;
+            positions.reset(); stopOverlay(); stopDeployment();
+            result = ""; playedLevel = 0; failedId = "";
+            openingId = selectOpening(opening.snapshot());
+            if (openingId.isEmpty()) { stopMain(openingFadeOutTicks); opening.finish(); }
         }
-        int level = snapshot.mode() == Mode.COMBAT ? snapshot.finaleLevel() : 0;
-        boolean urgent = level >= 2 || (!snapshot.strongFinale() && level == 1);
-        if (!roundFinished && !urgent) {
-            ensure(roundId, false, 10, 0, false, false,
-                Math.max(0, snapshot.serverTick() + localTicks - acceptedAt - snapshot.roundStartTick()) / 20.0);
+        if (!opening.finished()) {
+            boolean advanceOpening = opening.snapshot().advanceOpening();
+            ensure(openingId, false, openingFadeOutTicks, advanceOpening ? 20 : 0, false, false,
+                opening.initialOffsetTicks() / 20.0);
             return;
         }
-        if (urgent) roundFinished = true;
+        if (!opening.allowsFinale(snapshot)) return;
+        int level = snapshot.finaleLevel();
         if (level > 0) {
             boolean upgrading = level > playedLevel && level >= 2;
             if (ensure(OperationsMusicCatalog.finale(level), true, 20, 20, true, upgrading, 0)) playedLevel = level;
         } else if (playedLevel > 0) {
             stopMain(60); stopOverlay(); playedLevel = 0;
         }
-        if (level == 0 && roundFinished && deployOpened && !deployed) playDeployment();
+        if (level == 0 && deployOpened && !deployed) playDeployment();
+    }
+
+    private static String selectOpening(OperationsMusicSnapshot s) {
+        if (s.advanceOpening()) {
+            int selected = OperationsMusicCatalog.numbered(s.advanceVariant(), 5,
+                n -> OperationMusicResources.playable(OperationsMusicCatalog.advance(n)));
+            return selected == 0 ? "" : OperationsMusicCatalog.advance(selected);
+        }
+        int selected = OperationsMusicCatalog.numbered(s.roundVariant(), 3,
+            n -> OperationMusicResources.playable(OperationsMusicCatalog.round(n)));
+        return selected == 0 ? "" : OperationsMusicCatalog.round(selected);
     }
 
     private static boolean ensure(String id, boolean loop, int outTicks, int inTicks, boolean resume, boolean upgrade, double offset) {
@@ -136,7 +134,7 @@ public final class ClientOperationsMusicDirector {
         catch (RuntimeException error) {
             failedId = id;
             com.mojang.logging.LogUtils.getLogger().warn("Unable to load operation music {}", id, error);
-            if (id.equals(roundId)) roundFinished = true;
+            if (id.equals(openingId)) opening.finish();
             if (id.equals(OperationsMusicCatalog.WIN) || id.equals(OperationsMusicCatalog.LOSE)) resultFinished = true;
             return false;
         }
@@ -144,11 +142,12 @@ public final class ClientOperationsMusicDirector {
         if (main != null) positions.save(mainId, main.position());
         double start = resume ? positions.resume(id, outgoing, seconds) : loop ? offset % seconds : offset;
         if (!loop && start >= seconds) {
-            if (id.equals(roundId)) roundFinished = true;
+            if (id.equals(openingId)) opening.finish();
             else resultFinished = true;
             return false;
         }
         stopMain(upgrade ? 6 : outTicks);
+        if (id.equals(openingId)) positions.reset();
         if (outTicks == 0 && !upgrade) stopTails();
         stopDeployment();
         // A rapid return to the same track must not leave an older fading copy underneath it.
@@ -203,7 +202,8 @@ public final class ClientOperationsMusicDirector {
         stopDeployment();
         stopMain(0); stopOverlay();
         stopTails(); positions.reset();
-        snapshot = null; world = null; mainId = stage = result = resultId = advance = roundId = failedId = "";
-        roundFinished = resultFinished = deployed = deployOpened = false; playedLevel = 0;
+        opening.reset();
+        snapshot = null; world = null; mainId = result = resultId = openingId = failedId = "";
+        resultFinished = deployed = deployOpened = false; playedLevel = 0;
     }
 }

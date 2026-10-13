@@ -105,7 +105,8 @@ public final class ClientAudioManager {
             if (operationVoices.updateContext(packet.context())) stopActiveOperationVoice(Minecraft.getInstance().getSoundManager());
             var cue = OperationsVoiceCue.fromId(packet.soundId());
             if (cue != null) operationVoices.enqueue(new OperationsVoiceQueue.Request(cue.soundId(), 1, 1, packet.context(),
-                packet.followup(), Math.max(0, packet.gapTicks()), cue.reminder() ? 2 : 1));
+                packet.followup(), Math.max(0, packet.gapTicks()), cue.reminder() ? 2 : cue.troopRank() > 0 ? 0 : 1,
+                cue.queueLifetimeTicks() == 0 ? Long.MAX_VALUE : operationVoiceTick + cue.queueLifetimeTicks()));
         });
     }
 

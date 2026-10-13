@@ -1,6 +1,5 @@
 package org.mods.gd656conquest.common.audio;
 
-import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -24,16 +23,16 @@ public final class OperationsTroopVoiceCue {
 
     public List<Threshold> onLoss(int before, int after, int cap) {
         if (after < 0 || after >= before) return List.of();
-        var result = new ArrayList<Threshold>();
+        Threshold mostUrgent = null;
         for (var threshold : Threshold.values()) {
             boolean crossed = switch (threshold) {
-                case HALFWAY -> cap > 0 && 2L * after <= cap;
-                case FIFTY -> after <= 50;
-                case TWENTY -> after <= 20;
+                case HALFWAY -> cap > 0 && 2L * before > cap && 2L * after <= cap;
+                case FIFTY -> before > 50 && after <= 50;
+                case TWENTY -> before > 20 && after <= 20;
             };
-            if (crossed && announced.add(threshold)) result.add(threshold);
+            if (crossed && announced.add(threshold)) mostUrgent = threshold;
         }
-        return List.copyOf(result);
+        return mostUrgent == null || after == 0 ? List.of() : List.of(mostUrgent);
     }
 
     public void reset() { announced.clear(); }

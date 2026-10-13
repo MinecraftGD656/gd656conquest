@@ -14,11 +14,12 @@ public record OperationsMusicPacket(OperationsMusicSnapshot snapshot) {
         b.writeInt(s.battalion()); b.writeInt(s.sector()); b.writeInt(s.roundVariant()); b.writeLong(s.roundStartTick());
         b.writeLong(s.resultSequence()); b.writeInt(s.finaleLevel()); b.writeBoolean(s.strongFinale());
         b.writeBoolean(s.terminal()); b.writeBoolean(s.victory()); b.writeInt(s.resultElapsedTicks());
+        b.writeInt(s.advanceVariant());
     }
     public static OperationsMusicPacket decode(FriendlyByteBuf b) {
         return new OperationsMusicPacket(new OperationsMusicSnapshot(b.readUtf(128), b.readLong(), b.readLong(),
             b.readEnum(OperationsMusicSnapshot.Mode.class), b.readInt(), b.readInt(), b.readInt(), b.readLong(),
-            b.readLong(), b.readInt(), b.readBoolean(), b.readBoolean(), b.readBoolean(), b.readInt()));
+            b.readLong(), b.readInt(), b.readBoolean(), b.readBoolean(), b.readBoolean(), b.readInt(), b.readInt()));
     }
     public static void handle(OperationsMusicPacket packet, Supplier<NetworkEvent.Context> supplier) {
         var context = supplier.get();

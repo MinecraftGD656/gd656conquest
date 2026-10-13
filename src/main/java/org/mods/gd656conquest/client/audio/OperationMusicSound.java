@@ -21,7 +21,7 @@ final class OperationMusicSound extends AbstractTickableSoundInstance {
     private volatile boolean ready, canceled;
     private long playedTicks;
     private int fadeInTicks, fadeInElapsed, fadeOutTicks, fadeOutElapsed;
-    private float fadeOutStart, duck = 1, resolvedPitch = 1;
+    private float fadeOutStart, resolvedPitch = 1;
     private OperationMusicSound incoming;
 
     OperationMusicSound(String id, boolean loop, double offset, double duration, int fadeTicks) {
@@ -42,7 +42,6 @@ final class OperationMusicSound extends AbstractTickableSoundInstance {
         return events;
     }
     @Override public float getPitch() { return resolvedPitch; }
-    @Override public float getVolume() { return super.getVolume() * duck; }
     @Override public CompletableFuture<AudioStream> getStream(SoundBufferLibrary library, Sound definition, boolean ignored) {
         return library.getStream(definition.getPath(), looping).thenApplyAsync(stream -> {
             try {
@@ -69,7 +68,6 @@ final class OperationMusicSound extends AbstractTickableSoundInstance {
         if (ticks <= 0 || !ready) { cancel(); return; }
         fadeOutStart = volume; fadeOutTicks = ticks; fadeOutElapsed = 0;
     }
-    void duck(float multiplier) { duck = multiplier; }
     void waitFor(OperationMusicSound next) { incoming = next; }
     void cancel() { canceled = true; stop(); }
     double position() {

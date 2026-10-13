@@ -18,11 +18,12 @@ public record OperationsVoicePacket(OperationsVoiceContext context, String sound
         var c = packet.context;
         b.writeUtf(c.roomId(),128); b.writeLong(c.matchId()); b.writeInt(c.battalion()); b.writeInt(c.sector());
         b.writeBoolean(c.running()); b.writeBoolean(c.retreatActive()); b.writeBoolean(c.attacker()); b.writeBoolean(c.pendingDefender());
+        b.writeBoolean(c.combat()); b.writeInt(c.troops()); b.writeInt(c.troopCap());
         b.writeUtf(packet.soundId,128); b.writeUtf(packet.followup,128); b.writeInt(packet.gapTicks);
     }
     public static OperationsVoicePacket decode(FriendlyByteBuf b) {
         return new OperationsVoicePacket(new OperationsVoiceContext(b.readUtf(128),b.readLong(),b.readInt(),b.readInt(),
-            b.readBoolean(),b.readBoolean(),b.readBoolean(),b.readBoolean()),b.readUtf(128),b.readUtf(128),b.readInt());
+            b.readBoolean(),b.readBoolean(),b.readBoolean(),b.readBoolean(),b.readBoolean(),b.readInt(),b.readInt()),b.readUtf(128),b.readUtf(128),b.readInt());
     }
     public static void handle(OperationsVoicePacket packet, Supplier<NetworkEvent.Context> supplier) {
         var c = supplier.get();

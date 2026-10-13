@@ -17,7 +17,6 @@ import org.mods.gd656conquest.network.packet.OperationsVoicePacket;
 import org.mods.gd656conquest.common.audio.OperationsVoiceContext;
 import org.mods.gd656conquest.common.audio.OperationsRetreatVoiceCue;
 import org.mods.gd656conquest.common.audio.OperationsSectorVoiceRules;
-import org.mods.gd656conquest.network.packet.ClientShortSoundPacket;
 import org.mods.gd656conquest.network.packet.BattalionBriefingPacket;
 import org.mods.gd656conquest.server.room.model.RoomBattalionConfig;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayIntermissionProvider;
@@ -125,6 +124,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     private record MusicSync(ServerPlayer player, OperationsMusicSnapshot snapshot) {}
     private String finaleMusicStage = "";
     private long operationRoundStartTick;
+    private int operationAdvanceVariant;
     private long operationResultStartTick;
     private int operationRoundVariant = 1;
     private final Map<java.util.UUID, BattalionPlayerSync> battalionPlayerSync = new LinkedHashMap<>();
@@ -168,6 +168,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     public void onEnterMainPhase(RoomDefinition room, long gameTick) {
         enteredTick = gameTick + RoomPlayerRespawnService.initialCombatUnlockDelayTicks();
         operationRoundStartTick = enteredTick;
+        operationAdvanceVariant = 0;
         operationRoundVariant = 1;
         finaleMusic.reset(); finaleMusicStage = ""; musicSync.clear();
         voiceSync.clear();
@@ -274,6 +275,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             battalionStartStage = runtimeState.getCurrentStageIndex();
             battalionStartTick = battalions.deadline();
             operationRoundStartTick = battalionStartTick;
+            operationAdvanceVariant = 0;
             operationRoundVariant = battalions.battalion();
             initializeObjectiveSubtitles(room);
         }
@@ -360,6 +362,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                     beginBattalionConclusion(room, gameTick, true, "进攻方占领全部区域");
                     return;
                 }
+                operationAdvanceVariant = runtimeState.getCurrentStageIndex();
+                operationRoundStartTick = gameTick;
                 Set<java.util.UUID> defenders = captureRuntimeService.collectDefendersInStageBoundary(room, runningState, runtimeState.getCurrentStageIndex());
                 if (room.breakthroughConfig().defenderRetreatSeconds() <= 0 || defenders.isEmpty()) {
                     broadcastSectorVoices(room, false);
@@ -427,7 +431,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 broadcastStageStartSubtitles(gameTick);
                 playStageAdvanceVoiceForAttackers();
                 if (runtimeState.getCurrentStageIndex() == runtimeState.getMaxStageCount()) {
-                    broadcastOperationVoice(OperationsVoiceCue.WINNING, OperationsVoiceCue.LOSING);
+                    broadcastOperationVoice(room, OperationsVoiceCue.WINNING, OperationsVoiceCue.LOSING);
                 }
                 refreshDeployViewForRespawnPlayers(room, gameTick, previousStageIndex, runtimeState.getCurrentStageIndex());
             }
@@ -479,8 +483,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 return;
             }
             for (var threshold : runtimeState.consumeAttackTroop(1)) {
-                broadcastOperationVoice(threshold.forTeam(true), threshold.forTeam(false));
+                broadcastOperationVoice(room, threshold.forTeam(true), threshold.forTeam(false));
             }
+            synchronizeVoiceContexts(room);
             // Adjudicate after the capture service updates all points, so a simultaneous
             // last death and capture cannot incorrectly destroy a battalion.
         }
@@ -660,7 +665,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             if (runtimeState.retreatRoster().complete(player.getUUID()) && player.isAlive()
                 && !player.isSpectator() && !runningState.isInRespawnFlow(player.getUUID())) {
                 synchronizeVoiceContext(room, player.getUUID());
-                playOperationVoice(player, OperationsVoiceCue.RETREAT_SUCCESS);
+                playOperationVoice(room, player, OperationsVoiceCue.RETREAT_SUCCESS);
             }
             return false;
         }
@@ -932,14 +937,13 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
 
     private void startAdvanceCountdown(RoomDefinition room, long gameTick) {
         if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN) return;
-        operationRoundStartTick = gameTick;
-        operationRoundVariant = 1;
+        boolean cleanedRetreat = runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT;
         clearRetreatPersistentSubtitles();
         titleService.clearRetreatTitles(runningState, runtimeState);
         clearRetreatDefenderMarkers(room, gameTick);
         runtimeState.startAdvanceCountdown(gameTick, STAGE_ADVANCE_COUNTDOWN_SECONDS);
         synchronizeVoiceContexts(room);
-        broadcastOperationVoice(OperationsVoiceCue.CLEANUP_ENDED, null);
+        if (cleanedRetreat) broadcastOperationVoice(room, OperationsVoiceCue.CLEANUP_ENDED, null);
         titleService.clearCountdownTitles(runningState, runtimeState);
     }
 
@@ -1035,7 +1039,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         int sector = runtimeState.getCurrentStageIndex();
         Mode mode;
         if (battalions.active()) mode = isDeploymentPreparation() ? Mode.PREPARATION : Mode.RESULT;
-        else if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) mode = Mode.ADVANCE;
+        else if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) { mode = Mode.ADVANCE; sector++; }
         else if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN) {
             mode = Mode.ROUND_START; sector++;
         } else mode = tick < operationRoundStartTick ? Mode.PREPARATION : Mode.COMBAT;
@@ -1062,7 +1066,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
                 mode, battalions.battalion(), sector, operationRoundVariant, operationRoundStartTick,
                 battalions.sequenceId(), level, strong, battalions.terminal(),
                 (runningState.getRoomTeams().get(id) == RoomTeamId.CAMP_A) == battalionAttackersWon,
-                (int)Math.min(Integer.MAX_VALUE, Math.max(0, tick - operationResultStartTick)));
+                (int)Math.min(Integer.MAX_VALUE, Math.max(0, tick - operationResultStartTick)), operationAdvanceVariant);
             MusicSync old = musicSync.get(id);
             boolean changed = old == null || old.player() != player || old.snapshot().mode() != mode
                 || !old.snapshot().stageKey().equals(snapshot.stageKey()) || old.snapshot().finaleLevel() != level
@@ -1078,7 +1082,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         return new OperationsVoiceContext(room.roomId(), runningState.getActiveMatchInstanceId(), battalions.battalion(),
             runtimeState.getCurrentStageIndex(), !battalions.active(),
             !battalions.active() && runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT,
-            runningState.getRoomTeams().get(id) == RoomTeamId.CAMP_A, runtimeState.retreatRoster().isRetreating(id));
+            runningState.getRoomTeams().get(id) == RoomTeamId.CAMP_A, runtimeState.retreatRoster().isRetreating(id),
+            !battalions.active() && runtimeState.getPhase() == BreakthroughRuntimeState.Phase.COMBAT,
+            runtimeState.getAttackTroops(), runtimeState.getAttackTroopCap());
     }
     private void synchronizeVoiceContext(RoomDefinition room, java.util.UUID id) {
         ServerPlayer player = captureRuntimeService.findOnlinePlayer(id);
@@ -1118,17 +1124,19 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         }
     }
 
-    private void broadcastOperationVoice(OperationsVoiceCue attackers, OperationsVoiceCue defenders) {
+    private void broadcastOperationVoice(RoomDefinition room, OperationsVoiceCue attackers, OperationsVoiceCue defenders) {
         for (java.util.UUID id : List.copyOf(runningState.getRoomPlayers())) {
             RoomTeamId team = runningState.getRoomTeams().get(id);
             OperationsVoiceCue cue = team == RoomTeamId.CAMP_A ? attackers : team == RoomTeamId.CAMP_B ? defenders : null;
             ServerPlayer player = captureRuntimeService.findOnlinePlayer(id);
-            if (player != null && cue != null) playOperationVoice(player, cue);
+            if (player != null && cue != null) playOperationVoice(room, player, cue);
         }
     }
 
-    private static void playOperationVoice(ServerPlayer player, OperationsVoiceCue cue) {
-        NetworkManager.sendToPlayer(player, ClientShortSoundPacket.oneShot(cue.soundId(), 1.0F, 1.0F));
+    private void playOperationVoice(RoomDefinition room, ServerPlayer player, OperationsVoiceCue cue) {
+        var context = voiceContext(room, player.getUUID());
+        NetworkManager.sendToPlayer(player, OperationsVoicePacket.cue(context, cue, false));
+        voiceSync.put(player.getUUID(), new VoiceSync(player, context));
     }
 
     private void syncCombatNarrativeSubtitles(RoomDefinition room, long gameTick) {
