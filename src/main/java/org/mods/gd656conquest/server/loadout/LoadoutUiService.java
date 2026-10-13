@@ -934,7 +934,7 @@ public final class LoadoutUiService {
             player,
             refreshedInRange
                 ? "已切换兵种：" + classType.getDisplayName() + "，并已在靶场中刷新当前配装"
-                : "已切换兵种：" + classType.getDisplayName() + "，将在下次部署或弹药箱补给时生效"
+                : "已切换兵种：" + classType.getDisplayName() + "，将在下次部署时生效"
         );
         return true;
     }
@@ -973,7 +973,7 @@ public final class LoadoutUiService {
                 Component.literal(
                     refreshedInRange
                         ? String.format(Locale.ROOT, "已设置当前房间：%s %s -> 空，并已在靶场中刷新当前配装", classType.getDisplayName(), slot.getKey())
-                        : String.format(Locale.ROOT, "已设置当前房间：%s %s -> 空，将在下次部署或弹药箱补给时生效", classType.getDisplayName(), slot.getKey())
+                        : String.format(Locale.ROOT, "已设置当前房间：%s %s -> 空，将在下次部署时生效", classType.getDisplayName(), slot.getKey())
                 ).withStyle(ChatFormatting.AQUA)
             );
             return true;
@@ -1003,7 +1003,7 @@ public final class LoadoutUiService {
                 Component.literal(
                     refreshedInRange
                         ? String.format(Locale.ROOT, "已设置当前房间：%s %s -> %s，并已在靶场中刷新当前配装", classType.getDisplayName(), slot.getKey(), entry.getDisplayName())
-                        : String.format(Locale.ROOT, "已设置当前房间：%s %s -> %s，将在下次部署或弹药箱补给时生效", classType.getDisplayName(), slot.getKey(), entry.getDisplayName())
+                        : String.format(Locale.ROOT, "已设置当前房间：%s %s -> %s，将在下次部署时生效", classType.getDisplayName(), slot.getKey(), entry.getDisplayName())
                 ).withStyle(ChatFormatting.AQUA)
             );
             return true;
@@ -1018,7 +1018,7 @@ public final class LoadoutUiService {
             Component.literal(
                 refreshedInRange
                     ? String.format(Locale.ROOT, "已设置：%s %s -> %s，并已在靶场中刷新当前配装", classType.getDisplayName(), slot.getKey(), entry.getDisplayName())
-                    : String.format(Locale.ROOT, "已设置：%s %s -> %s，将在下次部署或弹药箱补给时生效", classType.getDisplayName(), slot.getKey(), entry.getDisplayName())
+                    : String.format(Locale.ROOT, "已设置：%s %s -> %s，将在下次部署时生效", classType.getDisplayName(), slot.getKey(), entry.getDisplayName())
             )
                 .withStyle(ChatFormatting.AQUA)
         );
@@ -1058,7 +1058,7 @@ public final class LoadoutUiService {
         PlayerDataModel playerData = playerDataStore.getPlayerData(player.getUUID());
         RunningRuntimeState runningState = resolveCurrentRunningState(player);
         RoomDefinition room = resolveCurrentRoom(player);
-        PlayerClassType currentClass = CustomLoadoutService.resolveCurrentClass(playerData, runningState, player.getUUID());
+        PlayerClassType currentClass = CustomLoadoutService.resolveSelectedClass(playerData, runningState, player.getUUID());
         String selectedLoadoutId = resolveUiSelectedId(room, runningState, playerData, player.getUUID(), resolveCurrentRoomTeam(player), currentClass, slot);
         if (!normalizedLoadoutEntryId.equals(selectedLoadoutId)) {
             sendError(player, "当前武器已变化，请重新打开配件选择器");
@@ -1250,7 +1250,7 @@ public final class LoadoutUiService {
         RoomTeamId teamId = roomId.isBlank()
             ? null
             : roomManager.findRoomTeam(roomId, player.getUUID()).or(() -> roomManager.findQueueTeam(roomId, player.getUUID())).orElse(null);
-        PlayerClassType currentClass = CustomLoadoutService.resolveCurrentClass(playerData, runningState, player.getUUID());
+        PlayerClassType currentClass = CustomLoadoutService.resolveSelectedClass(playerData, runningState, player.getUUID());
         int level = PlayerLevelService.getEffectiveLevel(player);
         String playerTitleText = PlayerTitleService.of(player.server)
             .findTitle(playerData.getEquippedTitleId())

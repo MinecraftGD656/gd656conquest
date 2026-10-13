@@ -239,7 +239,8 @@ public final class RoomPlayerRespawnService {
         if (room == null || state == null || player == null || action == null || action.isBlank()) {
             return false;
         }
-        if (state.isGameplayCombatPaused()) return false;
+        String battlefieldAction = action.trim().toLowerCase(Locale.ROOT);
+        if (org.mods.gd656conquest.common.player.lock.PresentationLockPolicy.blocksDownedAction(battlefieldAction, state.isGameplayCombatPaused())) return false;
         if (org.mods.gd656conquest.server.room.entry.ManualDeathDeployService.request(this, room, state, player, action, gameTick)) return true;
         String normalized = action.trim();
         if ("surrender".equalsIgnoreCase(normalized)) {
@@ -577,7 +578,7 @@ public final class RoomPlayerRespawnService {
         if (player == null || !player.isAlive()) {
             return false;
         }
-        if (state.isGameplayCombatPaused() && !state.isGameplayDeploymentPreparation()) return false;
+        if ("confirm".equalsIgnoreCase(action) && state.isGameplayCombatPaused() && !state.isGameplayDeploymentPreparation()) return false;
         UUID playerId = player.getUUID();
         Long deployReadyTick = state.getDeployReadyTicks().get(playerId);
         RoomTeamId teamId = state.getRoomTeams().get(playerId);

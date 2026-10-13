@@ -3,8 +3,6 @@ package org.mods.gd656conquest.client.room;
 import org.mods.gd656conquest.client.audio.ClientMusicTriggerService;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import org.mods.gd656conquest.client.loadout.screen.LoadoutConfigScreen;
 import org.mods.gd656conquest.common.match.BattalionSequence.Phase;
 import org.mods.gd656conquest.network.packet.BattalionBriefingPacket;
 
@@ -39,8 +37,6 @@ public final class ClientBattalionBriefingState {
             return;
         }
         ClientReviveState.reset();
-        if (mc.screen instanceof AbstractContainerScreen<?>
-            || (mc.screen instanceof LoadoutConfigScreen config && !config.isRoomEditorTabOpen())) mc.setScreen(null);
         var view = next.view();
         switch (next.phase()) {
             case RESULT -> ClientDeathFlowState.pullBackCinematicCamera(ticks);

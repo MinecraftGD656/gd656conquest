@@ -40,8 +40,6 @@ public final class ClientLoadoutUiController {
             }
             return;
         }
-        // Administrator room editing is independent of the combat/deployment UI lock.
-        if (org.mods.gd656conquest.client.room.ClientRoomLockState.requiresCombatFreeze()) return;
         if (ClientLoadoutUiState.consumeOpenPanelRequest()) {
             openConfigScreenFromServerRequest();
         }

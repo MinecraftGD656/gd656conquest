@@ -66,6 +66,7 @@ public final class RunningRuntimeState {
     private final Set<UUID> heroKitLoadoutResetPendingPlayers = new LinkedHashSet<>();
     private final Map<UUID, ShellingRequestState> activeShellingsByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Map<Integer, Long>> loadoutItemLastReplenishTickByPlayerSlot = new LinkedHashMap<>();
+    private final Map<UUID, String> activeLoadoutClassKeysByPlayer = new LinkedHashMap<>();
     private final Map<UUID, String> randomizedLoadoutClassKeysByPlayer = new LinkedHashMap<>();
     private final Map<UUID, Map<String, String>> randomizedLoadoutSelectionIdsByPlayerSlot = new LinkedHashMap<>();
     private final Map<UUID, Map<String, Map<String, String>>> randomizedAttachmentSelectionIdsByPlayerLoadoutEntry = new LinkedHashMap<>();
@@ -343,6 +344,10 @@ public final class RunningRuntimeState {
         return loadoutItemLastReplenishTickByPlayerSlot;
     }
 
+    public Map<UUID, String> getActiveLoadoutClassKeysByPlayer() {
+        return activeLoadoutClassKeysByPlayer;
+    }
+
     public Map<UUID, String> getRandomizedLoadoutClassKeysByPlayer() {
         return randomizedLoadoutClassKeysByPlayer;
     }
@@ -537,6 +542,7 @@ public final class RunningRuntimeState {
         heroKitLoadoutResetPendingPlayers.clear();
         clearAllShellingRequests();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
+        activeLoadoutClassKeysByPlayer.clear();
         gunmasterStageIndexByPlayer.clear();
         gunmasterStageKillsByPlayer.clear();
         gunmasterMatchWeaponSequenceIds.clear();
@@ -559,6 +565,7 @@ public final class RunningRuntimeState {
         heroKitLoadoutResetPendingPlayers.clear();
         clearAllShellingRequests();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
+        activeLoadoutClassKeysByPlayer.clear();
         gunmasterStageIndexByPlayer.clear();
         gunmasterStageKillsByPlayer.clear();
         gunmasterMatchWeaponSequenceIds.clear();
@@ -611,6 +618,7 @@ public final class RunningRuntimeState {
         heroKitLoadoutResetPendingPlayers.remove(playerId);
         clearShellingRequest(playerId);
         loadoutItemLastReplenishTickByPlayerSlot.remove(playerId);
+        activeLoadoutClassKeysByPlayer.remove(playerId);
         randomizedLoadoutClassKeysByPlayer.remove(playerId);
         randomizedLoadoutSelectionIdsByPlayerSlot.remove(playerId);
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.remove(playerId);
@@ -676,6 +684,7 @@ public final class RunningRuntimeState {
         heroKitLoadoutResetPendingPlayers.clear();
         clearAllShellingRequests();
         loadoutItemLastReplenishTickByPlayerSlot.clear();
+        activeLoadoutClassKeysByPlayer.clear();
         randomizedLoadoutClassKeysByPlayer.clear();
         randomizedLoadoutSelectionIdsByPlayerSlot.clear();
         randomizedAttachmentSelectionIdsByPlayerLoadoutEntry.clear();

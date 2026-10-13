@@ -109,7 +109,7 @@ public abstract class ServerGamePacketListenerImplMixin {
 
     @Inject(method = "handlePlayerAction", at = @At("HEAD"), cancellable = true, require = 0)
     private void gd656conquest$handlePlayerAction(ServerboundPlayerActionPacket packet, CallbackInfo ci) {
-        if (packet == null || !gd656conquest$shouldBlockRoomItemOperation()) {
+        if (packet == null || !PresentationLockPolicy.blocksPlayerAction(packet.getAction().name(), gd656conquest$shouldBlockRoomItemOperation())) {
             return;
         }
         ci.cancel();

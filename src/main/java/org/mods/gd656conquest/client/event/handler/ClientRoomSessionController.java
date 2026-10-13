@@ -93,7 +93,6 @@ final class ClientRoomSessionController {
         org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedVisible(ClientRoomLockState.shouldForceVisibleHud());
         loadoutUiController.tick();
         if (ClientRoomLockState.requiresCombatFreeze()) {
-            while (org.mods.gd656conquest.client.input.ClientKeyMappings.OPEN_LOADOUT_SCREEN.consumeClick()) {}
             while (org.mods.gd656conquest.client.input.ClientKeyMappings.COMMON_USE.consumeClick()) {}
         }
         uploadMainHandItemNameIfNeeded(minecraft);
@@ -249,7 +248,7 @@ final class ClientRoomSessionController {
             TaczClientInputCompat.clearTransientCombatState(minecraft);
             return true;
         }
-        if (event.getAction() == GLFW.GLFW_PRESS
+        if (!ClientRoomLockState.requiresCombatFreeze() && event.getAction() == GLFW.GLFW_PRESS
             && event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT
             && ClientDownedState.handleLeftClick()) {
             if (event.isCancelable()) {
@@ -257,9 +256,13 @@ final class ClientRoomSessionController {
             }
             return true;
         }
-        boolean allowReleasedMouseUiClick = shouldAllowReleasedMouseUiLeftClick(minecraft, event);
-        boolean attackMouse = event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT;
-        boolean useMouse = event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT;
+        // A released pointer belongs to UI; guard world actions at their actual execution points.
+        if (ClientRoomLockState.shouldReleaseMouseForUi()) {
+            TaczClientInputCompat.clearTransientCombatState(minecraft);
+            return false;
+        }
+        boolean attackMouse = minecraft.options.keyAttack.matchesMouse(event.getButton());
+        boolean useMouse = minecraft.options.keyUse.matchesMouse(event.getButton());
         if (TaczClientInputCompat.shouldBlockCombatInputUntilRelease(minecraft, attackMouse, useMouse)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
@@ -267,13 +270,7 @@ final class ClientRoomSessionController {
             TaczClientInputCompat.clearTransientCombatState(minecraft);
             return true;
         }
-        if (!allowReleasedMouseUiClick && shouldBlockHeldItemUseMouseInput(minecraft, event)) {
-            if (event.isCancelable()) {
-                event.setCanceled(true);
-            }
-            return true;
-        }
-        if (!allowReleasedMouseUiClick && shouldBlockGameplayMouseInput(minecraft)) {
+        if (shouldBlockHeldItemUseMouseInput(minecraft, event)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
@@ -291,18 +288,20 @@ final class ClientRoomSessionController {
             return false;
         }
         boolean allowDeployReleasedMouseScrollZoom = shouldAllowDeployReleasedMouseScrollZoom(minecraft);
-        if (vehicleMountedHotbarLockService.shouldCancelMouseScroll(minecraft)) {
+        if (minecraft.mouseHandler.isMouseGrabbed() && vehicleMountedHotbarLockService.shouldCancelMouseScroll(minecraft)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
             return true;
         }
-        if (!allowDeployReleasedMouseScrollZoom && shouldBlockGameplayMouseScroll(minecraft)) {
+        if (!allowDeployReleasedMouseScrollZoom && minecraft.mouseHandler.isMouseGrabbed()
+            && ClientRoomLockState.shouldLockHotbarSelection()) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
             return true;
         }
+        if (ClientRoomLockState.requiresCombatFreeze()) return false;
         if (!allowDeployReleasedMouseScrollZoom && !ClientRoomLockState.shouldReleaseMouse()) {
             return false;
         }
@@ -639,7 +638,8 @@ final class ClientRoomSessionController {
         if (minecraft == null || minecraft.player == null || minecraft.level == null) {
             return false;
         }
-        if (minecraft.player.hasPermissions(2) && !ClientRoomLockState.isDebugInventoryLockActive() && !ClientRoomLockState.requiresCombatFreeze()) {
+        if (ClientRoomLockState.requiresCombatFreeze()) return false;
+        if (minecraft.player.hasPermissions(2) && !ClientRoomLockState.isDebugInventoryLockActive()) {
             return false;
         }
         return ClientRoomLockState.shouldLockInventory();
@@ -661,21 +661,7 @@ final class ClientRoomSessionController {
             || minecraft.options.keyUse.matches(event.getKey(), event.getScanCode())
             || minecraft.options.keyPickItem.matches(event.getKey(), event.getScanCode())
             || minecraft.options.keyDrop.matches(event.getKey(), event.getScanCode())
-            || minecraft.options.keySwapOffhand.matches(event.getKey(), event.getScanCode())
-            || minecraft.options.keyInventory.matches(event.getKey(), event.getScanCode());
-    }
-
-    private boolean shouldBlockGameplayMouseInput(Minecraft minecraft) {
-        return minecraft != null && minecraft.screen == null && ClientRoomLockState.shouldRestrictGameplayInteraction();
-    }
-
-    private boolean shouldAllowReleasedMouseUiLeftClick(Minecraft minecraft, InputEvent.MouseButton event) {
-        return minecraft != null
-            && event != null
-            && minecraft.screen == null
-            && event.getAction() == GLFW.GLFW_PRESS
-            && event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT
-            && ClientRoomLockState.shouldReleaseMouseForUi();
+            || minecraft.options.keySwapOffhand.matches(event.getKey(), event.getScanCode());
     }
 
     private boolean shouldAllowDeployReleasedMouseScrollZoom(Minecraft minecraft) {
@@ -690,11 +676,11 @@ final class ClientRoomSessionController {
         if (minecraft == null || event == null || minecraft.screen != null || !shouldRestrictHeldItemUse(minecraft)) {
             return false;
         }
-        return event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT || event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT;
-    }
-
-    private boolean shouldBlockGameplayMouseScroll(Minecraft minecraft) {
-        return minecraft != null && ClientRoomLockState.shouldRestrictGameplayInteraction();
+        boolean combatBinding = minecraft.options.keyAttack.matchesMouse(event.getButton())
+            || minecraft.options.keyUse.matchesMouse(event.getButton())
+            || minecraft.options.keyPickItem.matchesMouse(event.getButton());
+        return org.mods.gd656conquest.common.player.lock.PresentationLockPolicy.blocksMouseCombatInput(
+            true, minecraft.screen != null, ClientRoomLockState.shouldReleaseMouseForUi(), combatBinding);
     }
 
     private boolean shouldRestrictHeldItemUse(Minecraft minecraft) {

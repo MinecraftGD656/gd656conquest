@@ -46,7 +46,7 @@ public final class ClientHudVisibilityCycleListener {
 
         ResourceLocation id = event.getOverlay().id();
         if (ClientBattalionBriefingState.shouldHidePlayerHud()) {
-            if (!BattalionHudVisibility.keepsOverlay(id.toString())) event.setCanceled(true);
+            if (BattalionHudVisibility.hidesBattleOverlay(id.toString())) event.setCanceled(true);
             return;
         }
 

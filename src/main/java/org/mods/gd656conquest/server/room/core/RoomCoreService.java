@@ -841,7 +841,7 @@ public final class RoomCoreService {
             .filter(slot -> slot.room().lifecycleState() == RoomLifecycleState.RUNNING)
             .map(slot -> {
                 RunningRuntimeState runningState = slot.runtime().getRunningState();
-                if (runningState.isGameplayCombatPaused()) return false;
+                if (runningState.isGameplayCombatPaused() && "place".equalsIgnoreCase(action)) return false;
                 if (!runningState.getRoomPlayers().contains(player.getUUID())) {
                     return false;
                 }

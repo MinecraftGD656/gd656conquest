@@ -141,6 +141,15 @@ public final class CustomLoadoutService {
 
     public static PlayerClassType resolveCurrentClass(PlayerDataModel playerData, RunningRuntimeState state, UUID playerId) {
         if (state != null && playerId != null) {
+            PlayerClassType active = PlayerClassType.fromInput(state.getActiveLoadoutClassKeysByPlayer().get(playerId));
+            if (active != null) return active;
+        }
+        return resolveSelectedClass(playerData, state, playerId);
+    }
+
+    /** The editor shows the next deployment preference, while live abilities read the granted class. */
+    public static PlayerClassType resolveSelectedClass(PlayerDataModel playerData, RunningRuntimeState state, UUID playerId) {
+        if (state != null && playerId != null) {
             PlayerClassType runtimeClassType = PlayerClassType.fromInput(state.getRandomizedLoadoutClassKeysByPlayer().get(playerId));
             if (runtimeClassType != null) {
                 return runtimeClassType;

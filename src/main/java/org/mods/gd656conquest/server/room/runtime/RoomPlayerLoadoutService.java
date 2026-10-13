@@ -124,6 +124,7 @@ public final class RoomPlayerLoadoutService {
             return;
         }
         RoomRuntimeContext roomContext = room == null || state == null ? resolveRoomRuntimeContext(player) : new RoomRuntimeContext(room, state);
+        if (roomContext.state() != null && roomContext.state().isGameplayCombatPaused()) return;
         ConquestDataManager dataManager = ConquestDataManager.of(server);
         EquipmentDataStore equipmentDataHandler = dataManager.equipmentData();
         PlayerDataStore playerDataHandler = dataManager.playerData();
@@ -203,6 +204,8 @@ public final class RoomPlayerLoadoutService {
         if (selection.playerDataChanged()) {
             playerDataHandler.savePlayerData(player.getUUID(), playerData);
         }
+        if (roomContext.state() != null)
+            roomContext.state().getActiveLoadoutClassKeysByPlayer().put(player.getUUID(), classType.getKey());
         org.mods.gd656conquest.server.support.SupportAmmoGrant.finishLoadout(player);
         player.getInventory().setChanged();
         player.containerMenu.broadcastChanges();

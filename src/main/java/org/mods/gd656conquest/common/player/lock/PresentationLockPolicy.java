@@ -21,6 +21,24 @@ public final class PresentationLockPolicy {
     }
 
     public static boolean blocksLoadoutAction(String action, boolean combatPaused, boolean preparation) {
-        return combatPaused && !preparation && !"leave_session".equals(action);
+        return combatPaused && !preparation && "switch_camp".equals(action);
+    }
+
+    public static boolean blocksDownedAction(String action, boolean combatPaused) {
+        if (!combatPaused || action == null) return false;
+        return "surrender".equals(action) || "redeploy".equals(action) || "revive_start".equals(action)
+            || action.startsWith("death_deploy:");
+    }
+
+    public static boolean blocksMouseCombatInput(boolean locked, boolean screenOpen, boolean releasedForUi, boolean combatBinding) {
+        return locked && !screenOpen && !releasedForUi && combatBinding;
+    }
+
+    public static boolean blocksPlayerAction(String action, boolean locked) {
+        if (!locked || action == null) return false;
+        return switch (action) {
+            case "START_DESTROY_BLOCK", "STOP_DESTROY_BLOCK", "DROP_ALL_ITEMS", "DROP_ITEM", "SWAP_ITEM_WITH_OFFHAND" -> true;
+            default -> false;
+        };
     }
 }

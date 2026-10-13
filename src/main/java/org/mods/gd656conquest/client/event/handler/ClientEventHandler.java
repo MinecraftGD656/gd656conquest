@@ -259,12 +259,6 @@ public final class ClientEventHandler {
     }
 
     public void handleScreenOpening(ScreenEvent.Opening event) {
-        if (ClientRoomLockState.requiresCombatFreeze()
-            && (event.getNewScreen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>
-                || event.getNewScreen() instanceof org.mods.gd656conquest.client.loadout.screen.LoadoutConfigScreen)) {
-            event.setCanceled(true);
-            return;
-        }
         roomSessionController.handleScreenOpening(event, captureOverlayController);
     }
 
@@ -292,14 +286,10 @@ public final class ClientEventHandler {
     }
 
     public void handleMouseInput(InputEvent.MouseButton event) {
-        if (ClientBattalionBriefingState.isCinematicActive()) {
-            if (ClientRoomLockState.isEndingState() && roomSessionController.handleMouseButton(event)) return;
-            if (Minecraft.getInstance().screen == null && event.isCancelable()) event.setCanceled(true);
-            return;
-        }
         if (roomSessionController.handleMouseButton(event)) {
             return;
         }
+        if (ClientBattalionBriefingState.isCinematicActive()) return;
         captureOverlayController.handleMouseInput(event);
         if (event.isCancelable() && event.isCanceled()) {
             return;
@@ -313,10 +303,6 @@ public final class ClientEventHandler {
     }
 
     public void handleMouseScroll(InputEvent.MouseScrollingEvent event) {
-        if (ClientBattalionBriefingState.isCinematicActive()) {
-            if (Minecraft.getInstance().screen == null && event.isCancelable()) event.setCanceled(true);
-            return;
-        }
         if (org.mods.gd656conquest.client.input.ClientFovScrollService.handleMouseScroll(event)) {
             return;
         }

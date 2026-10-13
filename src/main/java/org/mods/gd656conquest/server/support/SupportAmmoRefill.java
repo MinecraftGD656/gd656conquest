@@ -44,7 +44,7 @@ public final class SupportAmmoRefill {
         if (id == null) return false;
         var room = manager.findRoom(id).orElse(null);
         var state = manager.findRunningState(id).orElse(null);
-        if (room == null || state == null || room.lifecycleState() != RoomLifecycleState.RUNNING
+        if (room == null || state == null || state.isGameplayCombatPaused() || room.lifecycleState() != RoomLifecycleState.RUNNING
             || RoomGameplayId.GUNMASTER.equals(room.gameplayId()) || state.isInRespawnFlow(player.getUUID())
             || manager.isPlayerDowned(player.getUUID())) return false;
         var team = state.getRoomTeams().get(player.getUUID());
