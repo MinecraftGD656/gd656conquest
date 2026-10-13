@@ -32,6 +32,11 @@ public final class BriefingTrackPlayer {
         }
     }
     public void seek(double ticks,boolean playing) { stopSounds();started.clear();position(ticks,playing); }
+    public boolean hasActiveSounds() {
+        var manager = Minecraft.getInstance().getSoundManager();
+        return manager != null && sounds.values().stream()
+            .anyMatch(sound -> !sound.isStopped() && manager.isActive(sound) && sound.getVolume() > 0);
+    }
     public String text() { var clip=track.subtitleAt(ticks,seconds);return clip==null?"":clip.value(); }
     /** Keep the editor preview and live playback at the same viewport position and wrap width. */
     public void renderAtGameplayPosition(GuiGraphics gui,double subtitleScale) {

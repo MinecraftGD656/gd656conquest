@@ -37,6 +37,7 @@ public final class RoomMatchResultPacket {
     public boolean operations() { return operations; }
     public int totalTicks() { return totalTicks; }
     public MatchResultType resultType() { return resultType; }
+    public boolean shouldPlayResultMusic() { return active && !operations; }
 
     public static void encode(RoomMatchResultPacket message, FriendlyByteBuf buffer) {
         buffer.writeBoolean(message.active);
@@ -64,7 +65,8 @@ public final class RoomMatchResultPacket {
         NetworkEvent.Context context = contextSupplier.get();
         context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
             if (message.active) {
-                ClientMusicTriggerService.onMatchResult(message.resultType);
+                // Operations already started their single-shot track with the battalion result.
+                if (message.shouldPlayResultMusic()) ClientMusicTriggerService.onMatchResult(message.resultType);
                 if (message.operations) ClientMatchResultOverlayState.startOperations(message.resultType, message.totalTicks);
                 else ClientMatchResultOverlayState.start(message.resultType, message.totalTicks, message.blackStartTicks, message.restoreTicks, message.subtitle);
             } else {

@@ -45,6 +45,14 @@ public final class ClientAudioManager {
         mainThreadTasks.offer(() -> stopMusicInternal(soundId, fadeOutTicks));
     }
 
+    public void enqueueSetMusicVolume(String soundId, float volume) {
+        mainThreadTasks.offer(() -> {
+            ResourceLocation key = parseSoundId(soundId);
+            ManagedMusicSound sound = key == null ? null : activeMusic.get(key);
+            if (sound != null) sound.setPlaybackVolume(clampVolume(volume));
+        });
+    }
+
     public void enqueueStopAllMusic(int fadeOutTicks) {
         mainThreadTasks.offer(() -> stopAllMusicInternal(fadeOutTicks));
     }
@@ -422,6 +430,13 @@ public final class ClientAudioManager {
             if (fadeInTicks <= 0) {
                 this.volume = newVolume;
             }
+        }
+
+        private synchronized void setPlaybackVolume(float newVolume) {
+            if (isStopped() || isFadingOut()) return;
+            this.volume = newVolume;
+            this.fadeInTargetVolume = newVolume;
+            this.fadeInTicksTotal = this.fadeInTicksLeft = 0;
         }
     }
 

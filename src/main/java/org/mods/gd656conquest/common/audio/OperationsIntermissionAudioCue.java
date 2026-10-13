@@ -23,17 +23,19 @@ public final class OperationsIntermissionAudioCue {
         if (sameMatch && (sequence < sequenceId || (sameSequence && phase != null
             && nextPhase.presentationOrder() <= phase.presentationOrder()))) return Update.NONE;
 
-        boolean nextBackground = !attackersWon && switch (nextPhase) {
+        boolean nextBackground = switch (nextPhase) {
             // At preparation arrival, the server has already incremented the battalion number.
-            case PREPARATION -> battalion > 1 && battalion <= total;
-            case RESULT, TRAVEL_TO_BRIEFING, BRIEFING, BRIEFING_FADE_OUT, NEXT_ASSAULT, TRAVEL_TO_DEPLOY -> battalion < total;
+            case PREPARATION -> !attackersWon && battalion > 1 && battalion <= total;
+            case TRAVEL_TO_DEPLOY -> !attackersWon && battalion < total;
+            case RESULT, TRAVEL_TO_BRIEFING, BRIEFING, BRIEFING_FADE_OUT, NEXT_ASSAULT -> true;
             default -> false;
         };
         Announcement announcement = Announcement.NONE;
-        if (nextBackground && nextPhase == Phase.NEXT_ASSAULT && (sameSequence || elapsedTicks == 0)) {
+        if (nextBackground && !attackersWon && battalion < total
+            && nextPhase == Phase.NEXT_ASSAULT && (sameSequence || elapsedTicks == 0)) {
             announcement = total - battalion == 1 ? Announcement.LAST_ASSAULT : Announcement.NEXT_ASSAULT;
         }
-        Update update = new Update(true, nextBackground && !backgroundActive, !nextBackground && backgroundActive, announcement);
+        Update update = new Update(true, nextBackground && (!backgroundActive || !sameSequence), !nextBackground && backgroundActive, announcement);
         roomId = room;
         matchId = match;
         sequenceId = sequence;

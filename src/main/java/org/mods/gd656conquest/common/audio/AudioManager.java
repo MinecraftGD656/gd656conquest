@@ -28,6 +28,11 @@ public final class AudioManager {
                 () -> () -> ClientAudioManager.getInstance().enqueueStopMusic(soundId, fadeOutTicks));
     }
 
+    public void setMusicVolume(String soundId, float volume) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> ClientAudioManager.getInstance().enqueueSetMusicVolume(soundId, volume));
+    }
+
     public void stopAllMusic(int fadeOutTicks) {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> ClientAudioManager.getInstance().enqueueStopAllMusic(fadeOutTicks));

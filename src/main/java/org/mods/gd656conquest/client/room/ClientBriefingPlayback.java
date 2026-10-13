@@ -41,6 +41,11 @@ public final class ClientBriefingPlayback {
         GuiGraphics gui=event.getGuiGraphics();PLAYER.renderAtGameplayPosition(gui,snapshot.subtitleScale());
     }
     @SubscribeEvent public static void logout(ClientPlayerNetworkEvent.LoggingOut event) {reset();}
+    public static boolean hasActiveSounds(String roomId) {
+        var mc = Minecraft.getInstance();
+        return snapshot != null && snapshot.active() && snapshot.roomId().equals(roomId)
+            && mc.level == level && mc.player == playerIdentity && PLAYER.hasActiveSounds();
+    }
     public static void finish(String roomId,long matchId,long sequenceId) {
         if(snapshot!=null && snapshot.roomId().equals(roomId) && snapshot.matchId()==matchId && sequenceId>=snapshot.sequenceId()) {
             CLOCK.stop();PLAYER.stop(); snapshot=new BriefingPlaybackPacket(snapshot.roomId(),snapshot.matchId(),snapshot.sequenceId(),snapshot.scene(),snapshot.briefingSeconds(),snapshot.elapsedTicks(),false,snapshot.track(),snapshot.subtitleScale());
