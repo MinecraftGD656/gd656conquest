@@ -91,7 +91,8 @@ public final class ConquestServerCommands {
         "parkourCompletionTitleId",
         "parkourBestTitleId",
         "enablePackValidation",
-        "missileKillRadius"
+        "missileKillRadius",
+        "supplyBoxHealth"
     ));
 
     private ConquestServerCommands() {
@@ -496,6 +497,7 @@ public final class ConquestServerCommands {
         CommandFeedbacks.line(context.getSource(), ServerText.colored("parkourBestTitleId=" + store.getParkourBestTitleId(), net.minecraft.ChatFormatting.AQUA));
         CommandFeedbacks.line(context.getSource(), ServerText.colored("enablePackValidation=" + store.isPackValidationEnabled(), net.minecraft.ChatFormatting.AQUA));
         NaturalRegenCommands.showAdded(context);
+        CommandFeedbacks.line(context.getSource(), Component.literal("补给箱生命值 supplyBoxHealth=" + formatDecimal(store.getSupplyBoxHealth())));
         return 1;
     }
 
@@ -537,6 +539,12 @@ public final class ConquestServerCommands {
             case "parkourBestTitleId" -> config.setParkourBestTitleId(rawValue);
             case "enablePackValidation" -> config.setEnablePackValidation(parseBooleanStrict(rawValue));
             case "missileKillRadius" -> config.setMissileKillRadius(parseNonNegativeDouble(rawValue));
+            case "supplyBoxHealth" -> {
+                double health = parseNonNegativeDouble(rawValue);
+                if (!Double.isFinite(health) || health < 1 || health > 1024)
+                    throw new SimpleCommandExceptionType(Component.literal("补给箱生命值须为1至1024")).create();
+                config.setSupplyBoxHealth(health);
+            }
             default -> throw new SimpleCommandExceptionType(Component.literal("未知配置项: " + configId)).create();
         }
         store.save(config);
@@ -565,6 +573,7 @@ public final class ConquestServerCommands {
                 SharedSuggestionProvider.suggest(List.of("true", "false"), builder);
             case "passiveRegenIntervalTicks" ->
                 SharedSuggestionProvider.suggest(List.of("3", "5", "10"), builder);
+            case "supplyBoxHealth" -> SharedSuggestionProvider.suggest(List.of("25", "50", "100"), builder);
             case "passiveRegenStartDelaySeconds" ->
                 SharedSuggestionProvider.suggest(List.of("6", "8", "10"), builder);
             case "MaxScopePistol" ->
@@ -630,6 +639,7 @@ public final class ConquestServerCommands {
             case "parkourbesttitleid", "parkourfirsttitle", "parkourrecordtitle" -> "parkourBestTitleId";
             case "enablepackvalidation", "packvalidation", "checkpacks", "packcheck" -> "enablePackValidation";
             case "missilekillradius", "missileradius", "missilekill" -> "missileKillRadius";
+            case "supplyboxhealth", "supportboxhealth", "补给箱生命值" -> "supplyBoxHealth";
             default -> null;
         };
     }
@@ -661,6 +671,7 @@ public final class ConquestServerCommands {
             case "parkourBestTitleId" -> store.getParkourBestTitleId();
             case "enablePackValidation" -> String.valueOf(store.isPackValidationEnabled());
             case "missileKillRadius" -> formatDecimal(store.getMissileKillRadius());
+            case "supplyBoxHealth" -> formatDecimal(store.getSupplyBoxHealth());
             default -> "-";
         };
     }

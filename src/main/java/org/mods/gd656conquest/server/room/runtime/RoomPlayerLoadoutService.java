@@ -97,6 +97,8 @@ public final class RoomPlayerLoadoutService {
         RoomDefinition room = resolvePlayerRoom(player);
         applyLoadout(room, state, state.getRoomTeams().get(player.getUUID()), player, true, true, true, true);
         initializeConsumableReplenishBaseline(state, player, server.getTickCount());
+        if (room != null && org.mods.gd656conquest.server.room.model.RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId()))
+            org.mods.gd656conquest.server.support.RetreatRecovery.capture(player, state, room.roomId());
     }
 
     public void applyStandaloneLoadout(ServerPlayer player, boolean grantTaczAmmo) {

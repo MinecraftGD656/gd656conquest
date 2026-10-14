@@ -167,7 +167,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     @Override
     public void onEnterMainPhase(RoomDefinition room, long gameTick) {
         enteredTick = gameTick + RoomPlayerRespawnService.initialCombatUnlockDelayTicks();
-        operationRoundStartTick = enteredTick;
+        operationRoundStartTick = gameTick + RoomPlayerRespawnService.initialDeploymentArrivalDelayTicks();
         operationAdvanceVariant = 0;
         operationRoundVariant = 1;
         finaleMusic.reset(); finaleMusicStage = ""; musicSync.clear();
@@ -664,6 +664,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             player.getX(), player.getZ(), retreatDestinationBoundaries(room))) {
             if (runtimeState.retreatRoster().complete(player.getUUID()) && player.isAlive()
                 && !player.isSpectator() && !runningState.isInRespawnFlow(player.getUUID())) {
+                if (room.breakthroughConfig().retreatSuccessRestore()) {
+                    org.mods.gd656conquest.server.support.RetreatRecovery.restore(player, runningState, room.roomId());
+                }
                 synchronizeVoiceContext(room, player.getUUID());
                 playOperationVoice(room, player, OperationsVoiceCue.RETREAT_SUCCESS);
             }
@@ -1042,7 +1045,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         else if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) { mode = Mode.ADVANCE; sector++; }
         else if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN) {
             mode = Mode.ROUND_START; sector++;
-        } else mode = tick < operationRoundStartTick ? Mode.PREPARATION : Mode.COMBAT;
+        } else mode = org.mods.gd656conquest.common.audio.OperationsMusicSnapshot.openingMode(tick, operationRoundStartTick,
+            battalions.battalion() == 1 ? enteredTick : operationRoundStartTick);
         boolean strong = battalions.battalion() == battalions.total() || sector == runtimeState.getMaxStageCount();
         int level = 0;
         if (mode == Mode.COMBAT) {

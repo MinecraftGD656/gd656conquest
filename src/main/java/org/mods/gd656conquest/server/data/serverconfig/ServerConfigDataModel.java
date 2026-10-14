@@ -28,6 +28,13 @@ public final class ServerConfigDataModel {
     private RoomVehicleBackend vehicleBackend = RoomVehicleBackend.defaultValue();
     private Boolean enablePackValidation = false;
     private Double missileKillRadius = 35.0;
+    private Double supplyBoxHealth = 50.0D;
+
+    public static double normalizeSupplyBoxHealth(Double value) {
+        return value == null || !Double.isFinite(value) || value <= 0 ? 50.0D : Math.min(1024.0D, Math.max(1.0D, value));
+    }
+    public Double getSupplyBoxHealth() { return supplyBoxHealth; }
+    public void setSupplyBoxHealth(Double value) { supplyBoxHealth = normalizeSupplyBoxHealth(value); }
 
     public Boolean getBoolOverworldInvulnerable() {
         return boolOverworldInvulnerable;

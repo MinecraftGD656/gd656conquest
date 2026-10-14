@@ -33,7 +33,7 @@ public final class ClientOperationsMusicDirector {
         boolean fresh = snapshot == null;
         snapshot = next; world = mc.level; acceptedAt = localTicks;
         if (fresh) {
-            for (String id : List.of(OperationsMusicCatalog.WIN, OperationsMusicCatalog.LOSE, OperationsMusicCatalog.OVERLAY,
+            for (String id : List.of(OperationsMusicCatalog.INTERMISSION, OperationsMusicCatalog.FINAL, OperationsMusicCatalog.OVERLAY,
                 OperationsMusicCatalog.finale(1), OperationsMusicCatalog.finale(2), OperationsMusicCatalog.finale(3))) {
                 if (OperationMusicResources.playable(id)) OperationMusicResources.duration(id);
             }
@@ -67,13 +67,13 @@ public final class ClientOperationsMusicDirector {
             positions.save(mainId, main.position());
             main.cancel(); manager.stop(main); main = null;
             if (mainId.equals(openingId)) opening.finish();
-            if (mainId.equals(OperationsMusicCatalog.WIN) || mainId.equals(OperationsMusicCatalog.LOSE)) resultFinished = true;
+            if (OperationsMusicCatalog.isResult(mainId)) resultFinished = true;
         }
         if (snapshot.mode() == Mode.RESULT || (snapshot.mode() == Mode.PREPARATION && !result.isEmpty())) {
             if (snapshot.mode() == Mode.RESULT && !result.equals(snapshot.resultKey())) {
                 stopMain(0); stopTails(); stopOverlay(); stopDeployment();
                 result = snapshot.resultKey(); resultFinished = deployed = deployOpened = false;
-                resultId = snapshot.victory() ? OperationsMusicCatalog.WIN : OperationsMusicCatalog.LOSE;
+                resultId = OperationsMusicCatalog.result(snapshot.terminal());
                 playedLevel = 0; failedId = "";
                 opening.reset(); openingId = "";
                 ClientAudioManager.getInstance().enqueueClearOperationVoices();
@@ -89,7 +89,7 @@ public final class ClientOperationsMusicDirector {
         }
         if (opening.accept(snapshot, localTicks)) {
             if (main == null) stopTails();
-            boolean resultTrack = mainId.equals(OperationsMusicCatalog.WIN) || mainId.equals(OperationsMusicCatalog.LOSE);
+            boolean resultTrack = OperationsMusicCatalog.isResult(mainId);
             openingFadeOutTicks = resultTrack ? 0 : opening.snapshot().advanceOpening() ? 20 : 10;
             positions.reset(); stopOverlay(); stopDeployment();
             result = ""; playedLevel = 0; failedId = "";
@@ -135,7 +135,7 @@ public final class ClientOperationsMusicDirector {
             failedId = id;
             com.mojang.logging.LogUtils.getLogger().warn("Unable to load operation music {}", id, error);
             if (id.equals(openingId)) opening.finish();
-            if (id.equals(OperationsMusicCatalog.WIN) || id.equals(OperationsMusicCatalog.LOSE)) resultFinished = true;
+            if (OperationsMusicCatalog.isResult(id)) resultFinished = true;
             return false;
         }
         double outgoing = main != null && mainId.startsWith("gd656conquest:music.operation.pre_eor_0") ? main.position() : 0;

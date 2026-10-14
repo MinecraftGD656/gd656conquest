@@ -41,7 +41,8 @@ public record RoomBreakthroughConfig(
     RoomTroopBalanceReference troopBalanceReference,
     List<RoomPosition> ammoBoxPositions,
     List<RoomPosition> medicalBoxPositions,
-    RoomBattalionConfig battalionConfig
+    RoomBattalionConfig battalionConfig,
+    Boolean retreatSuccessRestore
 ) implements IRoomGameplayConfig {
     public RoomBreakthroughConfig {
         Objects.requireNonNull(points, "points");
@@ -73,6 +74,31 @@ public record RoomBreakthroughConfig(
         ammoBoxPositions = copyPositions(ammoBoxPositions);
         medicalBoxPositions = copyPositions(medicalBoxPositions);
         battalionConfig = battalionConfig == null ? RoomBattalionConfig.defaults() : battalionConfig;
+        retreatSuccessRestore = retreatSuccessRestore == null || retreatSuccessRestore;
+    }
+
+    public RoomBreakthroughConfig(
+        Map<String, RoomCapturePointDefinition> points, String mapId, String campADisplayName, String campBDisplayName,
+        int stageCount, List<RoomPosition> campABaseBoundary, List<RoomPosition> campBBaseBoundary,
+        List<RoomPosition> stageABoundary, List<RoomPosition> stageBBoundary, List<RoomPosition> stageCBoundary,
+        List<RoomPosition> stageDBoundary, List<RoomPosition> stageEBoundary, List<RoomPosition> stageFBoundary,
+        RoomSpawnGroupConfig campABaseSpawnGroup, RoomSpawnGroupConfig campBBaseSpawnGroup,
+        RoomPosition campABaseDeployIconPosition, RoomPosition campBBaseDeployIconPosition,
+        RoomViewPosition stageADeployViewPosition, RoomViewPosition stageBDeployViewPosition,
+        RoomViewPosition stageCDeployViewPosition, RoomViewPosition stageDDeployViewPosition,
+        RoomViewPosition stageEDeployViewPosition, RoomViewPosition stageFDeployViewPosition,
+        int stageDurationMinutes, int defenderRetreatSeconds, int troopGainPerDefenderKill,
+        Double troopsPerPlayer, Integer maxAttackTroops, Integer stageTroopReward,
+        RoomTroopBalanceReference troopBalanceReference, List<RoomPosition> ammoBoxPositions,
+        List<RoomPosition> medicalBoxPositions, RoomBattalionConfig battalionConfig
+    ) {
+        this(points, mapId, campADisplayName, campBDisplayName, stageCount, campABaseBoundary, campBBaseBoundary,
+            stageABoundary, stageBBoundary, stageCBoundary, stageDBoundary, stageEBoundary, stageFBoundary,
+            campABaseSpawnGroup, campBBaseSpawnGroup, campABaseDeployIconPosition, campBBaseDeployIconPosition,
+            stageADeployViewPosition, stageBDeployViewPosition, stageCDeployViewPosition, stageDDeployViewPosition,
+            stageEDeployViewPosition, stageFDeployViewPosition, stageDurationMinutes, defenderRetreatSeconds,
+            troopGainPerDefenderKill, troopsPerPlayer, maxAttackTroops, stageTroopReward, troopBalanceReference,
+            ammoBoxPositions, medicalBoxPositions, battalionConfig, true);
     }
 
     /** Source compatibility for existing map builders. */

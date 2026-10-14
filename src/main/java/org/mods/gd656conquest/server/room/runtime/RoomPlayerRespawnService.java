@@ -2374,6 +2374,10 @@ public final class RoomPlayerRespawnService {
         return INITIAL_DEPLOY_DELAY_SECONDS * 20 + RESPAWN_TRAVEL_TICKS + INITIAL_MOVEMENT_LOCK_SECONDS * 20;
     }
 
+    public static int initialDeploymentArrivalDelayTicks() {
+        return INITIAL_DEPLOY_DELAY_SECONDS * 20 + RESPAWN_TRAVEL_TICKS;
+    }
+
     private static int resolveInitialMovementLockTicks(RoomDefinition room) {
         if (room != null && room.isArenaGameplay()) {
             return Math.max(1, room.arenaConfig().startCountdownSeconds()) * 20;

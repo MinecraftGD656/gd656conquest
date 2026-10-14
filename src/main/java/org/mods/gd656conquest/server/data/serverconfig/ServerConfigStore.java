@@ -110,6 +110,10 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
         return value == null || value < 0.0 ? 35.0 : value;
     }
 
+    public synchronized double getSupplyBoxHealth() {
+        return ServerConfigDataModel.normalizeSupplyBoxHealth(get().getSupplyBoxHealth());
+    }
+
     public synchronized RoomPosition getOverworldSpawnFallbackShared() {
         RoomPosition configured = get().getOverworldSpawn();
         if (configured != null) {
@@ -160,6 +164,7 @@ public final class ServerConfigStore extends JsonDataStoreSupport {
     }
 
     private void normalize(ServerConfigDataModel model) {
+        model.setSupplyBoxHealth(model.getSupplyBoxHealth());
         if (model.getBoolPassiveRegeneration() == null) model.setBoolPassiveRegeneration(true);
         model.setPassiveRegenHealAmount(org.mods.gd656conquest.server.room.model.RoomNaturalRegenConfig.amount(model.getPassiveRegenHealAmount()));
         if (model.getBoolOverworldInvulnerable() == null) {

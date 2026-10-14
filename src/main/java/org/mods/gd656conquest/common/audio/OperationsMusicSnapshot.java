@@ -11,6 +11,9 @@ public record OperationsMusicSnapshot(String roomId, long matchId, long serverTi
             finaleLevel, strongFinale, terminal, victory, resultElapsedTicks, 0);
     }
     public enum Mode { PREPARATION, COMBAT, ROUND_START, ADVANCE, RESULT }
+    public static Mode openingMode(long tick, long openingTick, long combatTick) {
+        return tick < openingTick ? Mode.PREPARATION : tick < combatTick ? Mode.ROUND_START : Mode.COMBAT;
+    }
     public String stageKey() { return roomId + "|" + matchId + "|" + battalion + "|" + sector; }
     public String resultKey() { return roomId + "|" + matchId + "|" + resultSequence; }
     public boolean advanceOpening() { return advanceVariant > 0; }

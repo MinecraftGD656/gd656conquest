@@ -35,10 +35,10 @@ Minecraft 1.20.1 / Forge 47.4.18 / official 1.20.1 映射。
 
 ## 输出
 
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.16.jar`：当前默认完整模组，网络协议为 `bf1-0.1.16`，六项客户端 bypass 开关均为 false。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.16-bypass.jar`：原工程已有的客户端绕过配置变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.16-nores.jar`：原工程已有的无 assets 变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.16-resources.zip`：原工程已有的 assets 资源包。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.17.jar`：当前默认完整模组，网络协议为 `bf1-0.1.17`，六项客户端 bypass 开关均为 false。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.17-bypass.jar`：原工程已有的客户端绕过配置变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.17-nores.jar`：原工程已有的无 assets 变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.17-resources.zip`：原工程已有的 assets 资源包。
 
 JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装选择没有变体后缀的主 JAR。
 构建日志保存在 `.build-logs/build.log`。
@@ -115,3 +115,5 @@ JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装
 0.1.15 区域与撤退播报：新增区域拿下／失守、双方清理开始及10秒尾声提醒，按实际撤退名单分流，最终区域直接演出不发新播报。进攻方首句实际播完后等待1秒再播指令；上下文同步取消过期的指令与提醒，并按紧急程度优先排队。六个WAV转换为OGG、解码验证后删除原件。新增语音上下文数据包，协议为 `bf1-0.1.15`，客户端与服务端须一起更新。详见 [区域与撤退播报](operations-voice.md)。
 
 0.1.16 开场音乐与语音有效性：RoundStart专用于每营开局，AttackersAdvance专用于区域推进及下一阶段开场，单次完整播放；撤退与推进倒计时结束不重播或切换开场，所有决战等级都等待开场结束。旧决战曲1秒淡出、推进曲同时1秒淡入，EOR不再被时间轴声音压低。兵力播报改为向下跨过阈值，同次多档只播最紧急一档；增加兵力、阵营、战斗阶段与队列有效期校验，避免低兵力开局补播或旧语音跨阶段播放，无实际撤退时不发清理结束。音乐包新增推进开场编号，语音包新增战斗与兵力状态，协议为 `bf1-0.1.16`，客户端与服务端须一起更新。详见 [行动音乐状态机](operations-music.md)及[行动语音与撤退播报](operations-voice.md)。
+
+0.1.17 首营音乐与撤退恢复：第一营RoundStart1提前至部署落地，覆盖5秒移动锁定；后续营时序不变。双方非终局演出统一EOR1，终局统一EOR2，移除行动EOR胜负选曲。新增行动房间“撤退成功立即恢复”，默认true，使用本次实际部署记录恢复满血与装备；全局“补给箱生命值”supplyBoxHealth默认50，普通两种箱子共用，永久箱子仍为100并免伤。协议为 `bf1-0.1.17`，客户端与服务端须一起更新。详见[恢复与补给箱配置](operations-recovery.md)。

@@ -449,7 +449,7 @@ public final class RoomDefinitionGroupConfigEditor {
                 breakthrough.troopBalanceReference(),
                 breakthrough.ammoBoxPositions(),
                 breakthrough.medicalBoxPositions(),
-            breakthrough.battalionConfig()
+            breakthrough.battalionConfig(), breakthrough.retreatSuccessRestore()
             ));
         }
         if ("btcampbbasespawngroup".equals(canonical)) {
@@ -487,7 +487,7 @@ public final class RoomDefinitionGroupConfigEditor {
                 breakthrough.troopBalanceReference(),
                 breakthrough.ammoBoxPositions(),
                 breakthrough.medicalBoxPositions(),
-            breakthrough.battalionConfig()
+            breakthrough.battalionConfig(), breakthrough.retreatSuccessRestore()
             ));
         }
         if (canonical.startsWith("captureinnerspawngroup_")) {
@@ -605,7 +605,7 @@ public final class RoomDefinitionGroupConfigEditor {
             breakthrough.troopBalanceReference(),
             breakthrough.ammoBoxPositions(),
             breakthrough.medicalBoxPositions(),
-            breakthrough.battalionConfig()
+            breakthrough.battalionConfig(), breakthrough.retreatSuccessRestore()
         ));
     }
 
@@ -735,7 +735,7 @@ public final class RoomDefinitionGroupConfigEditor {
             breakthrough.troopBalanceReference(),
             breakthrough.ammoBoxPositions(),
             breakthrough.medicalBoxPositions(),
-            breakthrough.battalionConfig()
+            breakthrough.battalionConfig(), breakthrough.retreatSuccessRestore()
         ));
     }
 

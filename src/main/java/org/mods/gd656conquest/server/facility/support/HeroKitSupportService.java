@@ -158,6 +158,7 @@ public final class HeroKitSupportService {
         state.getActiveHeroKitIdsByPlayer().put(player.getUUID(), entry.getId());
         state.getActiveHeroKitTypesByPlayer().put(player.getUUID(), entry.getType());
         state.getHeroKitLoadoutResetPendingPlayers().remove(player.getUUID());
+        org.mods.gd656conquest.server.support.RetreatRecovery.captureCurrent(player);
         state.getHeroKitCooldownExpireTicksByScopedKey().remove(buildScopedHeroKitKey(teamId, entry.getId()));
         SupportHudSubtitleService.broadcastHeroKitDeployed(state, teamId, player, resolveDisplayName(entry));
         playDeployVoice(player, entry.getType());

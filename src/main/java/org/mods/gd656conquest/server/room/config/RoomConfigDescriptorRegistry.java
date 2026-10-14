@@ -235,6 +235,7 @@ public final class RoomConfigDescriptorRegistry {
         breakthrough(descriptors, RoomConfigCategory.RULES, "btPreparationSeconds", "营切换部署准备秒数(1-300)", "breakthroughConfig.battalionConfig.preparationSeconds", RoomConfigValueType.NUMBER, List.of("10"));
         breakthrough(descriptors, RoomConfigCategory.RULES, "btStageDurationMinutes", "进攻方进攻时间（分钟，0为无限）", "breakthroughConfig.stageDurationMinutes", RoomConfigValueType.NUMBER, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btDefenderRetreatSeconds", "防守方撤退秒数", "breakthroughConfig.defenderRetreatSeconds", RoomConfigValueType.NUMBER, List.of());
+        breakthrough(descriptors, RoomConfigCategory.RULES, "btRetreatSuccessRestore", "撤退成功立即恢复", "breakthroughConfig.retreatSuccessRestore", RoomConfigValueType.BOOLEAN, List.of());
         breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopGainPerDefenderKill", "击杀撤退守军补充兵力", "breakthroughConfig.troopGainPerDefenderKill", RoomConfigValueType.NUMBER, List.of("3"));
         breakthrough(descriptors, RoomConfigCategory.RULES, "btTroopsPerPlayer", "每人提供兵力数", "breakthroughConfig.troopsPerPlayer", RoomConfigValueType.NUMBER, List.of("20"));
         breakthrough(descriptors, RoomConfigCategory.RULES, "btMaxAttackTroops", "最大兵力上限", "breakthroughConfig.maxAttackTroops", RoomConfigValueType.NUMBER, List.of("250"));

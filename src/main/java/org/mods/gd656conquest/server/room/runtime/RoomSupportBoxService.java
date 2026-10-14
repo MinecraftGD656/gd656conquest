@@ -115,6 +115,13 @@ public final class RoomSupportBoxService {
         processAmmoBoxAura(gameTick);
     }
 
+    private void initializeOrdinaryBoxHealth(net.minecraft.world.entity.LivingEntity box) {
+        double health = org.mods.gd656conquest.server.data.ConquestDataManager.of(server).serverConfig().getSupplyBoxHealth();
+        var attribute = box.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH);
+        if (attribute != null) attribute.setBaseValue(health);
+        box.setHealth(box.getMaxHealth());
+    }
+
     public void spawnPermanentSupportBoxes(RoomDefinition room) {
         if (room == null || room.roomId() == null || room.roomId().isBlank()) {
             return;
@@ -302,7 +309,7 @@ public final class RoomSupportBoxService {
         ammoBox.setOwnerUuid(ownerId);
         org.mods.gd656conquest.server.support.SupportRuntime.initializeBox(ammoBox, ownerId, itemEntity);
         ammoBox.setUseRemaining(AMMO_BOX_MAX_USE_COUNT);
-        ammoBox.setHealth(100.0F);
+        initializeOrdinaryBoxHealth(ammoBox);
         level.addFreshEntity(ammoBox);
         activeAmmoBoxIds.add(ammoBox.getUUID());
         ownerActiveAmmoBoxId.put(ownerId, ammoBox.getUUID());
@@ -331,7 +338,7 @@ public final class RoomSupportBoxService {
         medicalBox.setOwnerUuid(ownerId);
         org.mods.gd656conquest.server.support.SupportRuntime.initializeBox(medicalBox, ownerId, itemEntity);
         medicalBox.setUseRemaining(MEDICAL_BOX_MAX_USE_COUNT);
-        medicalBox.setHealth(100.0F);
+        initializeOrdinaryBoxHealth(medicalBox);
         level.addFreshEntity(medicalBox);
         activeMedicalBoxIds.add(medicalBox.getUUID());
         ownerActiveMedicalBoxId.put(ownerId, medicalBox.getUUID());

@@ -103,11 +103,11 @@
   "music.operation.pre_eor_overlay": {
     "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_preeor_overlay_wave", "stream": true}]
   },
-  "music.operation.eor_win": {
-    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_eor_win_wave", "stream": true}]
+  "music.operation.eor1": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_eor1_wave", "stream": true}]
   },
-  "music.operation.eor_lose": {
-    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_eor_lose_wave", "stream": true}]
+  "music.operation.eor2": {
+    "sounds": [{"name": "gd656conquest:music/operation/mp_music_set_eor2_wave", "stream": true}]
   },
   "music.operation_victory": {
     "sounds": [

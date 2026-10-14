@@ -192,7 +192,7 @@ public final class CapturePointBlock extends Block {
             config.troopBalanceReference(),
             config.ammoBoxPositions(),
             config.medicalBoxPositions(),
-            config.battalionConfig()
+            config.battalionConfig(), config.retreatSuccessRestore()
         );
         return new RoomDefinition(
             room.roomId(),
