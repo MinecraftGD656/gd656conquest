@@ -68,6 +68,7 @@ public final class RoomObjectiveSpawnSelectionService {
         }
         boolean enemyNearby = hasEnemyNearby(state, player, teamId, point, spawnPolicy.objectiveThreatRadiusSq(point, teamId, normalizedCode));
         List<RoomPosition> candidates = spawnPolicy.resolveCandidateSpawns(runtimeView, point, teamId, normalizedCode, enemyNearby);
+        candidates = org.mods.gd656conquest.server.room.runtime.RoomDeployBoundarySupport.filter(room, state, teamId, candidates);
         if (candidates == null || candidates.isEmpty()) {
             return ObjectiveSpawnAssessment.failure(describeMissingSpawnFailure(point, teamId, enemyNearby));
         }

@@ -41,6 +41,10 @@ public final class RoomVehicleDeploySelectionService {
         if (record == null) {
             return VehicleDeployResolution.fail(entryId, VehicleDisplayState.READY_TO_DEPLOY, "未找到对应载具配置");
         }
+        Entity boundaryEntity = record.getSpawnedEntityUuid() == null ? null
+            : vehicleRuntimeService.findEntity(record.getSpawnedEntityUuid()).orElse(null);
+        if (!VehicleDeployBoundarySupport.allows(room, state, player, record, boundaryEntity))
+            return VehicleDeployResolution.fail(entryId, VehicleDisplayState.WAITING, "该地面载具位于当前合法部署范围之外");
         if (!gameplayRules.isVehicleDeployEntryActive(room, state, player, teamId, record)) {
             return VehicleDeployResolution.fail(
                 entryId,

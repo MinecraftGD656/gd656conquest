@@ -21,7 +21,7 @@ public final class BreakthroughObjectiveSpawnPolicy implements RoomObjectiveSpaw
         if (runtimeView == null || point == null || teamId == null) {
             return false;
         }
-        int currentStage = resolveCurrentStage(runtimeView);
+        int currentStage = resolveCurrentStage(runtimeView, teamId);
         if (currentStage <= 0) {
             return false;
         }
@@ -43,7 +43,7 @@ public final class BreakthroughObjectiveSpawnPolicy implements RoomObjectiveSpaw
         if (point == null || teamId == null) {
             return List.of();
         }
-        int currentStage = resolveCurrentStage(runtimeView);
+        int currentStage = resolveCurrentStage(runtimeView, teamId);
         int pointStage = point.stageIndex();
         if (teamId == RoomTeamId.CAMP_A && pointStage == currentStage - 1) {
             return point.innerSpawns();
@@ -68,11 +68,11 @@ public final class BreakthroughObjectiveSpawnPolicy implements RoomObjectiveSpaw
         return OBJECTIVE_THREAT_RADIUS_SQ;
     }
 
-    private int resolveCurrentStage(RoomObjectiveRuntimeView runtimeView) {
+    private int resolveCurrentStage(RoomObjectiveRuntimeView runtimeView, RoomTeamId teamId) {
         if (!(runtimeView instanceof BreakthroughObjectiveRuntimeView breakthroughRuntimeView)) {
             return 0;
         }
-        int currentStage = breakthroughRuntimeView.currentStageIndex();
+        int currentStage = breakthroughRuntimeView.deploymentStageIndex(teamId);
         if (currentStage <= 0 || currentStage > breakthroughRuntimeView.maxStageCount()) {
             return 0;
         }

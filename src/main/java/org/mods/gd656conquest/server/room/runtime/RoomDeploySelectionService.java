@@ -55,7 +55,8 @@ public final class RoomDeploySelectionService {
             return updateCaptureSelection(room, state, playerId, targetIdRaw);
         }
         if ("team".equals(kind)) {
-            return updateTeamSelection(state, playerId, teamId, targetIdRaw);
+            return (!RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId()) || resolveTeamFallbackSpawn(room, state, server.getPlayerList().getPlayer(playerId), teamId) != null)
+                && updateTeamSelection(state, playerId, teamId, targetIdRaw);
         }
         if ("teammate".equals(kind)) {
             return updateTeammateSelection(room, state, playerId, teamId, targetIdRaw);
@@ -79,6 +80,8 @@ public final class RoomDeploySelectionService {
     ) {
         String kind = kindRaw == null ? "" : kindRaw.trim().toLowerCase(Locale.ROOT);
         if (!"teammate".equals(kind)) {
+            if (RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId()) && "team".equals(kind) && resolveTeamFallbackSpawn(room, state, server.getPlayerList().getPlayer(playerId), teamId) == null)
+                return "本营当前不在合法部署范围内，或没有合法出生点";
             if ("capture".equals(kind)) {
                 return describeCaptureSelectionFailure(room, state, playerId, teamId, targetIdRaw);
             }
@@ -119,9 +122,10 @@ public final class RoomDeploySelectionService {
         } else if ("vehicle".equals(kind)) {
             return null;
         }
-        if (spawn != null) {
+        if (spawn != null && RoomDeployBoundarySupport.allows(room, state, teamId, spawn)) {
             return spawn;
         }
+        if (RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) return null;
         return "team".equals(kind) || "teammate".equals(kind) || "beacon".equals(kind)
             ? resolveTeamFallbackSpawn(room, state, player, teamId)
             : null;
@@ -235,7 +239,7 @@ public final class RoomDeploySelectionService {
         if (state == null || player == null || teamId == null) {
             return;
         }
-        if (applyBreakthroughDefenderInitialSelection(room, state, player, teamId)) {
+        if (applyBreakthroughInitialSelection(room, state, player, teamId)) {
             return;
         }
         replaceSelectionWithTeamFallback(state, player.getUUID(), teamId);
@@ -304,13 +308,13 @@ public final class RoomDeploySelectionService {
         state.getDeploySelectionChangedTicks().put(playerId, (long) server.getTickCount());
     }
 
-    private boolean applyBreakthroughDefenderInitialSelection(
+    private boolean applyBreakthroughInitialSelection(
         RoomDefinition room,
         RunningRuntimeState state,
         ServerPlayer player,
         RoomTeamId teamId
     ) {
-        if (room == null || state == null || player == null || teamId != RoomTeamId.CAMP_B) {
+        if (room == null || state == null || player == null || teamId == null) {
             return false;
         }
         if (!RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
@@ -323,15 +327,17 @@ public final class RoomDeploySelectionService {
         if (runtimeProvider == null || !(runtimeProvider.objectiveRuntimeView() instanceof BreakthroughObjectiveRuntimeView runtimeView)) {
             return false;
         }
-        int currentStageIndex = runtimeView.currentStageIndex();
+        if (teamId == RoomTeamId.CAMP_A && resolveTeamFallbackSpawn(room, state, player, teamId) != null) {
+            replaceSelectionWithTeamFallback(state, player.getUUID(), teamId);
+            return true;
+        }
+        int currentStageIndex = runtimeView.deploymentStageIndex(teamId);
         if (currentStageIndex <= 0 || currentStageIndex > runtimeView.maxStageCount()) {
             return false;
         }
         List<RoomCapturePointDefinition> candidates = new ArrayList<>(room.breakthroughConfig().stageActivePoints(currentStageIndex));
-        if (candidates.isEmpty()) {
-            return false;
-        }
-        int startIndex = Math.floorMod(server.getTickCount(), candidates.size());
+        candidates.addAll(room.breakthroughConfig().stageActivePoints(currentStageIndex + (teamId == RoomTeamId.CAMP_A ? -1 : 1)));
+        int startIndex = candidates.isEmpty() ? 0 : Math.floorMod(server.getTickCount(), candidates.size());
         for (int offset = 0; offset < candidates.size(); offset++) {
             RoomCapturePointDefinition point = candidates.get((startIndex + offset) % candidates.size());
             if (point == null || point.centerPosition() == null) {
@@ -343,7 +349,9 @@ public final class RoomDeploySelectionService {
                 return true;
             }
         }
-        return false;
+        if (resolveTeamFallbackSpawn(room, state, player, teamId) != null) replaceSelectionWithTeamFallback(state, player.getUUID(), teamId);
+        else clearSelection(state, player.getUUID());
+        return true;
     }
 
     private RoomPosition resolveTeamFallbackSpawn(
@@ -402,6 +410,10 @@ public final class RoomDeploySelectionService {
         }
         if (state.isPlayerInCombat(teammateId, gameTick)) {
             return TeammateSelectionResult.failure("该队友正在战斗中，无法部署到其位置");
+        }
+        if (!RoomDeployBoundarySupport.allows(room, state, teamId,
+            new RoomPosition(Mth.floor(teammate.getX()), teammate.getY(), Mth.floor(teammate.getZ())))) {
+            return TeammateSelectionResult.failure("该队友位于当前合法部署范围之外");
         }
         return TeammateSelectionResult.success(teammateId, teammate);
     }

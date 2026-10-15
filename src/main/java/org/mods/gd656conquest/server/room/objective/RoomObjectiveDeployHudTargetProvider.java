@@ -34,7 +34,7 @@ public final class RoomObjectiveDeployHudTargetProvider implements RoomDeployHud
             if (point.centerPosition() == null) {
                 continue;
             }
-            elements.add(RoomDeployHudElement.capture(
+            RoomDeployHudElement element = RoomDeployHudElement.capture(
                 point.code(),
                 point.centerPosition(),
                 owner,
@@ -43,7 +43,16 @@ public final class RoomObjectiveDeployHudTargetProvider implements RoomDeployHud
                 point.displayName(),
                 campACount,
                 campBCount
-            ));
+            );
+            if (org.mods.gd656conquest.server.room.model.RoomGameplayId.BREAKTHROUGH.equals(context.room().gameplayId())) {
+                var viewer = context.server().getPlayerList().getPlayer(context.playerId());
+                if (!new RoomObjectiveSpawnSelectionService(context.server()).assessObjectiveSpawn(context.room(), context.state(), viewer, context.selfTeam(), point.code()).success()) {
+                    element = new RoomDeployHudElement(element.kind(), element.code(), element.x(), element.y(), element.z(),
+                        element.ownerToken(), element.drivingToken(), element.progress(), element.note(),
+                        List.of(Integer.toString(campACount), Integer.toString(campBCount), "DEPLOY_BLOCKED"));
+                }
+            }
+            elements.add(element);
         }
     }
 }

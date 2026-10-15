@@ -69,6 +69,8 @@ public final class RoomTeammateDeployHudTargetProvider implements RoomDeployHudT
             && teammate.isAlive()
             && !teammate.isSpectator()
             && !VehicleCompatFacade.isVehicleEntity(teammate.getVehicle())
+            && RoomDeployBoundarySupport.allows(context.room(), context.state(), context.selfTeam(),
+                new RoomPosition(Mth.floor(teammate.getX()), teammate.getY(), Mth.floor(teammate.getZ())))
             && !context.state().isInRespawnFlow(teammateId)
             && !context.state().isPlayerDowned(teammateId)
             && !context.state().isPlayerPendingDowned(teammateId);

@@ -111,6 +111,8 @@ public final class RoomVehicleDeployExecutionService {
         if (record == null) {
             return VehicleDeployExecutionResult.failure("未找到目标载具条目");
         }
+        if (!VehicleDeployBoundarySupport.allows(room, state, player, record, null))
+            return VehicleDeployExecutionResult.failure("载具出生位置已不在当前合法部署范围内");
         vehicleRuntimeService.clearResidualManagedVehicles(room.roomId(), resolution.entryId());
         ServerLevel level = player.serverLevel();
         Vec3 spawnPosition = new Vec3(record.getConfiguredSpawnX(), record.getConfiguredSpawnY(), record.getConfiguredSpawnZ());
@@ -130,6 +132,10 @@ public final class RoomVehicleDeployExecutionService {
             : vehicleRuntimeService.findEntity(summonResult.entityUuid()).orElse(null);
         if (entity == null || !VehicleCompatFacade.isVehicleEntity(entity)) {
             return VehicleDeployExecutionResult.failure("载具生成后未找到实体");
+        }
+        if (!VehicleDeployBoundarySupport.allows(room, state, player, record, entity)) {
+            entity.discard();
+            return VehicleDeployExecutionResult.failure("载具出生位置不在当前合法部署范围内");
         }
         vehicleRuntimeService.markManagedVehicleEntity(room.roomId(), resolution.entryId(), entity);
         vehicleRuntimeService.trackSpawnedEntity(room.roomId(), resolution.entryId(), entity, gameTick);
@@ -164,6 +170,8 @@ public final class RoomVehicleDeployExecutionService {
         if (!VehicleCompatFacade.canAcceptPassenger(entity, player)) {
             return VehicleDeployExecutionResult.failure("目标载具当前已满或无法搭乘");
         }
+        if (!VehicleDeployBoundarySupport.allows(room, state, player, record, entity))
+            return VehicleDeployExecutionResult.failure("目标地面载具已移出当前合法部署范围");
         final Entity mountedEntity = entity;
         if (!mountPlayerToVehicle(
             player,

@@ -195,7 +195,8 @@ final class ClientCaptureOverlayCodec {
                     teammateCombat,
                     stageObjectiveProxy,
                     vehicleState,
-                    vehicleLowHealth
+                    vehicleLowHealth,
+                    kind == IconKind.CAPTURE && cols.length >= 12 && "DEPLOY_BLOCKED".equals(cols[11])
                 );
                 if (dedupe.add(entry.renderId())) {
                     entries.add(entry);

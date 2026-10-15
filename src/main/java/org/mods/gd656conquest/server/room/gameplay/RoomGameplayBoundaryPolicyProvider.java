@@ -28,6 +28,16 @@ public interface RoomGameplayBoundaryPolicyProvider {
         return resolveAllowedBoundaries(room, state, teamId);
     }
 
+    default List<List<RoomPosition>> resolveFlightAllowedBoundariesForPlayer(
+        RoomDefinition room, RunningRuntimeState state, ServerPlayer player, RoomTeamId teamId
+    ) {
+        return resolveAllowedBoundariesForPlayer(room, state, player, teamId);
+    }
+
+    default boolean isDeploymentPositionAllowed(RoomDefinition room, RunningRuntimeState state, RoomTeamId teamId, double x, double z) {
+        return true;
+    }
+
     default boolean isInsideAllowedBoundary(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, RoomTeamId teamId) {
         return RoomBoundaryRuleEvaluator.isInsideAnyBoundary(player, resolveAllowedBoundariesForPlayer(room, state, player, teamId));
     }

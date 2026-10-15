@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 
 public final class VehicleCompatFacade {
+    private static final java.util.Map<net.minecraft.world.entity.EntityType<?>, Boolean> AIRCRAFT_TYPES = new java.util.concurrent.ConcurrentHashMap<>();
     private VehicleCompatFacade() {
     }
 
@@ -66,6 +67,27 @@ public final class VehicleCompatFacade {
             return ywzj;
         }
         return SuperbWarfareVehicleCompatBridge.snapshot(entity);
+    }
+
+    public static boolean isAircraftId(RoomVehicleBackend backend, ServerLevel level, String vehicleId) {
+        RoomVehicleBackend resolved = backend == null ? RoomVehicleBackend.defaultValue() : backend;
+        if (resolved == RoomVehicleBackend.YWZJ) return YwzjVehicleCompatBridge.isAircraftId(vehicleId);
+        var id = net.minecraft.resources.ResourceLocation.tryParse(vehicleId);
+        if (id == null || !BuiltInRegistries.ENTITY_TYPE.containsKey(id) || level == null) return false;
+        // HUD refreshes must not repeatedly construct an unspawned vehicle just to classify it.
+        return AIRCRAFT_TYPES.computeIfAbsent(BuiltInRegistries.ENTITY_TYPE.get(id), type -> probeAircraftType(type, level));
+    }
+
+    private static boolean probeAircraftType(net.minecraft.world.entity.EntityType<?> type, ServerLevel level) {
+        Entity probe = null;
+        try {
+            probe = type.create(level);
+            return isAircraftEntity(probe);
+        } catch (RuntimeException ignored) {
+            return false;
+        } finally {
+            if (probe != null) probe.discard();
+        }
     }
 
     public static VehicleCompatSummonResult summon(VehicleCompatSummonRequest request) {

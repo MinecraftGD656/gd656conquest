@@ -21,7 +21,8 @@ public final class RoomTeamDeployHudTargetProvider implements RoomDeployHudTarge
             context.state(),
             selfTeam
         );
-        if (iconPosition != null) {
+        if (iconPosition != null && (!org.mods.gd656conquest.server.room.model.RoomGameplayId.BREAKTHROUGH.equals(context.room().gameplayId())
+            || provider != null && provider.resolveRespawnAnchorPosition(context.room(), context.state(), context.server().getPlayerList().getPlayer(context.playerId())) != null)) {
             elements.add(RoomDeployHudElement.spawn(selfTeam.name(), iconPosition, selfTeam, ""));
         }
         appendAdditionalRows(elements, provider, context, selfTeam);
@@ -44,6 +45,9 @@ public final class RoomTeamDeployHudTargetProvider implements RoomDeployHudTarge
             if (icon == null || icon.position() == null || icon.ownerTeam() == null || icon.code() == null || icon.code().isBlank()) {
                 continue;
             }
+            if (icon.stageObjectiveProxy() && icon.code().startsWith("CAPTURE:")
+                && !new org.mods.gd656conquest.server.room.objective.RoomObjectiveSpawnSelectionService(context.server())
+                    .assessObjectiveSpawn(context.room(), context.state(), context.server().getPlayerList().getPlayer(context.playerId()), selfTeam, icon.code().substring(8)).success()) continue;
             elements.add(RoomDeployHudElement.spawn(
                 icon.code(),
                 icon.position(),

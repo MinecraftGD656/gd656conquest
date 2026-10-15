@@ -220,13 +220,15 @@ final class ClientCaptureOverlayModel {
         boolean teammateCombat,
         boolean stageObjectiveProxy,
         VehicleHudState vehicleState,
-        boolean vehicleLowHealth
+        boolean vehicleLowHealth,
+        boolean deploymentBlocked
     ) {
         String renderId() {
             return kind.name() + ":" + code;
         }
 
         boolean isDeployableFor(TeamToken selfTeam) {
+            if (deploymentBlocked) return false;
             if (selfTeam == null || selfTeam == TeamToken.NEUTRAL || isDebugMarker()) {
                 return false;
             }

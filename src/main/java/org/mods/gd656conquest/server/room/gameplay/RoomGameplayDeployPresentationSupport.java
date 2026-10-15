@@ -30,6 +30,7 @@ public final class RoomGameplayDeployPresentationSupport {
         RoomGameplayDeployPresentationProvider provider = RoomGameplayDeployPresentationProvider.resolve(state);
         if (provider != null) {
             RoomPosition anchor = provider.resolveRespawnAnchorPosition(room, state, player);
+            if (room != null && org.mods.gd656conquest.server.room.model.RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) return anchor;
             if (anchor != null) {
                 return anchor;
             }
@@ -62,6 +63,7 @@ public final class RoomGameplayDeployPresentationSupport {
         RoomGameplayDeployPresentationProvider provider = RoomGameplayDeployPresentationProvider.resolve(state);
         if (provider != null) {
             RoomPosition iconPosition = provider.resolveTeamDeployIconPosition(room, state, teamId);
+            if (room != null && org.mods.gd656conquest.server.room.model.RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) return iconPosition;
             if (iconPosition != null) {
                 return iconPosition;
             }

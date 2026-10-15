@@ -35,10 +35,10 @@ Minecraft 1.20.1 / Forge 47.4.18 / official 1.20.1 映射。
 
 ## 输出
 
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.17.jar`：当前默认完整模组，网络协议为 `bf1-0.1.17`，六项客户端 bypass 开关均为 false。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.17-bypass.jar`：原工程已有的客户端绕过配置变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.17-nores.jar`：原工程已有的无 assets 变体。
-- `build/libs/gd656conquest-0.9.3-bf1-0.1.17-resources.zip`：原工程已有的 assets 资源包。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.18.jar`：当前默认完整模组，网络协议为 `bf1-0.1.18`，六项客户端 bypass 开关均为 false。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.18-bypass.jar`：原工程已有的客户端绕过配置变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.18-nores.jar`：原工程已有的无 assets 变体。
+- `build/libs/gd656conquest-0.9.3-bf1-0.1.18-resources.zip`：原工程已有的 assets 资源包。
 
 JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装选择没有变体后缀的主 JAR。
 构建日志保存在 `.build-logs/build.log`。
@@ -51,7 +51,7 @@ JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装
 ## 安装与兼容
 
 普通安装选择主 JAR，放入 Minecraft/Forge 实例的 mods 目录，不同时安装 bypass/nores 变体。
-客户端与服务端使用相同模组版本，当前严格网络协议为 `bf1-0.1.12`；
+客户端与服务端使用相同模组版本，当前严格网络协议为 `bf1-0.1.18`；
 旧反编译 `.24/114` 不作为当前协议兼容版。
 依赖按模组元数据安装；要使用布娃娃功能，客户端和服务端都需安装
 `ragdollified-1.20.1-1.1.1-hotfix-RELEASE.jar`，缺席时保留原倒地动画。
@@ -64,6 +64,8 @@ JAR 构建包含 ForgeGradle 重混淆，不打包第三方依赖。普通安装
 营机制回归测试保存在本地 `tools/battalion-tests`，不随仓库发布。配置 Java 17 和依赖缓存后，使用 `gradlew.bat --offline -I tools/battalion-tests/init.gradle battalionTest` 运行；将任务改为 `check` 或 `build` 可在本地检查或构建时一并执行。普通仓库构建不依赖这些本地测试文件。
 
 ## 构建环境说明
+
+0.1.18 将行动模式步兵、地面载具的活动与部署范围限制为本方当前阶段及相邻一阶段；本营只在相邻阶段开放，撤退通行与新部署资格分离，所有出生坐标先过滤合法范围，飞行载具保留原规则。地图多边形不自动扩展或连接。协议为 `bf1-0.1.18`，客户端与服务端须一起更新。详见[部署与战区边界](operations-boundaries.md)。
 
 - 将失效的 `../联动模组jar` 引用替换为项目 `libs/`，可通过 Gradle 参数 `-PlocalModsDir=<目录>` 覆盖。
 - 本地依赖以 `local.mods` 坐标声明，参与 ForgeGradle 开发映射；不再使用 `fg.deobf(files(...))`。

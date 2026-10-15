@@ -647,11 +647,50 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         RoomDefinition room, RunningRuntimeState state, ServerPlayer player, RoomTeamId teamId
     ) {
         if (room != null && teamId == RoomTeamId.CAMP_B
-            && runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT
-            && !isRetreatingDefender(room, player)) {
-            return retreatDestinationBoundaries(room);
+            && runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT) {
+            return BreakthroughSectorWindow.retreatBoundaries(room.breakthroughConfig(), runtimeState.getRetreatStageIndex(),
+                runtimeState.getMaxStageCount(), isRetreatingDefender(room, player));
         }
         return resolveAllowedBoundaries(room, state, teamId);
+    }
+
+    @Override
+    public boolean isInsideAllowedBoundary(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, RoomTeamId teamId) {
+        return player != null && BreakthroughSectorWindow.contains(player.getX(), player.getZ(),
+            resolveAllowedBoundariesForPlayer(room, state, player, teamId));
+    }
+
+    @Override
+    public boolean isOutsideAllowedBoundary(RoomDefinition room, RunningRuntimeState state, ServerPlayer player, RoomTeamId teamId) {
+        return player != null && !BreakthroughSectorWindow.contains(player.getX(), player.getZ(),
+            resolveAllowedBoundariesForPlayer(room, state, player, teamId));
+    }
+
+    @Override
+    public boolean isDeploymentPositionAllowed(RoomDefinition room, RunningRuntimeState state, RoomTeamId teamId, double x, double z) {
+        return room != null && BreakthroughSectorWindow.contains(x, z, allowedBoundaries(room, teamId));
+    }
+
+    @Override
+    public List<List<RoomPosition>> resolveFlightAllowedBoundariesForPlayer(
+        RoomDefinition room, RunningRuntimeState state, ServerPlayer player, RoomTeamId teamId
+    ) {
+        if (room == null) return List.of();
+        List<List<RoomPosition>> boundaries = new ArrayList<>();
+        if (teamId == RoomTeamId.CAMP_A) {
+            addBoundaryIfValid(boundaries, room.breakthroughConfig().campABaseBoundary());
+            for (int stage = 1; stage <= runtimeState.getCurrentStageIndex(); stage++)
+                addBoundaryIfValid(boundaries, room.breakthroughConfig().stageBoundary(stage));
+        } else if (teamId == RoomTeamId.CAMP_B) {
+            addBoundaryIfValid(boundaries, room.breakthroughConfig().campBBaseBoundary());
+            int start = runtimeState.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN
+                ? runtimeState.getCurrentStageIndex() + 1 : runtimeState.getCurrentStageIndex();
+            if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.RETREAT && !isRetreatingDefender(room, player))
+                start = runtimeState.getRetreatStageIndex() + 1;
+            for (int stage = start; stage <= runtimeState.getMaxStageCount(); stage++)
+                addBoundaryIfValid(boundaries, room.breakthroughConfig().stageBoundary(stage));
+        }
+        return boundaries;
     }
 
     @Override
@@ -661,7 +700,9 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             || !runtimeState.retreatRoster().isRetreating(player.getUUID())) return false;
         // This is also queried at the fatal event, before a server tick can observe arrival.
         if (BreakthroughRetreatBoundaryPolicy.reachedDestination(
-            player.getX(), player.getZ(), retreatDestinationBoundaries(room))) {
+            player.getX(), player.getZ(), org.mods.gd656conquest.server.compat.vehicle.VehicleCompatFacade.isAircraftEntity(player.getVehicle())
+                ? BreakthroughRetreatBoundaryPolicy.flightDestinations(room.breakthroughConfig(), runtimeState.getRetreatStageIndex(), runtimeState.getMaxStageCount())
+                : retreatDestinationBoundaries(room))) {
             if (runtimeState.retreatRoster().complete(player.getUUID()) && player.isAlive()
                 && !player.isSpectator() && !runningState.isInRespawnFlow(player.getUUID())) {
                 if (room.breakthroughConfig().retreatSuccessRestore()) {
@@ -698,6 +739,18 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (context == null || context.room() == null) {
             return;
         }
+        ServerPlayer viewer = context.server().getPlayerList().getPlayer(context.playerId());
+        if (viewer == null || !org.mods.gd656conquest.server.compat.vehicle.VehicleCompatFacade.isAircraftEntity(viewer.getVehicle())) {
+            for (RoomTeamId team : List.of(RoomTeamId.CAMP_A, RoomTeamId.CAMP_B)) {
+                List<List<RoomPosition>> boundaries = team == context.selfTeam()
+                    ? resolveAllowedBoundariesForPlayer(context.room(), context.state(), viewer, team)
+                    : resolveAllowedBoundaries(context.room(), context.state(), team);
+                int index = 0;
+                for (List<RoomPosition> polygon : boundaries)
+                    appendBoundaryRows(elements, polygon, team == RoomTeamId.CAMP_A ? "T" : "S", "bt_window_" + team + "_" + index++);
+            }
+            return;
+        }
         appendBoundaryRows(elements, context.room().breakthroughConfig().campABaseBoundary(), "T", "bt_camp_a_base");
         appendBoundaryRows(elements, context.room().breakthroughConfig().campBBaseBoundary(), "S", "bt_camp_b_base");
         for (int stageIndex = 1; stageIndex <= runtimeState.getMaxStageCount(); stageIndex++) {
@@ -721,12 +774,10 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             return null;
         }
         RoomTeamId teamId = state.getRoomTeams().get(player.getUUID());
-        RoomPosition spawn = new RoomSpawnCandidateSelectionService(player.server).pickSpawn(
-            teamId == RoomTeamId.CAMP_A ? room.breakthroughConfig().campABaseSpawnGroup() : room.breakthroughConfig().campBBaseSpawnGroup(),
-            state,
-            teamId
-        );
-        return spawn != null ? spawn : room.commonConfig().queueSpawn();
+        if (!isBaseDeploymentStage(teamId)) return null;
+        var group = teamId == RoomTeamId.CAMP_A ? room.breakthroughConfig().campABaseSpawnGroup() : room.breakthroughConfig().campBBaseSpawnGroup();
+        return group.enabled() ? new RoomSpawnCandidateSelectionService(player.server).pickSpawn(
+            org.mods.gd656conquest.server.room.runtime.RoomDeployBoundarySupport.filter(room, state, teamId, group.spawns()), state, teamId) : null;
     }
 
     @Override
@@ -757,7 +808,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             return "该载具当前不在本阶段部署范围内";
         }
         Integer stageIndex = normalizeVehicleStageIndex(record);
-        int currentStageIndex = runtimeState.getCurrentStageIndex();
+        int currentStageIndex = vehicleDeploymentStage(room, player, teamId, record);
         if (stageIndex == null) {
             return "该载具未配置阶段，当前无法在行动模式部署";
         }
@@ -788,7 +839,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (stageIndex == null) {
             return false;
         }
-        int currentStageIndex = runtimeState.getCurrentStageIndex();
+        int currentStageIndex = vehicleDeploymentStage(room, player, teamId, record);
         if (stageIndex > currentStageIndex) {
             return false;
         }
@@ -833,7 +884,7 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
         if (room == null || teamId == null) {
             return null;
         }
-        return resolveBaseDeployIconPosition(room, teamId);
+        return isBaseDeploymentStage(teamId) ? resolveBaseDeployIconPosition(room, teamId) : null;
     }
 
     @Override
@@ -846,7 +897,8 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             return List.of();
         }
         List<RoomDeployHudIcon> icons = new ArrayList<>();
-        int currentStageIndex = runtimeState.getCurrentStageIndex();
+        int currentStageIndex = deploymentStageIndex(selfTeam);
+        if (currentStageIndex != runtimeState.getCurrentStageIndex()) appendStageSpawnIcons(icons, room, currentStageIndex, selfTeam);
         if (selfTeam == RoomTeamId.CAMP_A) {
             appendStageSpawnIcons(icons, room, currentStageIndex - 1, selfTeam);
         } else if (selfTeam == RoomTeamId.CAMP_B) {
@@ -1241,21 +1293,22 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
     }
 
     private List<List<RoomPosition>> allowedBoundaries(RoomDefinition room, RoomTeamId teamId) {
-        ArrayList<List<RoomPosition>> boundaries = new ArrayList<>();
-        if (teamId == RoomTeamId.CAMP_A) {
-            addBoundaryIfValid(boundaries, room.breakthroughConfig().campABaseBoundary());
-            for (int stageIndex = 1; stageIndex <= runtimeState.getCurrentStageIndex(); stageIndex++) {
-                addBoundaryIfValid(boundaries, room.breakthroughConfig().stageBoundary(stageIndex));
-            }
-            return boundaries;
-        }
-        if (teamId == RoomTeamId.CAMP_B) {
-            addBoundaryIfValid(boundaries, room.breakthroughConfig().campBBaseBoundary());
-            for (int stageIndex = defenderBoundaryStartStage(); stageIndex <= runtimeState.getMaxStageCount(); stageIndex++) {
-                addBoundaryIfValid(boundaries, room.breakthroughConfig().stageBoundary(stageIndex));
-            }
-        }
-        return boundaries;
+        return BreakthroughSectorWindow.boundaries(room.breakthroughConfig(), deploymentStageIndex(teamId), runtimeState.getMaxStageCount(), teamId);
+    }
+
+    private int deploymentStageIndex(RoomTeamId teamId) {
+        return objectiveRuntimeView.deploymentStageIndex(teamId);
+    }
+
+    private boolean isBaseDeploymentStage(RoomTeamId teamId) {
+        return teamId == RoomTeamId.CAMP_A ? deploymentStageIndex(teamId) == 1
+            : teamId == RoomTeamId.CAMP_B && deploymentStageIndex(teamId) == runtimeState.getMaxStageCount();
+    }
+
+    private int vehicleDeploymentStage(RoomDefinition room, ServerPlayer player, RoomTeamId teamId, VehicleRuntimeRecord record) {
+        var entity = player == null || record.getSpawnedEntityUuid() == null ? null : player.serverLevel().getEntity(record.getSpawnedEntityUuid());
+        return org.mods.gd656conquest.server.room.vehicle.VehicleDeployBoundarySupport.isAircraft(room, player, record, entity)
+            ? runtimeState.getCurrentStageIndex() : deploymentStageIndex(teamId);
     }
 
     private String stageBoundaryToken(int stageIndex) {
@@ -1460,13 +1513,6 @@ public final class BreakthroughGameplayRuntime implements IRoomGameplayRuntime,
             return null;
         }
         return Math.max(1, record.getOriginStageIndex());
-    }
-
-    private int defenderBoundaryStartStage() {
-        if (runtimeState.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN) {
-            return Math.min(runtimeState.getMaxStageCount(), runtimeState.getCurrentStageIndex() + 1);
-        }
-        return runtimeState.getCurrentStageIndex();
     }
 
     private void broadcastStageTroopDeltaSubtitle(long gameTick) {

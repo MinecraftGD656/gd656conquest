@@ -21,6 +21,13 @@ public final class BreakthroughObjectiveRuntimeView implements RoomObjectiveRunt
         return state.getMaxStageCount();
     }
 
+    public int deploymentStageIndex(RoomTeamId team) {
+        boolean advancing = state.getPhase() == BreakthroughRuntimeState.Phase.RETREAT
+            || state.getPhase() == BreakthroughRuntimeState.Phase.ADVANCE_COUNTDOWN;
+        return team == RoomTeamId.CAMP_B && advancing
+            ? Math.min(state.getMaxStageCount(), state.getCurrentStageIndex() + 1) : state.getCurrentStageIndex();
+    }
+
     @Override
     public RoomTeamId ownerOf(String objectiveCode) {
         return state.getOwnerByCode().get(RoomObjectiveSupport.normalizeCode(objectiveCode));

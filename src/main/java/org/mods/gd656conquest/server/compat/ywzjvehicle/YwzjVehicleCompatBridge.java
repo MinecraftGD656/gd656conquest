@@ -107,6 +107,18 @@ public final class YwzjVehicleCompatBridge {
             && entity.getPersistentData().getBoolean(MANAGED_VEHICLE_PERSISTENT_KEY);
     }
 
+    public static boolean isAircraftId(String vehicleId) {
+        if (!resolveReflection()) return false;
+        try {
+            Object values = getVehicleDataMapMethod.invoke(getVehicleDataManagerMethod.invoke(null));
+            Object data = values instanceof Map<?, ?> map ? map.get(ResourceLocation.tryParse(vehicleId)) : null;
+            for (Class<?> type = data == null ? null : data.getClass(); type != null; type = type.getSuperclass()) {
+                if (type.getSimpleName().equals("FixedWingVehicleData") || type.getSimpleName().equals("RotaryWingVehicleData")) return true;
+            }
+        } catch (ReflectiveOperationException ignored) {}
+        return false;
+    }
+
     public static Optional<YwzjVehicleSnapshot> snapshot(Entity entity) {
         if (!isVehicleEntity(entity)) {
             return Optional.empty();

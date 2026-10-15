@@ -1455,7 +1455,14 @@ public final class RoomPlayerRespawnService {
                     deploySelectionService.clearSelection(state, playerId);
                 }
             }
-            showDeployNotice(player, deployFallbackReason);
+            if (RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
+                deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
+                state.getDeployAutoStartOnReadyPlayers().remove(playerId);
+                state.getDeployAllowFallbackOnMissingSelectionPlayers().remove(playerId);
+                state.getDeployExplicitConfirmRequiredPlayers().add(playerId);
+            }
+            showDeployNotice(player, deployFallbackReason == null && RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())
+                ? "当前没有可用部署点，请选择其他合法目标或等待" : deployFallbackReason);
             return false;
         }
         if (shouldResetSelectionToTeam) {
@@ -1501,6 +1508,12 @@ public final class RoomPlayerRespawnService {
         UUID playerId = player.getUUID();
         VehicleDeployResolution resolution = deploySelectionService.resolveVehicleSelection(room, state, playerId, teamId, entryId);
         if (!resolution.success()) {
+            if (RoomGameplayId.BREAKTHROUGH.equals(room.gameplayId())) {
+                deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
+                state.getDeployAutoStartOnReadyPlayers().remove(playerId);
+                state.getDeployAllowFallbackOnMissingSelectionPlayers().remove(playerId);
+                state.getDeployExplicitConfirmRequiredPlayers().add(playerId);
+            }
             showDeployNotice(player, resolution.message());
             return false;
         }
@@ -1860,6 +1873,8 @@ public final class RoomPlayerRespawnService {
             return true;
         }
         VehicleDeployResolution pendingVehicleDeploy = state.getPendingVehicleDeployResolutions().get(playerId);
+        if (pendingVehicleDeploy == null && !RoomDeployBoundarySupport.allows(room, state, teamId, spawn))
+            return returnPlayerToDeployAfterFailure(room, state, player, gameTick, "战区已变化，请重新确认合法部署点");
         Float targetYRot = state.getRespawnTargetYRot().remove(playerId);
         Float targetXRot = state.getRespawnTargetXRot().remove(playerId);
         net.minecraft.world.entity.Pose targetPose = state.getRespawnTargetPose().remove(playerId);
@@ -1883,14 +1898,14 @@ public final class RoomPlayerRespawnService {
             if (executionResult.retry()) {
                 long deadline = state.getVehicleDeployRetryDeadlines().computeIfAbsent(playerId, ignored -> gameTick + VEHICLE_DEPLOY_RETRY_TICKS);
                 if (gameTick >= deadline) {
-                    return returnPlayerToDeployAfterVehicleFailure(room, state, player, gameTick, "载具部署等待超时，请重新选择出生点");
+                    return returnPlayerToDeployAfterFailure(room, state, player, gameTick, "载具部署等待超时，请重新选择出生点");
                 }
                 playerStateService.setSpectator(player);
                 state.getRespawnFinalizeTicks().put(playerId, gameTick + 1L);
                 return false;
             }
             if (!executionResult.success()) {
-                return returnPlayerToDeployAfterVehicleFailure(room, state, player, gameTick, executionResult.message());
+                return returnPlayerToDeployAfterFailure(room, state, player, gameTick, executionResult.message());
             }
             applyPostDeploySelectedHotbarSlot(room, player, true);
             if (deathmatchRespawn) {
@@ -1918,7 +1933,7 @@ public final class RoomPlayerRespawnService {
         return true;
     }
 
-    private boolean returnPlayerToDeployAfterVehicleFailure(
+    private boolean returnPlayerToDeployAfterFailure(
         RoomDefinition room,
         RunningRuntimeState state,
         ServerPlayer player,
@@ -1931,10 +1946,14 @@ public final class RoomPlayerRespawnService {
         UUID playerId = player.getUUID();
         state.getRespawnFinalizeTicks().remove(playerId);
         state.getRespawnTargetPositions().remove(playerId);
+        state.getRespawnTargetYRot().remove(playerId);
+        state.getRespawnTargetXRot().remove(playerId);
+        state.getRespawnTargetPose().remove(playerId);
         state.getPendingVehicleDeployResolutions().remove(playerId);
         state.getVehicleDeployRetryDeadlines().remove(playerId);
         state.getDeployAutoStartOnReadyPlayers().remove(playerId);
         state.getDeployAllowFallbackOnMissingSelectionPlayers().remove(playerId);
+        state.getDeployExplicitConfirmRequiredPlayers().add(playerId);
         state.getDeployReadyTicks().put(playerId, gameTick);
         deploySelectionService.clearSelection(state, playerId);
         deploySelectionService.applyInitialDefaultSelection(room, state, player, state.getRoomTeams().get(playerId));

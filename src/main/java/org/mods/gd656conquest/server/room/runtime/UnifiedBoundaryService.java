@@ -66,10 +66,11 @@ public final class UnifiedBoundaryService {
         RoomCommonConfig config = room.commonConfig();
         RoomGameplayBoundaryPolicyProvider policy = RoomGameplayBoundaryPolicyProvider.resolve(state);
         RoomTeamId team = state.getRoomTeams().get(player.getUUID());
-        List<List<RoomPosition>> allowed = policy == null ? room.conquestConfig().allowedBoundariesForTeam(team)
-            : policy.resolveAllowedBoundariesForPlayer(room, state, player, team);
         Entity vehicle = player.getVehicle();
         boolean aircraft = VehicleCompatFacade.isVehicleEntity(vehicle) && VehicleCompatFacade.isAircraftEntity(vehicle);
+        List<List<RoomPosition>> allowed = policy == null ? room.conquestConfig().allowedBoundariesForTeam(team)
+            : aircraft ? policy.resolveFlightAllowedBoundariesForPlayer(room, state, player, team)
+            : policy.resolveAllowedBoundariesForPlayer(room, state, player, team);
         boolean horizontal = aircraft
             ? FlightBoundaryGeometry.outside(player.getX(), player.getZ(), allowed, config.flightBoundaryPaddingBlocks())
             : policy == null ? RoomBoundaryRuleEvaluator.isOutsideAllBoundaries(player, allowed)

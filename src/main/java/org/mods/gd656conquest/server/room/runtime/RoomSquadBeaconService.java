@@ -224,6 +224,8 @@ public final class RoomSquadBeaconService {
                 stale.add(beaconId);
                 continue;
             }
+            if (!RoomDeployBoundarySupport.allows(context.room(), context.state(), selfTeam,
+                new RoomPosition(Mth.floor(beacon.getX()), beacon.getY(), Mth.floor(beacon.getZ())))) continue;
             elements.add(RoomDeployHudElement.beacon(
                 beacon.getUUID(),
                 new org.mods.gd656conquest.server.room.model.RoomPosition(
@@ -272,6 +274,10 @@ public final class RoomSquadBeaconService {
         if (beacon.getDeployRemaining() <= 0) {
             return BeaconSelectionResult.failure("该信标的部署次数已用完");
         }
+        RoomDefinition room = runtimeRepository.findRoom(beacon.getRoomId()).orElse(null);
+        if (!RoomDeployBoundarySupport.allows(room, state, teamId,
+            new RoomPosition(Mth.floor(beacon.getX()), beacon.getY(), Mth.floor(beacon.getZ()))))
+            return BeaconSelectionResult.failure("该信标位于当前合法部署范围之外");
         return BeaconSelectionResult.success(beacon);
     }
 
