@@ -242,6 +242,11 @@ tasks.named('processResources', ProcessResources).configure {
     filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
         expand replaceProperties + [project: project]
     }
+
+    // GPLv3 要求分发二进制时随附许可证副本，同时把说明一并放入 jar 根目录。
+    // 该输出属于 sourceSets.main.output，因此 normal / bypass / nores 三个 jar 都会带上。
+    from(project.file('LICENSE'))
+    from(project.file('README.md'))
 }
 
 def embeddedClientBypassResourceName = 'gd656conquest-client-bypass.properties'
