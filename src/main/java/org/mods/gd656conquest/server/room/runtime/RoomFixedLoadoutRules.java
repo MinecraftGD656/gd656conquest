@@ -7,6 +7,7 @@ import org.mods.gd656conquest.server.loadout.domain.PlayerClassType;
 import org.mods.gd656conquest.server.room.model.RoomCommonConfig;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -19,7 +20,10 @@ public final class RoomFixedLoadoutRules {
 
     public static List<String> idsForTeamSlot(RoomDefinition room, RoomTeamId teamId, CustomLoadoutSlot slot) {
         RoomCommonConfig common = room == null ? null : room.commonConfig();
-        return common == null || teamId == null || slot == null ? List.of() : common.fixedLoadoutIds(teamId, slot);
+        RoomTeamId effectiveTeamId = resolveEffectiveTeam(room, teamId);
+        return common == null || effectiveTeamId == null || slot == null
+            ? List.of()
+            : common.fixedLoadoutIds(effectiveTeamId, slot);
     }
 
     public static boolean hasRestriction(RoomDefinition room, RoomTeamId teamId, CustomLoadoutSlot slot) {
@@ -134,11 +138,12 @@ public final class RoomFixedLoadoutRules {
     }
 
     public static EquipmentDataModel.EquipmentEntry resolveAllowedEntry(RoomDefinition room, EquipmentDataModel equipmentData, RoomTeamId teamId, CustomLoadoutSlot slot, String equipmentId) {
-        if (room == null || equipmentData == null || teamId == null || slot == null) {
+        RoomTeamId effectiveTeamId = resolveEffectiveTeam(room, teamId);
+        if (room == null || equipmentData == null || effectiveTeamId == null || slot == null) {
             return null;
         }
         String normalizedId = CustomLoadoutService.normalizeEquipmentId(equipmentId);
-        if (!allowsEntryId(room, teamId, slot, normalizedId)) {
+        if (!allowsEntryId(room, effectiveTeamId, slot, normalizedId)) {
             return null;
         }
         EquipmentDataModel.EquipmentEntry entry = equipmentData.getEquipmentById().get(normalizedId);
@@ -173,10 +178,12 @@ public final class RoomFixedLoadoutRules {
         boolean ignoreUnlockLevel,
         PlayerClassType classType
     ) {
-        if (room == null || equipmentData == null || teamId == null || slot == null || !hasRestriction(room, teamId, slot)) {
+        RoomTeamId effectiveTeamId = resolveEffectiveTeam(room, teamId);
+        if (room == null || equipmentData == null || effectiveTeamId == null || slot == null
+            || !hasRestriction(room, effectiveTeamId, slot)) {
             return null;
         }
-        return idsForTeamSlot(room, teamId, slot).stream()
+        return idsForTeamSlot(room, effectiveTeamId, slot).stream()
             .filter(id -> !CustomLoadoutService.isReservedEmptyEquipmentId(id))
             .map(id -> equipmentData.getEquipmentById().get(CustomLoadoutService.normalizeEquipmentId(id)))
             .filter(entry -> entry != null && entry.getSlot() == slot.getIndex())
@@ -186,5 +193,13 @@ public final class RoomFixedLoadoutRules {
                 .thenComparing(EquipmentDataModel.EquipmentEntry::getId, String.CASE_INSENSITIVE_ORDER))
             .findFirst()
             .orElse(null);
+    }
+
+    private static RoomTeamId resolveEffectiveTeam(RoomDefinition room, RoomTeamId teamId) {
+        if (teamId != null) {
+            return teamId;
+        }
+        // 混战没有阵营运行态，但其通用六槽位限制统一复用 Camp A 配置。
+        return RoomSoloGameplaySupport.isDeathmatchSolo(room) ? RoomTeamId.CAMP_A : null;
     }
 }

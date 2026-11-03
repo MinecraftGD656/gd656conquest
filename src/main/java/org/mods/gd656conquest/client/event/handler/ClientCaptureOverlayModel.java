@@ -232,7 +232,13 @@ final class ClientCaptureOverlayModel {
         }
 
         boolean isDeployableFor(TeamToken selfTeam) {
-            if (selfTeam == null || selfTeam == TeamToken.NEUTRAL || isDebugMarker()) {
+            if (isDebugMarker()) {
+                return false;
+            }
+            if (isSoloDeployPoint()) {
+                return true;
+            }
+            if (selfTeam == null || selfTeam == TeamToken.NEUTRAL) {
                 return false;
             }
             if (isVehicleMarker()) {
@@ -256,6 +262,10 @@ final class ClientCaptureOverlayModel {
 
         boolean isSpawnPoint() {
             return kind == IconKind.SPAWN;
+        }
+
+        boolean isSoloDeployPoint() {
+            return kind == IconKind.SPAWN && "SOLO".equalsIgnoreCase(code);
         }
 
         boolean isDebugMarker() {

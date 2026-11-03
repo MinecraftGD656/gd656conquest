@@ -108,7 +108,11 @@ public record RoomGunmasterConfig(
             campASpawnGroup,
             campBSpawnGroup,
             ammoBoxPositions,
-            medicalBoxPositions
+            medicalBoxPositions,
+            RoomDeathmatchMode.TEAM,
+            List.of(),
+            List.of(),
+            null
         );
     }
 

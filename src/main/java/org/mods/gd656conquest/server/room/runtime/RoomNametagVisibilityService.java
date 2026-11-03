@@ -9,6 +9,7 @@ import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.Team;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.gameplay.RoomTeamPresentationSupport;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
@@ -19,6 +20,8 @@ import java.util.Set;
 import java.util.UUID;
 
 public final class RoomNametagVisibilityService {
+    private static final String CONQUEST_LOBBY_TEAM = "gdcq_lobby";
+
     private final MinecraftServer server;
 
     public RoomNametagVisibilityService(MinecraftServer server) {
@@ -30,6 +33,17 @@ public final class RoomNametagVisibilityService {
             return;
         }
         Scoreboard scoreboard = server.getScoreboard();
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            removeTeamIfPresent(scoreboard, buildTeamName(room, RoomTeamId.CAMP_A));
+            removeTeamIfPresent(scoreboard, buildTeamName(room, RoomTeamId.CAMP_B));
+            for (UUID playerId : runningState.getRoomPlayers()) {
+                ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+                if (player != null) {
+                    removePlayerFromThisRoomTeam(scoreboard, room, player.getScoreboardName());
+                }
+            }
+            return;
+        }
         boolean isSolo = org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) 
             && room.gunmasterConfig() != null 
             && room.gunmasterConfig().isSoloGrouping();
@@ -100,6 +114,17 @@ public final class RoomNametagVisibilityService {
             return;
         }
         Scoreboard scoreboard = server.getScoreboard();
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            removeTeamIfPresent(scoreboard, buildTeamName(room, RoomTeamId.CAMP_A));
+            removeTeamIfPresent(scoreboard, buildTeamName(room, RoomTeamId.CAMP_B));
+            for (UUID playerId : runningState.getRoomPlayers()) {
+                ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+                if (player != null) {
+                    removePlayerFromThisRoomTeam(scoreboard, room, player.getScoreboardName());
+                }
+            }
+            return;
+        }
         boolean isSolo = org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) 
             && room.gunmasterConfig() != null 
             && room.gunmasterConfig().isSoloGrouping();
@@ -135,6 +160,10 @@ public final class RoomNametagVisibilityService {
         }
         Scoreboard scoreboard = player.server.getScoreboard();
         
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            removePlayerFromThisRoomTeam(scoreboard, room, player.getScoreboardName());
+            return;
+        }
         boolean isSolo = org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) 
             && room.gunmasterConfig() != null 
             && room.gunmasterConfig().isSoloGrouping();
@@ -218,6 +247,23 @@ public final class RoomNametagVisibilityService {
         PlayerTeam team = scoreboard.getPlayerTeam(teamName);
         if (team != null) {
             scoreboard.removePlayerTeam(team);
+        }
+    }
+
+    private void removePlayerFromThisRoomTeam(Scoreboard scoreboard, RoomDefinition room, String playerName) {
+        if (scoreboard == null || room == null || playerName == null || playerName.isBlank()) {
+            return;
+        }
+        PlayerTeam current = scoreboard.getPlayersTeam(playerName);
+        if (current == null) {
+            return;
+        }
+        String name = current.getName();
+        if (buildTeamName(room, RoomTeamId.CAMP_A).equals(name)
+            || buildTeamName(room, RoomTeamId.CAMP_B).equals(name)
+            || name.startsWith(buildSoloTeamPrefix(room))
+            || CONQUEST_LOBBY_TEAM.equals(name)) {
+            scoreboard.removePlayerFromTeam(playerName);
         }
     }
 

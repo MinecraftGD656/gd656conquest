@@ -33,6 +33,34 @@ public final class RoomMatchingCoordinator {
         return true;
     }
 
+    public boolean joinSoloQueue(MatchingRuntimeState state, UUID playerId, long gameTick, RoomMatchingConfig config) {
+        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(playerId, "playerId");
+        Objects.requireNonNull(config, "config");
+        if (!state.getQueuePlayers().contains(playerId) && state.getQueuePlayers().size() >= config.totalMaxPlayers()) {
+            return false;
+        }
+        if (state.getQueuePlayers().add(playerId) && state.getQueueStartTick() < 0L) {
+            state.setQueueStartTick(gameTick);
+        }
+        state.getQueueTeams().remove(playerId);
+        state.setLastPrimaryActionBarTick(-1L);
+        state.setLastSecondaryActionBarTick(-1L);
+        return true;
+    }
+
+    public boolean canStartSolo(MatchingRuntimeState state, RoomMatchingConfig config) {
+        return state != null
+            && config != null
+            && state.getQueuePlayers().size() >= Math.max(1, config.minStartPlayers());
+    }
+
+    public boolean isSoloQueueFull(MatchingRuntimeState state, RoomMatchingConfig config) {
+        return state != null
+            && config != null
+            && state.getQueuePlayers().size() >= config.totalMaxPlayers();
+    }
+
     public void leaveQueue(MatchingRuntimeState state, UUID playerId) {
         if (state == null || playerId == null) {
             return;

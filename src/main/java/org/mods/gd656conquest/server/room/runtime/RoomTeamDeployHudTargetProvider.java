@@ -3,6 +3,7 @@ package org.mods.gd656conquest.server.room.runtime;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentationProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentationSupport;
 import org.mods.gd656conquest.server.room.gameplay.RoomDeployHudIcon;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
@@ -13,6 +14,7 @@ public final class RoomTeamDeployHudTargetProvider implements RoomDeployHudTarge
     public void collectElements(List<RoomDeployHudElement> elements, RoomDeployHudBuildContext context) {
         RoomTeamId selfTeam = context.selfTeam();
         if (selfTeam == null) {
+            appendSoloDeathmatchSpawn(elements, context);
             return;
         }
         RoomGameplayDeployPresentationProvider provider = RoomGameplayDeployPresentationProvider.resolve(context.state());
@@ -25,6 +27,20 @@ public final class RoomTeamDeployHudTargetProvider implements RoomDeployHudTarge
             elements.add(RoomDeployHudElement.spawn(selfTeam.name(), iconPosition, selfTeam, ""));
         }
         appendAdditionalRows(elements, provider, context, selfTeam);
+    }
+
+    private void appendSoloDeathmatchSpawn(List<RoomDeployHudElement> elements, RoomDeployHudBuildContext context) {
+        if (!RoomSoloGameplaySupport.isDeathmatchSolo(context.room())) {
+            return;
+        }
+        RoomPosition iconPosition = RoomGameplayDeployPresentationSupport.resolveTeamDeployIconPosition(
+            context.room(),
+            context.state(),
+            null
+        );
+        if (iconPosition != null) {
+            elements.add(RoomDeployHudElement.spawn("SOLO", iconPosition, null, "混战部署点", List.of("SOLO_DEPLOY")));
+        }
     }
 
     private void appendAdditionalRows(

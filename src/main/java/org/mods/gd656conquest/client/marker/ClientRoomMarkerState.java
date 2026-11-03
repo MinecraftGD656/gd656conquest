@@ -987,9 +987,13 @@ public final class ClientRoomMarkerState {
 
     private static List<ClientMarker> collectRenderableMarkers(Minecraft minecraft, long gameTick) {
         boolean deployOpen = ClientDeathFlowState.isDeployOpenPhase();
+        boolean deathmatchSolo = "DEATHMATCH_SOLO".equalsIgnoreCase(ClientHudDebugState.getScoreMethod());
         List<ClientMarker> renderMarkers = new ArrayList<>();
         for (ClientMarker marker : markers) {
             if (marker == null) {
+                continue;
+            }
+            if (deathmatchSolo && marker.kind().isFriendlyPersistentOrDownedMarker()) {
                 continue;
             }
             if (deployOpen && marker.kind().isFriendlyPersistentOrDownedMarker()) {
@@ -1144,6 +1148,9 @@ public final class ClientRoomMarkerState {
 
         for (Player targetPlayer : minecraft.level.players()) {
             if (targetPlayer == null || targetPlayer == minecraft.player || targetPlayer.isSpectator() || !targetPlayer.isAlive()) {
+                continue;
+            }
+            if (deathmatchSolo) {
                 continue;
             }
             if (!ClientRoomTeamMirror.isTeammate(targetPlayer)) {

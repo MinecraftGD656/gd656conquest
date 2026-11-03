@@ -20,6 +20,7 @@ import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.gameplay.RoomTeamPresentationSupport;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.model.RoomViewPosition;
@@ -158,7 +159,7 @@ public final class RoomResultRuntimeService {
             state.getResultViewTransferPending().remove(playerId);
             if (endView != null) {
                 playerStateService.setSpectator(player);
-                player.teleportTo(player.serverLevel(), endView.x() + 0.5D, endView.y(), endView.z() + 0.5D, endView.yaw(), endView.pitch());
+                player.teleportTo(player.serverLevel(), endView.x(), endView.y(), endView.z(), endView.yaw(), endView.pitch());
                 player.setDeltaMovement(0.0D, 0.0D, 0.0D);
                 NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setMatchEndViewLock(true));
             }
@@ -188,9 +189,9 @@ public final class RoomResultRuntimeService {
             }
             double targetEyeY = endView.y() + player.getEyeHeight();
             NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.startMatchEndTransition(
-                endView.x() + 0.5D,
+                endView.x(),
                 targetEyeY,
-                endView.z() + 0.5D,
+                endView.z(),
                 endView.yaw(),
                 endView.pitch(),
                 MATCH_RESULT_RESTORE_TICKS
@@ -235,7 +236,7 @@ public final class RoomResultRuntimeService {
             return;
         }
         playerStateService.setSpectator(player);
-        player.teleportTo(player.serverLevel(), endView.x() + 0.5D, endView.y(), endView.z() + 0.5D, endView.yaw(), endView.pitch());
+        player.teleportTo(player.serverLevel(), endView.x(), endView.y(), endView.z(), endView.yaw(), endView.pitch());
         player.setDeltaMovement(0.0D, 0.0D, 0.0D);
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.setMatchEndViewLock(true));
     }
@@ -425,8 +426,10 @@ public final class RoomResultRuntimeService {
         if (room == null || state == null || playerId == null) {
             return "";
         }
-        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId())
-            && room.gunmasterConfig().isSoloGrouping()) {
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            return "本次对局您的名次：" + resolveSoloKillRank(state, playerId);
+        }
+        if (RoomSoloGameplaySupport.isGunmasterSolo(room)) {
             return "本次对局您的名次：" + resolveGunmasterSoloRank(state, playerId);
         }
         return "";
@@ -445,6 +448,30 @@ public final class RoomResultRuntimeService {
             .thenComparing(UUID::toString));
         int index = ranking.indexOf(playerId);
         return index >= 0 ? index + 1 : ranking.size() + 1;
+    }
+
+    private int resolveSoloKillRank(RunningRuntimeState state, UUID playerId) {
+        if (state == null || playerId == null) {
+            return 1;
+        }
+        List<UUID> ranking = new ArrayList<>(state.getRoomPlayers());
+        ranking.sort(Comparator
+            .comparingInt((UUID id) -> KilliconScoreboardBridge.getPlayerSnapshot(state, id).kill()).reversed()
+            .thenComparing(UUID::toString));
+        int rank = 0;
+        int previousKills = Integer.MAX_VALUE;
+        for (int index = 0; index < ranking.size(); index++) {
+            UUID candidate = ranking.get(index);
+            int kills = KilliconScoreboardBridge.getPlayerSnapshot(state, candidate).kill();
+            if (kills < previousKills) {
+                rank = index + 1;
+                previousKills = kills;
+            }
+            if (candidate.equals(playerId)) {
+                return rank;
+            }
+        }
+        return ranking.size() + 1;
     }
 
     private String resolvePlayerName(UUID playerId) {

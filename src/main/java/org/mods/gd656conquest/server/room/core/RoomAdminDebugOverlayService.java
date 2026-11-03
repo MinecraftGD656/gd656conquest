@@ -468,6 +468,11 @@ public final class RoomAdminDebugOverlayService {
             }
             return;
         }
+        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.DEATHMATCH.equals(room.gameplayId())
+            && room.deathmatchConfig().isSoloMode()) {
+            appendBoundaryRows(table, room.deathmatchConfig().soloBoundary(), "N", "dm_debug_solo");
+            return;
+        }
         if (room.isArenaGameplay()) {
             appendBoundaryRows(table, room.arenaConfig().campABoundary(), "T", "arena_debug_camp_a");
             appendBoundaryRows(table, room.arenaConfig().campBBoundary(), "S", "arena_debug_camp_b");

@@ -2,6 +2,7 @@ package org.mods.gd656conquest.server.room.runtime;
 
 import net.minecraft.server.MinecraftServer;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
@@ -38,7 +39,9 @@ public final class RoomDeployHudPayloadBuilder {
     private String build(RoomDefinition room, RunningRuntimeState state, UUID playerId, RoomTeamId selfTeam, boolean requireDeployFlow) {
         Objects.requireNonNull(room, "room");
         Objects.requireNonNull(state, "state");
-        if (playerId == null || (requireDeployFlow && (selfTeam == null || !state.isInDeployFlow(playerId)))) {
+        if (playerId == null
+            || (requireDeployFlow && !state.isInDeployFlow(playerId))
+            || (requireDeployFlow && selfTeam == null && !RoomSoloGameplaySupport.isDeathmatchSolo(room))) {
             return "-";
         }
 

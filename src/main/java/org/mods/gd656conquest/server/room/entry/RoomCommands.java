@@ -1483,6 +1483,7 @@ public final class RoomCommands {
             common.enableDeathSupportDrop(),
             common.enableGiveArrow(),
             common.disableUndyingTotem(),
+            common.forceDisableGadgets(),
             common.allowPlayerCampSwitch(),
             common.supportCampAHeroKits(),
             common.supportCampBHeroKits(),

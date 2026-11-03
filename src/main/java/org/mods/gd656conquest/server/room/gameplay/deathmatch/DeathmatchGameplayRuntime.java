@@ -2,8 +2,10 @@ package org.mods.gd656conquest.server.room.gameplay.deathmatch;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import org.mods.gd656conquest.common.match.MatchResultType;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.core.RoomPlayerInvalidationReason;
+import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
 import org.mods.gd656conquest.server.room.gameplay.IRoomGameplayRuntime;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayBoundaryHudProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayBoundaryPolicyProvider;
@@ -26,7 +28,10 @@ import org.mods.gd656conquest.server.room.runtime.RoomPlayerRespawnService;
 import org.mods.gd656conquest.server.room.runtime.RoomSpawnCandidateSelectionService;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -80,6 +85,9 @@ public class DeathmatchGameplayRuntime implements
 
     @Override
     public RoomAutoBalanceWindowSnapshot autoBalanceWindowSnapshot(RoomDefinition room, long gameTick) {
+        if (isSoloMode(room)) {
+            return RoomAutoBalanceWindowSnapshot.locked("混战模式不支持自动换队");
+        }
         if (matchDurationSeconds(gameTick) < 300) {
             return RoomAutoBalanceWindowSnapshot.locked("主对局前 300 秒不自动换队");
         }
@@ -125,6 +133,9 @@ public class DeathmatchGameplayRuntime implements
             : null;
         ServerPlayer killerPlayer = resolveKillerPlayer(deadPlayer, killerEntityId);
         if (killerPlayer == null || killerPlayer.getUUID().equals(playerId)) {
+            return;
+        }
+        if (isSoloMode(room)) {
             return;
         }
         RoomTeamId killerTeam = runningState.getRoomTeams().get(killerPlayer.getUUID());
@@ -201,6 +212,9 @@ public class DeathmatchGameplayRuntime implements
         if (room == null) {
             return RoomGameplayHudState.defaults();
         }
+        if (isSoloMode(room)) {
+            return buildSoloHudState(room, state, player, inDeployFlow, gameTick);
+        }
         boolean initialLockActive = state != null && player != null && state.isInitialMovementLockActive(player.getUUID(), gameTick);
         RoomTeamId selfTeam = state == null || player == null ? null : state.getRoomTeams().get(player.getUUID());
         return new RoomGameplayHudState(
@@ -245,10 +259,17 @@ public class DeathmatchGameplayRuntime implements
         RunningRuntimeState state,
         RoomTeamId teamId
     ) {
-        if (room == null || teamId == null) {
+        if (room == null) {
             return List.of();
         }
         List<List<RoomPosition>> boundaries = new ArrayList<>();
+        if (isSoloMode(room)) {
+            addBoundaryIfValid(boundaries, room.deathmatchConfig().soloBoundary());
+            return boundaries;
+        }
+        if (teamId == null) {
+            return List.of();
+        }
         if (teamId == RoomTeamId.CAMP_A) {
             addBoundaryIfValid(boundaries, room.arenaConfig().campABoundary());
         } else if (teamId == RoomTeamId.CAMP_B) {
@@ -260,6 +281,10 @@ public class DeathmatchGameplayRuntime implements
     @Override
     public void collectBoundaryElements(List<RoomDeployHudElement> elements, RoomDeployHudBuildContext context) {
         if (elements == null || context == null || context.room() == null) {
+            return;
+        }
+        if (isSoloMode(context.room())) {
+            appendBoundaryRows(elements, context.room().deathmatchConfig().soloBoundary(), "N", "dm_solo");
             return;
         }
         appendBoundaryRows(elements, context.room().arenaConfig().campABoundary(), "T", "dm_camp_a");
@@ -278,6 +303,13 @@ public class DeathmatchGameplayRuntime implements
         RoomPosition lockedTarget = state.getRespawnTargetPositions().get(player.getUUID());
         if (lockedTarget != null) {
             return lockedTarget;
+        }
+        if (isSoloMode(room)) {
+            return new RoomSpawnCandidateSelectionService(player.server).pickSpawn(
+                room.deathmatchConfig().soloSpawnPositions(),
+                state,
+                null
+            );
         }
         RoomTeamId teamId = state.getRoomTeams().get(player.getUUID());
         if (teamId == RoomTeamId.CAMP_A) {
@@ -320,6 +352,16 @@ public class DeathmatchGameplayRuntime implements
         RunningRuntimeState state,
         RoomTeamId teamId
     ) {
+        if (room != null && isSoloMode(room)) {
+            RoomPosition iconPosition = room.deathmatchConfig().soloDeployIconPosition();
+            if (iconPosition != null) {
+                return iconPosition;
+            }
+            return room.deathmatchConfig().soloSpawnPositions().stream()
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+        }
         if (room == null || teamId == null) {
             return null;
         }
@@ -382,6 +424,9 @@ public class DeathmatchGameplayRuntime implements
     }
 
     private RoomMatchEndRequest buildTimeLimitEndRequest(RoomDefinition room) {
+        if (isSoloMode(room)) {
+            return buildSoloTimeLimitEndRequest();
+        }
         RoomTeamId winner = null;
         if (campAScore > campBScore) {
             winner = RoomTeamId.CAMP_A;
@@ -444,6 +489,10 @@ public class DeathmatchGameplayRuntime implements
             return List.of();
         }
         List<List<RoomPosition>> boundaries = new ArrayList<>();
+        if (isSoloMode(room)) {
+            addBoundaryIfValid(boundaries, room.deathmatchConfig().soloBoundary());
+            return boundaries;
+        }
         addBoundaryIfValid(boundaries, room.arenaConfig().campABoundary());
         addBoundaryIfValid(boundaries, room.arenaConfig().campBBoundary());
         return boundaries;
@@ -481,5 +530,128 @@ public class DeathmatchGameplayRuntime implements
             }
         }
         return null;
+    }
+
+    private RoomGameplayHudState buildSoloHudState(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        ServerPlayer player,
+        boolean inDeployFlow,
+        long gameTick
+    ) {
+        UUID selfId = player == null ? null : player.getUUID();
+        int selfKills = selfId == null ? 0 : killOf(selfId);
+        List<UUID> leaders = resolveLeaders();
+        boolean selfIsLeader = selfId != null && leaders.size() == 1 && selfId.equals(leaders.get(0));
+        UUID displayLeader = leaders.isEmpty()
+            ? null
+            : leaders.get((int) Math.floorMod(gameTick / 20L, leaders.size()));
+        String payload = "DMFFA|self=" + encode(player == null ? "-" : player.getScoreboardName())
+            + "|selfkills=" + selfKills
+            + "|leader=" + encode(resolvePlayerName(displayLeader))
+            + "|leaderkills=" + (displayLeader == null ? 0 : killOf(displayLeader))
+            + "|selflead=" + (selfIsLeader ? 1 : 0);
+        boolean initialLockActive = state != null && player != null && state.isInitialMovementLockActive(selfId, gameTick);
+        return new RoomGameplayHudState(
+            0,
+            0,
+            matchDurationSeconds(gameTick),
+            "DEATHMATCH_SOLO",
+            0,
+            0,
+            resolveRemainSeconds(room, state, gameTick),
+            resolveTopStatus(room, inDeployFlow),
+            "击败所有对手，时间结束时击杀数最高者获胜",
+            "-",
+            room.lifecycleState() == RoomLifecycleState.ENDING ? "ENDING" : initialLockActive ? "INITIAL_STAGE_BEGIN" : "RUNNING",
+            payload
+        );
+    }
+
+    private RoomMatchEndRequest buildSoloTimeLimitEndRequest() {
+        List<UUID> sorted = sortPlayersByKillDesc();
+        if (sorted.isEmpty()) {
+            return RoomMatchEndRequest.forAll(runningState.getRoomPlayers(), MatchResultType.DRAW, "达到时长，判定平局");
+        }
+        List<UUID> top = resolveLeaders(sorted);
+        Map<UUID, Integer> rankByPlayer = resolveKillRanks(sorted);
+        Map<UUID, RoomMatchEndRequest.PlayerResultEntry> results = new LinkedHashMap<>();
+        for (UUID playerId : runningState.getRoomPlayers()) {
+            boolean isTop = top.contains(playerId);
+            MatchResultType result = top.size() == 1
+                ? (isTop ? MatchResultType.VICTORY : MatchResultType.DEFEAT)
+                : (isTop ? MatchResultType.DRAW : MatchResultType.DEFEAT);
+            results.put(playerId, new RoomMatchEndRequest.PlayerResultEntry(
+                result,
+                resolveRankExtra(rankByPlayer.getOrDefault(playerId, 1))
+            ));
+        }
+        String reason = top.size() == 1
+            ? "达到时长，当前击杀数第一的玩家获胜"
+            : "达到时长，多名玩家击杀数并列第一，判定平局";
+        return new RoomMatchEndRequest(runningState.getRoomPlayers(), results, reason);
+    }
+
+    private List<UUID> resolveLeaders() {
+        return resolveLeaders(sortPlayersByKillDesc());
+    }
+
+    private List<UUID> resolveLeaders(List<UUID> sorted) {
+        if (sorted.isEmpty()) {
+            return List.of();
+        }
+        int highestKill = killOf(sorted.get(0));
+        List<UUID> leaders = new ArrayList<>();
+        for (UUID playerId : sorted) {
+            if (killOf(playerId) != highestKill) {
+                break;
+            }
+            leaders.add(playerId);
+        }
+        return leaders;
+    }
+
+    private List<UUID> sortPlayersByKillDesc() {
+        List<UUID> players = new ArrayList<>(runningState.getRoomPlayers());
+        players.sort(Comparator.comparingInt(this::killOf).reversed().thenComparing(UUID::toString));
+        return players;
+    }
+
+    private Map<UUID, Integer> resolveKillRanks(List<UUID> sortedByKillDesc) {
+        Map<UUID, Integer> ranks = new LinkedHashMap<>();
+        int rank = 0;
+        int previousKills = Integer.MAX_VALUE;
+        for (int index = 0; index < sortedByKillDesc.size(); index++) {
+            UUID playerId = sortedByKillDesc.get(index);
+            int kills = killOf(playerId);
+            if (kills < previousKills) {
+                rank = index + 1;
+                previousKills = kills;
+            }
+            ranks.put(playerId, rank);
+        }
+        return ranks;
+    }
+
+    private int resolveRankExtra(int rank) {
+        int[] rewards = {10, 9, 8, 7, 6, 6, 5, 4, 3, 2};
+        return rank <= rewards.length ? rewards[Math.max(0, rank - 1)] : 2;
+    }
+
+    private int killOf(UUID playerId) {
+        return KilliconScoreboardBridge.getPlayerSnapshot(runningState, playerId).kill();
+    }
+
+    private String resolvePlayerName(UUID playerId) {
+        ServerPlayer player = findOnlinePlayer(playerId);
+        return player == null ? "-" : player.getScoreboardName();
+    }
+
+    private boolean isSoloMode(RoomDefinition room) {
+        return room != null && room.deathmatchConfig().isSoloMode();
+    }
+
+    private String encode(String value) {
+        return value == null || value.isBlank() ? "-" : value.replace("|", "/").replace("=", ":").trim();
     }
 }

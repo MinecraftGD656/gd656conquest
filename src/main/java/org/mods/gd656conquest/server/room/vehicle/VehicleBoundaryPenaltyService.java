@@ -6,6 +6,7 @@ import org.mods.gd656conquest.server.compat.vehicle.VehicleCompatFacade;
 import org.mods.gd656conquest.server.compat.vehicle.VehicleCompatSnapshot;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayBoundaryPolicyProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
@@ -61,7 +62,7 @@ public final class VehicleBoundaryPenaltyService {
             clearTrackedAircraft(state, vehicle);
             return;
         }
-        if (playerTeam == null || !outsideAllowedBoundary) {
+        if ((!RoomSoloGameplaySupport.isDeathmatchSolo(room) && playerTeam == null) || !outsideAllowedBoundary) {
             clearTrackedAircraft(state, vehicle);
             return;
         }
@@ -93,7 +94,7 @@ public final class VehicleBoundaryPenaltyService {
                 continue;
             }
             RoomTeamId vehicleTeam = resolveBoundaryTeam(state, vehicle);
-            if (vehicleTeam == null) {
+            if (vehicleTeam == null && !RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
                 state.getAircraftOutsideBoundarySinceTicks().remove(vehicleUuid);
                 continue;
             }

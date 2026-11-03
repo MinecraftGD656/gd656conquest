@@ -269,6 +269,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             base.commonConfig().enableDeathSupportDrop(),
             base.commonConfig().enableGiveArrow(),
             base.commonConfig().disableUndyingTotem(),
+            base.commonConfig().forceDisableGadgets(),
             base.commonConfig().allowPlayerCampSwitch(),
             base.commonConfig().supportCampAHeroKits(),
             base.commonConfig().supportCampBHeroKits(),
@@ -319,7 +320,11 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
                 deathmatch.campASpawnGroup(),
                 deathmatch.campBSpawnGroup(),
                 deathmatch.ammoBoxPositions(),
-                deathmatch.medicalBoxPositions()
+                deathmatch.medicalBoxPositions(),
+                deathmatch.mode(),
+                deathmatch.soloSpawnPositions(),
+                deathmatch.soloBoundary(),
+                deathmatch.soloDeployIconPosition()
             );
         } else if (base.gameplayConfig() instanceof RoomGunmasterConfig gunmaster) {
             gameplayConfig = new RoomGunmasterConfig(
@@ -435,6 +440,7 @@ public final class RoomDefinitionRepository extends JsonDataStoreSupport {
             true,  // enableDeathSupportDrop
             false, // enableGiveArrow
             false, // disableUndyingTotem
+            false, // forceDisableGadgets
             true,  // allowPlayerCampSwitch
             List.of(),
             List.of(),

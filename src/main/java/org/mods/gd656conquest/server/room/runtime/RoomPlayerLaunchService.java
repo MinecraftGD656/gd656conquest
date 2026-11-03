@@ -12,6 +12,7 @@ import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -81,7 +82,7 @@ public final class RoomPlayerLaunchService {
         if (level.isEmpty()) {
             return false;
         }
-        player.teleportTo(level.get(), view.x() + 0.5D, view.y(), view.z() + 0.5D, view.yaw(), view.pitch());
+        player.teleportTo(level.get(), view.x(), view.y(), view.z(), view.yaw(), view.pitch());
         player.fallDistance = 0.0F;
         return player.serverLevel() == level.get();
     }
@@ -101,7 +102,7 @@ public final class RoomPlayerLaunchService {
         }
         var view = room.conquestConfig().deployViewPosition();
         if (view != null) {
-            player.teleportTo(level.get(), view.x() + 0.5D, view.y(), view.z() + 0.5D, view.yaw(), view.pitch());
+            player.teleportTo(level.get(), view.x(), view.y(), view.z(), view.yaw(), view.pitch());
             player.fallDistance = 0.0F;
             return player.serverLevel() == level.get();
         }
@@ -140,10 +141,11 @@ public final class RoomPlayerLaunchService {
     }
 
     private RoomPosition resolveSpawn(RoomDefinition room, RoomTeamId teamId) {
-        if (room != null
-            && org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId())
-            && room.gunmasterConfig().isSoloGrouping()) {
-            RoomPosition soloSpawn = pickSpawnFromPositions(room.gunmasterConfig().soloSpawnPositions());
+        if (RoomSoloGameplaySupport.isSoloFreeForAll(room)) {
+            java.util.List<RoomPosition> positions = RoomSoloGameplaySupport.isDeathmatchSolo(room)
+                ? room.deathmatchConfig().soloSpawnPositions()
+                : room.gunmasterConfig().soloSpawnPositions();
+            RoomPosition soloSpawn = pickSpawnFromPositions(positions);
             if (soloSpawn != null) {
                 return soloSpawn;
             }

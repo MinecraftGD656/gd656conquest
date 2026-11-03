@@ -29,6 +29,7 @@ import org.mods.gd656conquest.server.room.gameplay.RoomGameplayObjectiveSnapshot
 import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayEntryManager;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.gameplay.RoomTeamPresentationSupport;
 import org.mods.gd656conquest.server.room.matching.MatchingRuntimeState;
 import org.mods.gd656conquest.server.room.matching.RoomMatchingCoordinator;
@@ -448,10 +449,15 @@ public final class RoomCoreService {
         if (roomId.isEmpty()) {
             return "-";
         }
-        RoomTeamId teamId = findCurrentTeam(playerId).orElse(null);
         return runtimeRepository.find(roomId.get())
-            .map(slot -> resolveTeamDisplayName(slot.room(), slot.runtime().getRunningState(), teamId))
-            .orElse(resolveTeamDisplayName(null, null, teamId));
+            .map(slot -> {
+                if (RoomSoloGameplaySupport.isSoloFreeForAll(slot.room())) {
+                    return "混战模式";
+                }
+                RoomTeamId teamId = findCurrentTeam(playerId).orElse(null);
+                return resolveTeamDisplayName(slot.room(), slot.runtime().getRunningState(), teamId);
+            })
+            .orElse("-");
     }
 
     public int countRoomPlayers(String roomId) {
@@ -1234,13 +1240,17 @@ public final class RoomCoreService {
             slot = requireRoomSlot(roomId);
         }
         MatchingRuntimeState state = slot.runtime().getMatchingState();
-        if (!matchingCoordinator.joinQueue(state, playerId, gameTick, slot.room().commonConfig().matchingConfig())) {
+        boolean soloDeathmatch = RoomSoloGameplaySupport.isDeathmatchSolo(slot.room());
+        boolean joinedQueue = soloDeathmatch
+            ? matchingCoordinator.joinSoloQueue(state, playerId, gameTick, slot.room().commonConfig().matchingConfig())
+            : matchingCoordinator.joinQueue(state, playerId, gameTick, slot.room().commonConfig().matchingConfig());
+        if (!joinedQueue) {
             // GD656Mods: joinQueue 的失败只有两种 —— 队列已达 totalMaxPlayers, 或两队都满导致无法分配阵营,
             // 两者都等价于"对局已满"。原来这里静默返回, 玩家看不到任何原因。
             notifyRoomFull(player);
             return Optional.empty();
         }
-        if (isExperimentalPlayerBalanceEnabled()) {
+        if (isExperimentalPlayerBalanceEnabled() && !soloDeathmatch) {
             rebalanceMatchingQueue(slot);
         }
         if (player != null) {
@@ -1249,7 +1259,9 @@ public final class RoomCoreService {
                 // Intercept: use match-loading phase instead of direct queue teleport
                 playerRejoinService.clearPlayerTickets(playerId);
                 bindPlayerToRoom(playerId, roomId);
-                squadAssignmentService.assignPlayer(slot.runtime(), playerId, state.getQueueTeams().get(playerId), false);
+                if (!soloDeathmatch) {
+                    squadAssignmentService.assignPlayer(slot.runtime(), playerId, state.getQueueTeams().get(playerId), false);
+                }
                 matchLoadService.beginMatchLoad(
                     player, slot.room(), slot.runtime().getRunningState(), gameTick,
                     RoomMatchLoadService.EntryKind.MATCHING, state.getQueueTeams().get(playerId));
@@ -1268,11 +1280,13 @@ public final class RoomCoreService {
         }
         playerRejoinService.clearPlayerTickets(playerId);
         bindPlayerToRoom(playerId, roomId);
-        squadAssignmentService.assignPlayer(slot.runtime(), playerId, state.getQueueTeams().get(playerId), false);
+        if (!soloDeathmatch) {
+            squadAssignmentService.assignPlayer(slot.runtime(), playerId, state.getQueueTeams().get(playerId), false);
+        }
         if (player != null) {
             playerStateService.applyMatchingState(slot.room(), player);
-            RoomMatchingActionBarService.showQueueStatus(player, slot.room().commonConfig().matchingConfig(), state);
-            if (matchingCoordinator.canStart(state, slot.room().commonConfig().matchingConfig()) && state.getQueueDeadlineTick() > gameTick) {
+            RoomMatchingActionBarService.showQueueStatus(player, slot.room(), slot.room().commonConfig().matchingConfig(), state);
+            if (canStartMatch(slot.room(), state) && state.getQueueDeadlineTick() > gameTick) {
                 RoomMatchingActionBarService.showCountdownStatus(
                     player,
                     (int) Math.ceil((state.getQueueDeadlineTick() - gameTick) / 20.0D)
@@ -1327,7 +1341,7 @@ public final class RoomCoreService {
         }
 
         MatchingRuntimeState state = slot.runtime().getMatchingState();
-        if (!matchingCoordinator.canStart(state, slot.room().commonConfig().matchingConfig())) {
+        if (!canStartMatch(slot.room(), state)) {
             playerStateService.maintainMatchingState(slot.room(), state);
             state.resetCountdown();
             hudSyncService.syncMatchingRoom(slot.room(), slot.runtime(), gameTick);
@@ -1337,7 +1351,7 @@ public final class RoomCoreService {
         playerStateService.maintainMatchingState(slot.room(), state);
 
         if (state.getQueueDeadlineTick() < 0) {
-            int waitSeconds = matchingCoordinator.isFull(state, slot.room().commonConfig().matchingConfig())
+            int waitSeconds = isMatchQueueFull(slot.room(), state)
                 ? slot.room().commonConfig().matchingConfig().waitAfterMaxSeconds()
                 : slot.room().commonConfig().matchingConfig().waitAfterMinSeconds();
             long deadlineTick = gameTick + (long) waitSeconds * 20L;
@@ -1345,7 +1359,7 @@ public final class RoomCoreService {
             state.setQueueDeadlineTick(deadlineTick);
         }
 
-        if (matchingCoordinator.isFull(state, slot.room().commonConfig().matchingConfig())) {
+        if (isMatchQueueFull(slot.room(), state)) {
             long fastDeadline = gameTick + (long) slot.room().commonConfig().matchingConfig().waitAfterMaxSeconds() * 20L;
             if (state.getQueueDeadlineTick() > fastDeadline) {
                 state.setQueueDeadlineTick(fastDeadline);
@@ -1376,17 +1390,22 @@ public final class RoomCoreService {
         }
         slot.runtime().getRunningState().beginNewMatchInstance(gameTick);
         IRoomGameplayRuntime runtime = entry.get().createRuntime(slot.room(), slot.runtime().getRunningState());
-        if (isExperimentalPlayerBalanceEnabled()) {
+        if (isExperimentalPlayerBalanceEnabled() && !RoomSoloGameplaySupport.isDeathmatchSolo(slot.room())) {
             rebalanceMatchingQueue(slot);
         }
         for (UUID playerId : slot.runtime().getMatchingState().getQueuePlayers()) {
             ServerPlayer player = playerLaunchService.findOnlinePlayer(playerId);
             RoomMatchingActionBarService.clear(player);
             KilliconScoreboardBridge.resetPlayerMatchSnapshot(slot.runtime().getRunningState(), playerId);
-            slot.runtime().getRunningState().addRoomPlayer(playerId, slot.runtime().getMatchingState().getQueueTeams().get(playerId));
-            String squadLabel = slot.runtime().getSquadLabelsByPlayer().get(playerId);
-            if (squadLabel != null && !squadLabel.isBlank()) {
-                slot.runtime().getRunningState().getSquadLabelsByPlayer().put(playerId, squadLabel);
+            RoomTeamId teamId = RoomSoloGameplaySupport.isDeathmatchSolo(slot.room())
+                ? null
+                : slot.runtime().getMatchingState().getQueueTeams().get(playerId);
+            slot.runtime().getRunningState().addRoomPlayer(playerId, teamId);
+            if (!RoomSoloGameplaySupport.isDeathmatchSolo(slot.room())) {
+                String squadLabel = slot.runtime().getSquadLabelsByPlayer().get(playerId);
+                if (squadLabel != null && !squadLabel.isBlank()) {
+                    slot.runtime().getRunningState().getSquadLabelsByPlayer().put(playerId, squadLabel);
+                }
             }
         }
         matchStatisticsRuntimeService.beginMatchSessions(slot.runtime().getRunningState(), gameTick);
@@ -2129,6 +2148,9 @@ public final class RoomCoreService {
         if (slot == null || slot.room().lifecycleState() != RoomLifecycleState.RUNNING) {
             return;
         }
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(slot.room())) {
+            return;
+        }
         RunningRuntimeState state = slot.runtime().getRunningState();
         if (state == null || state.getResultSequenceEndTick() > 0 || state.getRoomPlayers().isEmpty()) {
             return;
@@ -2199,7 +2221,7 @@ public final class RoomCoreService {
                 continue;
             }
             if (refreshPrimary) {
-                RoomMatchingActionBarService.showQueueStatus(player, room.commonConfig().matchingConfig(), state);
+                RoomMatchingActionBarService.showQueueStatus(player, room, room.commonConfig().matchingConfig(), state);
             }
             if (refreshSecondary) {
                 if (countdownReady && remainSeconds > 0) {
@@ -2277,12 +2299,13 @@ public final class RoomCoreService {
         }
         RunningRuntimeState runningState = slot.runtime().getRunningState();
         UUID playerId = player.getUUID();
+        boolean soloDeathmatch = RoomSoloGameplaySupport.isDeathmatchSolo(slot.room());
         RunningRuntimeState.RejoinTicket ticket = playerRejoinService.resolveValidTicket(slot.room(), runningState, playerId).orElse(null);
         if (ticket == null) {
             return Optional.empty();
         }
-        RoomTeamId targetTeam = ticket.teamId();
-        if (isExperimentalPlayerBalanceEnabled()) {
+        RoomTeamId targetTeam = soloDeathmatch ? null : ticket.teamId();
+        if (isExperimentalPlayerBalanceEnabled() && !soloDeathmatch) {
             // GD656Mods: 重连玩家与中途加入使用同一套规则, 人数少优先, 人数并列才比较阵营综合战力
             RoomTeamId balancedTeam = groupPlacementService.resolveRunningJoinTeam(slot.room(), runningState, playerId);
             if (balancedTeam != null) {
@@ -2297,7 +2320,7 @@ public final class RoomCoreService {
         if (slot.room().lifecycleState() == RoomLifecycleState.RUNNING) {
             matchStatisticsRuntimeService.trackRejoin(runningState, playerId, targetTeam, gameTick);
         }
-        if (ticket.squadLabel() != null && !ticket.squadLabel().isBlank() && targetTeam == ticket.teamId()) {
+        if (!soloDeathmatch && ticket.squadLabel() != null && !ticket.squadLabel().isBlank() && targetTeam == ticket.teamId()) {
             slot.runtime().getSquadLabelsByPlayer().put(playerId, ticket.squadLabel());
             runningState.getSquadLabelsByPlayer().put(playerId, ticket.squadLabel());
         }
@@ -2326,8 +2349,25 @@ public final class RoomCoreService {
         return ConquestDataManager.of(server).serverConfig().isExperimentalPlayerBalanceEnabled();
     }
 
+    private boolean canStartMatch(RoomDefinition room, MatchingRuntimeState state) {
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            return matchingCoordinator.canStartSolo(state, room.commonConfig().matchingConfig());
+        }
+        return matchingCoordinator.canStart(state, room.commonConfig().matchingConfig());
+    }
+
+    private boolean isMatchQueueFull(RoomDefinition room, MatchingRuntimeState state) {
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            return matchingCoordinator.isSoloQueueFull(state, room.commonConfig().matchingConfig());
+        }
+        return matchingCoordinator.isFull(state, room.commonConfig().matchingConfig());
+    }
+
     private void rebalanceMatchingQueue(RoomRuntimeSlot<RoomRuntimeState> slot) {
         if (slot == null) {
+            return;
+        }
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(slot.room())) {
             return;
         }
         MatchingRuntimeState state = slot.runtime().getMatchingState();
@@ -2347,8 +2387,10 @@ public final class RoomCoreService {
         }
         UUID playerId = player.getUUID();
         RunningRuntimeState runningState = slot.runtime().getRunningState();
-        RoomTeamId teamId = groupPlacementService.resolveRunningJoinTeam(slot.room(), runningState, playerId);
-        if (teamId == null) {
+        boolean soloDeathmatch = RoomSoloGameplaySupport.isDeathmatchSolo(slot.room());
+        RoomTeamId teamId = soloDeathmatch ? null : groupPlacementService.resolveRunningJoinTeam(slot.room(), runningState, playerId);
+        if ((!soloDeathmatch && teamId == null)
+            || (soloDeathmatch && runningState.getRoomPlayers().size() >= slot.room().commonConfig().matchingConfig().totalMaxPlayers())) {
             // GD656Mods: 两队都已满时 resolveRunningJoinTeam 返回 null —— 原来静默, 现在明确提示满员
             notifyRoomFull(player);
             return Optional.empty();
@@ -2359,7 +2401,9 @@ public final class RoomCoreService {
         KilliconScoreboardBridge.resetPlayerMatchSnapshot(runningState, playerId);
         runningState.addRoomPlayer(playerId, teamId);
         matchStatisticsRuntimeService.trackMidJoin(runningState, playerId, teamId, gameTick);
-        squadAssignmentService.assignPlayer(slot.runtime(), playerId, teamId, true);
+        if (!soloDeathmatch) {
+            squadAssignmentService.assignPlayer(slot.runtime(), playerId, teamId, true);
+        }
         RoomMatchingActionBarService.clear(player);
         resultRuntimeService.clearPlayer(player);
         if (RoomMatchLoadService.isEnabled(slot.room())) {
@@ -2385,8 +2429,10 @@ public final class RoomCoreService {
         }
         UUID playerId = player.getUUID();
         RunningRuntimeState runningState = slot.runtime().getRunningState();
-        RoomTeamId teamId = groupPlacementService.resolveRunningJoinTeam(slot.room(), runningState, playerId);
-        if (teamId == null) {
+        boolean soloDeathmatch = RoomSoloGameplaySupport.isDeathmatchSolo(slot.room());
+        RoomTeamId teamId = soloDeathmatch ? null : groupPlacementService.resolveRunningJoinTeam(slot.room(), runningState, playerId);
+        if ((!soloDeathmatch && teamId == null)
+            || (soloDeathmatch && runningState.getRoomPlayers().size() >= slot.room().commonConfig().matchingConfig().totalMaxPlayers())) {
             // GD656Mods: 同上 —— 结束阶段的中途加入同样会在满员时被拒, 需要明确提示
             notifyRoomFull(player);
             return Optional.empty();
@@ -2396,7 +2442,9 @@ public final class RoomCoreService {
         bindPlayerToRoom(playerId, slot.room().roomId());
         KilliconScoreboardBridge.resetPlayerMatchSnapshot(runningState, playerId);
         runningState.addRoomPlayer(playerId, teamId);
-        squadAssignmentService.assignPlayer(slot.runtime(), playerId, teamId, true);
+        if (!soloDeathmatch) {
+            squadAssignmentService.assignPlayer(slot.runtime(), playerId, teamId, true);
+        }
         RoomMatchingActionBarService.clear(player);
         resultRuntimeService.syncLateJoinedPlayer(slot.room(), runningState, player, gameTick);
         nametagVisibilityService.syncRunningRoom(slot.room(), runningState);

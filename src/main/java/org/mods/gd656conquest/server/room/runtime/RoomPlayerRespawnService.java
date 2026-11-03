@@ -47,6 +47,7 @@ import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentatio
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployPresentationProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployViewKind;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayDeployViewRequest;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.gameplay.RoomTeamPresentationSupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomGameplayId;
@@ -592,6 +593,9 @@ public final class RoomPlayerRespawnService {
         state.getDeployAllowFallbackOnMissingSelectionPlayers().add(playerId);
         state.getDeployExplicitConfirmRequiredPlayers().add(playerId);
         NetworkManager.sendToPlayer(player, RoomDeathFlowPacket.clear());
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            state.getDeployAutoStartOnReadyPlayers().add(playerId);
+        }
         if (tryBeginAlignedOpeningJoinDeploy(room, state, player, gameTick, RoomGameplayDeployViewKind.MIDJOIN)) {
             return;
         }
@@ -634,6 +638,13 @@ public final class RoomPlayerRespawnService {
         }
         UUID playerId = player.getUUID();
         RoomTeamId teamId = state.getRoomTeams().get(playerId);
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            ensureInitialDeployTimelineInitialized(room, state, gameTick);
+            if (!state.isInDeployFlow(playerId) && !state.getDeployViewActivePlayers().contains(playerId)) {
+                startDeathmatchRespawnTransition(room, state, player, gameTick, false);
+            }
+            return;
+        }
         if (teamId != RoomTeamId.CAMP_A && teamId != RoomTeamId.CAMP_B) {
             return;
         }
@@ -665,7 +676,17 @@ public final class RoomPlayerRespawnService {
         UUID playerId = player.getUUID();
         Long deployReadyTick = state.getDeployReadyTicks().get(playerId);
         RoomTeamId teamId = state.getRoomTeams().get(playerId);
-        if (deployReadyTick == null || teamId == null) {
+        if (deployReadyTick == null) {
+            return false;
+        }
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            if (gameTick < deployReadyTick) {
+                state.getDeployAutoStartOnReadyPlayers().add(playerId);
+                return true;
+            }
+            return startDeathmatchRespawnTransition(room, state, player, gameTick, false);
+        }
+        if (teamId == null) {
             return false;
         }
         String previousSelectionKind = state.getDeploySelectionKinds().get(playerId);
@@ -722,11 +743,15 @@ public final class RoomPlayerRespawnService {
             return false;
         }
         RoomTeamId teamId = state.getRoomTeams().get(playerId);
-        if (teamId != RoomTeamId.CAMP_A && teamId != RoomTeamId.CAMP_B) {
+        if (!RoomSoloGameplaySupport.isDeathmatchSolo(room)
+            && teamId != RoomTeamId.CAMP_A
+            && teamId != RoomTeamId.CAMP_B) {
             return false;
         }
         long remainTicks = Math.max(0L, deployReadyTick - gameTick);
-        deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
+        if (!RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            deploySelectionService.applyInitialDefaultSelection(room, state, player, teamId);
+        }
         state.getDeployAutoStartOnReadyPlayers().remove(playerId);
         state.getDeployAllowFallbackOnMissingSelectionPlayers().add(playerId);
         state.getDeployExplicitConfirmRequiredPlayers().add(playerId);
@@ -1197,6 +1222,9 @@ public final class RoomPlayerRespawnService {
         }
         UUID playerId = player.getUUID();
         RoomTeamId teamId = state.getRoomTeams().get(playerId);
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            return startDeathmatchRespawnTransition(room, state, player, gameTick, false);
+        }
         if (teamId == null) {
             return false;
         }
@@ -2077,7 +2105,7 @@ public final class RoomPlayerRespawnService {
         PlayerAnimatorDebugDimensionsState.clearPlayer(player);
         RoomPosition spawn = state.getRespawnTargetPositions().get(playerId);
         RoomTeamId teamId = state.getRoomTeams().get(playerId);
-        if (spawn == null || teamId == null) {
+        if (spawn == null || (teamId == null && !RoomSoloGameplaySupport.isDeathmatchSolo(room))) {
             playerStateService.setSpectator(player);
             return true;
         }

@@ -6,6 +6,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.level.GameType;
 import org.mods.gd656conquest.server.compat.vehicle.VehicleCompatFacade;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
@@ -58,10 +59,7 @@ public final class RoomTeammateDeployHudTargetProvider implements RoomDeployHudT
 
     @Override
     public void collectElements(List<RoomDeployHudElement> elements, RoomDeployHudBuildContext context) {
-        if (context.room() != null 
-            && org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(context.room().gameplayId()) 
-            && context.room().gunmasterConfig() != null 
-            && context.room().gunmasterConfig().isSoloGrouping()) {
+        if (RoomSoloGameplaySupport.isSoloFreeForAll(context.room())) {
             return;
         }
         RoomTeamId selfTeam = context.selfTeam();

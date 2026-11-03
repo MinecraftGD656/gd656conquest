@@ -193,7 +193,11 @@ final class RoomConfigBindingAccess {
                     gunmasterConfig.campASpawnGroup(),
                     gunmasterConfig.campBSpawnGroup(),
                     gunmasterConfig.ammoBoxPositions(),
-                    gunmasterConfig.medicalBoxPositions()
+                    gunmasterConfig.medicalBoxPositions(),
+                    org.mods.gd656conquest.server.room.model.RoomDeathmatchMode.TEAM,
+                    java.util.List.of(),
+                    java.util.List.of(),
+                    null
                 );
             }
         }

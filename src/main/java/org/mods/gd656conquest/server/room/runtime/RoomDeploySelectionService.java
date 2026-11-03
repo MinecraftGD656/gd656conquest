@@ -55,7 +55,7 @@ public final class RoomDeploySelectionService {
             return updateCaptureSelection(room, state, playerId, targetIdRaw);
         }
         if ("team".equals(kind)) {
-            return updateTeamSelection(state, playerId, teamId, targetIdRaw);
+            return updateTeamSelection(room, state, playerId, teamId, targetIdRaw);
         }
         if ("teammate".equals(kind)) {
             return updateTeammateSelection(room, state, playerId, teamId, targetIdRaw);
@@ -111,7 +111,10 @@ public final class RoomDeploySelectionService {
         if ("capture".equals(kind)) {
             spawn = resolveCaptureSpawn(room, state, player, teamId, targetId);
         } else if ("team".equals(kind)) {
-            spawn = resolveTeamFallbackSpawn(room, state, player, teamId);
+            spawn = org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport.isDeathmatchSolo(room)
+                && "SOLO".equalsIgnoreCase(targetId)
+                ? RoomGameplayDeployPresentationSupport.resolveRespawnAnchorPosition(room, state, player, null)
+                : resolveTeamFallbackSpawn(room, state, player, teamId);
         } else if ("teammate".equals(kind)) {
             spawn = resolveTeammateSpawn(room, state, player.getUUID(), teamId, targetId);
         } else if ("beacon".equals(kind)) {
@@ -148,9 +151,25 @@ public final class RoomDeploySelectionService {
         return true;
     }
 
-    private boolean updateTeamSelection(RunningRuntimeState state, UUID playerId, RoomTeamId teamId, String targetIdRaw) {
-        String expected = teamId == RoomTeamId.CAMP_A ? "CAMP_A" : "CAMP_B";
+    private boolean updateTeamSelection(
+        RoomDefinition room,
+        RunningRuntimeState state,
+        UUID playerId,
+        RoomTeamId teamId,
+        String targetIdRaw
+    ) {
         String token = targetIdRaw == null ? "" : targetIdRaw.trim().toUpperCase(Locale.ROOT);
+        if (org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            if (!"SOLO".equals(token)) {
+                return false;
+            }
+            rememberSelection(state, playerId, "team", "SOLO");
+            return true;
+        }
+        String expected = teamId == RoomTeamId.CAMP_A ? "CAMP_A" : "CAMP_B";
+        if (teamId != RoomTeamId.CAMP_A && teamId != RoomTeamId.CAMP_B) {
+            return false;
+        }
         if (teamId == RoomTeamId.CAMP_A && !"CAMP_A".equals(token) && !"T".equals(token)) {
             return false;
         }
@@ -418,7 +437,7 @@ public final class RoomDeploySelectionService {
         String targetIdRaw,
         long gameTick
     ) {
-        if (room != null && RoomGameplayId.GUNMASTER.equals(room.gameplayId()) && room.gunmasterConfig() != null && room.gunmasterConfig().isSoloGrouping()) {
+        if (org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport.isSoloFreeForAll(room)) {
             return TeammateSelectionResult.failure("个人战模式无法部署到其他玩家位置");
         }
         UUID teammateId;

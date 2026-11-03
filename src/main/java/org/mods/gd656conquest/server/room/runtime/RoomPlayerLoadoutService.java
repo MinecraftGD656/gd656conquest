@@ -164,6 +164,9 @@ public final class RoomPlayerLoadoutService {
         }
         player.getInventory().clearContent();
         for (CustomLoadoutSlot slot : CustomLoadoutSlot.values()) {
+            if (isGadgetSlotDisabled(roomContext.room(), slot)) {
+                continue;
+            }
             EquipmentDataModel.EquipmentEntry selectedEntry = selection.entriesBySlot().get(slot);
             if (selectedEntry == null) {
                 continue;
@@ -922,6 +925,14 @@ public final class RoomPlayerLoadoutService {
             && roomContext.room().commonConfig().enableRandomLoadout();
     }
 
+    private boolean isGadgetSlotDisabled(RoomDefinition room, CustomLoadoutSlot slot) {
+        return room != null
+            && room.commonConfig().forceDisableGadgets()
+            && (slot == CustomLoadoutSlot.GADGET_1
+                || slot == CustomLoadoutSlot.GADGET_2
+                || slot == CustomLoadoutSlot.THROWABLE);
+    }
+
     private ActiveLoadoutSelection applyRoomLoadoutRestrictions(
         RoomRuntimeContext roomContext,
         EquipmentDataModel equipmentData,
@@ -971,7 +982,7 @@ public final class RoomPlayerLoadoutService {
         EquipmentDataModel.EquipmentEntry currentEntry,
         boolean randomizedSelection
     ) {
-        if (roomContext == null || roomContext.room() == null || equipmentData == null || teamId == null || slot == null) {
+        if (roomContext == null || roomContext.room() == null || equipmentData == null || slot == null) {
             return currentEntry;
         }
         RoomDefinition room = roomContext.room();

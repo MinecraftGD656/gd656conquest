@@ -15,6 +15,7 @@ import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
 import org.mods.gd656conquest.server.room.gameplay.RoomTeamPresentationSupport;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 import org.mods.gd656conquest.server.room.model.RoomMatchingConfig;
@@ -148,15 +149,16 @@ public final class RoomHudSyncService {
 
     private RoomHudSyncPacket buildMatchingPacket(RoomDefinition room, RoomRuntimeState state, long gameTick, ServerPlayer player, RoomTeamId selfTeam) {
         RoomMatchingConfig config = room.commonConfig().matchingConfig();
-        int queueCampA = countPlayersInTeam(state, RoomTeamId.CAMP_A);
-        int queueCampB = countPlayersInTeam(state, RoomTeamId.CAMP_B);
+        boolean soloDeathmatch = RoomSoloGameplaySupport.isDeathmatchSolo(room);
+        int queueCampA = soloDeathmatch ? state.getMatchingState().getQueuePlayers().size() : countPlayersInTeam(state, RoomTeamId.CAMP_A);
+        int queueCampB = soloDeathmatch ? 0 : countPlayersInTeam(state, RoomTeamId.CAMP_B);
         int remainSeconds = resolveMatchingRemainSeconds(state, gameTick);
-        String queueStatus = buildMatchingStatusText(config, state, remainSeconds);
+        String queueStatus = buildMatchingStatusText(room, config, state, remainSeconds);
         String captureIcons = java.util.Optional.ofNullable(resolveRunningHudRenderer(room))
             .map(renderer -> renderer.buildMatchingCaptureIcons(room, state, player))
             .orElse("-");
         boolean allowTeamSwitch = room.commonConfig().allowPlayerCampSwitch();
-        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) && room.gunmasterConfig().isSoloGrouping()) {
+        if (RoomSoloGameplaySupport.isSoloFreeForAll(room)) {
             allowTeamSwitch = false;
         }
 
@@ -170,8 +172,8 @@ public final class RoomHudSyncService {
             queueCampB,
             0,
             "QUEUE",
-            config.campAMaxPlayers(),
-            config.campBMaxPlayers(),
+            soloDeathmatch ? config.totalMaxPlayers() : config.campAMaxPlayers(),
+            soloDeathmatch ? 0 : config.campBMaxPlayers(),
             remainSeconds,
             room.commonConfig().playerMaxY(),
             room.commonConfig().aircraftPassengerMaxY(),
@@ -202,7 +204,17 @@ public final class RoomHudSyncService {
         return (int) Math.max(0L, (deadline - gameTick + 19L) / 20L);
     }
 
-    private String buildMatchingStatusText(RoomMatchingConfig config, RoomRuntimeState state, int remainSeconds) {
+    private String buildMatchingStatusText(RoomDefinition room, RoomMatchingConfig config, RoomRuntimeState state, int remainSeconds) {
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            int queuedPlayers = state.getMatchingState().getQueuePlayers().size();
+            if (queuedPlayers < config.minStartPlayers()) {
+                return "等待玩家 " + queuedPlayers + "/" + config.minStartPlayers();
+            }
+            if (remainSeconds > 0) {
+                return "部署倒计时 " + remainSeconds + "秒";
+            }
+            return "等待开始";
+        }
         int queuedPlayers = state.getMatchingState().getQueuePlayers().size();
         if (queuedPlayers < config.minStartPlayers()) {
             return "等待玩家 " + queuedPlayers + "/" + config.minStartPlayers();

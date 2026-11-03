@@ -11,6 +11,7 @@ import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayHudState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
@@ -83,7 +84,7 @@ public final class StandardRoomRunningHudRenderer implements RoomRunningHudRende
             ? deployHudPayloadBuilder.build(room, state, playerId, selfTeam)
             : runningHudPayloadBuilder.buildPersistent(room, state, playerId, selfTeam);
         boolean allowTeamSwitch = room.commonConfig().allowPlayerCampSwitch();
-        if (org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) && room.gunmasterConfig().isSoloGrouping()) {
+        if (RoomSoloGameplaySupport.isSoloFreeForAll(room)) {
             allowTeamSwitch = false;
         }
         

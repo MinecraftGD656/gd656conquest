@@ -290,7 +290,7 @@ public final class RoomMatchLoadService {
         playerStateService.applyMatchingState(currentRoom, player);
         if (matchingState != null && matchingState.getQueuePlayers().contains(player.getUUID())) {
             RoomMatchingActionBarService.showQueueStatus(
-                player, currentRoom.commonConfig().matchingConfig(), matchingState);
+                player, currentRoom, currentRoom.commonConfig().matchingConfig(), matchingState);
             RoomMatchingActionBarService.showWaitingStatus(player);
         }
     }

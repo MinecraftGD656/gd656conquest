@@ -7,6 +7,7 @@ import org.mods.gd656conquest.server.room.model.RoomCapturePointDefinition;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomGameplayId;
 import org.mods.gd656conquest.server.room.model.RoomGunmasterGroupingMode;
+import org.mods.gd656conquest.server.room.model.RoomDeathmatchMode;
 import org.mods.gd656conquest.server.room.model.RoomMatchingConfig;
 import org.mods.gd656conquest.server.room.model.RoomPosition;
 import org.mods.gd656conquest.server.room.model.RoomSpawnGroupConfig;
@@ -279,6 +280,7 @@ public final class RoomDefinitionScalarConfigEditor {
             case "bttroopbalancereference" -> RoomTroopBalanceReference.of(rawValue);
             case "rstroopbalancereference" -> RoomTroopBalanceReference.of(rawValue);
             case "gmplayergroupingmode" -> RoomGunmasterGroupingMode.of(rawValue);
+            case "dmmode" -> RoomDeathmatchMode.of(rawValue);
             case "scoremethod" -> parseScoreMethod(rawValue);
             case "fullcaptureresponsemode" -> ConquestFullCaptureResponseMode.parse(rawValue);
             case "initialcaptureownership" -> parseInitialCaptureOwnership(rawValue);
@@ -493,7 +495,7 @@ public final class RoomDefinitionScalarConfigEditor {
             if (editor == null) {
                 throw new IllegalArgumentException("无法解析 here 朝向坐标");
             }
-            return new RoomViewPosition(editor.getBlockX(), editor.getY(), editor.getBlockZ(), editor.getYRot(), editor.getXRot());
+            return new RoomViewPosition(editor.getX(), editor.getY(), editor.getZ(), editor.getYRot(), editor.getXRot());
         }
         if (value.startsWith("{")) {
             return GSON.fromJson(value, RoomViewPosition.class);
@@ -503,9 +505,9 @@ public final class RoomDefinitionScalarConfigEditor {
             throw new IllegalArgumentException("朝向坐标格式错误，应为 x,y,z,yaw,pitch 或 here");
         }
         try {
-            int x = Integer.parseInt(split[0].trim());
+            double x = Double.parseDouble(split[0].trim());
             double y = Double.parseDouble(split[1].trim());
-            int z = Integer.parseInt(split[2].trim());
+            double z = Double.parseDouble(split[2].trim());
             float yaw = Float.parseFloat(split[3].trim());
             float pitch = Float.parseFloat(split[4].trim());
             return new RoomViewPosition(x, y, z, yaw, pitch);

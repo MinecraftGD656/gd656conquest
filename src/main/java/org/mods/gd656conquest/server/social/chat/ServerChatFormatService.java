@@ -210,8 +210,11 @@ public final class ServerChatFormatService {
                 .append(Component.literal("[" + roomToken + "] ").withStyle(style -> style.withColor(0x5FB4FF)))
                 .append(PlayerTitleService.of(sender.server).buildChatLevelPrefix(sender, senderLevel));
         String senderTeamName = resolveTeamDisplayName(sender, coreManager);
-        if (!senderRoomId.isBlank() && !senderTeamKey.isBlank()) {
-            ChatFormatting relationColor = resolveRelationColor(coreManager, viewer, senderRoomId, senderTeamKey);
+        boolean mixedMode = "混战模式".equals(senderTeamName);
+        if (!senderRoomId.isBlank() && (!senderTeamKey.isBlank() || mixedMode)) {
+            ChatFormatting relationColor = mixedMode
+                ? ChatFormatting.LIGHT_PURPLE
+                : resolveRelationColor(coreManager, viewer, senderRoomId, senderTeamKey);
             String teamText = senderTeamName == null || senderTeamName.isBlank() || "-".equals(senderTeamName) ? "中立" : senderTeamName;
             line.append(Component.literal(teamText + " ").withStyle(relationColor));
         }

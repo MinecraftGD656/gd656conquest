@@ -62,7 +62,9 @@ public final class ClientHudRenderer {
         int subtitleY = 43;
         if ("GUNMASTER".equalsIgnoreCase(roomState) || "GUNMASTER".equalsIgnoreCase(ClientHudDebugState.getScoreMethod())) {
             subtitleY = 26;
-        } else if ("DEATHMATCH".equalsIgnoreCase(roomState) || "DEATHMATCH".equalsIgnoreCase(ClientHudDebugState.getScoreMethod())) {
+        } else if ("DEATHMATCH".equalsIgnoreCase(roomState)
+            || "DEATHMATCH".equalsIgnoreCase(ClientHudDebugState.getScoreMethod())
+            || "DEATHMATCH_SOLO".equalsIgnoreCase(ClientHudDebugState.getScoreMethod())) {
             subtitleY = 25;
         }
         ClientHudSubtitleManager.render(gui, font, centerX, subtitleY);
@@ -125,6 +127,10 @@ public final class ClientHudRenderer {
 
     private void drawTopScoreLine(GuiGraphics gui, Font font, int centerX, int y) {
         String scoreMethod = ClientHudDebugState.getScoreMethod();
+        if ("DEATHMATCH_SOLO".equalsIgnoreCase(scoreMethod)) {
+            drawDeathmatchSoloTopLine(gui, font, centerX, y, parseDeathmatchSoloHudPayload(ClientHudDebugState.getExtraPayload()));
+            return;
+        }
         if ("GUNMASTER".equalsIgnoreCase(scoreMethod)) {
             drawGunmasterTopLine(gui, font, centerX, y, parseGunmasterHudPayload(ClientHudDebugState.getExtraPayload()));
             return;
@@ -170,6 +176,51 @@ public final class ClientHudRenderer {
         drawScaledBoldText(gui, font, allyText, leftScoreLeft, y + 1, 0xFF9BC2FF, 1.1F);
         drawScaledBoldText(gui, font, enemyText, rightScoreLeft, y + 1, 0xFFFF9B9B, 1.1F);
         drawScaledText(gui, font, timeText, centerX - timeWidth / 2, y + 1, 0xFFFFFFFF, 1.1F, true);
+    }
+
+    private void drawDeathmatchSoloTopLine(GuiGraphics gui, Font font, int centerX, int y, DeathmatchSoloHudPayload payload) {
+        float textScale = 1.1F;
+        String timeText = formatSeconds(resolveTopCenterSeconds());
+        int timeWidth = scaledTextWidth(font, timeText, textScale);
+        int timeHalf = Math.max(28, timeWidth / 2 + 6);
+        int textGap = 5;
+        int labelGap = 3;
+        int leftRight = centerX - timeHalf - textGap;
+        String selfKills = String.valueOf(payload.selfKills());
+        String selfName = payload.selfName();
+        int selfNameWidth = scaledTextWidth(font, selfName, textScale);
+        int selfKillsWidth = scaledTextWidth(font, selfKills, textScale);
+        int selfNameX = leftRight - selfNameWidth;
+        int selfKillsX = selfNameX - labelGap - selfKillsWidth;
+        drawScaledBoldText(gui, font, selfKills, selfKillsX, y + 1, 0xFF9BC2FF, textScale);
+        drawScaledBoldText(gui, font, selfName, selfNameX, y + 1, 0xFF4A96FF, textScale);
+
+        int rightX = centerX + timeHalf + textGap;
+        if (payload.selfLeading()) {
+            drawScaledBoldText(
+                    gui,
+                    font,
+                    "你已领先",
+                    rightX,
+                    y + 1,
+                    mixColorByPulse(0xFF4A96FF, 0xFF9BC2FF),
+                    textScale
+            );
+        } else {
+            String leaderName = payload.leaderName();
+            String leaderKills = String.valueOf(payload.leaderKills());
+            drawScaledBoldText(gui, font, leaderName, rightX, y + 1, 0xFFFF4A4A, textScale);
+            drawScaledBoldText(
+                    gui,
+                    font,
+                    leaderKills,
+                    rightX + scaledTextWidth(font, leaderName, textScale) + labelGap,
+                    y + 1,
+                    0xFFFF9B9B,
+                    textScale
+            );
+        }
+        drawScaledText(gui, font, timeText, centerX - timeWidth / 2, y + 1, 0xFFFFFFFF, textScale, true);
     }
 
     private void drawBreakthroughTopLine(GuiGraphics gui, Font font, int centerX, int y) {
@@ -405,6 +456,10 @@ public final class ClientHudRenderer {
         drawScaledText(gui, font, text, x, y, color, scale, true);
     }
 
+    private int scaledTextWidth(Font font, String text, float scale) {
+        return (int) Math.ceil(font.width(text == null ? "" : text) * Math.max(0.1F, scale));
+    }
+
     private void drawScaledText(GuiGraphics gui, Font font, String text, int x, int y, int color, float scale, boolean shadow) {
         float usingScale = Math.max(0.1F, scale);
         gui.pose().pushPose();
@@ -602,6 +657,46 @@ public final class ClientHudRenderer {
         return new GunmasterHudPayload(stageCount, selfStageIndex, teamStageIndex, nextWeapon, counts, enemy, soloGrouping, finalEnemyAlert);
     }
 
+    private DeathmatchSoloHudPayload parseDeathmatchSoloHudPayload(String payload) {
+        String selfName = "你";
+        String leaderName = "-";
+        int selfKills = 0;
+        int leaderKills = 0;
+        boolean selfLeading = false;
+        if (payload == null || !payload.startsWith("DMFFA|")) {
+            return new DeathmatchSoloHudPayload(selfName, selfKills, leaderName, leaderKills, false);
+        }
+        String[] parts = payload.split("\\|");
+        for (int index = 1; index < parts.length; index++) {
+            int split = parts[index].indexOf('=');
+            if (split <= 0) {
+                continue;
+            }
+            String key = parts[index].substring(0, split);
+            String value = parts[index].substring(split + 1);
+            if ("self".equalsIgnoreCase(key)) {
+                selfName = value;
+            } else if ("selfkills".equalsIgnoreCase(key)) {
+                selfKills = parseNonNegativeInt(value);
+            } else if ("leader".equalsIgnoreCase(key)) {
+                leaderName = value;
+            } else if ("leaderkills".equalsIgnoreCase(key)) {
+                leaderKills = parseNonNegativeInt(value);
+            } else if ("selflead".equalsIgnoreCase(key)) {
+                selfLeading = "1".equals(value) || "true".equalsIgnoreCase(value);
+            }
+        }
+        return new DeathmatchSoloHudPayload(selfName, selfKills, leaderName, leaderKills, selfLeading);
+    }
+
+    private int parseNonNegativeInt(String value) {
+        try {
+            return Math.max(0, Integer.parseInt(value));
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
     private int[] parseIntArray(String text, int expectedSize) {
         int[] values = new int[expectedSize];
         if (text == null || text.isBlank()) {
@@ -627,6 +722,15 @@ public final class ClientHudRenderer {
         int[] stageEnemyCounts,
         boolean soloGrouping,
         boolean finalEnemyAlert
+    ) {
+    }
+
+    private record DeathmatchSoloHudPayload(
+        String selfName,
+        int selfKills,
+        String leaderName,
+        int leaderKills,
+        boolean selfLeading
     ) {
     }
 }

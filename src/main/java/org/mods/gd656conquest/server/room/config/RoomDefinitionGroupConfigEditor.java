@@ -234,6 +234,7 @@ public final class RoomDefinitionGroupConfigEditor {
             common.enableDeathSupportDrop(),
             common.enableGiveArrow(),
             common.disableUndyingTotem(),
+            common.forceDisableGadgets(),
             common.allowPlayerCampSwitch(),
             "supportcampaherokits".equals(canonical) ? updatedValues : common.supportCampAHeroKits(),
             "supportcampbherokits".equals(canonical) ? updatedValues : common.supportCampBHeroKits(),
@@ -872,6 +873,7 @@ public final class RoomDefinitionGroupConfigEditor {
     private static boolean isArenaBoundaryGroup(String canonical) {
         return canonical.startsWith("dmcamp") && canonical.endsWith("boundary")
             || canonical.startsWith("gmcamp") && canonical.endsWith("boundary")
+            || "dmsoloboundary".equals(canonical)
             || "gmsoloboundary".equals(canonical);
     }
 
@@ -912,6 +914,7 @@ public final class RoomDefinitionGroupConfigEditor {
             || "rsmedicalboxpositions".equals(canonical)
             || "dmammoboxpositions".equals(canonical)
             || "dmmedicalboxpositions".equals(canonical)
+            || "dmsolospawnpositions".equals(canonical)
             || "gmsolospawnpositions".equals(canonical)
             || "gmmedicalboxpositions".equals(canonical)
             || "gmammoboxpositions".equals(canonical);
@@ -1004,6 +1007,7 @@ public final class RoomDefinitionGroupConfigEditor {
         return switch (canonical) {
             case "dmcampaboundary" -> "deathmatchConfig.campABoundary";
             case "dmcampbboundary" -> "deathmatchConfig.campBBoundary";
+            case "dmsoloboundary" -> "deathmatchConfig.soloBoundary";
             case "gmcampaboundary" -> "gunmasterConfig.campABoundary";
             case "gmcampbboundary" -> "gunmasterConfig.campBBoundary";
             case "gmsoloboundary" -> "gunmasterConfig.soloBoundary";
@@ -1083,6 +1087,7 @@ public final class RoomDefinitionGroupConfigEditor {
             case "rsmedicalboxpositions" -> "rushConfig.medicalBoxPositions";
             case "dmammoboxpositions" -> "deathmatchConfig.ammoBoxPositions";
             case "dmmedicalboxpositions" -> "deathmatchConfig.medicalBoxPositions";
+            case "dmsolospawnpositions" -> "deathmatchConfig.soloSpawnPositions";
             case "gmsolospawnpositions" -> "gunmasterConfig.soloSpawnPositions";
             case "gmmedicalboxpositions" -> "gunmasterConfig.medicalBoxPositions";
             default -> throw new IllegalArgumentException("未知支援箱数据组: " + canonical);

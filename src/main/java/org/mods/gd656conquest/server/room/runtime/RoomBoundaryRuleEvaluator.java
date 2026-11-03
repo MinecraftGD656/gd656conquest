@@ -54,15 +54,15 @@ public final class RoomBoundaryRuleEvaluator {
      * 与"请返回战斗区域"惩罚判定保持一致。
      */
     public static boolean isOutsideAllowedBoundary(RoomDefinition room, RunningRuntimeState state, RoomTeamId teamId, ServerPlayer player) {
-        if (room == null || state == null || teamId == null || player == null) {
-            return false;
-        }
-        if (teamId != RoomTeamId.CAMP_A && teamId != RoomTeamId.CAMP_B) {
+        if (room == null || state == null || player == null) {
             return false;
         }
         RoomGameplayBoundaryPolicyProvider policy = RoomGameplayBoundaryPolicyProvider.resolve(state);
         if (policy != null) {
             return policy.isOutsideAllowedBoundary(room, state, player, teamId);
+        }
+        if (teamId != RoomTeamId.CAMP_A && teamId != RoomTeamId.CAMP_B) {
+            return false;
         }
         var conquestConfig = room.conquestConfig();
         if (conquestConfig == null) {

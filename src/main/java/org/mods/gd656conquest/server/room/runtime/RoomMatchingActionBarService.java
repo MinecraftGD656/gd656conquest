@@ -3,6 +3,8 @@ package org.mods.gd656conquest.server.room.runtime;
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.social.chat.ServerActionBarService;
 import org.mods.gd656conquest.server.room.matching.MatchingRuntimeState;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
+import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomMatchingConfig;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
@@ -14,6 +16,15 @@ public final class RoomMatchingActionBarService {
     }
 
     public static void showQueueStatus(ServerPlayer player, RoomMatchingConfig config, MatchingRuntimeState state) {
+        showQueueStatus(player, null, config, state);
+    }
+
+    public static void showQueueStatus(
+        ServerPlayer player,
+        RoomDefinition room,
+        RoomMatchingConfig config,
+        MatchingRuntimeState state
+    ) {
         if (player == null || config == null || state == null) {
             return;
         }
@@ -25,6 +36,15 @@ public final class RoomMatchingActionBarService {
                 player,
                 ACTIONBAR_SOURCE_QUEUE_STATUS,
                 "§7还需玩家 §b" + missingPlayers
+            );
+            return;
+        }
+
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            ServerActionBarService.showText(
+                player,
+                ACTIONBAR_SOURCE_QUEUE_STATUS,
+                "§7混战玩家 §b" + queuedPlayers + "§7/§8" + config.totalMaxPlayers()
             );
             return;
         }

@@ -14,7 +14,11 @@ public record RoomDeathmatchConfig(
     RoomSpawnGroupConfig campASpawnGroup,
     RoomSpawnGroupConfig campBSpawnGroup,
     List<RoomPosition> ammoBoxPositions,
-    List<RoomPosition> medicalBoxPositions
+    List<RoomPosition> medicalBoxPositions,
+    RoomDeathmatchMode mode,
+    List<RoomPosition> soloSpawnPositions,
+    List<RoomPosition> soloBoundary,
+    RoomPosition soloDeployIconPosition
 ) implements IRoomGameplayConfig {
     public RoomDeathmatchConfig {
         mapId = mapId == null ? "" : mapId.trim();
@@ -28,6 +32,9 @@ public record RoomDeathmatchConfig(
         campBSpawnGroup = normalizeSpawnGroup(campBSpawnGroup);
         ammoBoxPositions = copyBoundary(ammoBoxPositions);
         medicalBoxPositions = copyBoundary(medicalBoxPositions);
+        mode = mode == null ? RoomDeathmatchMode.TEAM : mode;
+        soloSpawnPositions = copyBoundary(soloSpawnPositions);
+        soloBoundary = copyBoundary(soloBoundary);
     }
 
     public static RoomDeathmatchConfig defaults() {
@@ -43,7 +50,11 @@ public record RoomDeathmatchConfig(
             RoomSpawnGroupConfig.defaults(),
             RoomSpawnGroupConfig.defaults(),
             List.of(),
-            List.of()
+            List.of(),
+            RoomDeathmatchMode.TEAM,
+            List.of(),
+            List.of(),
+            null
         );
     }
 
@@ -67,6 +78,10 @@ public record RoomDeathmatchConfig(
         return List.of();
     }
 
+    public boolean isSoloMode() {
+        return mode == RoomDeathmatchMode.SOLO;
+    }
+
     private static List<RoomPosition> copyBoundary(List<RoomPosition> values) {
         return values == null ? List.of() : List.copyOf(values);
     }
@@ -87,7 +102,7 @@ public record RoomDeathmatchConfig(
         if (deathmatch.matchDurationMinutes() <= 0) {
             result.addMissing("deathmatch.matchDurationMinutes", "dmMatchDurationMinutes");
         }
-        if (deathmatch.targetScore() <= 0) {
+        if (!deathmatch.isSoloMode() && deathmatch.targetScore() <= 0) {
             result.addMissing("deathmatch.targetScore", "dmTargetScore");
         }
         if (deathmatch.startCountdownSeconds() <= 0) {
@@ -99,7 +114,16 @@ public record RoomDeathmatchConfig(
         if (deathmatch.deployViewPosition() == null) {
             result.addMissing("deathmatch.deployViewPosition", "dmDeployViewPosition");
         }
-        org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(result, "deathmatch.campASpawnGroup", "dmCampASpawnGroup", deathmatch.campASpawnGroup(), true);
-        org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(result, "deathmatch.campBSpawnGroup", "dmCampBSpawnGroup", deathmatch.campBSpawnGroup(), true);
+        if (deathmatch.isSoloMode()) {
+            if (deathmatch.soloSpawnPositions().isEmpty()) {
+                result.addMissing("deathmatch.soloSpawnPositions", "dmSoloSpawnPositions");
+            }
+            if (deathmatch.soloBoundary().isEmpty()) {
+                result.addMissing("deathmatch.soloBoundary", "dmSoloBoundary");
+            }
+        } else {
+            org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(result, "deathmatch.campASpawnGroup", "dmCampASpawnGroup", deathmatch.campASpawnGroup(), true);
+            org.mods.gd656conquest.server.data.roomdefinition.RoomConfigValidator.validateRoomSpawnGroup(result, "deathmatch.campBSpawnGroup", "dmCampBSpawnGroup", deathmatch.campBSpawnGroup(), true);
+        }
     }
 }

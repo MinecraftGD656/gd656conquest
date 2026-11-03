@@ -4,6 +4,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656conquest.server.integration.KilliconScoreboardBridge;
 import org.mods.gd656conquest.server.room.core.RoomRuntimeState;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomLifecycleState;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
@@ -28,13 +29,11 @@ public final class RoomKilliconService {
         if (!shouldUseConquestPayload(room.lifecycleState())) {
             return null;
         }
+        boolean isSolo = RoomSoloGameplaySupport.isSoloFreeForAll(room);
         List<RoomTeamId> enabledTeams = new ArrayList<>(room.commonConfig().matchingConfig().enabledTeams());
-        if (enabledTeams.size() < 2) {
+        if (!isSolo && enabledTeams.size() < 2) {
             return null;
         }
-        boolean isSolo = org.mods.gd656conquest.server.room.model.RoomGameplayId.GUNMASTER.equals(room.gameplayId()) 
-            && room.gunmasterConfig() != null 
-            && room.gunmasterConfig().isSoloGrouping();
 
         int columns = isSolo ? 1 : 2;
         String[] panelTeams = new String[]{"", "", "", ""};
@@ -77,9 +76,11 @@ public final class RoomKilliconService {
             ));
         }
         entries.sort((left, right) -> {
-            int scoreCompare = Integer.compare(right.score(), left.score());
-            if (scoreCompare != 0) {
-                return scoreCompare;
+            int primaryCompare = isSolo
+                ? Integer.compare(right.kill(), left.kill())
+                : Integer.compare(right.score(), left.score());
+            if (primaryCompare != 0) {
+                return primaryCompare;
             }
             return left.uuid().compareTo(right.uuid());
         });

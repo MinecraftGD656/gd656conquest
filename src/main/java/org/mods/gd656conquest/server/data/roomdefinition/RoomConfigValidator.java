@@ -150,7 +150,10 @@ public final class RoomConfigValidator {
     }
 
     public static void validateRoomViewPosition(RoomConfigValidationResult result, String fieldName, String configId, RoomViewPosition position) {
-        if (position == null) {
+        if (position == null
+            || !Double.isFinite(position.x())
+            || !Double.isFinite(position.y())
+            || !Double.isFinite(position.z())) {
             result.addMissing(fieldName, configId);
         }
     }

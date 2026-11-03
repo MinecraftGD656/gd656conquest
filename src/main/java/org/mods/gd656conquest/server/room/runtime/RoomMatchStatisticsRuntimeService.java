@@ -8,6 +8,7 @@ import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
 import org.mods.gd656conquest.server.data.roomstatisticdata.RoomStatisticDataModel;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
@@ -189,6 +190,12 @@ public final class RoomMatchStatisticsRuntimeService {
         roomStatistics.setTotalMatchDurationSeconds(
             roomStatistics.totalMatchDurationSecondsValue() + resolveMatchDurationSeconds(runningState, matchEndTick)
         );
+        if (RoomSoloGameplaySupport.isDeathmatchSolo(room)) {
+            roomStatistics.setCampAWins(roomStatistics.campAWinsValue() + 1);
+            roomStatistics.setCampBWins(roomStatistics.campBWinsValue() + 1);
+            ConquestDataManager.of(server).roomStatisticData().saveRoomStatistics(roomStatistics);
+            return;
+        }
         RoomTeamId winningTeam = resolveWinningTeam(runningState);
         if (winningTeam == RoomTeamId.CAMP_A) {
             roomStatistics.setCampAWins(roomStatistics.campAWinsValue() + 1);

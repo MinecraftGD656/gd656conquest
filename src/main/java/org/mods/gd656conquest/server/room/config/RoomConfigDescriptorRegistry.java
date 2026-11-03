@@ -118,6 +118,7 @@ public final class RoomConfigDescriptorRegistry {
         common(descriptors, RoomConfigCategory.RULES, "enableRandomLoadout", "启用随机配备", "commonConfig.enableRandomLoadout", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomLoadout");
         common(descriptors, RoomConfigCategory.RULES, "enableRandomAttachments", "启用房间随机配件", "commonConfig.enableRandomAttachments", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolEnableRandomAttachments");
         common(descriptors, RoomConfigCategory.RULES, "disableUndyingTotem", "是否禁用不死图腾", "commonConfig.disableUndyingTotem", RoomConfigValueType.BOOLEAN, List.of("true", "false"), "boolDisableUndyingTotem");
+        common(descriptors, RoomConfigCategory.RULES, "forceDisableGadgets", "是否强制禁用道具", "commonConfig.forceDisableGadgets", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
         common(descriptors, RoomConfigCategory.RULES, "allowPlayerCampSwitch", "是否允许玩家切换阵营", "commonConfig.allowPlayerCampSwitch", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
         // GD656Mods: 限定槽位是否忽略兵种限制(默认 true = 保持"限定后全兵种可用"的原行为)
         common(descriptors, RoomConfigCategory.RULES, "ignoreClassLimitOnRestriction", "限定配装是否忽略兵种限制", "commonConfig.ignoreClassLimitOnRestriction", RoomConfigValueType.BOOLEAN, List.of("true", "false"));
@@ -269,6 +270,7 @@ public final class RoomConfigDescriptorRegistry {
         deathmatch(descriptors, RoomConfigCategory.CAPTURE, "dmMapID", "团队死斗地图ID", "deathmatchConfig.mapId", RoomConfigValueType.STRING, List.of());
         deathmatch(descriptors, RoomConfigCategory.RULES, "dmMatchDurationMinutes", "团队死斗对局时长(分钟)", "deathmatchConfig.matchDurationMinutes", RoomConfigValueType.NUMBER, List.of());
         deathmatch(descriptors, RoomConfigCategory.RULES, "dmTargetScore", "团队死斗目标分数", "deathmatchConfig.targetScore", RoomConfigValueType.NUMBER, List.of());
+        deathmatch(descriptors, RoomConfigCategory.RULES, "dmMode", "团队死斗对局方式", "deathmatchConfig.mode", RoomConfigValueType.STRING, org.mods.gd656conquest.server.room.model.RoomDeathmatchMode.suggestions());
         deathmatch(descriptors, RoomConfigCategory.RULES, "dmStartCountdownSeconds", "团队死斗开局倒计时秒数", "deathmatchConfig.startCountdownSeconds", RoomConfigValueType.NUMBER, List.of());
         deathmatch(descriptors, RoomConfigCategory.PLAYER_STATE, "dmRespawnSeconds", "团队死斗玩家重生秒数", "deathmatchConfig.respawnSeconds", RoomConfigValueType.NUMBER, List.of());
         deathmatch(descriptors, RoomConfigCategory.TRANSPORT, "dmDeployViewPosition", "团队死斗部署界面视角", "deathmatchConfig.deployViewPosition", RoomConfigValueType.VIEW_POSITION, List.of("here"));
@@ -278,6 +280,9 @@ public final class RoomConfigDescriptorRegistry {
         deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmCampBBoundary", "团队B活动范围", "deathmatchConfig.campBBoundary", RoomConfigValueType.POSITION_GROUP);
         deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampASpawnGroup", "团队A出生组", "deathmatchConfig.campASpawnGroup", RoomConfigValueType.DATA_GROUP);
         deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmCampBSpawnGroup", "团队B出生组", "deathmatchConfig.campBSpawnGroup", RoomConfigValueType.DATA_GROUP);
+        deathmatchGroup(descriptors, RoomConfigCategory.TRANSPORT, "dmSoloSpawnPositions", "混战模式出生点数据组", "deathmatchConfig.soloSpawnPositions", RoomConfigValueType.POSITION_GROUP);
+        deathmatch(descriptors, RoomConfigCategory.TRANSPORT, "dmSoloDeployIconPosition", "混战模式部署点图标坐标", "deathmatchConfig.soloDeployIconPosition", RoomConfigValueType.POSITION, List.of("here"));
+        deathmatchGroup(descriptors, RoomConfigCategory.RULES, "dmSoloBoundary", "混战模式活动范围", "deathmatchConfig.soloBoundary", RoomConfigValueType.POSITION_GROUP);
         gunmaster(descriptors, RoomConfigCategory.CAPTURE, "gmMapID", "枪王模式地图ID", "gunmasterConfig.mapId", RoomConfigValueType.STRING, List.of());
         gunmaster(descriptors, RoomConfigCategory.RULES, "gmMatchDurationMinutes", "枪王模式对局时长(分钟)", "gunmasterConfig.matchDurationMinutes", RoomConfigValueType.NUMBER, List.of());
         gunmaster(descriptors, RoomConfigCategory.RULES, "gmTargetScore", "枪王模式目标分数", "gunmasterConfig.targetScore", RoomConfigValueType.NUMBER, List.of());
