@@ -677,9 +677,6 @@ extends Screen {
         ItemStack displayedWeapon = this.resolveDisplayedWeaponStack();
         TaczGunPropertyPanelCompat propertyPanel = TaczGunPropertyPanelCompat.getInstance();
         boolean bl = canRender = !displayedWeapon.isEmpty() && propertyPanel.canRender(displayedWeapon);
-        if (!canRender) {
-            this.weaponPropertyPanelVisible = false;
-        }
         this.refreshWeaponPropertyButtonLabel();
         int buttonX = this.getChoiceDialogOuterRight() - 100;
         int buttonY = this.getChoiceDialogOuterTop() - 18 - 5;
@@ -687,21 +684,37 @@ extends Screen {
         this.weaponPropertyButton.setY(buttonY);
         this.weaponPropertyButton.setWidth(100);
         this.weaponPropertyButton.setHeight(18);
-        this.weaponPropertyButton.active = canRender;
+        this.weaponPropertyButton.active = true;
         this.weaponPropertyButton.setTextColor(canRender ? -1 : -5592406);
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(0.0f, 0.0f, 510.0f);
         this.weaponPropertyButton.render(guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.pose().popPose();
-        if (!this.weaponPropertyPanelVisible || !canRender) {
+        if (!this.weaponPropertyPanelVisible) {
             return;
         }
         int overlayX = this.getChoiceDialogOuterRight() + 5;
         int panelY = this.getChoiceDialogOuterTop();
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(0.0f, 0.0f, 510.0f);
-        propertyPanel.render(guiGraphics, this.font, overlayX, panelY, this.getChoiceDialogOuterHeight(), displayedWeapon);
+        if (canRender) {
+            propertyPanel.render(guiGraphics, this.font, overlayX, panelY, this.getChoiceDialogOuterHeight(), displayedWeapon);
+        } else {
+            this.renderEmptyWeaponPropertyPanel(guiGraphics, overlayX, panelY);
+        }
         guiGraphics.pose().popPose();
+    }
+
+    /** Keeps the data column in place for weapons without TACZ data instead of closing it. */
+    private void renderEmptyWeaponPropertyPanel(GuiGraphics guiGraphics, int x, int y) {
+        TaczGunPropertyPanelCompat propertyPanel = TaczGunPropertyPanelCompat.getInstance();
+        int panelWidth = propertyPanel.getPanelWidth();
+        int panelHeight = Math.max(propertyPanel.getPanelHeight(ItemStack.EMPTY), this.getChoiceDialogOuterHeight());
+        guiGraphics.fill(x, y, x + panelWidth, y + panelHeight, 0xAF222222);
+        String message = "\u6b64\u6b66\u5668\u4e0d\u5b58\u5728\u6570\u636e";
+        int textWidth = this.font.width(message);
+        guiGraphics.drawString(this.font, message, x + (panelWidth - textWidth) / 2, y + (panelHeight - 9) / 2,
+            (BattlefieldUiTheme.palette().muted() & 0xFFFFFF) | 0xFF000000, false);
     }
 
     @Override
@@ -1303,12 +1316,6 @@ extends Screen {
 
     private void toggleWeaponPropertyPanel() {
         if (!this.shouldShowWeaponPropertyOverlay()) {
-            this.weaponPropertyPanelVisible = false;
-            this.refreshWeaponPropertyButtonLabel();
-            return;
-        }
-        ItemStack dw = this.resolveDisplayedWeaponStack();
-        if (dw.isEmpty() || !TaczGunPropertyPanelCompat.getInstance().canRender(dw)) {
             this.weaponPropertyPanelVisible = false;
             this.refreshWeaponPropertyButtonLabel();
             return;
