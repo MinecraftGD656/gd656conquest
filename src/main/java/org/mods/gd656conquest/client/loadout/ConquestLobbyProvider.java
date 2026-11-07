@@ -19,6 +19,7 @@ public final class ConquestLobbyProvider implements BattlefieldLobbySource.Provi
   BattlefieldLobbySource.register(new ConquestLobbyProvider());ScoreboardMatchSource.register(new ConquestMatchProvider());
   org.mods.gd656killicon.client.gui.theme.compat.SquadRosterAccess.register(ConquestTacticalProvider::squad);
   org.mods.gd656killicon.client.gui.theme.BattlefieldMinimapSource.register(ConquestTacticalProvider::objectives);
+  org.mods.gd656killicon.client.gui.theme.BattlefieldMinimapSource.registerMarkers(ConquestTacticalProvider::markers);
  });}
  @Override public void refresh(){
   Minecraft mc=Minecraft.getInstance();if(mc.player==null||mc.getConnection()==null)return;

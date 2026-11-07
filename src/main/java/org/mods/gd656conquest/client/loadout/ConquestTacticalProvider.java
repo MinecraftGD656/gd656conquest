@@ -21,6 +21,28 @@ public final class ConquestTacticalProvider {
         return ClientCaptureObjectiveWaypointSource.snapshotObjectives().stream()
             .map(v -> new BattlefieldMinimapSource.Objective(v.code(),v.x(),v.z())).toList();
     }
+    /** Room markers (respawn beacon, supplies, spotted enemies) shown on the theater minimap. */
+    public static List<BattlefieldMinimapSource.Marker> markers() {
+        if (!ClientRoomViewScope.current()) return List.of();
+        var result = new ArrayList<BattlefieldMinimapSource.Marker>();
+        for (var mark : org.mods.gd656conquest.client.marker.ClientRoomMinimapMarkerSource.snapshotMarkers()) {
+            if (mark == null) continue;
+            result.add(new BattlefieldMinimapSource.Marker(mark.iconKind().name(), mark.x(), mark.z(),
+                mark.label() == null ? "" : mark.label(), markerColor(mark.iconKind())));
+        }
+        return List.copyOf(result);
+    }
+    private static int markerColor(org.mods.gd656conquest.client.marker.ClientRoomMinimapMarkerSnapshot.MarkerIconKind kind) {
+        return switch (kind) {
+            case RESPAWN_BEACON -> 0xff54e86a;
+            case SUPPLY_BOX, SUPPLY_BAG -> 0xff59c8ff;
+            case ENEMY_GROUND, ENEMY_TRACKED -> 0xffff6a4c;
+            case ALLY, ALLY_TEAM, ALLY_SQUAD -> 0xff71ecfc;
+            case OBSERVE_GROUND -> 0xffffd166;
+            case REQUEST_STRIKE -> 0xffff9a3c;
+            default -> 0xffd0d7d2;
+        };
+    }
     public static SquadRosterAccess.Snapshot squad(Minecraft mc) {
         if (mc.player==null || mc.level==null || mc.getConnection()==null || !ClientRoomViewScope.current()) return SquadRosterAccess.Snapshot.empty();
         var roster=ClientRoomTeamMirror.squadSnapshot(mc.player.getScoreboardName());
