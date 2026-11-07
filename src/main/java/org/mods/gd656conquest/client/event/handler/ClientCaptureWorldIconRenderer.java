@@ -610,24 +610,37 @@ final class ClientCaptureWorldIconRenderer {
         float alpha,
         MultiBufferSource.BufferSource textBufferSource
     ) {
-        int fillRgb = resolveVehicleFillRgb(entry);
-        int accentRgb = resolveVehicleLabelRgb(entry);
-        CaptureDiamondRenderer.drawVehicleIconInHud(
-            gui,
-            minecraft.font,
+        // GD656Mods: 载具沿用队友/出生点同一套 marker sprite 风格, 状态色只体现在文字与敌我 sprite 上。
+        var theme = org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme.current();
+        int accent = resolveVehicleLabelRgb(entry);
+        int color = ((int) (Mth.clamp(alpha, 0.0F, 1.0F) * 255.0F) << 24) | (accent & 0xFFFFFF);
+        boolean friendly = entry.vehicleState() != ClientCaptureOverlayModel.VehicleHudState.ENEMY;
+        gui.pose().pushPose();
+        gui.pose().translate((float) projection.screenX(), (float) projection.screenY(), 0.0F);
+        float factor = CaptureDiamondRenderer.hudRadius(entry.kind().iconRadius()) / 18.0F;
+        gui.pose().scale(factor, factor, 1.0F);
+        var canvas = new org.mods.gd656killicon.client.gui.theme.BattlefieldPovOverlay.GameCanvas(gui, theme);
+        org.mods.gd656killicon.client.gui.theme.BattlefieldPovLayout.marker(
+            canvas,
+            theme,
+            0.0F,
+            0.0F,
+            18.0F,
             entry.kind().iconGlyph(entry.code()),
-            (float) projection.screenX(),
-            (float) projection.screenY(),
-            entry.kind().iconRadius(),
-            alpha,
-            fillRgb,
-            accentRgb,
-            accentRgb,
-            ClientCaptureOverlayModel.WORLD_LABEL_SCALE,
-            selected,
-            hovered,
-            textBufferSource
+            color,
+            friendly,
+            -1.0F,
+            ClientDeathFlowState.shouldRenderDeployBoundaries()
         );
+        if (selected || hovered) {
+            int highlight = ((int) (Mth.clamp(alpha, 0.0F, 1.0F) * 255.0F) << 24)
+                | (org.mods.gd656killicon.client.gui.theme.BattlefieldPovLayout.ink(theme) & 0xFFFFFF);
+            canvas.line(-24.0F, -18.0F, -24.0F, -24.0F, 1.5F, highlight);
+            canvas.line(-24.0F, -24.0F, -18.0F, -24.0F, 1.5F, highlight);
+            canvas.line(24.0F, 18.0F, 24.0F, 24.0F, 1.5F, highlight);
+            canvas.line(24.0F, 24.0F, 18.0F, 24.0F, 1.5F, highlight);
+        }
+        gui.pose().popPose();
     }
     private void updateSelectedCrosshairState(
         ClientCaptureOverlayState state,

@@ -272,12 +272,11 @@ public class GDRowRenderer {
             }
             float animSpeed = 8.0f;
             col.hoverProgress = isHovered ? Math.min(1.0f, col.hoverProgress + dt * animSpeed) : Math.max(0.0f, col.hoverProgress - dt * animSpeed);
-            float translateX = (org.mods.gd656killicon.client.gui.theme.lobby.BattlefieldLobbyScreen.embedding()?0:guiGraphics.pose().last().pose().m30());
-            float translateY = (org.mods.gd656killicon.client.gui.theme.lobby.BattlefieldLobbyScreen.embedding()?0:guiGraphics.pose().last().pose().m31());
-            int sX1 = Math.round((float)Math.max(this.x1, currentX) + translateX);
-            int sX2 = Math.round((float)Math.min(this.x2, currentX + colW) + translateX);
-            int sY1 = Math.round((float)this.y1 + translateY);
-            int sY2 = Math.round((float)this.y2 + translateY);
+            // GD656Mods: 裁剪矩形一律按当前 pose 变换(含缩放/平移), 不再手工加 m30/m31 —— 否则高分屏或大厅嵌入缩放下会裁掉整列。
+            int sX1 = Math.round((float)Math.max(this.x1, currentX));
+            int sX2 = Math.round((float)Math.min(this.x2, currentX + colW));
+            int sY1 = Math.round((float)this.y1);
+            int sY2 = Math.round((float)this.y2);
             if (this.clipX1 != null) {
                 sX1 = Math.max(sX1, this.clipX1);
             }
@@ -291,7 +290,7 @@ public class GDRowRenderer {
                 sY2 = Math.min(sY2, this.clipY2);
             }
             if (sX2 > sX1 && sY2 > sY1) {
-                org.mods.gd656killicon.client.gui.theme.BattlefieldGuiClip.enable(guiGraphics,sX1, sY1, sX2, sY2);
+                org.mods.gd656killicon.client.gui.theme.BattlefieldGuiClip.transformed(guiGraphics,sX1, sY1, sX2, sY2);
                 int drawX = currentX;
                 int drawW = colW;
                 if (doGap && i == 1) {
@@ -336,13 +335,10 @@ public class GDRowRenderer {
             int thisW = i == count - 1 ? x + w - currentX : subW;
             boolean subHovered = mouseX >= currentX && mouseX < currentX + thisW && mouseY >= y && mouseY < y + h;
             subCol.hoverProgress = subHovered ? Math.min(1.0f, subCol.hoverProgress + dt * 8.0f) : Math.max(0.0f, subCol.hoverProgress - dt * 8.0f);
-            float translateX = (org.mods.gd656killicon.client.gui.theme.lobby.BattlefieldLobbyScreen.embedding()?0:guiGraphics.pose().last().pose().m30());
-            float translateY = (org.mods.gd656killicon.client.gui.theme.lobby.BattlefieldLobbyScreen.embedding()?0:guiGraphics.pose().last().pose().m31());
-            int sX1 = Math.round((float)Math.max(this.x1, currentX) + translateX);
-            int sX2 = Math.round((float)Math.min(this.x2, currentX + thisW) + translateX);
-            int sY1 = Math.round((float)this.y1 + translateY);
-            int sY2 = Math.round((float)this.y2 + translateY);
-            if (this.clipX1 != null) {
+            int sX1 = Math.round((float)Math.max(this.x1, currentX));
+            int sX2 = Math.round((float)Math.min(this.x2, currentX + thisW));
+            int sY1 = Math.round((float)this.y1);
+            int sY2 = Math.round((float)this.y2);            if (this.clipX1 != null) {
                 sX1 = Math.max(sX1, this.clipX1);
             }
             if (this.clipY1 != null) {
@@ -355,7 +351,7 @@ public class GDRowRenderer {
                 sY2 = Math.min(sY2, this.clipY2);
             }
             if (sX2 > sX1 && sY2 > sY1) {
-                org.mods.gd656killicon.client.gui.theme.BattlefieldGuiClip.enable(guiGraphics,sX1, sY1, sX2, sY2);
+                org.mods.gd656killicon.client.gui.theme.BattlefieldGuiClip.transformed(guiGraphics,sX1, sY1, sX2, sY2);
                 int alphaBits = (int)(this.bgAlpha * 255.0f) << 24;
                 int bgCol = BattlefieldUiTheme.palette().panel() & 0xFFFFFF | alphaBits;
                 guiGraphics.fill(currentX, y, currentX + thisW, y + h, bgCol);

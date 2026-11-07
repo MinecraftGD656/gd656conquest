@@ -140,7 +140,7 @@ public class VehicleAdminEditorTabContent implements TabContent {
         int viewH = Math.max(1, y2 - y1);
         int contentH = roomEntries.size() * (ROW_H + ROW_GAP);
         leftScrollState.update(mouseY, viewH, contentH);
-        guiGraphics.enableScissor(x1, y1, x2, y2);
+        org.mods.gd656killicon.client.gui.theme.BattlefieldGuiClip.transformed(guiGraphics, x1, y1, x2, y2);
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(0, -leftScrollState.scrollY(), 0);
         for (int i = 0; i < roomEntries.size(); i++) {
@@ -173,7 +173,7 @@ public class VehicleAdminEditorTabContent implements TabContent {
         int viewH = Math.max(1, y2 - y1);
         int contentH = rightRows.size() * (ROW_H + ROW_GAP);
         rightScrollState.update(mouseY, viewH, contentH);
-        guiGraphics.enableScissor(x1, y1, x2, y2);
+        org.mods.gd656killicon.client.gui.theme.BattlefieldGuiClip.transformed(guiGraphics, x1, y1, x2, y2);
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(0, -rightScrollState.scrollY(), 0);
         for (int i = 0; i < rightRows.size(); i++) {

@@ -195,8 +195,10 @@ public final class BattlefieldSocialScreen extends Screen {
         return new Row(prefix+m.id(),name,m.leader()?"队长 · "+detail:detail,className(m.classKey()),m.id(),m.classKey(),m.leader(),m.online(),selected);
     }
     private static String className(String key){return switch(key){case "assault"->"突击";case "support"->"支援";case "engineer"->"工程";case "recon","scout"->"侦察";case "medic"->"医疗";default->"";};}
-    private static int pages(int count){return Math.max(1,(count+ROWS-1)/ROWS);}
-    private static List<Row> page(List<Row> rows,int page){int from=Math.min(rows.size(),page*ROWS);return List.copyOf(rows.subList(from,Math.min(rows.size(),from+ROWS)));}
+    /** BF6 lists show more rows per page; the slice and the page count must use the same value. */
+    private static int perPage(){return org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme.current()==org.mods.gd656killicon.client.gui.scoreboard.BattlefieldScoreboardLayout.Theme.BF6?BattlefieldSocialLayout.BF6_ROWS:ROWS;}
+    private static int pages(int count){int per=perPage();return Math.max(1,(count+per-1)/per);}
+    private static List<Row> page(List<Row> rows,int page){int per=perPage();int from=Math.min(rows.size(),page*per);return List.copyOf(rows.subList(from,Math.min(rows.size(),from+per)));}
     @Override public boolean mouseClicked(double x,double y,int button){
         if(button!=0)return super.mouseClicked(x,y,button);keyboardFocus=false;var p=local(x,y);
         for(Hit hit:hits)if(inside(hit.box(),p[0],p[1])){if(hit.enabled())activate(hit.id());else BattlefieldAudio.play(BattlefieldAudio.Event.UI_DENIED);return true;}return false;

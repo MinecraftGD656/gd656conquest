@@ -709,7 +709,8 @@ extends Screen {
     private void renderEmptyWeaponPropertyPanel(GuiGraphics guiGraphics, int x, int y) {
         TaczGunPropertyPanelCompat propertyPanel = TaczGunPropertyPanelCompat.getInstance();
         int panelWidth = propertyPanel.getPanelWidth();
-        int panelHeight = Math.max(propertyPanel.getPanelHeight(ItemStack.EMPTY), this.getChoiceDialogOuterHeight());
+        // Same footprint as the populated panel, so the selector keeps its relative position.
+        int panelHeight = this.getChoiceDialogOuterHeight();
         guiGraphics.fill(x, y, x + panelWidth, y + panelHeight, 0xAF222222);
         String message = "\u6b64\u6b66\u5668\u4e0d\u5b58\u5728\u6570\u636e";
         int textWidth = this.font.width(message);
@@ -1732,11 +1733,9 @@ extends Screen {
         if (!(this.choiceDialog != null && this.choiceDialog.isVisible() && this.weaponPropertyPanelVisible && this.shouldShowWeaponPropertyOverlay())) {
             return 0;
         }
-        ItemStack dw = this.resolveDisplayedWeaponStack();
+        // GD656Mods: 数据面板宽度固定, 与"该武器有没有 TACZ 数据"无关。若这里按 canRender 归零,
+        // 悬停到无数据武器时整个选择器窗口会跳回居中, 相对位置就变了。
         TaczGunPropertyPanelCompat pp = TaczGunPropertyPanelCompat.getInstance();
-        if (dw.isEmpty() || !pp.canRender(dw)) {
-            return 0;
-        }
         int tw = this.getChoiceDialogOuterWidth() + 5 + pp.getPanelWidth();
         int dlo = (this.width - tw) / 2;
         return dlo - (this.getChoiceDialogBaseLeft() - 8);
