@@ -202,10 +202,7 @@ extends Screen {
         guiGraphics.fill(rowLeft, rowY, rowLeft + 4, rowY + 46, accentColor);
         if (selectedWaiting || selected) {
             int outlineColor = BattlefieldUiTheme.palette().accent();
-            guiGraphics.fill(rowLeft, rowY, rowRight, rowY + 1, outlineColor);
-            guiGraphics.fill(rowLeft, rowY + 46 - 1, rowRight, rowY + 46, outlineColor);
-            guiGraphics.fill(rowLeft, rowY, rowLeft + 1, rowY + 46, outlineColor);
-            guiGraphics.fill(rowRight - 1, rowY, rowRight, rowY + 46, outlineColor);
+            org.mods.gd656killicon.client.gui.theme.BattlefieldRectStroke.hairline(guiGraphics, rowLeft, rowY, rowRight - rowLeft, 46, outlineColor);
         }
         String displayName = entry.displayName().isBlank() ? entry.entryId() : entry.displayName();
         BattlefieldUiTheme.drawText(guiGraphics, displayName, rowLeft + 10, rowY + 5, -1);

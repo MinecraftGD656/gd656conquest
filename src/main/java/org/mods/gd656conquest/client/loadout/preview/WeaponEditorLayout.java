@@ -26,6 +26,12 @@ public final class WeaponEditorLayout {
     }
     public interface Canvas {
         void rect(float x,float y,float w,float h,int color);
+        /**
+         * Frame around {@code (x,y,w,h)} in canvas coordinates. The default keeps the legacy
+         * four blended rects; renderers that can draw precise geometry override it so the frame
+         * survives scaling and never loses a side to integer rounding.
+         */
+        default void stroke(float x,float y,float w,float h,int color){rect(x,y,w,0.6f,color);rect(x,y+h-0.6f,w,0.6f,color);rect(x,y,0.6f,h,color);rect(x+w-0.6f,y,0.6f,h,color);}
         void line(float x1,float y1,float x2,float y2,float thickness,int color);
         void text(String value,Face face,float size,float x,float y,int color,Align align);
         float textWidth(String value,Face face,float size);
@@ -365,7 +371,7 @@ public final class WeaponEditorLayout {
     private static Category category(Data d){return d.categories.stream().filter(v->v.id.equals(d.selectedType)).findFirst().orElse(new Category("","—","—","",false,0,0));}
     private static String previewLabel(Data d){return d.choices.stream().filter(v->v.id.equals(d.previewChoice)).map(Choice::label).findFirst().orElse(category(d).selectedName);}
     private static boolean previewEquipped(Data d){return d.choices.stream().filter(v->v.id.equals(d.previewChoice)).anyMatch(Choice::equipped);}
-    private static void outline(Canvas c,Rect r,int color){c.rect(r.x,r.y,r.w,0.6f,color);c.rect(r.x,r.y+r.h-0.6f,r.w,0.6f,color);c.rect(r.x,r.y,0.6f,r.h,color);c.rect(r.x+r.w-0.6f,r.y,0.6f,r.h,color);}
+    private static void outline(Canvas c,Rect r,int color){c.stroke(r.x,r.y,r.w,r.h,color);}
     private static void text(Canvas c,String value,Face face,float size,float x,float y,int color){c.text(value==null?"—":value,face,size,x,y,color,Align.LEFT);}
     private static void clipped(Canvas c,String value,Face face,float size,float x,float y,float width,int color) {
         if(value==null)value="—";

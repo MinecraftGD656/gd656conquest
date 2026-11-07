@@ -193,6 +193,11 @@ public final class WeaponCustomizationView {
         private final GuiGraphics g;private final int mx,my;private final float tick;private int layer;
         GameCanvas(GuiGraphics g,int mx,int my,float tick){this.g=g;this.mx=mx;this.my=my;this.tick=tick;}
         public void rect(float x,float y,float w,float h,int color){g.fill(Math.round(left+x*scale),Math.round(top+y*scale),Math.round(left+(x+w)*scale),Math.round(top+(y+h)*scale),layer,color);}
+        public void stroke(float x,float y,float w,float h,int color){
+            org.mods.gd656killicon.client.gui.theme.BattlefieldRectStroke.stroke(g,left+x*scale,top+y*scale,w*scale,h*scale,color,
+                org.mods.gd656killicon.client.gui.theme.BattlefieldRectStroke.HAIRLINE_SCREEN_PX,
+                org.mods.gd656killicon.client.gui.theme.BattlefieldRectStroke.EDGE_ALL,layer);
+        }
         public void line(float x,float y,float xx,float yy,float thickness,int color){
             float dx=xx-x,dy=yy-y,len=(float)Math.hypot(dx,dy);if(len==0)return;
             float nx=-dy/len*thickness/2,ny=dx/len*thickness/2;
