@@ -53,6 +53,7 @@ public final class ConquestDeathScreen {
         }
     }
     @SubscribeEvent public static void legacyCounter(RenderGuiOverlayEvent.Pre event) {
+        if(org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic())return;
         if(!event.getOverlay().id().toString().equals("minecraft:record_overlay")||!ownsNativeFlow()||!DownedClient.active())return;
         try {
             Component message=(Component)GuiFields.MESSAGE.get(Minecraft.getInstance().gui);

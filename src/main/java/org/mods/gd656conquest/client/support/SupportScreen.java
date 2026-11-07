@@ -43,6 +43,7 @@ public final class SupportScreen extends Screen {
     private float scale(){return Math.min(width/960f,height/540f);}
     private double[] local(double x,double y){float s=scale();return new double[]{(x-(width-960*s)/2)/s,(y-(height-540*s)/2)/s};}
     @Override public void render(GuiGraphics g,int mouseX,int mouseY,float partialTick){
+        if(BattlefieldAccessibility.classic()){renderClassic(g,mouseX,mouseY);return;}
         double[] p=local(mouseX,mouseY);if(p[0]!=lastMouseX||p[1]!=lastMouseY){int hit=BattlefieldSupportLayout.hit(BattlefieldUiTheme.current(),p[0],p[1]);if(hit>=0&&page*6+hit<entries.size())select(page*6+hit,false);lastMouseX=p[0];lastMouseY=p[1];}
         var state=new State(snapshot==null?"—":snapshot.roomDisplayName(),snapshot==null?"—":snapshot.teamDisplayName(),snapshot==null?0:snapshot.currentScore(),snapshot==null?0:snapshot.spentScore(),snapshot==null?0:snapshot.remainingScore(),snapshot==null?"":snapshot.statusText(),entries,page,selected,snapshot==null);
         float s=scale();g.pose().pushPose();g.pose().translate((width-960*s)/2,(height-540*s)/2,0);g.pose().scale(s,s,1);
@@ -51,6 +52,7 @@ public final class SupportScreen extends Screen {
     private void select(int index,boolean announce){if(index<0||index>=entries.size())return;if(selected!=index)BattlefieldAudio.play(BattlefieldAudio.Event.SUPPORT_SELECT);selected=index;page=index/6;if(announce){var e=entries.get(index);minecraft.getNarrator().sayNow(Component.literal(e.name()+"，"+e.cost()+" 积分，"+e.detail()));}}
     private void turnPage(int delta){int next=Math.max(0,Math.min(BattlefieldSupportLayout.pages(entries.size())-1,page+delta));if(next!=page){page=next;select(page*6,true);}}
     @Override public boolean mouseClicked(double x,double y,int button){
+        if(BattlefieldAccessibility.classic())return classicClick(x,y,button);
         if(button!=0)return super.mouseClicked(x,y,button);var p=local(x,y);
         if(BattlefieldSupportLayout.inside(BattlefieldSupportLayout.CLOSE,p[0],p[1])){onClose();return true;}
         if(BattlefieldSupportLayout.inside(BattlefieldSupportLayout.REFRESH,p[0],p[1])){request(true);return true;}
@@ -74,6 +76,61 @@ public final class SupportScreen extends Screen {
         if(entry.kind().equals("shelling"))NetworkManager.getChannel().sendToServer(SupportUiActionPacket.startShelling(entry.id()));
         else if(entry.kind().equals("hero_kit"))NetworkManager.getChannel().sendToServer(SupportUiActionPacket.deployHeroKit(entry.id()));
         BattlefieldAudio.play(BattlefieldAudio.Event.SUPPORT_CONFIRM);onClose();
+    }
+    private int classicLeft(){return Math.min(228,Math.max(112,width/3));}
+    private int classicRowHeight(){return Math.max(26,Math.min(60,(height-100)/6));}
+    private void renderClassic(GuiGraphics g,int mx,int my){
+        renderBackground(g);g.drawString(font,title,8,12,0xffffffff,false);
+        int left=classicLeft(),rowHeight=classicRowHeight();
+        g.fill(8,48,left-12,height-38,0x4410181f);g.drawString(font,"支援概览",18,56,0xff8ebcff,false);
+        if(snapshot==null)g.drawString(font,"正在同步服务器数据…",18,76,0xffb8c6d6,false);
+        else{
+            String[] info={"房间  "+snapshot.roomDisplayName(),"阵营  "+snapshot.teamDisplayName(),"当前分数  "+snapshot.currentScore(),"已消耗  "+snapshot.spentScore(),"剩余分数  "+snapshot.remainingScore()};
+            for(int i=0;i<info.length;i++)g.drawString(font,font.plainSubstrByWidth(info[i],Math.max(20,left-40)),18,76+i*16,i==4?0xff8ff0a4:0xffdedede,false);
+        }
+        g.drawString(font,"当前可用支援",left,32,0xffffffff,false);
+        for(int slot=0;slot<6&&page*6+slot<entries.size();slot++){
+            int index=page*6+slot,y=48+slot*rowHeight;Entry entry=entries.get(index);
+            boolean active=snapshot!=null&&entry.available()&&entry.cost()<=snapshot.remainingScore();
+            g.fill(left,y,width-8,y+rowHeight-4,index==selected?0x88516a80:0x4410181f);
+            new Canvas(g).supportIcon(entry.kind(),entry.type(),new Rect(left+6,y+5,Math.min(30,rowHeight-12),Math.min(30,rowHeight-12)),0xffffffff);
+            int textX=left+42,textWidth=Math.max(20,width-textX-99);
+            g.drawString(font,font.plainSubstrByWidth(entry.name(),textWidth),textX,y+6,0xffffffff,false);
+            if(rowHeight>=40)g.drawString(font,font.plainSubstrByWidth(entry.subtitle(),textWidth),textX,y+21,0xffb8c6d6,false);
+            classicButton(g,new Rect(width-93,y+5,78,20),entry.cost()+" / "+entry.action(),active,mx,my);
+        }
+        if(selected>=0&&selected<entries.size()){
+            int y=172;for(var line:font.split(Component.literal(entries.get(selected).detail()),Math.max(20,left-40))){
+                if(y+font.lineHeight>height-48)break;g.drawString(font,line,18,y,0xffb8c6d6,false);y+=font.lineHeight+2;
+            }
+        }
+        if(entries.isEmpty()&&snapshot!=null)g.drawString(font,font.plainSubstrByWidth(snapshot.statusText().isBlank()?"当前没有可用支援":snapshot.statusText(),Math.max(20,width-left-16)),left,56,0xffb8c6d6,false);
+        classicButton(g,new Rect(8,height-28,70,20),"刷新",true,mx,my);
+        classicButton(g,new Rect(width-80,height-28,72,20),"关闭",true,mx,my);
+        if(BattlefieldSupportLayout.pages(entries.size())>1){
+            classicButton(g,new Rect(left,height-28,58,20),"上一页",page>0,mx,my);
+            classicButton(g,new Rect(left+64,height-28,58,20),"下一页",page+1<BattlefieldSupportLayout.pages(entries.size()),mx,my);
+        }
+    }
+    private void classicButton(GuiGraphics g,Rect r,String label,boolean active,int mx,int my){
+        boolean hover=BattlefieldSupportLayout.inside(r,mx,my);g.fill((int)r.x(),(int)r.y(),(int)(r.x()+r.w()),(int)(r.y()+r.h()),active&&hover?0xff53677c:0xff202a36);
+        g.drawCenteredString(font,font.plainSubstrByWidth(label,(int)r.w()-6),(int)(r.x()+r.w()/2),(int)r.y()+6,active?0xffffffff:0xff8b939c);
+    }
+    private boolean classicClick(double x,double y,int button){
+        if(button!=0)return false;
+        if(y>=height-28&&y<height-8){
+            if(x>=8&&x<78){request(true);return true;}
+            if(x>=width-80&&x<width-8){onClose();return true;}
+            if(BattlefieldSupportLayout.pages(entries.size())>1){
+                if(x>=classicLeft()&&x<classicLeft()+58){turnPage(-1);return true;}
+                if(x>=classicLeft()+64&&x<classicLeft()+122){turnPage(1);return true;}
+            }
+        }
+        int slot=(int)((y-48)/classicRowHeight()),index=page*6+slot;
+        if(x>=classicLeft()&&x<width-8&&y>=48&&slot>=0&&slot<6&&index<entries.size()){
+            select(index,true);if(x>=width-93&&y<48+slot*classicRowHeight()+25)callSelected();return true;
+        }
+        return false;
     }
     @Override public boolean shouldCloseOnEsc(){return true;}
     @Override public boolean isPauseScreen(){return false;}

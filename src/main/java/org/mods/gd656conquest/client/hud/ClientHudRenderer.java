@@ -57,6 +57,8 @@ public final class ClientHudRenderer {
         if (ClientHudDebugState.isAdminDebugActive()) {
             this.renderAudioDebugOverlay(gui, minecraft.font);
         }
+        boolean classic=org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic();
+        if(classic)this.renderClassicObservation(gui,minecraft);
         if ("\u672a\u52a0\u5165\u623f\u95f4".equals(roomState = ClientHudDebugState.getRoomState()) || "-".equals(ClientHudDebugState.getRoomId())) {
             ClientParkourRuntimeState.render(gui, minecraft.font);
             // DownedClient renders the themed observation once in RenderGuiEvent.Post.
@@ -66,8 +68,8 @@ public final class ClientHudRenderer {
         int width = gui.guiWidth();
         int centerX = width / 2;
         int y1 = 8;
-        // Shared BattlefieldPovOverlay draws the live score and objective composition.
-        if (org.mods.gd656killicon.client.gui.theme.BattlefieldQueueLayout.visible(ClientHudDebugState.getRoomId(), ClientHudDebugState.getScoreMethod())) {
+        if(classic)this.drawTopScoreLine(gui,font,centerX,y1);
+        else if (org.mods.gd656killicon.client.gui.theme.BattlefieldQueueLayout.visible(ClientHudDebugState.getRoomId(), ClientHudDebugState.getScoreMethod())) {
             this.renderMatching(gui, minecraft);
         }
         int subtitleY = 43;
@@ -81,6 +83,21 @@ public final class ClientHudRenderer {
         ClientHudSubtitleManager.render(gui, font, centerX, subtitleY);
         ClientParkourRuntimeState.render(gui, font);
         // The original downed input/tick owner is retained; the visual layer is independent.
+    }
+
+    private void renderClassicObservation(GuiGraphics gui,Minecraft minecraft){
+        if(minecraft.options.hideGui||org.mods.gd656killicon.client.gui.theme.MenuWorldOverlay.menuActive()
+            ||!org.mods.gd656killicon.client.downed.DownedClient.allowsScreen(minecraft.screen))return;
+        ClientDownedState.render(gui,minecraft.font);
+        var death=org.mods.gd656conquest.client.room.ClientDeathFlowState.visualSnapshot();
+        if(death.level()!=minecraft.level||ClientDownedState.isActive()||death.deploying())return;
+        boolean waiting=org.mods.gd656conquest.client.room.ClientDeathFlowState.isRespawnHoldActive();
+        if(!death.observation()&&!waiting)return;
+        String title="阵亡";
+        if(waiting){int seconds=(death.respawnRemainingTicks()+19)/20;title=seconds>0?"重部署准备  "+seconds+" 秒":"可以重新部署";}
+        int right=gui.guiWidth()-16,y=gui.guiHeight()-80;
+        gui.drawString(minecraft.font,title,right-minecraft.font.width(title),y,0xffe7e1db,true);
+        if(waiting){String hint="按 空格 打开部署界面";gui.drawString(minecraft.font,hint,right-minecraft.font.width(hint),y+14,0xffb8c6d6,true);}
     }
 
     private void renderMatching(GuiGraphics gui, Minecraft minecraft) {

@@ -904,6 +904,13 @@ final class ClientRoomSessionController {
             this.deployTeamSwitchButton.setMessage(Component.translatable("gd656conquest.client.gui.deploy.switch_team", switchState.targetDisplayName()));
             this.deployTeamSwitchButton.setTextColor(switchState.textColor());
             this.deployTeamSwitchButton.active = switchState.clickable();
+            if(org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic()){
+                GDButton[] buttons={this.deployLoadoutButton,this.deployVehicleButton,this.deployTeamSwitchButton};
+                for(int i=0;i<buttons.length;i++){
+                    buttons[i].setX(width-142);buttons[i].setY(height-28-i*22);buttons[i].setWidth(132);buttons[i].setHeight(18);
+                    if(i<2||switchState.visible())buttons[i].render(guiGraphics,mouseX,mouseY,partialTick);
+                }
+            }else{
             float scale=Math.min(width/1920f,height/1080f),ox=(width-1920*scale)/2,oy=(height-1080*scale)/2;
             if(this.battlefieldDeployButton==null)this.battlefieldDeployButton=new GDButton(0,0,100,30,Component.literal("部署"),b->BattlefieldDeploymentView.confirm());
             this.battlefieldDeployButton.active=BattlefieldDeploymentView.ready();
@@ -914,6 +921,7 @@ final class ClientRoomSessionController {
                 buttons[i].setX(Math.round(ox+r.x()*scale));buttons[i].setY(Math.round(oy+r.y()*scale));buttons[i].setWidth(Math.round(r.w()*scale));buttons[i].setHeight(Math.round(r.h()*scale));
             }
             BattlefieldDeploymentView.render(guiGraphics,switchState.visible(),"切换阵营  "+switchState.targetDisplayName(),switchState.clickable(),mouseX,mouseY);
+            }
 
         }
         if (ending) {
@@ -939,8 +947,9 @@ final class ClientRoomSessionController {
         boolean ending = this.isEndingState();
         boolean deployOpen = ClientRoomLockState.isDeployUiActive() && !ending;
         CampSwitchButtonState switchState = this.resolveCampSwitchButtonState(minecraft);
-        if(deployOpen&&BattlefieldDeploymentView.openLoadout(mouseX,mouseY,button))return true;
-        if(deployOpen&&this.battlefieldDeployButton!=null&&this.battlefieldDeployButton.mouseClicked(mouseX,mouseY,button))return true;
+        boolean themed=!org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic();
+        if(deployOpen&&themed&&BattlefieldDeploymentView.openLoadout(mouseX,mouseY,button))return true;
+        if(deployOpen&&themed&&this.battlefieldDeployButton!=null&&this.battlefieldDeployButton.mouseClicked(mouseX,mouseY,button))return true;
         if (deployOpen && switchState.visible() && this.deployTeamSwitchButton != null && this.deployTeamSwitchButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }

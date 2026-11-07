@@ -83,6 +83,8 @@ extends Screen {
     private static final CustomLoadoutSlot[] HOME_SLOTS = {CustomLoadoutSlot.PRIMARY_WEAPON, CustomLoadoutSlot.SECONDARY_WEAPON, CustomLoadoutSlot.MELEE, CustomLoadoutSlot.GADGET_1, CustomLoadoutSlot.GADGET_2, CustomLoadoutSlot.THROWABLE};
     private final Screen parent;
     private final int targetTabIndex;
+    public enum Scope { CLASSIC, PLAYER, ADMIN }
+    private final Scope scope;
     private ConfigScreenHeader header;
     private ChoiceListDialog choiceDialog;
     private final List<GDButton> actionButtons = new ArrayList<GDButton>();
@@ -120,9 +122,14 @@ extends Screen {
     }
 
     public LoadoutConfigScreen(Screen parent, int targetTabIndex) {
+        this(parent,targetTabIndex,Scope.CLASSIC);
+    }
+
+    public LoadoutConfigScreen(Screen parent, int targetTabIndex, Scope scope) {
         super(Component.translatable("gd656conquest.client.gui.loadout.title"));
         this.parent = parent;
         this.targetTabIndex = targetTabIndex;
+        this.scope = scope;
     }
 
     @Override
@@ -136,19 +143,21 @@ extends Screen {
         this.updateOutOfGameTimer();
         this.rightContentScroll.reset();
         this.header = new ConfigScreenHeader();
-        this.header.addTab(new HomeTab());
-        this.roomSelectionTab = new RoomSelectionTabContent(this.minecraft);
-        this.header.addTab(this.roomSelectionTab);
-        this.roomStatisticTab = new RoomStatisticTabContent(this.minecraft);
-        this.header.addTab(this.roomStatisticTab);
-        if (this.isAdmin()) {
+        if(scope!=Scope.ADMIN)this.header.addTab(new HomeTab());
+        if(scope==Scope.CLASSIC){
+            this.roomSelectionTab = new RoomSelectionTabContent(this.minecraft);
+            this.header.addTab(this.roomSelectionTab);
+            this.roomStatisticTab = new RoomStatisticTabContent(this.minecraft);
+            this.header.addTab(this.roomStatisticTab);
+        }
+        if (scope!=Scope.PLAYER && this.isAdmin()) {
             this.initAdminTabs();
             this.header.addTab(this.vehicleEditorTab);
             this.header.addTab(this.roomEditorTab);
             this.header.addTab(this.attachmentEditorTab);
             this.header.addTab(this.itemEditorTab);
         }
-        this.header.addTab(this.getOrCreateParkourTab());
+        if(scope==Scope.CLASSIC)this.header.addTab(this.getOrCreateParkourTab());
         if (this.targetTabIndex > 0 && this.targetTabIndex < this.header.getTabCount()) {
             this.header.setSelectedTab(this.targetTabIndex);
         }
@@ -186,6 +195,12 @@ extends Screen {
 
     private int getContentTop() {
         return this.header != null ? this.header.getContentTop() : 34;
+    }
+
+    /** Existing tab handlers keep their classic indices while scoped pages expose only their own tabs. */
+    private int activeTabIndex(){
+        int index=this.header==null?0:this.header.getSelectedTabIndex();
+        return scope==Scope.ADMIN?index+3:index;
     }
 
     private int getTop() {
@@ -230,7 +245,7 @@ extends Screen {
             return;
         }
         this.requestSnapshotIfNeeded();
-        int n = tabIdx = this.header != null ? this.header.getSelectedTabIndex() : 0;
+        int n = tabIdx = this.activeTabIndex();
         if (tabIdx == 1 && this.roomSelectionTab != null) {
             this.roomSelectionTab.tick();
         } else if (tabIdx == 2 && this.roomStatisticTab != null) {
@@ -262,7 +277,8 @@ extends Screen {
         ConfigScreenHeader.TabContent content;
         int activeTab;
         this.embeddedEditorDrawn = false;
-        BattlefieldUiTheme.background(guiGraphics, this.width, this.height);
+        if(org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic())this.renderBackground(guiGraphics);
+        else BattlefieldUiTheme.background(guiGraphics, this.width, this.height);
         if (this.isOutOfGame()) {
             int remain = Math.max(0, (int)Math.ceil((double)(this.outOfGameCloseAtMs - System.currentTimeMillis()) / 1000.0));
             BattlefieldUiTheme.centered(guiGraphics, "\u8bf7\u5728\u6e38\u620f\u5185\u6253\u5f00\u914d\u7f6e\u754c\u9762", this.width / 2, this.height / 2 - 10, -32640);
@@ -270,7 +286,7 @@ extends Screen {
             return;
         }
         int contentTop = this.getContentTop();
-        int n = activeTab = this.header != null ? this.header.getSelectedTabIndex() : 0;
+        int n = activeTab = this.activeTabIndex();
         if (this.header != null) {
             this.header.render(guiGraphics, this.width, mouseX, mouseY, partialTick);
         }
@@ -298,6 +314,9 @@ extends Screen {
     }
 
     private void renderHomeTab(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        if(org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic()){
+            this.renderClassicHome(g,mouseX,mouseY,partialTick);return;
+        }
         var p = BattlefieldUiTheme.palette();
         var theme = BattlefieldUiTheme.current();
         var snapshot = ClientLoadoutUiState.snapshot();
@@ -362,6 +381,26 @@ extends Screen {
         BattlefieldUiTheme.drawText(g, "F6  " + BattlefieldUiTheme.label(), 80, footer + 7, p.muted());
         if (snapshot == null) BattlefieldUiTheme.centered(g, "正在同步服务器配置…", this.width / 2, footer - 12, p.muted());
         this.renderWeaponPropertyPanel(g, mouseX, mouseY, partialTick);
+    }
+
+    private void renderClassicHome(GuiGraphics g,int mouseX,int mouseY,float partialTick){
+        this.homeClassBounds.clear();int mx=getBaseUiMouseX(mouseX),my=getBaseUiMouseY(mouseY);
+        for(int i=0;i<actionButtons.size();i++){
+            GDButton button=actionButtons.get(i);placeHomeButton(button,8,getTop()+i*24,getLeftColumnWidth(),20);button.render(g,mx,my,partialTick);
+        }
+        rightContentScroll.update(my,getRightContentViewportBottom()-getRightContentViewportTop(),getRightContentHeight());
+        layoutAttachmentButtons(CustomLoadoutSlot.PRIMARY_WEAPON,getPrimaryCardTop());
+        layoutAttachmentButtons(CustomLoadoutSlot.SECONDARY_WEAPON,getSecondaryCardTop());
+        org.mods.gd656killicon.client.gui.theme.BattlefieldGuiClip.enable(g,getRightPanelLeft(),getRightContentViewportTop(),getRightPanelRight(),getRightContentViewportBottom());
+        renderOverviewPanel(g,ClientLoadoutUiState.snapshot());
+        renderAttachmentCard(g,mx,my,partialTick,CustomLoadoutSlot.PRIMARY_WEAPON,getPrimaryCardTop());
+        renderAttachmentCard(g,mx,my,partialTick,CustomLoadoutSlot.SECONDARY_WEAPON,getSecondaryCardTop());g.disableScissor();
+        rightContentScroll.renderScrollbar(g,getRightPanelLeft(),getRightContentViewportTop(),getRightPanelRight(),getRightContentViewportBottom(),getRightContentHeight());
+        int half=(getLeftColumnWidth()-4)/2,y=getRightContentViewportBottom()-20;
+        placeHomeButton(vehicleToTabButton,8,y,half,20);placeHomeButton(closeScreenButton,12+half,y,half,20);
+        var snapshot=ClientLoadoutUiState.snapshot();vehicleToTabButton.active=snapshot!=null&&snapshot.vehiclePageAvailable();
+        vehicleToTabButton.render(g,mx,my,partialTick);closeScreenButton.render(g,mx,my,partialTick);
+        renderWeaponPropertyPanel(g,mouseX,mouseY,partialTick);
     }
 
     private float homeHeadingScale(String title, int width, float scale) {
@@ -519,6 +558,7 @@ extends Screen {
     }
 
     private int getRightPanelLeft() {
+        if(org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic())return 8+getLeftColumnWidth()+12;
         return this.width - Math.max(100, this.width * 19 / 100);
     }
 
@@ -527,10 +567,12 @@ extends Screen {
     }
 
     private int getRightContentViewportTop() {
+        if(org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic())return getTop();
         return this.getContentTop() + (BattlefieldUiTheme.current() == org.mods.gd656killicon.client.gui.scoreboard.BattlefieldScoreboardLayout.Theme.BF1 ? 29 : 8);
     }
 
     private int getRightContentViewportBottom() {
+        if(org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic())return this.height-8;
         int availableBottom = BattlefieldUiTheme.current() == org.mods.gd656killicon.client.gui.scoreboard.BattlefieldScoreboardLayout.Theme.BF1 ? this.height - 48 : this.getHomeSlotTop() - 5;
         return Math.min(availableBottom, this.getRightContentViewportTop() + 41 + this.getRightContentHeight());
     }
@@ -544,6 +586,7 @@ extends Screen {
     }
 
     private int getRightContentHeight() {
+        if(org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic())return 60+12+132+12+132;
         return ATTACHMENT_TYPE_ORDER.size() * 26;
     }
 
@@ -736,7 +779,7 @@ extends Screen {
         if (this.header != null && this.header.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
-        int activeTab = this.header != null ? this.header.getSelectedTabIndex() : 0;
+        int activeTab = this.activeTabIndex();
         int contentTop = this.getContentTop();
         if (this.vehicleDeployPageVisible) {
             return this.mouseClickedVehicleDeployPage(mouseX, mouseY, button);
@@ -770,6 +813,12 @@ extends Screen {
     }
 
     private boolean mouseClickedHome(double mouseX, double mouseY, int button) {
+        if(org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic()&&button==0){
+            if(isMouseOverRightContent(mouseX,mouseY)){
+                for(GDButton attachment:attachmentButtons.values())if(attachment.mouseClicked(mouseX,mouseY,button))return true;
+                rightContentScroll.startDragging(mouseX,mouseY,getRightPanelLeft(),getRightContentViewportTop(),getRightPanelRight(),getRightContentViewportBottom(),getRightContentHeight());return true;
+            }
+        }
         if (this.embeddedEditorDrawn && this.weaponEditor.mouseClicked(mouseX, mouseY, button)) return true;
         if (this.clickThemedHome(mouseX, mouseY, button)) return true;
         if (button == 0) {
@@ -801,7 +850,7 @@ extends Screen {
         if (this.choiceDialog != null) {
             this.choiceDialog.mouseReleased(mouseX, mouseY, button);
         }
-        int n = activeTab = this.header != null ? this.header.getSelectedTabIndex() : 0;
+        int n = activeTab = this.activeTabIndex();
         if (activeTab == 1 && this.roomSelectionTab != null) {
             this.roomSelectionTab.mouseReleased(mouseX, mouseY, button);
         }
@@ -827,7 +876,7 @@ extends Screen {
         if (this.header != null && this.header.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
             return true;
         }
-        int n = activeTab = this.header != null ? this.header.getSelectedTabIndex() : 0;
+        int n = activeTab = this.activeTabIndex();
         if (activeTab == 1 && this.roomSelectionTab != null && this.roomSelectionTab.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
             return true;
         }
@@ -847,14 +896,14 @@ extends Screen {
         if (this.header != null && this.header.mouseScrolled(mouseX, mouseY, delta)) {
             return true;
         }
-        int activeTab = this.header != null ? this.header.getSelectedTabIndex() : 0;
+        int activeTab = this.activeTabIndex();
         int contentTop = this.getContentTop();
         if (this.vehicleDeployPageVisible) {
             return this.mouseScrolledVehicleDeployPage(mouseX, mouseY, delta);
         }
         if (activeTab == 0) {
             if (this.isMouseOverRightContent(mouseX, mouseY)) {
-                return this.rightContentScroll.mouseScrolled(delta, this.getRightContentViewportBottom() - this.getRightContentViewportTop() - 41, this.getRightContentHeight());
+                return this.rightContentScroll.mouseScrolled(delta, this.getRightContentViewportBottom() - this.getRightContentViewportTop() - (org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic()?0:41), this.getRightContentHeight());
             }
         } else {
             ConfigScreenHeader.TabContent content;
@@ -886,7 +935,7 @@ extends Screen {
         }
         if (this.choiceDialog != null && this.choiceDialog.isVisible()) return true;
         if (this.embeddedEditorDrawn && this.weaponEditor.keyPressed(keyCode, modifiers)) return true;
-        int n = activeTab = this.header != null ? this.header.getSelectedTabIndex() : 0;
+        int n = activeTab = this.activeTabIndex();
         if (this.vehicleDeployPageVisible) {
             if (keyCode == 256) {
                 this.vehicleDeployPageVisible = false;
@@ -914,7 +963,7 @@ extends Screen {
         if (this.choiceDialog != null && this.choiceDialog.isVisible() && this.choiceDialog.charTyped(codePoint, modifiers)) {
             return true;
         }
-        int n = activeTab = this.header != null ? this.header.getSelectedTabIndex() : 0;
+        int n = activeTab = this.activeTabIndex();
         if (this.vehicleDeployPageVisible) {
             return false;
         }
@@ -1261,8 +1310,8 @@ extends Screen {
     }
 
     private boolean isWeaponPreviewActive() {
-        return !this.isOutOfGame() && !this.embeddedEditorDrawn && !this.vehicleDeployPageVisible && !this.isBlockingOverlayVisible()
-            && (this.header == null || this.header.getSelectedTabIndex() == 0);
+        return !org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic() && !this.isOutOfGame() && !this.embeddedEditorDrawn && !this.vehicleDeployPageVisible && !this.isBlockingOverlayVisible()
+            && this.activeTabIndex() == 0;
     }
 
     @Override

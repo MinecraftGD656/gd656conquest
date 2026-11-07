@@ -17,7 +17,7 @@ public final class BattlefieldSocialLayout {
     /** BF6 lists are taller than the legacy composition, so they page differently. */
     public static final int BF6_ROWS=8;
     public enum Tab { FRIENDS, PARTY, SQUAD }
-    public enum Directory { PLAYERS, PARTIES, INVITATIONS, FRIENDS, FRIEND_REQUESTS, MEMBERS, SQUAD_INVITATIONS }
+    public enum Directory { PLAYERS, PARTIES, INVITATIONS, FRIENDS, FRIEND_REQUESTS, SENT_FRIEND_REQUESTS, MEMBERS, SQUAD_INVITATIONS }
     public record Row(String key,String title,String detail,String badge,UUID avatar,String classKey,boolean leader,boolean online,boolean selected) {}
     public record Command(String id,String label,boolean enabled,String reason,boolean danger) {}
     public record View(Tab tab,Directory directory,String context,String leftTitle,String rightTitle,List<Row> left,List<Row> right,
@@ -61,7 +61,7 @@ public final class BattlefieldSocialLayout {
         }
         String leftEmpty=d.loading()?"读取成员中":switch(d.tab()){case FRIENDS->"从右侧选择玩家，发送好友申请";case PARTY->"创建队伍，或从右侧加入队伍";case SQUAD->"在大厅组队邀请玩家，入场后编为同一小队";};
         list(c,t,d.left(),new Rect(l.x(),129,l.w(),216),leftEmpty,mx,my,focus,hits);
-        String empty=d.loading()?"读取列表中":switch(d.directory()){case PLAYERS->d.tab()==Tab.SQUAD?"当前没有可邀请的同阵营玩家":"当前没有其他在线玩家";case PARTIES->"当前没有其他队伍";case INVITATIONS->"暂时没有组队邀请或申请";case FRIENDS->"添加好友后，可在这里邀请入队";case FRIEND_REQUESTS->"收到和发出的好友申请会显示在这里";case MEMBERS->"选择小队查看成员";case SQUAD_INVITATIONS->"收到小队邀请后，可在这里接受或拒绝";};
+        String empty=d.loading()?"读取列表中":switch(d.directory()){case PLAYERS->d.tab()==Tab.SQUAD?"当前没有可邀请的同阵营玩家":"当前没有其他在线玩家";case PARTIES->"当前没有其他队伍";case INVITATIONS->"暂时没有组队邀请或申请";case FRIENDS->"添加好友后，可在这里邀请入队";case FRIEND_REQUESTS->"暂时没有收到的好友申请";case SENT_FRIEND_REQUESTS->"暂时没有已发出的好友申请";case MEMBERS->"选择小队查看成员";case SQUAD_INVITATIONS->"收到小队邀请后，可在这里接受或拒绝";};
         list(c,t,d.right(),new Rect(r.x(),129,r.w(),216),empty,mx,my,focus,hits);
         pager(c,t,l,d.leftPage(),d.leftPages(),"left",mx,my,focus,hits);
         pager(c,t,r,d.rightPage(),d.rightPages(),"right",mx,my,focus,hits);
@@ -211,7 +211,7 @@ public final class BattlefieldSocialLayout {
 
     private static Directory[] directories(View d){
         return switch(d.tab()){
-            case FRIENDS->new Directory[]{Directory.PLAYERS,Directory.FRIEND_REQUESTS};
+            case FRIENDS->new Directory[]{Directory.PLAYERS,Directory.FRIEND_REQUESTS,Directory.SENT_FRIEND_REQUESTS};
             case PARTY->new Directory[]{Directory.FRIENDS,Directory.PLAYERS,Directory.PARTIES,Directory.INVITATIONS};
             case SQUAD->new Directory[]{Directory.MEMBERS,Directory.FRIENDS,Directory.PLAYERS,Directory.SQUAD_INVITATIONS};
         };
@@ -221,7 +221,8 @@ public final class BattlefieldSocialLayout {
         return switch(dir){
             case PLAYERS->d.tab()==Tab.SQUAD?"同阵营玩家":"在线玩家";
             case PARTIES->"寻找队伍";case INVITATIONS->"组队邀请";case FRIENDS->"我的好友";
-            case FRIEND_REQUESTS->"好友申请"+(d.friendRequestCount()>0?" · "+d.friendRequestCount():"");
+            case FRIEND_REQUESTS->"收到申请"+(d.friendRequestCount()>0?" · "+d.friendRequestCount():"");
+            case SENT_FRIEND_REQUESTS->"已发出";
             case MEMBERS->"小队成员";case SQUAD_INVITATIONS->"小队邀请"+(d.squadInvitationCount()>0?" · "+d.squadInvitationCount():"");
         };
     }

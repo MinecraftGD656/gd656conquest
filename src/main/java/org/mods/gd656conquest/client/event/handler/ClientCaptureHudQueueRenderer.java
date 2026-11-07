@@ -26,8 +26,30 @@ final class ClientCaptureHudQueueRenderer {
     }
 
     void renderHudCaptureQueue(ClientCaptureOverlayState state, GuiGraphics gui, Minecraft minecraft, float deltaSeconds, ClientCaptureOverlayModel.TeamToken selfTeam) {
-        // The shared POV layer reads the original synchronized objective and focus payloads.
-        state.hudIconLayoutStates.clear();
+        if(!org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic()){
+            state.hudIconLayoutStates.clear();return;
+        }
+        List<ClientCaptureOverlayModel.CaptureIconEntry> entries=state.cachedObjectiveEntries;
+        if(entries.isEmpty()){state.hudIconLayoutStates.clear();return;}
+        String focusCode=state.currentCaptureFocus==null?null:state.currentCaptureFocus.code();
+        var focus=focusCode==null?null:state.objectiveEntryByCode.get(focusCode);
+        int count=entries.size()-(focus==null?0:1),index=0;float center=gui.guiWidth()/2f,start=center-(count-1)*12;
+        var seen=new HashSet<String>();var textBuffer=minecraft.renderBuffers().bufferSource();
+        for(var entry:entries){
+            seen.add(entry.renderId());boolean focused=entry.code().equals(focusCode);
+            updateHudLayoutState(state,entry,focused?center:start+index++*24,focused?67:29,
+                focused?ClientCaptureOverlayModel.HUD_FOCUS_ICON_RADIUS:ClientCaptureOverlayModel.HUD_QUEUE_ICON_RADIUS,
+                focused?ClientCaptureOverlayModel.HUD_FOCUS_ICON_ALPHA:ClientCaptureOverlayModel.HUD_QUEUE_ICON_ALPHA,
+                focused?ClientCaptureOverlayModel.HUD_FOCUS_LABEL_SCALE:ClientCaptureOverlayModel.HUD_QUEUE_LABEL_SCALE,deltaSeconds);
+        }
+        state.hudIconLayoutStates.keySet().retainAll(seen);
+        for(var entry:entries){
+            var layout=state.hudIconLayoutStates.get(entry.renderId());if(layout==null||layout.alpha<=.01f)continue;
+            CaptureDiamondRenderer.drawCaptureIconInHud(gui,minecraft.font,entry.code(),false,layout.x,layout.y,layout.radius,
+                resolveDisplayProgress(state,entry,selfTeam),layout.alpha,toPerspectiveToken(entry.owner(),selfTeam),toPerspectiveToken(entry.driving(),selfTeam),
+                layout.labelScale,entry.code().equals(focusCode)?0:1,false,false,textBuffer);
+        }
+        renderFocusDetails(state,gui,minecraft,focus,textBuffer);textBuffer.endBatch();
     }
 
     private void updateHudLayoutState(ClientCaptureOverlayState state, ClientCaptureOverlayModel.CaptureIconEntry entry, float targetX, float targetY, float targetRadius, float targetAlpha, float targetLabelScale, float deltaSeconds) {

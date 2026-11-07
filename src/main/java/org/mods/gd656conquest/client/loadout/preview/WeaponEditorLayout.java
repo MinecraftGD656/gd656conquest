@@ -63,13 +63,13 @@ public final class WeaponEditorLayout {
         c.line(10,29,w-10,29,0.8f,ink);
         button(c,hits,"weapons","更换武器",new Rect(w-99,2,89,23),mx,my,ink);
         if(theme==Theme.BF2042)return bf2042Star(c,d,mx,my,offset,w,height,hits);
-        float bottom=height-23;
+        float bottom=height-76;
         boolean expanded=d.selectedType!=null;
         Rect choices=null;
         int visible=0;
         Rect model;
         if(theme==Theme.BF1) {
-            float listW=Math.min(125,w*0.21f),statsW=w>=590?162:0;
+            float listW=Math.min(125,w*0.21f),statsW=w>=590&&height>=320?162:0;
             float rowH=Math.min(50,(bottom-36)/6);
             model=new Rect(listW+12,56,Math.max(70,w-listW-statsW-27),bottom-69);
             c.weapon(model);
@@ -125,20 +125,19 @@ public final class WeaponEditorLayout {
                 int cols=Math.max(3,Math.min(theme==Theme.BF2042?9:6,(int)(choices.w/74)));
                 visible=choiceGrid(c,hits,d,choices,offset,cols,theme==Theme.BF6?2:1,mx,my,theme);
                 clipped(c,previewLabel(d),Face.TEXT,11,12,choices.y-21,w-150,ink);
-            } else {
-                text(c,"DMG "+d.damage+"   RPM "+d.rpm+"   MAG "+d.magazine,Face.LIGHT,11,12,bottom-16,ink);
             }
         }
-        c.line(10,bottom+3,w-10,bottom+3,0.6f,0x55768a8e);
-        if(expanded)button(c,hits,"back","收起配件",new Rect(9,bottom,82,20),mx,my,ink);
-        else text(c,"拖动旋转 · 滚轮缩放 · 中键复位",Face.TEXT,9,12,bottom+7,ink);
+        embeddedStats(c,d,w,height,ink);
+        c.line(10,height-23,w-10,height-23,0.6f,0x55768a8e);
+        if(expanded)button(c,hits,"back","收起配件",new Rect(9,height-23,82,20),mx,my,ink);
+        else text(c,"拖动旋转 · 滚轮缩放 · 中键复位",Face.TEXT,9,12,height-16,ink);
         return new Frame(List.copyOf(hits),model,choices,visible);
     }
     /** Six-way Plus: a vertical axis and two diagonal axes; each category owns one stable spoke. */
     private static Frame bf2042Star(Canvas c,Data d,double mx,double my,int offset,float w,float height,List<Hit> hits){
         boolean expanded=d.selectedType!=null,left=expanded&&Set.of("muzzle","grip").contains(d.selectedType);
         float panelW=expanded?Math.min(226,w*.34f):0,stageX=left?panelW+12:0,stageW=w-panelW-(expanded?12:0);
-        float bottom=height-26,cx=stageX+stageW*.53f,cy=(42+bottom)*.5f;
+        float bottom=height-76,cx=stageX+stageW*.53f,cy=(42+bottom)*.5f;
         float rx=Math.min(205,stageW*.30f),ry=Math.min(122,(bottom-42)*.34f),tileW=expanded?66:78,tileH=52;
         String[] order={"scope","stock","laser","extended_mag","grip","muzzle"};
         var cells=new LinkedHashMap<String,Rect>();
@@ -165,13 +164,21 @@ public final class WeaponEditorLayout {
             clipped(c,category(d).label,Face.HEADING,15,x+9,47,panelW-28,TEAL);
             clipped(c,previewLabel(d),Face.TEXT,10,x+9,72,panelW-28,0xffc0dfda);
             choices=new Rect(x+5,97,panelW-20,bottom-107);visible=choiceList(c,hits,d,choices,offset,mx,my,Theme.BF2042);
-            button(c,hits,"back","收起配件",new Rect(x,bottom+3,88,21),mx,my,TEAL);
+            button(c,hits,"back","收起配件",new Rect(x,height-23,88,21),mx,my,TEAL);
         }
-        text(c,"DMG "+d.damage+"   RPM "+d.rpm+"   MAG "+d.magazine,Face.LIGHT,11,stageX+12,bottom-17,TEAL);
-        c.line(10,bottom+1,w-10,bottom+1,.7f,0x8061aaa4);
-        if(!expanded)text(c,"拖动旋转 · 滚轮缩放 · 中键复位",Face.TEXT,9,12,bottom+8,TEAL);
-        else clipped(c,"选择后保存到 "+d.className+" · 部署生效",Face.TEXT,9,stageX+12,bottom+8,stageW-24,TEAL);
+        embeddedStats(c,d,w,height,TEAL);
+        c.line(10,height-23,w-10,height-23,.7f,0x8061aaa4);
+        if(!expanded)text(c,"拖动旋转 · 滚轮缩放 · 中键复位",Face.TEXT,9,12,height-16,TEAL);
+        else clipped(c,"选择后保存到 "+d.className+" · 部署生效",Face.TEXT,9,stageX+12,height-16,stageW-24,TEAL);
         return new Frame(List.copyOf(hits),model,choices,visible);
+    }
+    private static void embeddedStats(Canvas c,Data d,float width,float height,int color){
+        clipped(c,"DMG "+d.damage+"   RPM "+d.rpm+"   MAG "+d.magazine,Face.TEXT,11,12,height-68,width-24,color);
+        float column=(width-24)/2;
+        for(int i=0;i<Math.min(4,d.metrics.size());i++){
+            Metric metric=d.metrics.get(i);
+            clipped(c,metric.label+"  "+metric.value,Face.TEXT,10,12+i%2*column,height-51+i/2*14,column-8,color);
+        }
     }
     private static Frame bf6(Canvas c,Data d,double mx,double my,int offset,List<Hit> h) {
         c.rect(0,0,960,540,0xf0091014);
@@ -309,7 +316,7 @@ public final class WeaponEditorLayout {
         text(c,"RATE OF FIRE",Face.TEXT,10,x+14,y+224,WHITE);c.text(d.rpm,Face.TEXT,12,x+176,y+222,WHITE,Align.RIGHT);
         text(c,"FIRE MODES",Face.TEXT,10,x+14,y+240,WHITE);c.text(d.fireMode,Face.TEXT,11,x+176,y+239,WHITE,Align.RIGHT);
         text(c,"AMMUNITION",Face.TEXT,10,x+14,y+256,WHITE);c.text(d.magazine,Face.TEXT,12,x+176,y+254,WHITE,Align.RIGHT);
-        c.rect(x,y+276,193,90,0x66272d2e);text(c,"DAMAGE DROP (m)",Face.TEXT,10,x+14,y+283,WHITE);
+        c.rect(x,y+276,193,90,0x66272d2e);text(c,"DMG "+d.damage+" / m",Face.TEXT,10,x+14,y+283,WHITE);
         damageGraph(c,d.damageCurve,new Rect(x+16,y+299,160,54),WHITE);
     }
     private static void metricBars(Canvas c,Data d,float x,float y,float w,float rowH,int color) {

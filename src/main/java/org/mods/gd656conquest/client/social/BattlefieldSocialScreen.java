@@ -41,7 +41,7 @@ public final class BattlefieldSocialScreen extends Screen {
         selectedMember=keep(selectedMember,s.party()==null?List.of():s.party().members().stream().map(m->m.id().toString()).toList());
         selectedPlayer=keep(selectedPlayer,players(s).stream().map(m->m.id().toString()).toList());
         selectedFriend=keep(selectedFriend,s.friends().stream().map(m->m.id().toString()).toList());
-        selectedFriendRequest=keep(selectedFriendRequest,s.friendRequests().stream().map(FriendRequest::id).toList());
+        selectedFriendRequest=keep(selectedFriendRequest,friendRequests(s).stream().map(FriendRequest::id).toList());
         selectedSquadInvitation=keep(selectedSquadInvitation,s.squadInvitations().stream().map(SquadInvitation::id).toList());
         if(!confirmRemoveFriend.equals(selectedFriend))confirmRemoveFriend="";
         selectedParty=keep(selectedParty,s.parties().stream().map(PartyEntry::id).toList());
@@ -71,10 +71,11 @@ public final class BattlefieldSocialScreen extends Screen {
                 inviteParty(leftActions,s,friend);
                 if(!s.currentRoom().isBlank())inviteSquad(leftActions,s,friend);
                 command(leftActions,s,"FRIEND_REMOVE",confirmRemoveFriend.equals(selectedFriend)&&friend!=null?"确认删除好友":"删除好友",selectedFriend,"",friend!=null,"选择要删除的好友，再次确认后删除");
-                if(directory==Directory.FRIEND_REQUESTS){
-                    for(FriendRequest request:s.friendRequests())right.add(new Row("friend-request:"+request.id(),displayName(request.accountName(),request.displayName()),request.outgoing()?"等待对方确认":"希望与你成为好友",request.outgoing()?"已发出":"收到",request.playerId(),"",false,true,request.id().equals(selectedFriendRequest)));
-                    FriendRequest request=s.friendRequests().stream().filter(v->v.id().equals(selectedFriendRequest)).findFirst().orElse(null);
-                    if(request!=null&&request.outgoing())command(rightActions,s,"FRIEND_CANCEL","撤销申请",request.id(),"",true,"");
+                if(directory==Directory.FRIEND_REQUESTS||directory==Directory.SENT_FRIEND_REQUESTS){
+                    var visibleRequests=friendRequests(s);
+                    for(FriendRequest request:visibleRequests)right.add(new Row("friend-request:"+request.id(),displayName(request.accountName(),request.displayName()),request.outgoing()?"等待对方确认":"希望与你成为好友",request.outgoing()?"已发出":"收到",request.playerId(),"",false,true,request.id().equals(selectedFriendRequest)));
+                    FriendRequest request=visibleRequests.stream().filter(v->v.id().equals(selectedFriendRequest)).findFirst().orElse(null);
+                    if(directory==Directory.SENT_FRIEND_REQUESTS)command(rightActions,s,"FRIEND_CANCEL","撤销申请",selectedFriendRequest,"",request!=null,"");
                     else{
                         command(rightActions,s,"FRIEND_ACCEPT","接受申请",selectedFriendRequest,"",request!=null,"选择收到的好友申请");
                         command(rightActions,s,"FRIEND_REFUSE","拒绝申请",selectedFriendRequest,"",request!=null,"选择收到的好友申请");
@@ -162,6 +163,10 @@ public final class BattlefieldSocialScreen extends Screen {
         return new View(tab,directory,context,leftTitle,rightTitle,page(left,leftPage),page(right,rightPage),leftActions,rightActions,leftPage,lp,rightPage,rp,message,s==null,pending,s==null?0:(int)s.friendRequests().stream().filter(r->!r.outgoing()).count(),s==null?0:s.squadInvitations().size());
     }
     private static Member findMember(List<Member> members,String id){return members.stream().filter(m->m.id().toString().equals(id)).findFirst().orElse(null);}
+    private List<FriendRequest> friendRequests(Snapshot state){
+        boolean outgoing=directory==Directory.SENT_FRIEND_REQUESTS;
+        return state.friendRequests().stream().filter(request->request.outgoing()==outgoing).toList();
+    }
     private List<Member> players(Snapshot s){
         Member self=findMember(s.onlinePlayers(),s.self().toString());
         if(self==null)self=s.squads().stream().flatMap(q->q.members().stream()).filter(m->m.id().equals(s.self())).findFirst().orElse(null);
