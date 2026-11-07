@@ -2,6 +2,8 @@ package org.mods.gd656conquest.client.loadout;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
+import org.mods.gd656killicon.client.gui.theme.lobby.BattlefieldLobbyScreen;
+import org.mods.gd656killicon.client.gui.theme.lobby.BattlefieldLobbyLayout;
 import org.mods.gd656conquest.client.loadout.screen.LoadoutAttachmentEditorScreen;
 import org.mods.gd656conquest.client.loadout.screen.LoadoutConfigScreen;
 import org.mods.gd656conquest.client.loadout.screen.LoadoutItemEditorScreen;
@@ -20,6 +22,7 @@ public final class ClientLoadoutUiController {
             minecraft.setScreen(null);
         }
         ClientLoadoutUiState.clear();
+        org.mods.gd656conquest.client.loadout.state.ClientRoomSelectionState.apply(null);
     }
 
     public void tick() {
@@ -49,11 +52,15 @@ public final class ClientLoadoutUiController {
         if (minecraft == null) {
             return;
         }
+        if(minecraft.screen instanceof BattlefieldLobbyScreen lobby){
+            int target=ClientLoadoutUiState.consumeOpenTabIndex();
+            lobby.requestPage("native:"+target,target==0?BattlefieldLobbyLayout.Section.LOADOUT:target==2?BattlefieldLobbyLayout.Section.CAREER:target>=3?BattlefieldLobbyLayout.Section.SETTINGS:BattlefieldLobbyLayout.Section.PLAY);return;
+        }
         if (isLoadoutScreen(minecraft.screen)) {
             return;
         }
         int targetTabIndex = ClientLoadoutUiState.consumeOpenTabIndex();
-        minecraft.setScreen(new LoadoutConfigScreen(minecraft.screen, targetTabIndex));
+        minecraft.setScreen(BattlefieldLobbyScreen.forPage(minecraft.screen,targetTabIndex==0?BattlefieldLobbyLayout.Section.LOADOUT:BattlefieldLobbyLayout.Section.PLAY,"native:"+targetTabIndex));
     }
 
     /**
@@ -74,7 +81,10 @@ public final class ClientLoadoutUiController {
     }
 
     public void toggleConfigScreen() {
-        requestOpenConfigScreen();
+        Minecraft minecraft=Minecraft.getInstance();
+        if(minecraft.screen instanceof BattlefieldLobbyScreen lobby){lobby.onClose();return;}
+        requestSnapshot(false);
+        minecraft.setScreen(new BattlefieldLobbyScreen(minecraft.screen,BattlefieldLobbyLayout.Section.PLAY));
     }
 
     private void requestSnapshot(boolean openPanel) {
@@ -82,7 +92,7 @@ public final class ClientLoadoutUiController {
     }
 
     private boolean isLoadoutScreen(Screen screen) {
-        return screen instanceof LoadoutConfigScreen
+        return screen instanceof BattlefieldLobbyScreen || screen instanceof LoadoutConfigScreen
             || screen instanceof LoadoutVehicleDeployScreen
             || screen instanceof LoadoutAttachmentEditorScreen
             || screen instanceof LoadoutItemEditorScreen

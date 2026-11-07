@@ -1,44 +1,20 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package org.mods.gd656conquest.client.gui.elements.entries;
 
-import net.minecraft.client.gui.GuiGraphics;
-import org.mods.gd656conquest.client.gui.GuiConstants;
-import org.mods.gd656conquest.client.gui.elements.GDRowRenderer;
-import org.mods.gd656conquest.client.gui.elements.ChoiceListDialog;
+import org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme;
 
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import net.minecraft.client.gui.GuiGraphics;
+import org.mods.gd656conquest.client.gui.elements.ChoiceListDialog;
+import org.mods.gd656conquest.client.gui.elements.GDRowRenderer;
 
-public class FixedChoiceConfigEntry extends GDRowRenderer {
-    public static class Choice {
-        private final String value;
-        private final String label;
-        private final String secondaryLabel;
-
-        public Choice(String value, String label) {
-            this(value, label, "");
-        }
-
-        public Choice(String value, String label, String secondaryLabel) {
-            this.value = value;
-            this.label = label;
-            this.secondaryLabel = secondaryLabel == null ? "" : secondaryLabel;
-        }
-
-        public String value() {
-            return value;
-        }
-
-        public String label() {
-            return label;
-        }
-
-        public String secondaryLabel() {
-            return secondaryLabel;
-        }
-    }
-
+public class FixedChoiceConfigEntry
+extends GDRowRenderer {
     private final List<Choice> choices;
     private int index;
     private final String defaultValue;
@@ -55,11 +31,11 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
     private final int extraActionWidth;
 
     public FixedChoiceConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, List<Choice> choices, Consumer<String> onValueChange, ChoiceListDialog choiceListDialog) {
-        this(x1, y1, x2, y2, bgColor, bgAlpha, configName, configId, description, initialValue, defaultValue, choices, onValueChange, choiceListDialog, () -> true, null, null, "", GuiConstants.COLOR_RED, GuiConstants.ROW_HEADER_HEIGHT, null, null);
+        this(x1, y1, x2, y2, bgColor, bgAlpha, configName, configId, description, initialValue, defaultValue, choices, onValueChange, choiceListDialog, () -> true, null, null, "", -65536, 17, null, null);
     }
 
     public FixedChoiceConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, List<Choice> choices, Consumer<String> onValueChange, ChoiceListDialog choiceListDialog, Supplier<Boolean> activeCondition) {
-        this(x1, y1, x2, y2, bgColor, bgAlpha, configName, configId, description, initialValue, defaultValue, choices, onValueChange, choiceListDialog, activeCondition, null, null, "", GuiConstants.COLOR_RED, GuiConstants.ROW_HEADER_HEIGHT, null, null);
+        this(x1, y1, x2, y2, bgColor, bgAlpha, configName, configId, description, initialValue, defaultValue, choices, onValueChange, choiceListDialog, activeCondition, null, null, "", -65536, 17, null, null);
     }
 
     public FixedChoiceConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, List<Choice> choices, Consumer<String> onValueChange, ChoiceListDialog choiceListDialog, Supplier<Boolean> activeCondition, Predicate<Choice> extraActionVisiblePredicate, Consumer<Choice> onExtraAction, String extraActionText, int extraActionColor, int extraActionWidth) {
@@ -83,28 +59,27 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
         this.onDirectAction = onDirectAction;
         this.extraActionText = extraActionText == null ? "" : extraActionText;
         this.extraActionColor = extraActionColor;
-        this.extraActionWidth = extraActionWidth <= 0 ? GuiConstants.ROW_HEADER_HEIGHT : extraActionWidth;
-        this.index = resolveIndex(initialValue, defaultValue);
-
-        this.addNameColumn(configName, configId, GuiConstants.COLOR_WHITE, GuiConstants.COLOR_GRAY, true, false);
-
-        this.addColumn(getValueText(), 60, GuiConstants.COLOR_GOLD, false, true, (btn) -> {
-            openDialog();
-        });
-
-        this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
-            if (!hasDefaultChoice()) return;
-            if (getCurrentValue().equals(this.defaultValue)) return;
-            this.index = resolveIndex(this.defaultValue, getCurrentValue());
-            updateState();
+        this.extraActionWidth = extraActionWidth <= 0 ? 17 : extraActionWidth;
+        this.index = this.resolveIndex(initialValue, defaultValue);
+        this.addNameColumn(configName, configId, -1, -5592406, true, false);
+        this.addColumn(this.getValueText(), 60, BattlefieldUiTheme.palette().accent(), false, true, btn -> this.openDialog());
+        this.addColumn("\u21ba", 17, this.getResetButtonColor(), true, true, btn -> {
+            if (!this.hasDefaultChoice()) {
+                return;
+            }
+            if (this.getCurrentValue().equals(this.defaultValue)) {
+                return;
+            }
+            this.index = this.resolveIndex(this.defaultValue, this.getCurrentValue());
+            this.updateState();
             if (this.onValueChange != null) {
-                this.onValueChange.accept(getCurrentValue());
+                this.onValueChange.accept(this.getCurrentValue());
             }
         });
     }
 
     public String getKey() {
-        return key;
+        return this.key;
     }
 
     @Override
@@ -113,44 +88,42 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
     }
 
     private int resolveIndex(String value, String fallback) {
-        if (choices != null) {
-            for (int i = 0; i < choices.size(); i++) {
-                if (choices.get(i).value().equals(value)) {
-                    return i;
-                }
+        if (this.choices != null) {
+            int i;
+            for (i = 0; i < this.choices.size(); ++i) {
+                if (!this.choices.get(i).value().equals(value)) continue;
+                return i;
             }
-            for (int i = 0; i < choices.size(); i++) {
-                if (choices.get(i).value().equals(fallback)) {
-                    return i;
-                }
+            for (i = 0; i < this.choices.size(); ++i) {
+                if (!this.choices.get(i).value().equals(fallback)) continue;
+                return i;
             }
         }
         return 0;
     }
 
     private String getCurrentValue() {
-        return choices.get(index).value();
+        return this.choices.get(this.index).value();
     }
 
     private String getValueText() {
-        return choices.get(index).label();
+        return this.choices.get(this.index).label();
     }
 
     private void updateState() {
-        Column controlCol = getColumn(1);
+        GDRowRenderer.Column resetCol;
+        GDRowRenderer.Column controlCol = this.getColumn(1);
         if (controlCol != null) {
-            controlCol.text = getValueText();
-            controlCol.color = GuiConstants.COLOR_GOLD;
+            controlCol.text = this.getValueText();
+            controlCol.color = BattlefieldUiTheme.palette().accent();
             if (controlCol.textRenderer != null) {
                 controlCol.textRenderer.setText(controlCol.text);
                 controlCol.textRenderer.setColor(controlCol.color);
             }
         }
-
-        Column resetCol = getColumn(2);
-        if (resetCol != null) {
-            resetCol.color = getResetButtonColor();
-            resetCol.text = "↺";
+        if ((resetCol = this.getColumn(2)) != null) {
+            resetCol.color = this.getResetButtonColor();
+            resetCol.text = "\u21ba";
             if (resetCol.textRenderer != null) {
                 resetCol.textRenderer.setColor(resetCol.color);
                 resetCol.textRenderer.setText(resetCol.text);
@@ -159,48 +132,64 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
     }
 
     private void openDialog() {
-        if (choiceListDialog != null) {
-            choiceListDialog.show(getCurrentValue(), this.configName, this.choices, (newValue) -> {
-                if (newValue != null && newValue.equals(getCurrentValue())) {
+        if (this.choiceListDialog != null) {
+            this.choiceListDialog.show(this.getCurrentValue(), this.configName, this.choices, newValue -> {
+                if (newValue != null && newValue.equals(this.getCurrentValue())) {
                     return;
                 }
-                this.index = resolveIndex(newValue, this.defaultValue);
-                updateState();
+                this.index = this.resolveIndex((String)newValue, this.defaultValue);
+                this.updateState();
                 if (this.onValueChange != null) {
-                    this.onValueChange.accept(getCurrentValue());
+                    this.onValueChange.accept(this.getCurrentValue());
                 }
-            },
-                null,
-                this.extraActionVisiblePredicate,
-                this.onExtraAction,
-                this.extraActionText,
-                this.extraActionColor,
-                this.extraActionWidth,
-                this.directActionPredicate,
-                this.onDirectAction,
-                null,
-                null,
-                null
-            );
+            }, null, this.extraActionVisiblePredicate, this.onExtraAction, this.extraActionText, this.extraActionColor, this.extraActionWidth, this.directActionPredicate, this.onDirectAction, null, null, null);
         }
     }
 
     private int getResetButtonColor() {
-        if (!hasDefaultChoice()) {
-            return GuiConstants.COLOR_GRAY;
+        if (!this.hasDefaultChoice()) {
+            return -5592406;
         }
-        return getCurrentValue().equals(this.defaultValue) ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_GOLD;
+        return this.getCurrentValue().equals(this.defaultValue) ? -5592406 : BattlefieldUiTheme.palette().accent();
     }
 
     private boolean hasDefaultChoice() {
-        if (choices == null || choices.isEmpty()) {
+        if (this.choices == null || this.choices.isEmpty()) {
             return false;
         }
-        for (Choice choice : choices) {
-            if (choice.value().equals(this.defaultValue)) {
-                return true;
-            }
+        for (Choice choice : this.choices) {
+            if (!choice.value().equals(this.defaultValue)) continue;
+            return true;
         }
         return false;
     }
+
+    public static class Choice {
+        private final String value;
+        private final String label;
+        private final String secondaryLabel;
+
+        public Choice(String value, String label) {
+            this(value, label, "");
+        }
+
+        public Choice(String value, String label, String secondaryLabel) {
+            this.value = value;
+            this.label = label;
+            this.secondaryLabel = secondaryLabel == null ? "" : secondaryLabel;
+        }
+
+        public String value() {
+            return this.value;
+        }
+
+        public String label() {
+            return this.label;
+        }
+
+        public String secondaryLabel() {
+            return this.secondaryLabel;
+        }
+    }
 }
+

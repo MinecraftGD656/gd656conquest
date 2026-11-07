@@ -11,6 +11,7 @@ public final class PartyAggregate {
 
     private final String partyId;
     private UUID leaderId;
+    private boolean open;
     private final LinkedHashSet<UUID> memberIds;
     private final long createdTick;
     private long updatedTick;
@@ -107,8 +108,8 @@ public final class PartyAggregate {
     }
 
     public void ensureUnlockedForMembershipChange() {
-        if (lockState != PartyLockState.NONE) {
-            throw new PartyError("当前队伍成员结构已锁定，暂时不能修改");
+        if (lockState == PartyLockState.ROOM_TRANSITION_LOCKED) {
+            throw new PartyError("队伍正在切换房间，请稍后修改成员");
         }
     }
 
@@ -145,6 +146,7 @@ public final class PartyAggregate {
     }
 
     public void changeLeader(UUID nextLeaderId, long gameTick) {
+        ensureUnlockedForMembershipChange();
         UUID resolvedNextLeaderId = Objects.requireNonNull(nextLeaderId, "nextLeaderId");
         if (!isMember(resolvedNextLeaderId)) {
             throw new PartyError("新的队长必须是当前队伍成员");
@@ -154,6 +156,32 @@ public final class PartyAggregate {
         }
         leaderId = resolvedNextLeaderId;
         touch(gameTick);
+    }
+
+    public boolean open() { return open; }
+
+    public void setOpen(boolean value,long gameTick) {
+        ensureUnlockedForMembershipChange();
+        if(open!=value){open=value;touch(gameTick);}
+    }
+
+    public void addMember(UUID id,long gameTick) {
+        ensureUnlockedForMembershipChange();
+        Objects.requireNonNull(id,"memberId");
+        if(memberIds.contains(id))throw new PartyError("该玩家已经在队伍中");
+        if(isFull())throw new PartyError("队伍已满，最多 4 人");
+        memberIds.add(id);touch(gameTick);
+    }
+
+    public boolean removeMember(UUID id,long gameTick) {
+        if(!memberIds.remove(id))throw new PartyError("该玩家已不在队伍中");
+        if(id.equals(leaderId)&&!memberIds.isEmpty())leaderId=memberIds.iterator().next();
+        touch(gameTick);return memberIds.isEmpty();
+    }
+
+    public PartyAggregate copyWithState(PartyStatus nextStatus,PartyLockState nextLock,PartyRoomActionState action,long tick) {
+        PartyAggregate copy=restore(partyId,leaderId,memberIds,createdTick,tick,version+1,nextStatus,nextLock,action);
+        copy.open=open;return copy;
     }
 
     public String partyId() {

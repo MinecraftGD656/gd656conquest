@@ -48,9 +48,10 @@ public final class PartyServerModule implements ServerModule {
         PartyAggregate party = InMemoryPartyRepository.of(player.server).findByPlayerId(player.getUUID()).orElse(null);
         if (party != null && party.isLeader(player.getUUID())) {
             notifyRemainingMembersOnLeaderLogout(player, party);
-            PartySnapshotService.of(player.server).clearPartyState(party.partyId());
+
         }
         InMemoryPartyRepository.of(player.server).handlePlayerLogout(player);
+        if(party!=null&&InMemoryPartyRepository.of(player.server).findByPartyId(party.partyId()).isEmpty())PartySnapshotService.of(player.server).clearPartyState(party.partyId());
     }
 
     private void notifyRemainingMembersOnLeaderLogout(ServerPlayer leader, PartyAggregate party) {
@@ -65,7 +66,7 @@ public final class PartyServerModule implements ServerModule {
             if (member == null) {
                 continue;
             }
-            ServerMessageSender.system(member, null, "队长已离线，当前队伍已解散；你当前的房间状态不受影响", net.minecraft.ChatFormatting.GRAY);
+            ServerMessageSender.system(member, null, "队长已离线，队伍由下一位成员接任；当前房间继续保留", net.minecraft.ChatFormatting.GRAY);
         }
     }
 }

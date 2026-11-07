@@ -1,28 +1,25 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package org.mods.gd656conquest.client.gui.elements.entries;
 
-import net.minecraft.client.gui.GuiGraphics;
-import org.mods.gd656conquest.client.gui.GuiConstants;
-import org.mods.gd656conquest.client.gui.elements.GDRowRenderer;
-import org.mods.gd656conquest.client.gui.elements.GDTextRenderer;
-import org.mods.gd656conquest.client.gui.elements.TextInputDialog;
+import org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import org.mods.gd656conquest.client.gui.elements.GDRowRenderer;
+import org.mods.gd656conquest.client.gui.elements.GDTextRenderer;
+import org.mods.gd656conquest.client.gui.elements.TextInputDialog;
 
-/**
- * 浮点数类型配置行渲染器 (Parallel to StringConfigEntry)
- */
-public class FloatConfigEntry extends GDRowRenderer {
+public class FloatConfigEntry
+extends GDRowRenderer {
     private float value;
     private final float defaultValue;
     private final Consumer<Float> onValueChange;
     private final String key;
-
     private final TextInputDialog textInputDialog;
     private final String configName;
 
@@ -41,62 +38,61 @@ public class FloatConfigEntry extends GDRowRenderer {
         this.onValueChange = onValueChange;
         this.textInputDialog = textInputDialog;
         this.configName = configName;
-
-        this.addNameColumn(configName, configId, GuiConstants.COLOR_WHITE, GuiConstants.COLOR_GRAY, true, false);
-
-        this.addColoredColumn(parseColoredText(this.value), 60, false, false, (btn) -> {
+        this.addNameColumn(configName, configId, -1, -5592406, true, false);
+        this.addColoredColumn(this.parseColoredText(this.value), 60, false, false, btn -> {
             if (this.textInputDialog != null) {
-                String initialText = String.format(Locale.ROOT, "%.2f", this.value);
-                this.textInputDialog.show(initialText, this.configName, (newValue) -> {
+                String initialText = String.format(Locale.ROOT, "%.2f", Float.valueOf(this.value));
+                this.textInputDialog.show(initialText, this.configName, newValue -> {
                     try {
-                        float f = Float.parseFloat(newValue);
-                        this.value = f;
-                        updateState();
+                        float f;
+                        this.value = f = Float.parseFloat(newValue);
+                        this.updateState();
                         if (this.onValueChange != null) {
-                            this.onValueChange.accept(this.value);
+                            this.onValueChange.accept(Float.valueOf(this.value));
                         }
-                    } catch (NumberFormatException ignored) {
+                    }
+                    catch (NumberFormatException numberFormatException) {
+                        // empty catch block
                     }
                 }, this::isValidFloat);
             }
         });
-
-        this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
-            if (Math.abs(this.value - this.defaultValue) < 0.0001f) return;
-
+        this.addColumn("\u21ba", 17, this.getResetButtonColor(), true, true, btn -> {
+            if (Math.abs(this.value - this.defaultValue) < 1.0E-4f) {
+                return;
+            }
             this.value = this.defaultValue;
-            updateState();
+            this.updateState();
             if (this.onValueChange != null) {
-                this.onValueChange.accept(this.value);
+                this.onValueChange.accept(Float.valueOf(this.value));
             }
         });
     }
-    
+
     public String getKey() {
-        return key;
+        return this.key;
     }
 
     private boolean isValidFloat(String text) {
-        if (text == null || text.isEmpty()) return false;
-        
-        if (text.equals("-")) return false; 
-        
-        
+        if (text == null || text.isEmpty()) {
+            return false;
+        }
+        if (text.equals("-")) {
+            return false;
+        }
         return text.matches("^-?\\d+(\\.\\d{0,2})?$") || text.matches("^-?\\.\\d{1,2}$");
     }
 
     private void updateState() {
-        Column controlCol = getColumn(1);
+        GDRowRenderer.Column resetCol;
+        GDRowRenderer.Column controlCol = this.getColumn(1);
         if (controlCol != null) {
-            controlCol.coloredTexts = parseColoredText(this.value);
+            controlCol.coloredTexts = this.parseColoredText(this.value);
             controlCol.textRenderer = null;
         }
-
-        Column resetCol = getColumn(2);
-        if (resetCol != null) {
-            resetCol.color = getResetButtonColor();
-            resetCol.text = "↺";
-            
+        if ((resetCol = this.getColumn(2)) != null) {
+            resetCol.color = this.getResetButtonColor();
+            resetCol.text = "\u21ba";
             if (resetCol.textRenderer != null) {
                 resetCol.textRenderer.setColor(resetCol.color);
                 resetCol.textRenderer.setText(resetCol.text);
@@ -105,27 +101,23 @@ public class FloatConfigEntry extends GDRowRenderer {
     }
 
     private int getResetButtonColor() {
-        return (Math.abs(value - defaultValue) < 0.0001f) ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_GOLD;
+        return Math.abs(this.value - this.defaultValue) < 1.0E-4f ? -5592406 : BattlefieldUiTheme.palette().accent();
     }
 
     private List<GDTextRenderer.ColoredText> parseColoredText(float val) {
-        List<GDTextRenderer.ColoredText> list = new ArrayList<>();
-        
-        String text = String.format(Locale.ROOT, "%.2f", val);
-        
-        int dotIndex = text.indexOf('.');
-        
+        ArrayList<GDTextRenderer.ColoredText> list = new ArrayList<GDTextRenderer.ColoredText>();
+        String text = String.format(Locale.ROOT, "%.2f", Float.valueOf(val));
+        int dotIndex = text.indexOf(46);
         if (dotIndex != -1) {
             String intPart = text.substring(0, dotIndex);
-            list.add(new GDTextRenderer.ColoredText(" " + intPart, GuiConstants.COLOR_WHITE));             
-            list.add(new GDTextRenderer.ColoredText(".", GuiConstants.COLOR_WHITE));
-            
+            list.add(new GDTextRenderer.ColoredText(" " + intPart, -1));
+            list.add(new GDTextRenderer.ColoredText(".", -1));
             String decPart = text.substring(dotIndex + 1);
-            list.add(new GDTextRenderer.ColoredText(decPart, GuiConstants.COLOR_GRAY));
+            list.add(new GDTextRenderer.ColoredText(decPart, -5592406));
         } else {
-            list.add(new GDTextRenderer.ColoredText(" " + text, GuiConstants.COLOR_WHITE));
+            list.add(new GDTextRenderer.ColoredText(" " + text, -1));
         }
-
         return list;
     }
 }
+

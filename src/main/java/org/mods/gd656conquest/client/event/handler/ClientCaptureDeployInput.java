@@ -13,6 +13,7 @@ import org.mods.gd656conquest.client.room.ClientRoomLockState;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.RoomDeathmatchDeployViewRequestPacket;
 import org.mods.gd656conquest.network.packet.RoomDeploySelectPacket;
+import org.mods.gd656killicon.client.sounds.BattlefieldAudio;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -38,7 +39,7 @@ final class ClientCaptureDeployInput {
         if (minecraft.screen != null) {
             return;
         }
-        long now = System.currentTimeMillis();
+        long now = System.nanoTime() / 1_000_000L;
         if (state.lastHandledMousePressMillis > 0L && now - state.lastHandledMousePressMillis < MOUSE_PRESS_DEBOUNCE_MILLIS) {
             return;
         }
@@ -46,14 +47,12 @@ final class ClientCaptureDeployInput {
         if (event.isCancelable()) {
             event.setCanceled(true);
         }
-        CaptureIconEntry clickedIcon = resolveHoveredDeployIconFromCursor(state, minecraft);
-        if (clickedIcon == null) {
-            clickedIcon = state.hoveredDeployIcon;
-        }
+        CaptureIconEntry clickedIcon = resolveHoveredDeployIconFromCursor(state, minecraft, selfTeam);
         if (clickedIcon == null || !clickedIcon.isDeployableFor(selfTeam)) {
             return;
         }
         String currentId = clickedIcon.renderId();
+        if(!currentId.equals(state.selectedDeployIconId))BattlefieldAudio.play(BattlefieldAudio.Event.DEPLOY_SELECT);
         state.selectedDeployIconId = currentId;
         sendDeploySelection(clickedIcon);
         boolean doubleClick = currentId.equals(state.lastClickedDeployIconId)
@@ -102,7 +101,7 @@ final class ClientCaptureDeployInput {
         if (event.isCancelable()) {
             event.setCanceled(true);
         }
-        long now = System.currentTimeMillis();
+        long now = System.nanoTime() / 1_000_000L;
         
         if (isSpace) {
             CaptureIconEntry selectedIcon = resolveSelectedDeployIcon(state, selfTeam);
@@ -133,6 +132,7 @@ final class ClientCaptureDeployInput {
             if (nextIcon == null) {
                 return true;
             }
+            if(!nextIcon.renderId().equals(state.selectedDeployIconId))BattlefieldAudio.play(BattlefieldAudio.Event.DEPLOY_SELECT);
             state.selectedDeployIconId = nextIcon.renderId();
             sendDeploySelection(nextIcon);
             return true;
@@ -141,7 +141,7 @@ final class ClientCaptureDeployInput {
         return true;
     }
 
-    private CaptureIconEntry resolveHoveredDeployIconFromCursor(ClientCaptureOverlayState state, Minecraft minecraft) {
+    private CaptureIconEntry resolveHoveredDeployIconFromCursor(ClientCaptureOverlayState state, Minecraft minecraft, TeamToken selfTeam) {
         if (minecraft.level == null || minecraft.player == null || state.renderedDeployIcons.isEmpty()) {
             return null;
         }
@@ -149,7 +149,7 @@ final class ClientCaptureDeployInput {
         CaptureIconEntry best = null;
         for (RenderedIconBounds bounds : state.renderedDeployIcons) {
             double distance = ClientCaptureIconRenderer.resolveMouseDistance(minecraft, bounds.screenX(), bounds.screenY());
-            if (distance <= bounds.hoverRadius() && distance < bestDistance) {
+            if (DeploymentMarkerHit.contains(bounds.entry(),selfTeam,bounds.screenX(),bounds.screenY(),bounds.hoverRadius(),minecraft) && distance < bestDistance) {
                 bestDistance = distance;
                 best = bounds.entry();
             }
@@ -235,25 +235,6 @@ final class ClientCaptureDeployInput {
     }
 
     private void sendDeployPacket(DeployTargetAction action, boolean confirm) {
-        if (action == null || action.targetId() == null || action.targetId().isBlank()) {
-            return;
-        }
-        switch (action.type()) {
-            case TEAMMATE -> NetworkManager.getChannel().sendToServer(
-                confirm ? RoomDeploySelectPacket.confirmTeammate(action.targetId()) : RoomDeploySelectPacket.selectTeammate(action.targetId())
-            );
-            case BEACON -> NetworkManager.getChannel().sendToServer(
-                confirm ? RoomDeploySelectPacket.confirmBeacon(action.targetId()) : RoomDeploySelectPacket.selectBeacon(action.targetId())
-            );
-            case TEAM -> NetworkManager.getChannel().sendToServer(
-                confirm ? RoomDeploySelectPacket.confirmTeam(action.targetId()) : RoomDeploySelectPacket.selectTeam(action.targetId())
-            );
-            case CAPTURE -> NetworkManager.getChannel().sendToServer(
-                confirm ? RoomDeploySelectPacket.confirmCapture(action.targetId()) : RoomDeploySelectPacket.selectCapture(action.targetId())
-            );
-            case VEHICLE -> NetworkManager.getChannel().sendToServer(
-                confirm ? RoomDeploySelectPacket.confirmVehicle(action.targetId()) : RoomDeploySelectPacket.selectVehicle(action.targetId())
-            );
-        }
+        BattlefieldDeployActions.send(action, confirm);
     }
 }

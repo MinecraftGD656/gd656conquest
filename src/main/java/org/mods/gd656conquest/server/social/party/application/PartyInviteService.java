@@ -43,6 +43,7 @@ public final class PartyInviteService {
         if (repository.findByPlayerId(resolvedTargetPlayerId).isPresent()) {
             throw new PartyError("目标玩家当前已经在其他队伍中");
         }
+        for(PartyRequest existing:requestsById.values())if(existing.type()==PartyRequestType.INVITE&&existing.partyId().equals(party.partyId())&&existing.toPlayerId().equals(resolvedTargetPlayerId))return existing;
         PartyRequest request = PartyRequest.createPending(
             generateRequestId(),
             PartyRequestType.INVITE,
@@ -70,6 +71,7 @@ public final class PartyInviteService {
         if (party.isMember(resolvedApplicantId)) {
             throw new PartyError("该玩家已经在目标队伍中");
         }
+        for(PartyRequest existing:requestsById.values())if(existing.type()==PartyRequestType.JOIN_APPLICATION&&existing.partyId().equals(party.partyId())&&existing.fromPlayerId().equals(resolvedApplicantId))return existing;
         PartyRequest request = PartyRequest.createPending(
             generateRequestId(),
             PartyRequestType.JOIN_APPLICATION,
@@ -92,7 +94,7 @@ public final class PartyInviteService {
             case INVITE -> acceptInvite(request, resolvedOperatorId);
             case JOIN_APPLICATION -> acceptJoinApplication(request, resolvedOperatorId);
         };
-        requestsById.put(accepted.requestId(), accepted);
+        requestsById.remove(accepted.requestId());
         return accepted;
     }
 
@@ -110,7 +112,7 @@ public final class PartyInviteService {
             }
         }
         PartyRequest refused = request.refuse();
-        requestsById.put(refused.requestId(), refused);
+        requestsById.remove(refused.requestId());
         return refused;
     }
 
@@ -130,17 +132,9 @@ public final class PartyInviteService {
     }
 
     public int expireRequests() {
-        int expiredCount = 0;
-        long currentTick = currentTick();
-        for (Map.Entry<String, PartyRequest> entry : new ArrayList<>(requestsById.entrySet())) {
-            PartyRequest request = entry.getValue();
-            if (request == null || !request.isPending() || !request.isExpiredAt(currentTick)) {
-                continue;
-            }
-            entry.setValue(request.expire());
-            expiredCount++;
-        }
-        return expiredCount;
+        int previous=requestsById.size();
+        requestsById.values().removeIf(request->request==null||!refreshRequestState(request).isPending());
+        return previous-requestsById.size();
     }
 
     private PartyRequest acceptInvite(PartyRequest request, UUID operatorId) {
@@ -190,23 +184,7 @@ public final class PartyInviteService {
     }
 
     private void savePartyWithNewMember(PartyAggregate party, UUID memberId) {
-        LinkedHashSet<UUID> nextMembers = new LinkedHashSet<>(party.memberIds());
-        nextMembers.add(memberId);
-        if (nextMembers.size() > PartyAggregate.MAX_MEMBER_COUNT) {
-            throw new PartyError("当前队伍人数已达上限 4 人");
-        }
-        PartyAggregate updated = PartyAggregate.restore(
-            party.partyId(),
-            party.leaderId(),
-            nextMembers,
-            party.createdTick(),
-            currentTick(),
-            party.version() + 1L,
-            party.status(),
-            party.lockState(),
-            party.pendingRoomAction()
-        );
-        repository.save(updated);
+        party.addMember(memberId,currentTick());repository.save(party);
     }
 
     private void ensurePartyHasCapacity(PartyAggregate party) {
@@ -222,7 +200,7 @@ public final class PartyInviteService {
             requestsById.put(resolvedRequestId, request);
         }
         if (request == null) {
-            throw new PartyError("未找到对应的请求");
+            throw new PartyError("请求已处理、失效或过期");
         }
         if (request.status() == PartyRequestStatus.EXPIRED) {
             throw new PartyError("该请求已过期");

@@ -1,20 +1,24 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package org.mods.gd656conquest.client.gui.elements.entries;
 
-import net.minecraft.client.gui.GuiGraphics;
-import org.mods.gd656conquest.client.gui.GuiConstants;
-import org.mods.gd656conquest.client.gui.elements.GDRowRenderer;
-import org.mods.gd656conquest.client.gui.elements.GDTextRenderer;
-import org.mods.gd656conquest.client.gui.elements.TextInputDialog;
+import org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import net.minecraft.client.gui.GuiGraphics;
+import org.mods.gd656conquest.client.gui.elements.GDRowRenderer;
+import org.mods.gd656conquest.client.gui.elements.GDTextRenderer;
+import org.mods.gd656conquest.client.gui.elements.TextInputDialog;
 
-public class IntegerConfigEntry extends GDRowRenderer {
+public class IntegerConfigEntry
+extends GDRowRenderer {
     private int value;
     private final int defaultValue;
     private final Consumer<Integer> onValueChange;
@@ -43,32 +47,33 @@ public class IntegerConfigEntry extends GDRowRenderer {
         this.textInputDialog = textInputDialog;
         this.configName = configName;
         this.validator = validator == null ? this::isValidInteger : validator;
-
-        this.addNameColumn(configName, configId, GuiConstants.COLOR_WHITE, GuiConstants.COLOR_GRAY, true, false);
-
-        this.addColoredColumn(parseColoredText(String.valueOf(this.value)), 60, false, false, (btn) -> {
+        this.addNameColumn(configName, configId, -1, -5592406, true, false);
+        this.addColoredColumn(this.parseColoredText(String.valueOf(this.value)), 60, false, false, btn -> {
             if (this.textInputDialog != null) {
-                this.textInputDialog.show(String.valueOf(this.value), this.configName, (newValue) -> {
+                this.textInputDialog.show(String.valueOf(this.value), this.configName, newValue -> {
                     try {
-                        if (this.validator != null && !this.validator.test(newValue)) {
+                        int parsed;
+                        if (this.validator != null && !this.validator.test((String)newValue)) {
                             return;
                         }
-                        int parsed = Integer.parseInt(newValue);
-                        this.value = parsed;
-                        updateState();
+                        this.value = parsed = Integer.parseInt(newValue);
+                        this.updateState();
                         if (this.onValueChange != null) {
                             this.onValueChange.accept(this.value);
                         }
-                    } catch (NumberFormatException ignored) {
+                    }
+                    catch (NumberFormatException numberFormatException) {
+                        // empty catch block
                     }
                 }, this.validator);
             }
         });
-
-        this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
-            if (this.value == this.defaultValue) return;
+        this.addColumn("\u21ba", 17, this.getResetButtonColor(), true, true, btn -> {
+            if (this.value == this.defaultValue) {
+                return;
+            }
             this.value = this.defaultValue;
-            updateState();
+            this.updateState();
             if (this.onValueChange != null) {
                 this.onValueChange.accept(this.value);
             }
@@ -76,12 +81,12 @@ public class IntegerConfigEntry extends GDRowRenderer {
     }
 
     public String getKey() {
-        return key;
+        return this.key;
     }
 
     public void setValue(int value) {
         this.value = value;
-        updateState();
+        this.updateState();
     }
 
     @Override
@@ -90,23 +95,25 @@ public class IntegerConfigEntry extends GDRowRenderer {
     }
 
     private boolean isValidInteger(String text) {
-        if (text == null || text.isEmpty()) return false;
-        if (text.equals("-")) return false;
+        if (text == null || text.isEmpty()) {
+            return false;
+        }
+        if (text.equals("-")) {
+            return false;
+        }
         return text.matches("^-?\\d+$");
     }
 
     private void updateState() {
-        Column controlCol = getColumn(1);
+        GDRowRenderer.Column resetCol;
+        GDRowRenderer.Column controlCol = this.getColumn(1);
         if (controlCol != null) {
-            controlCol.coloredTexts = parseColoredText(String.valueOf(this.value));
+            controlCol.coloredTexts = this.parseColoredText(String.valueOf(this.value));
             controlCol.textRenderer = null;
         }
-
-        Column resetCol = getColumn(2);
-        if (resetCol != null) {
-            resetCol.color = getResetButtonColor();
-            resetCol.text = "↺";
-            
+        if ((resetCol = this.getColumn(2)) != null) {
+            resetCol.color = this.getResetButtonColor();
+            resetCol.text = "\u21ba";
             if (resetCol.textRenderer != null) {
                 resetCol.textRenderer.setColor(resetCol.color);
                 resetCol.textRenderer.setText(resetCol.text);
@@ -115,28 +122,26 @@ public class IntegerConfigEntry extends GDRowRenderer {
     }
 
     private int getResetButtonColor() {
-        return this.value == this.defaultValue ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_GOLD;
+        return this.value == this.defaultValue ? -5592406 : BattlefieldUiTheme.palette().accent();
     }
 
     private List<GDTextRenderer.ColoredText> parseColoredText(String text) {
-        List<GDTextRenderer.ColoredText> list = new ArrayList<>();
+        ArrayList<GDTextRenderer.ColoredText> list = new ArrayList<GDTextRenderer.ColoredText>();
         String processingText = " " + (text == null ? "" : text);
-
         Pattern pattern = Pattern.compile("<.*?>");
         Matcher matcher = pattern.matcher(processingText);
-
         int lastEnd = 0;
         while (matcher.find()) {
             if (matcher.start() > lastEnd) {
-                list.add(new GDTextRenderer.ColoredText(processingText.substring(lastEnd, matcher.start()), GuiConstants.COLOR_WHITE));
+                list.add(new GDTextRenderer.ColoredText(processingText.substring(lastEnd, matcher.start()), -1));
             }
-            list.add(new GDTextRenderer.ColoredText(matcher.group(), GuiConstants.COLOR_GOLD));
+            list.add(new GDTextRenderer.ColoredText(matcher.group(), BattlefieldUiTheme.palette().accent()));
             lastEnd = matcher.end();
         }
         if (lastEnd < processingText.length()) {
-            list.add(new GDTextRenderer.ColoredText(processingText.substring(lastEnd), GuiConstants.COLOR_WHITE));
+            list.add(new GDTextRenderer.ColoredText(processingText.substring(lastEnd), -1));
         }
-
         return list;
     }
 }
+

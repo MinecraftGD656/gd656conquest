@@ -29,31 +29,41 @@ public final class PartyMembershipService {
     }
 
     public LeavePartyResult leaveParty(UUID playerId) {
+        return removeMember(playerId,false);
+    }
+
+    public LeavePartyResult leaveDisconnected(UUID playerId) {
+        return removeMember(playerId,true);
+    }
+
+    private LeavePartyResult removeMember(UUID playerId,boolean disconnected) {
         UUID resolvedPlayerId = requirePlayerId(playerId);
         PartyAggregate party = repository.findByPlayerId(resolvedPlayerId)
             .orElseThrow(() -> new PartyError("该玩家当前不在任何队伍中"));
-        // GD656Mods: 主动离开队伍不受"成员结构锁定"限制 —— 组队进入对局后队伍会被 lockMembership,
-        // 若这里继续校验锁, 玩家在对局中就永远无法退出队伍。锁定只用于防止"邀请/加入"造成的结构变化,
-        // 退出不会破坏对局状态(该玩家的小队归属在进入对局时已经写入)。
-        if (party.isLeader(resolvedPlayerId)) {
-            repository.delete(party.partyId());
-            return new LeavePartyResult(party.partyId(), true);
-        }
-        LinkedHashSet<UUID> retainedMembers = new LinkedHashSet<>(party.memberIds());
-        retainedMembers.remove(resolvedPlayerId);
-        PartyAggregate updated = PartyAggregate.restore(
-            party.partyId(),
-            party.leaderId(),
-            retainedMembers,
-            party.createdTick(),
-            currentTick(),
-            party.version() + 1L,
-            party.status(),
-            party.lockState(),
-            party.pendingRoomAction()
-        );
-        repository.save(updated);
-        return new LeavePartyResult(updated.partyId(), false);
+        if(!disconnected)party.ensureUnlockedForMembershipChange();
+        boolean empty=party.removeMember(resolvedPlayerId,currentTick());
+        if(empty)repository.delete(party.partyId());else repository.save(party);
+        return new LeavePartyResult(party.partyId(),empty);
+    }
+
+    public void kickMember(UUID operatorId,UUID targetId) {
+        PartyAggregate party=repository.findByPlayerId(requirePlayerId(operatorId)).orElseThrow(()->new PartyError("你当前不在队伍中"));
+        party.requireLeader(operatorId);party.ensureUnlockedForMembershipChange();
+        if(operatorId.equals(targetId))throw new PartyError("退出自己的队伍请使用离开");
+        party.removeMember(requirePlayerId(targetId),currentTick());repository.save(party);
+    }
+
+    public void setOpen(UUID operatorId,boolean open) {
+        PartyAggregate party=repository.findByPlayerId(requirePlayerId(operatorId)).orElseThrow(()->new PartyError("你当前不在队伍中"));
+        party.requireLeader(operatorId);party.setOpen(open,currentTick());repository.save(party);
+    }
+
+    public void joinOpen(UUID playerId,String partyId) {
+        requirePlayerId(playerId);
+        if(repository.findByPlayerId(playerId).isPresent())throw new PartyError("请先离开当前好友队伍");
+        PartyAggregate party=repository.findByPartyId(partyId).orElseThrow(()->new PartyError("队伍已解散"));
+        if(!party.open())throw new PartyError("该队伍需要邀请或申请");
+        party.addMember(playerId,currentTick());repository.save(party);
     }
 
     public void disbandParty(UUID operatorId) {

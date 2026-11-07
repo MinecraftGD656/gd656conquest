@@ -55,7 +55,7 @@ public final class RoomSquadAssignmentService {
             view.write(playerId, existing);
             return;
         }
-        view.write(playerId, chooseSingleSquadLabel(countSquadMembers(view, teamId)));
+        view.write(playerId, chooseSingleSquadLabel(availableCounts(runtimeState,view,teamId,running)));
     }
 
     /** GD656Mods: 指定小队落位(整组分配的结果); {@code squadLabel} 为空时退回单人策略。 */
@@ -81,7 +81,7 @@ public final class RoomSquadAssignmentService {
         if (view == null || teamId == null) {
             return "";
         }
-        return chooseGroupSquadLabel(countSquadMembers(view, teamId), groupSize);
+        return chooseGroupSquadLabel(availableCounts(runtimeState,view,teamId,running), groupSize);
     }
 
     public void removePlayer(RoomRuntimeState runtimeState, UUID playerId) {
@@ -134,6 +134,13 @@ public final class RoomSquadAssignmentService {
             }
         }
         return toSquadLabel(safeCounts.size());
+    }
+
+    private Map<String,Integer> availableCounts(RoomRuntimeState runtime,SquadView view,RoomTeamId team,boolean running){
+        org.mods.gd656conquest.server.room.core.RoomSquadService.reconcile(runtime,running);
+        Map<String,Integer> counts=countSquadMembers(view,team);
+        runtime.getSocialSquads().forEach((key,value)->{if(value.locked()&&key.startsWith(team.name()+":"))counts.put(key.substring(key.indexOf(':')+1),SQUAD_SIZE);});
+        return counts;
     }
 
     private Map<String, Integer> countSquadMembers(SquadView view, RoomTeamId teamId) {

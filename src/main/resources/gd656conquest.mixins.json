@@ -13,7 +13,8 @@
     "server.PlayerListMixin",
     "server.ServerGamePacketListenerImplMixin",
     "server.ItemEntityMixin",
-    "server.compat.curios.CPacketOpenCuriosMixin"
+    "server.compat.curios.CPacketOpenCuriosMixin",
+    "server.RoomSocialAccessMixin"
   ],
   "client": [
     "client.ClientPacketListenerMixin",

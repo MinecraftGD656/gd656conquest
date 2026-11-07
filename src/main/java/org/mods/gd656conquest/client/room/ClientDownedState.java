@@ -49,6 +49,10 @@ public final class ClientDownedState {
         new ResourceLocation("gd656frontvoice", "downed.loop")
     );
 
+    private static net.minecraft.client.multiplayer.ClientLevel visualLevel;
+    private static long visualSequence;
+    private static long visualStartedNanos;
+    private static int observedKillerId = -1;
     private static boolean active;
     private static boolean debugPreview;
     private static boolean surrenderRequested;
@@ -83,6 +87,10 @@ public final class ClientDownedState {
         active = true;
         debugPreview = false;
         if (enteringFreshDowned) {
+            visualLevel=minecraft.level;
+            visualSequence++;
+            visualStartedNanos = System.nanoTime();
+            observedKillerId = killerEntityId;
             surrenderRequested = false;
             debugFinishTicksRemaining = 0;
             surrenderHoldTicks = 0.0F;
@@ -109,6 +117,10 @@ public final class ClientDownedState {
         }
         active = true;
         debugPreview = true;
+        visualLevel=minecraft.level;
+        visualSequence++;
+        visualStartedNanos = System.nanoTime();
+        observedKillerId = -1;
         surrenderRequested = false;
         debugFinishTicksRemaining = 0;
         remainTicks = Math.max(20, Math.round(durationMs / 50.0F));
@@ -124,6 +136,7 @@ public final class ClientDownedState {
     public static void clear() {
         TaczClientInputCompat.clearTransientCombatState(Minecraft.getInstance());
         active = false;
+        visualLevel=null;
         debugPreview = false;
         surrenderRequested = false;
         debugFinishTicksRemaining = 0;
@@ -206,6 +219,18 @@ public final class ClientDownedState {
         DownedLoopSoundInstance probe = new DownedLoopSoundInstance(soundId);
         WeighedSoundEvents soundEvents = probe.resolve(soundManager);
         return soundEvents != null && soundEvents.getWeight() > 0;
+    }
+
+    /** Immutable display contract. Input, timers and packet handling remain native. */
+    public record VisualSnapshot(net.minecraft.client.multiplayer.ClientLevel level, boolean active, boolean debug, long sequence, long startedNanos,
+                                 int remainingTicks, int killerEntityId, float surrenderProgress,
+                                 boolean surrenderRequested, boolean callingForHelp, boolean beingRevived,
+                                 List<RescuerEntry> rescuers) {}
+
+    public static VisualSnapshot visualSnapshot() {
+        return new VisualSnapshot(visualLevel, active, debugPreview, visualSequence, visualStartedNanos, remainTicks,
+            observedKillerId, Mth.clamp(surrenderHoldTicks / SURRENDER_HOLD_TICKS, 0.0F, 1.0F),
+            surrenderRequested, helpStatusTicksRemaining > 0, isBeingRevivedLocked(), List.copyOf(rescuers));
     }
 
     public static boolean isActive() {

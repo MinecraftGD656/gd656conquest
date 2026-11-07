@@ -108,7 +108,7 @@ final class ClientCaptureOverlayCodec {
             state.lastRenderNanos = now;
             return 1.0F / 60.0F;
         }
-        float deltaSeconds = Mth.clamp((now - state.lastRenderNanos) / 1_000_000_000.0F, 1.0F / 240.0F, 0.1F);
+        float deltaSeconds = Mth.clamp((now - state.lastRenderNanos) / 1_000_000_000.0F, 0.0F, 0.1F);
         state.lastRenderNanos = now;
         return deltaSeconds;
     }
@@ -164,6 +164,7 @@ final class ClientCaptureOverlayCodec {
                 TeamToken owner = TeamToken.from(cols[5]);
                 TeamToken driving = TeamToken.from(cols[6]);
                 float progress = Float.parseFloat(cols[7]);
+                if(!Float.isFinite(progress))throw new IllegalArgumentException("Non-finite capture progress");
                 String note = cols.length >= 9 ? decodeHudText(cols[8]) : "";
                 boolean teammateCombat = false;
                 // GD656Mods: 队友是否为创造模式(不可部署, 客户端显示红色 + 小字提示)
@@ -381,6 +382,7 @@ final class ClientCaptureOverlayCodec {
 
     private double decodeWorldCoordinate(IconKind kind, String rawValue, boolean horizontalAxis) {
         double value = Double.parseDouble(rawValue);
+        if(!Double.isFinite(value))throw new IllegalArgumentException("Non-finite capture coordinate");
         if (!horizontalAxis) {
             return value;
         }
@@ -388,6 +390,6 @@ final class ClientCaptureOverlayCodec {
     }
 
     private boolean shouldCenterOnBlock(IconKind kind) {
-        return kind != IconKind.TEAMMATE && kind != IconKind.VEHICLE;
+        return kind != IconKind.TEAMMATE && kind != IconKind.VEHICLE && kind != IconKind.BOUNDARY;
     }
 }

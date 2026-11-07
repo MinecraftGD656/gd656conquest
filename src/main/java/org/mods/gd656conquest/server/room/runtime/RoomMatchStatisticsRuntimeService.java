@@ -8,8 +8,8 @@ import org.mods.gd656conquest.server.data.playerdata.PlayerDataStore;
 import org.mods.gd656conquest.server.data.roomstatisticdata.RoomStatisticDataModel;
 import org.mods.gd656conquest.server.room.core.RunningRuntimeState;
 import org.mods.gd656conquest.server.room.gameplay.RoomGameplayPresentationProvider;
-import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.gameplay.RoomMatchEndRequest;
+import org.mods.gd656conquest.server.room.gameplay.RoomSoloGameplaySupport;
 import org.mods.gd656conquest.server.room.model.RoomDefinition;
 import org.mods.gd656conquest.server.room.model.RoomTeamId;
 
@@ -121,6 +121,12 @@ public final class RoomMatchStatisticsRuntimeService {
                     case DRAW -> statistics.setDraws(statistics.getDraws() + 1);
                 }
             }
+            var combat = runningState.getKilliconMatchStatsByPlayer().get(playerId);
+            org.mods.gd656killicon.profile.ProfileServer.recordBattle(server, playerId,
+                room.roomId(), room.displayName(), activeMatchInstanceId, session.getFinalResultType().name(),
+                (int) Math.min(Integer.MAX_VALUE, session.getAccumulatedActiveTicks() / 20L),
+                combat == null ? 0 : combat.score(), combat == null ? 0 : combat.kill(),
+                combat == null ? 0 : combat.death(), combat == null ? 0 : combat.assist(), combat == null ? 0 : combat.revive());
             playerDataStore.savePlayerData(playerId, data);
         }
         accumulateRoomStatistics(room, runningState, completedParticipants, matchEndTick);

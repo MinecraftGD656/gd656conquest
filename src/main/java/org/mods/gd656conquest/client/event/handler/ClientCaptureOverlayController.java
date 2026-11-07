@@ -1,162 +1,179 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package org.mods.gd656conquest.client.event.handler;
 
+import java.util.List;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
+import org.mods.gd656conquest.client.event.handler.ClientCaptureBattleAreaLineSnapshot;
+import org.mods.gd656conquest.client.event.handler.ClientCaptureBattleAreaPolygonSnapshot;
+import org.mods.gd656conquest.client.event.handler.ClientCaptureIconRenderer;
+import org.mods.gd656conquest.client.event.handler.ClientCaptureObjectiveWaypointSnapshot;
+import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel;
+import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayRuntime;
+import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayState;
+import org.mods.gd656conquest.client.event.handler.ClientDeployBoundaryOverlayRenderer;
+import org.mods.gd656conquest.client.room.ClientDeathFlowState;
+import org.mods.gd656conquest.client.room.ClientDownedState;
 
 final class ClientCaptureOverlayController {
     private final ClientCaptureOverlayRuntime runtime = new ClientCaptureOverlayRuntime();
-    private final ClientDeployBoundaryOverlayRenderer deployBoundaryOverlayRenderer =
-        new ClientDeployBoundaryOverlayRenderer(runtime.boundaryRenderer());
+    private final ClientDeployBoundaryOverlayRenderer deployBoundaryOverlayRenderer = new ClientDeployBoundaryOverlayRenderer(this.runtime.boundaryRenderer());
     private final ClientCaptureIconRenderer iconRenderer = new ClientCaptureIconRenderer();
-
-    void onDeployUiOpened() {
-        runtime.onDeployUiOpened();
-    }
-
-    void onDeployUiClosed() {
-        runtime.onDeployUiClosed();
-    }
-
-    void handleClientLogout() {
-        runtime.handleClientLogout();
-    }
-
-    void clearRenderCaches() {
-        runtime.clearRenderCaches();
-    }
-
-    int debugTotalRendererCacheSize() {
-        return runtime.debugTotalCacheSize();
-    }
-
-    // GD656Mods: 临时观测入口，测完删除
-    String deployOverlayDebugLine() {
-        return deployBoundaryOverlayRenderer.debugStatsLine();
-    }
-
-    // GD656Mods: 临时观测入口，测完删除
-    String deployOverlayDebugDetailLine() {
-        return deployBoundaryOverlayRenderer.debugStatsDetailLine();
-    }
-
-    // GD656Mods: 临时观测，payload 解析次数每秒采样，测完删除
     private long lastPayloadParseSample;
     private long lastPayloadParseSampleMillis;
     private int payloadParsePerSecond;
 
+    ClientCaptureOverlayController() {
+    }
+
+    void onDeployUiOpened() {
+        this.runtime.onDeployUiOpened();
+    }
+
+    void onDeployUiClosed() {
+        this.runtime.onDeployUiClosed();
+    }
+
+    void handleClientLogout() {
+        this.runtime.handleClientLogout();
+        this.deployBoundaryOverlayRenderer.release();
+        BattlefieldDeploymentView.clear();
+    }
+
+    void clearRenderCaches() {
+        this.runtime.clearRenderCaches();
+        this.deployBoundaryOverlayRenderer.release();
+    }
+
+    int debugTotalRendererCacheSize() {
+        return this.runtime.debugTotalCacheSize();
+    }
+
+    String deployOverlayDebugLine() {
+        return this.deployBoundaryOverlayRenderer.debugStatsLine();
+    }
+
+    String deployOverlayDebugDetailLine() {
+        return this.deployBoundaryOverlayRenderer.debugStatsDetailLine();
+    }
+
     int payloadParsePerSecond() {
         long now = System.currentTimeMillis();
-        long count = runtime.debugPayloadParseCount();
-        if (lastPayloadParseSampleMillis == 0L || now - lastPayloadParseSampleMillis >= 1000L) {
-            payloadParsePerSecond = (int) (count - lastPayloadParseSample);
-            lastPayloadParseSample = count;
-            lastPayloadParseSampleMillis = now;
+        long count = this.runtime.debugPayloadParseCount();
+        if (this.lastPayloadParseSampleMillis == 0L || now - this.lastPayloadParseSampleMillis >= 1000L) {
+            this.payloadParsePerSecond = (int)(count - this.lastPayloadParseSample);
+            this.lastPayloadParseSample = count;
+            this.lastPayloadParseSampleMillis = now;
         }
-        return payloadParsePerSecond;
+        return this.payloadParsePerSecond;
     }
 
     boolean isDeployMouseScreen(Screen screen) {
-        return runtime.isDeployMouseScreen(screen);
+        return this.runtime.isDeployMouseScreen(screen);
     }
 
     boolean shouldRenderCaptureLinesForStage(RenderLevelStageEvent.Stage stage) {
-        return runtime.shouldRenderCaptureLinesForStage(stage);
+        return this.runtime.shouldRenderCaptureLinesForStage(stage);
     }
 
     void captureWorldProjectionState(RenderLevelStageEvent event) {
-        runtime.captureWorldProjectionState(event);
+        this.runtime.captureWorldProjectionState(event);
     }
 
     void renderCaptureBoundaryLines(RenderLevelStageEvent event) {
-        runtime.renderCaptureBoundaryLines(event);
+        this.runtime.renderCaptureBoundaryLines(event);
     }
 
     void renderCaptureIconHudOverlay(RenderGuiOverlayEvent.Post event) {
-        renderCaptureIconHudOverlay(event.getGuiGraphics());
+        this.renderCaptureIconHudOverlay(event.getGuiGraphics());
     }
 
-    void renderCaptureIconHudOverlay(net.minecraft.client.gui.GuiGraphics guiGraphics) {
-        if (!runtime.ensureWorldReady()) {
+    void renderCaptureIconHudOverlay(GuiGraphics guiGraphics) {
+        if (!this.runtime.ensureWorldReady()) {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
-        ClientCaptureOverlayState state = runtime.state();
-        boolean deployPhaseActive = org.mods.gd656conquest.client.room.ClientDeathFlowState.shouldRenderDeployBoundaries();
-        boolean downedActive = org.mods.gd656conquest.client.room.ClientDownedState.isActive();
-        if (org.mods.gd656conquest.client.room.ClientDeathFlowState.hasActiveCameraOverride()
-            && !downedActive
-            && !deployPhaseActive) {
-            runtime.clearDeploySelection();
-            runtime.syncOverlayState();
-            if (!runtime.hasCaptureIcons()) {
+        ClientCaptureOverlayState state = this.runtime.state();
+        boolean deployPhaseActive = ClientDeathFlowState.shouldRenderDeployBoundaries();
+        boolean downedActive = ClientDownedState.isActive();
+        if (ClientDeathFlowState.hasActiveCameraOverride() && !downedActive && !deployPhaseActive) {
+            this.runtime.clearDeploySelection();
+            this.runtime.syncOverlayState();
+            if (!this.runtime.hasCaptureIcons()) {
                 return;
             }
-            float deltaSeconds = runtime.resolveCaptureRenderDeltaSeconds();
-            runtime.updateInterpolatedProgress(deltaSeconds);
-            iconRenderer.renderHudQueueOnly(state, guiGraphics, runtime.resolveEffectiveSelfTeam(), deltaSeconds);
+            float deltaSeconds = this.runtime.resolveCaptureRenderDeltaSeconds();
+            this.runtime.updateInterpolatedProgress(deltaSeconds);
+            this.iconRenderer.renderHudQueueOnly(state, guiGraphics, this.runtime.resolveEffectiveSelfTeam(), deltaSeconds);
             return;
         }
-        runtime.syncOverlayState();
-        if (!runtime.hasCaptureIcons()) {
+        this.runtime.syncOverlayState();
+        if (!this.runtime.hasCaptureIcons()) {
             return;
         }
-        float deltaSeconds = runtime.resolveCaptureRenderDeltaSeconds();
-        runtime.updateInterpolatedProgress(deltaSeconds);
-        iconRenderer.renderCaptureIconHudOverlay(state, guiGraphics, runtime.resolveEffectiveSelfTeam(), deltaSeconds);
+        float deltaSeconds = this.runtime.resolveCaptureRenderDeltaSeconds();
+        this.runtime.updateInterpolatedProgress(deltaSeconds);
+        if(deployPhaseActive)CaptureRegionOverlay.render(guiGraphics,state,this.runtime.resolveEffectiveSelfTeam(),ClientDeathFlowState.currentDeployIconAlpha());
+        this.iconRenderer.renderCaptureIconHudOverlay(state, guiGraphics, this.runtime.resolveEffectiveSelfTeam(), deltaSeconds);
+        BattlefieldDeploymentView.publish(state,this.runtime.resolveEffectiveSelfTeam());
     }
 
     void renderDeployBoundaryHudOverlay(RenderGuiOverlayEvent.Post event) {
-        if (!runtime.ensureWorldReady()) {
+        if (!this.runtime.ensureWorldReady()) {
             return;
         }
-        runtime.syncOverlayState();
-        deployBoundaryOverlayRenderer.renderDeployBoundaryOverlay(runtime.state(), event, runtime.resolveEffectiveSelfTeam());
+        this.runtime.syncOverlayState();
+        this.deployBoundaryOverlayRenderer.renderDeployBoundaryOverlay(this.runtime.state(), event, this.runtime.resolveEffectiveSelfTeam());
     }
 
-    void renderDeployBoundaryHudOverlay(net.minecraft.client.gui.GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
-        if (!runtime.ensureWorldReady()) {
+    void renderDeployBoundaryHudOverlay(GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
+        if (!this.runtime.ensureWorldReady()) {
             return;
         }
-        runtime.syncOverlayState();
-        deployBoundaryOverlayRenderer.renderDeployBoundaryOverlay(runtime.state(), guiGraphics, screenWidth, screenHeight, runtime.resolveEffectiveSelfTeam());
+        this.runtime.syncOverlayState();
+        this.deployBoundaryOverlayRenderer.renderDeployBoundaryOverlay(this.runtime.state(), guiGraphics, screenWidth, screenHeight, this.runtime.resolveEffectiveSelfTeam());
     }
 
     void syncObjectiveSnapshotCache() {
-        runtime.syncObjectiveSnapshotCache();
+        this.runtime.syncObjectiveSnapshotCache();
     }
 
     void handleMouseInput(InputEvent.MouseButton event) {
-        runtime.handleMouseInput(event);
+        this.runtime.handleMouseInput(event);
     }
 
     boolean handleKeyInput(InputEvent.Key event) {
-        return runtime.handleKeyInput(event);
+        return this.runtime.handleKeyInput(event);
     }
 
     ClientCaptureOverlayModel.TeamToken resolveSelfTeamToken() {
-        return runtime.resolveSelfTeamToken();
+        return this.runtime.resolveSelfTeamToken();
     }
 
-    java.util.List<ClientCaptureObjectiveWaypointSnapshot> objectiveWaypointSnapshots() {
-        return runtime.objectiveWaypointSnapshots();
+    List<ClientCaptureObjectiveWaypointSnapshot> objectiveWaypointSnapshots() {
+        return this.runtime.objectiveWaypointSnapshots();
     }
 
     ClientCaptureObjectiveWaypointSnapshot.TeamToken resolveObjectiveWaypointSelfTeam() {
-        return runtime.resolveObjectiveWaypointSelfTeam();
+        return this.runtime.resolveObjectiveWaypointSelfTeam();
     }
 
-    java.util.List<ClientCaptureBattleAreaPolygonSnapshot> battleAreaPolygonSnapshots() {
-        return runtime.battleAreaPolygonSnapshots();
+    List<ClientCaptureBattleAreaPolygonSnapshot> battleAreaPolygonSnapshots() {
+        return this.runtime.battleAreaPolygonSnapshots();
     }
 
-    java.util.List<ClientCaptureBattleAreaLineSnapshot> battleAreaLineSnapshots() {
-        return runtime.battleAreaLineSnapshots();
+    List<ClientCaptureBattleAreaLineSnapshot> battleAreaLineSnapshots() {
+        return this.runtime.battleAreaLineSnapshots();
     }
 
     ClientCaptureBattleAreaPolygonSnapshot.TeamToken resolveBattleAreaSelfTeam() {
-        return runtime.resolveBattleAreaSelfTeam();
+        return this.runtime.resolveBattleAreaSelfTeam();
     }
 }
+

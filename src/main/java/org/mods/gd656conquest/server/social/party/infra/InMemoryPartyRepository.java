@@ -116,31 +116,7 @@ public final class InMemoryPartyRepository implements PartyRepository {
         if (party == null || !party.isMember(player.getUUID())) {
             return;
         }
-        if (party.isLeader(player.getUUID())) {
-            deleteInternal(partyId);
-            return;
-        }
-        LinkedHashSet<UUID> retainedMembers = new LinkedHashSet<>(party.memberIds());
-        retainedMembers.remove(player.getUUID());
-        if (retainedMembers.isEmpty()) {
-            deleteInternal(partyId);
-            return;
-        }
-        PartyAggregate updated = PartyAggregate.restore(
-            party.partyId(),
-            party.leaderId(),
-            retainedMembers,
-            party.createdTick(),
-            server.getTickCount(),
-            party.version() + 1L,
-            party.status(),
-            party.lockState(),
-            party.pendingRoomAction()
-        );
-        partiesById.put(updated.partyId(), updated);
-        LinkedHashMap<UUID, PartyMemberState> memberStates = memberStatesByPartyId.computeIfAbsent(updated.partyId(), ignored -> new LinkedHashMap<>());
-        memberStates.remove(player.getUUID());
-        rebuildIndexes();
+        new org.mods.gd656conquest.server.social.party.application.PartyMembershipService(this,server::getTickCount).leaveDisconnected(player.getUUID());
     }
 
     public synchronized Optional<PartyMemberState> findMemberState(String partyId, UUID playerId) {

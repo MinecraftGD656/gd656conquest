@@ -65,7 +65,8 @@ public final class PartySnapshotService {
             return;
         }
         snapshotsById.put(snapshot.snapshotId(), snapshot);
-        boundSnapshotsByPartyId.put(snapshot.partyId(), snapshot);
+        PartySnapshot previous=boundSnapshotsByPartyId.put(snapshot.partyId(), snapshot);
+        releaseUnused(previous);
     }
 
     public synchronized Optional<PartySnapshot> findBoundSnapshot(String partyId) {
@@ -79,7 +80,7 @@ public final class PartySnapshotService {
         if (partyId == null || partyId.isBlank()) {
             return;
         }
-        boundSnapshotsByPartyId.remove(partyId.trim());
+        releaseUnused(boundSnapshotsByPartyId.remove(partyId.trim()));
     }
 
     public synchronized void saveTransitionRecord(PartyRoomTransitionRecord record) {
@@ -101,7 +102,15 @@ public final class PartySnapshotService {
         if (partyId == null || partyId.isBlank()) {
             return;
         }
-        transitionRecordsByPartyId.remove(partyId.trim());
+        PartyRoomTransitionRecord removed=transitionRecordsByPartyId.remove(partyId.trim());
+        if(removed!=null)releaseUnused(removed.snapshot());
+    }
+
+    private void releaseUnused(PartySnapshot value) {
+        if(value==null)return;
+        boolean bound=boundSnapshotsByPartyId.values().stream().anyMatch(s->s.snapshotId().equals(value.snapshotId()));
+        boolean changing=transitionRecordsByPartyId.values().stream().anyMatch(t->t.snapshot().snapshotId().equals(value.snapshotId()));
+        if(!bound&&!changing)snapshotsById.remove(value.snapshotId());
     }
 
     public synchronized void clearPartyState(String partyId) {
@@ -110,5 +119,6 @@ public final class PartySnapshotService {
         }
         clearTransitionRecord(partyId);
         clearBoundSnapshot(partyId);
+        snapshotsById.values().removeIf(s->s.partyId().equals(partyId));
     }
 }

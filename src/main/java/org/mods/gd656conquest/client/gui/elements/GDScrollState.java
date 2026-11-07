@@ -1,7 +1,9 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package org.mods.gd656conquest.client.gui.elements;
 
 import net.minecraft.client.gui.GuiGraphics;
-import org.mods.gd656conquest.client.gui.GuiConstants;
 
 public final class GDScrollState {
     private static final int SCROLLBAR_TRACK_WIDTH = 3;
@@ -13,95 +15,107 @@ public final class GDScrollState {
     private long lastFrameNanos = System.nanoTime();
 
     public void reset() {
-        scrollY = 0.0D;
-        targetScrollY = 0.0D;
-        dragging = false;
-        draggingScrollbar = false;
-        lastMouseY = 0.0D;
-        lastFrameNanos = System.nanoTime();
+        this.scrollY = 0.0;
+        this.targetScrollY = 0.0;
+        this.dragging = false;
+        this.draggingScrollbar = false;
+        this.lastMouseY = 0.0;
+        this.lastFrameNanos = System.nanoTime();
     }
 
     public void setScrollInstant(double value, int viewportHeight, int contentHeight) {
-        double clamped = clamp(value, viewportHeight, contentHeight);
-        scrollY = clamped;
-        targetScrollY = clamped;
+        double clamped;
+        this.scrollY = clamped = this.clamp(value, viewportHeight, contentHeight);
+        this.targetScrollY = clamped;
     }
 
     public void update(double mouseY, int viewportHeight, int contentHeight) {
+        double diff;
         long now = System.nanoTime();
-        float dt = Math.min(0.1f, (now - lastFrameNanos) / 1_000_000_000.0f);
-        lastFrameNanos = now;
-        if (dragging) {
-            double diff = mouseY - lastMouseY;
-            targetScrollY += draggingScrollbar ? diff : -diff;
-            lastMouseY = mouseY;
+        float dt = Math.min(0.1f, (float)(now - this.lastFrameNanos) / 1.0E9f);
+        this.lastFrameNanos = now;
+        if (this.dragging) {
+            diff = mouseY - this.lastMouseY;
+            if (this.draggingScrollbar) {
+                int travel = Math.max(0, viewportHeight - thumbHeight(viewportHeight, contentHeight));
+                this.targetScrollY += travel > 0 ? diff * this.getMaxScroll(viewportHeight, contentHeight) / travel : 0.0;
+            } else {
+                this.targetScrollY -= diff;
+            }
+            this.lastMouseY = mouseY;
         }
-        targetScrollY = clamp(targetScrollY, viewportHeight, contentHeight);
-        scrollY = clamp(scrollY, viewportHeight, contentHeight);
-        double diff = targetScrollY - scrollY;
-        if (Math.abs(diff) < 0.01D) {
-            scrollY = targetScrollY;
+        this.targetScrollY = this.clamp(this.targetScrollY, viewportHeight, contentHeight);
+        this.scrollY = this.clamp(this.scrollY, viewportHeight, contentHeight);
+        diff = this.targetScrollY - this.scrollY;
+        if (Math.abs(diff) < 0.01) {
+            this.scrollY = this.targetScrollY;
             return;
         }
-        scrollY += diff * GuiConstants.SCROLL_SMOOTHING * dt;
-        scrollY = clamp(scrollY, viewportHeight, contentHeight);
+        this.scrollY += diff * 15.0 * (double)dt;
+        this.scrollY = this.clamp(this.scrollY, viewportHeight, contentHeight);
     }
 
     public boolean mouseScrolled(double delta, int viewportHeight, int contentHeight) {
-        if (getMaxScroll(viewportHeight, contentHeight) <= 0.0D) {
+        if (this.getMaxScroll(viewportHeight, contentHeight) <= 0.0) {
             return false;
         }
-        targetScrollY = clamp(targetScrollY - delta * GuiConstants.SCROLL_AMOUNT, viewportHeight, contentHeight);
+        this.targetScrollY = this.clamp(this.targetScrollY - delta * 40.0, viewportHeight, contentHeight);
         return true;
     }
 
     public void startDragging(double mouseX, double mouseY, int x1, int y1, int x2, int y2, int contentHeight) {
-        dragging = true;
-        draggingScrollbar = isMouseOverScrollbar(mouseX, mouseY, x1, y1, x2, y2, contentHeight);
-        lastMouseY = mouseY;
+        this.dragging = true;
+        this.draggingScrollbar = this.isMouseOverScrollbar(mouseX, mouseY, x1, y1, x2, y2, contentHeight);
+        this.lastMouseY = mouseY;
     }
 
     public void stopDragging() {
-        dragging = false;
-        draggingScrollbar = false;
+        this.dragging = false;
+        this.draggingScrollbar = false;
     }
 
     public double scrollY() {
-        return scrollY;
+        return this.scrollY;
     }
 
     public double getMaxScroll(int viewportHeight, int contentHeight) {
-        return Math.max(0.0D, contentHeight - Math.max(1, viewportHeight));
+        return Math.max(0.0, (double)(contentHeight - Math.max(1, viewportHeight)));
     }
 
     public boolean isMouseOverScrollbar(double mouseX, double mouseY, int x1, int y1, int x2, int y2, int contentHeight) {
         int viewportHeight = Math.max(0, y2 - y1);
-        double maxScroll = getMaxScroll(viewportHeight, contentHeight);
-        if (viewportHeight <= 0 || maxScroll <= 0.0D) {
+        double maxScroll = this.getMaxScroll(viewportHeight, contentHeight);
+        if (viewportHeight <= 0 || maxScroll <= 0.0) {
             return false;
         }
-        int trackLeft = x2 - SCROLLBAR_TRACK_WIDTH;
+        int trackLeft = x2 - 3;
         int trackRight = x2 - 1;
-        return mouseX >= trackLeft && mouseX <= trackRight && mouseY >= y1 && mouseY <= y2;
+        return mouseX >= (double)trackLeft && mouseX <= (double)trackRight && mouseY >= (double)y1 && mouseY <= (double)y2;
     }
 
     public void renderScrollbar(GuiGraphics guiGraphics, int x1, int y1, int x2, int y2, int contentHeight) {
         int viewportHeight = Math.max(0, y2 - y1);
-        double maxScroll = getMaxScroll(viewportHeight, contentHeight);
-        if (viewportHeight <= 0 || maxScroll <= 0.0D) {
+        double maxScroll = this.getMaxScroll(viewportHeight, contentHeight);
+        if (viewportHeight <= 0 || maxScroll <= 0.0) {
             return;
         }
-        int trackLeft = x2 - SCROLLBAR_TRACK_WIDTH;
+        int trackLeft = x2 - 3;
         int trackRight = x2 - 1;
-        guiGraphics.fill(trackLeft, y1, trackRight, y2, 0x44333B42);
-        int thumbHeight = Math.max(18, (int) Math.round(viewportHeight * (viewportHeight / (double) contentHeight)));
+        guiGraphics.fill(trackLeft, y1, trackRight, y2, 1144208194);
+        int thumbHeight = thumbHeight(viewportHeight, contentHeight);
         int thumbTravel = Math.max(0, viewportHeight - thumbHeight);
-        int thumbTop = y1 + (int) Math.round((scrollY / maxScroll) * thumbTravel);
-        guiGraphics.fill(trackLeft, thumbTop, trackRight, thumbTop + thumbHeight, 0x88B8C6D6);
+        int thumbTop = y1 + (int)Math.round(this.scrollY / maxScroll * (double)thumbTravel);
+        guiGraphics.fill(trackLeft, thumbTop, trackRight, thumbTop + thumbHeight, -2001156394);
+    }
+
+    private static int thumbHeight(int viewportHeight, int contentHeight) {
+        return Math.min(Math.max(0, viewportHeight), Math.max(18,
+            (int)Math.round((double)viewportHeight * viewportHeight / Math.max(1, contentHeight))));
     }
 
     private double clamp(double value, int viewportHeight, int contentHeight) {
-        double maxScroll = getMaxScroll(viewportHeight, contentHeight);
-        return Math.max(0.0D, Math.min(maxScroll, value));
+        double maxScroll = this.getMaxScroll(viewportHeight, contentHeight);
+        return Math.max(0.0, Math.min(maxScroll, value));
     }
 }
+

@@ -1,5 +1,4 @@
 package org.mods.gd656conquest.client.event.handler;
-
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
@@ -24,9 +23,7 @@ import org.mods.gd656conquest.client.render.CaptureDiamondRenderer;
 import org.mods.gd656conquest.client.room.ClientDeployDeathMarkerState;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.lwjgl.glfw.GLFW;
-
 import java.util.*;
-
 final class ClientCaptureWorldIconRenderer {
     private static final float ICON_DEDUP_RADIUS_PIXELS = 12.0F;
     private static final ResourceLocation TEX_DEATH_TEAM = ResourceLocation.fromNamespaceAndPath("gd656conquest", "textures/gui/marker_death_team.png");
@@ -34,7 +31,6 @@ final class ClientCaptureWorldIconRenderer {
     private static final int DEPLOY_DEATH_MARKER_SIZE = Math.max(5, Math.round(ClientCaptureOverlayModel.TEAMMATE_ICON_RADIUS));
     private static final double DEPLOY_DEATH_MARKER_Y_OFFSET = 2.15D;
     private final ClientCaptureDebugIconSupport debugSupport = new ClientCaptureDebugIconSupport();
-
     void renderWorldAnchoredCaptureIcons(
         ClientCaptureOverlayState state,
         GuiGraphics gui,
@@ -99,7 +95,7 @@ final class ClientCaptureWorldIconRenderer {
             ScreenProjection stableProjection = new ScreenProjection(renderState.screenX, renderState.screenY);
             double hoverDistance = resolveMouseDistance(minecraft, stableProjection.screenX(), stableProjection.screenY());
             double hoverRadius = resolveWorldIconHoverRadius(entry);
-            boolean hoveredByCursor = deployPhaseActive && hoverDistance <= hoverRadius;
+            boolean hoveredByCursor = deployPhaseActive && DeploymentMarkerHit.contains(entry,selfTeam,stableProjection.screenX(),stableProjection.screenY(),hoverRadius,minecraft);
             boolean hovered = hoveredByCursor && deployable;
             boolean selected = entry.renderId().equals(state.selectedDeployIconId);
             if (deployable) {
@@ -181,7 +177,6 @@ final class ClientCaptureWorldIconRenderer {
         textBufferSource.endBatch();
         state.teammateIconScreenStates.keySet().retainAll(dynamicIconSeen);
     }
-
     private void renderDeployDeathMarkers(ClientCaptureOverlayState state, GuiGraphics gui, Minecraft minecraft, float deltaSeconds) {
         if (state == null || gui == null || minecraft == null || state.worldProjectionMatrix == null) {
             return;
@@ -236,7 +231,6 @@ final class ClientCaptureWorldIconRenderer {
         RenderSystem.disableBlend();
         state.deployDeathMarkerScreenStates.keySet().retainAll(seenMarkerIds);
     }
-
     private ScreenProjection smoothDeployDeathMarkerProjection(
         ClientCaptureOverlayState state,
         UUID markerId,
@@ -266,7 +260,6 @@ final class ClientCaptureWorldIconRenderer {
         iconState.screenY = Mth.lerp(t, iconState.startY, iconState.targetY);
         return new ScreenProjection(iconState.screenX, iconState.screenY);
     }
-
     void renderPersistentSelectedDeployCrosshairs(
         ClientCaptureOverlayState state,
         GuiGraphics gui,
@@ -274,7 +267,6 @@ final class ClientCaptureWorldIconRenderer {
     ) {
         renderSelectedDeployCrosshairs(state, gui, deltaSeconds);
     }
-
     private float resolveDeployVisualAlpha(CaptureIconEntry entry, boolean deployPhaseActive, boolean deployWorldIconsVisible) {
         if (!deployPhaseActive) {
             if (entry.isBeaconMarker() || entry.isTeammateMarker() || entry.isVehicleMarker()) {
@@ -290,7 +282,6 @@ final class ClientCaptureWorldIconRenderer {
         }
         return ClientDeathFlowState.currentDeployIconAlpha();
     }
-
     static double resolveMouseDistance(Minecraft minecraft, double screenX, double screenY) {
         double mouseGuiX = minecraft.mouseHandler.xpos()
             * minecraft.getWindow().getGuiScaledWidth()
@@ -302,7 +293,6 @@ final class ClientCaptureWorldIconRenderer {
         double dy = screenY - mouseGuiY;
         return Math.sqrt(dx * dx + dy * dy);
     }
-
     private void renderSingleWorldIcon(
         ClientCaptureOverlayState state,
         GuiGraphics gui,
@@ -316,6 +306,29 @@ final class ClientCaptureWorldIconRenderer {
         float deltaSeconds,
         MultiBufferSource.BufferSource textBufferSource
     ) {
+        if(entry.kind()==ClientCaptureOverlayModel.IconKind.CAPTURE&&!ClientDeathFlowState.shouldRenderDeployBoundaries()){
+            var theme=org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme.current();
+            float scale=Math.min(gui.guiWidth()/1920f,gui.guiHeight()/1080f);
+            boolean focus=state.currentCaptureFocus!=null&&entry.code().equals(state.currentCaptureFocus.code());
+            var playerPosition=minecraft.player.getPosition(state.worldProjectionPartialTick);
+            double distance=playerPosition.distanceTo(new Vec3(entry.x(),entry.y()-entry.kind().renderYOffset(),entry.z()));
+            if(projection.screenX()<65*scale||projection.screenX()>gui.guiWidth()-65*scale||projection.screenY()<50*scale)distance=Double.NaN;
+            boolean nameFits=projection.screenX()>=150*scale&&projection.screenX()<=gui.guiWidth()-150*scale&&projection.screenY()<=gui.guiHeight()-60*scale;
+            var marker=new org.mods.gd656killicon.client.gui.theme.BattlefieldWorldMarkerLayout.Marker(entry.code(),nameFits?buildHoverText(entry):"",distance,entry.owner()==selfTeam,entry.owner()==TeamToken.NEUTRAL,focus,Math.abs(resolveDisplayProgress(state,entry,selfTeam)-50)/50);
+            gui.pose().pushPose();gui.pose().translate(projection.screenX(),projection.screenY(),0);gui.pose().scale(scale,scale,1);
+            org.mods.gd656killicon.client.gui.theme.BattlefieldWorldMarkerLayout.render(new org.mods.gd656killicon.client.gui.theme.BattlefieldPovOverlay.GameCanvas(gui,theme),theme,marker,weightedAlpha);gui.pose().popPose();return;
+        }
+        if(ClientDeathFlowState.shouldRenderDeployBoundaries()&&(entry.kind()==ClientCaptureOverlayModel.IconKind.CAPTURE||entry.isSpawnPoint())){
+            var theme=org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme.current();
+            boolean friendly=entry.owner()!=TeamToken.NEUTRAL&&entry.owner()==selfTeam;
+            var team=minecraft.player==null?null:minecraft.player.getTeam();
+            String teamName=friendly&&team instanceof net.minecraft.world.scores.PlayerTeam actual?actual.getDisplayName().getString():org.mods.gd656conquest.client.room.ClientRoomTeamMirror.getOppositeTeamDisplayNameForSelf();
+            gui.pose().pushPose();gui.pose().translate(projection.screenX(),projection.screenY(),0);
+            float scale=CaptureDiamondRenderer.hudRadius(entry.kind().iconRadius())/18f;gui.pose().scale(scale,scale,1);
+            org.mods.gd656killicon.client.gui.theme.BattlefieldDeployMarkerLayout.render(new org.mods.gd656killicon.client.gui.theme.BattlefieldPovOverlay.GameCanvas(gui,theme,true),theme,entry.code(),teamName,
+                entry.isSpawnPoint(),friendly,entry.owner()==TeamToken.NEUTRAL,selected,hovered,Math.abs(resolveDisplayProgress(state,entry,selfTeam)-50)/50,weightedAlpha);
+            gui.pose().popPose();return;
+        }
         if (entry.isDebugMarker()) {
             CaptureDiamondRenderer.drawCaptureIconInHud(
                 gui,
@@ -368,13 +381,13 @@ final class ClientCaptureWorldIconRenderer {
             textBufferSource
         );
     }
-
     private ScreenProjection projectToScreen(ClientCaptureOverlayState state, Minecraft minecraft, CaptureIconEntry entry) {
         if (minecraft.player == null || state.worldProjectionMatrix == null) {
             return null;
         }
         Vec3 worldAnchor = resolveWorldIconAnchor(minecraft, state, entry);
-        double edgePadding = entry.kind().iconRadius() + 2.0D;
+        double edgePadding = CaptureDiamondRenderer.hudRadius(entry.kind().iconRadius()) + 3.0D;
+        if(entry.kind()==ClientCaptureOverlayModel.IconKind.CAPTURE&&!ClientDeathFlowState.shouldRenderDeployBoundaries())edgePadding=(org.mods.gd656killicon.client.gui.theme.BattlefieldWorldMarkerLayout.radius(org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme.current())+8)*Math.min(minecraft.getWindow().getGuiScaledWidth()/1920f,minecraft.getWindow().getGuiScaledHeight()/1080f)+3;
         ClientWorldHudProjectionSupport.ProjectedHudPoint projected =
             ClientWorldHudProjectionSupport.projectToHud(minecraft, state.worldProjectionMatrix, worldAnchor, edgePadding);
         if (projected == null) {
@@ -385,11 +398,9 @@ final class ClientCaptureWorldIconRenderer {
         }
         return new ScreenProjection(projected.screenX(), projected.screenY());
     }
-
     private boolean shouldKeepIconPinnedToScreenEdge(CaptureIconEntry entry) {
         return entry != null && entry.kind() == ClientCaptureOverlayModel.IconKind.CAPTURE;
     }
-
     private Vec3 resolveWorldIconAnchor(Minecraft minecraft, ClientCaptureOverlayState state, CaptureIconEntry entry) {
         float partialTick = state.worldProjectionPartialTick;
         if (entry.isTeammateMarker()) {
@@ -399,9 +410,11 @@ final class ClientCaptureWorldIconRenderer {
                 return pos.add(0.0D, tracked.getBbHeight() + 0.55D, 0.0D);
             }
         }
-        return new Vec3(entry.x(), entry.y(), entry.z());
+        return fixedAnchor(entry,ClientDeathFlowState.shouldRenderDeployBoundaries());
     }
-
+    static Vec3 fixedAnchor(CaptureIconEntry entry,boolean deployment) {
+        return new Vec3(entry.x(),entry.y()-(deployment?entry.kind().renderYOffset():0),entry.z());
+    }
     private Player resolveTrackedTeammatePlayer(Minecraft minecraft, CaptureIconEntry entry) {
         if (minecraft.level == null || !entry.isTeammateMarker()) {
             return null;
@@ -425,7 +438,6 @@ final class ClientCaptureWorldIconRenderer {
         }
         return null;
     }
-
     private String buildHoverText(CaptureIconEntry entry) {
         if (entry.isTeammateMarker()) {
             String name = entry.note() == null ? "" : entry.note().trim();
@@ -461,15 +473,12 @@ final class ClientCaptureWorldIconRenderer {
         }
         return "";
     }
-
     private double resolveWorldIconHoverRadius(CaptureIconEntry entry) {
-        return entry.kind().iconRadius() + ClientCaptureOverlayModel.WORLD_ICON_HOVER_PADDING_PIXELS;
+        return (entry.isVehicleMarker()?entry.kind().iconRadius():CaptureDiamondRenderer.hudRadius(entry.kind().iconRadius())) + ClientCaptureOverlayModel.WORLD_ICON_HOVER_PADDING_PIXELS;
     }
-
     private double resolveHoverLabelYOffset(CaptureIconEntry entry) {
-        return entry.kind().iconRadius() + 1.0F;
+        return CaptureDiamondRenderer.hudRadius(entry.kind().iconRadius()) + 4.0F;
     }
-
     private int resolveHoverLabelColor(CaptureIconEntry entry) {
         if (entry.isVehicleMarker()) {
             return resolveVehicleLabelRgb(entry);
@@ -479,7 +488,6 @@ final class ClientCaptureWorldIconRenderer {
             ? 0x00FF8E8E
             : 0x00E6EEF8;
     }
-
     private float resolveDisplayProgress(ClientCaptureOverlayState state, CaptureIconEntry entry, TeamToken selfTeam) {
         float progress = resolveProgress(state, entry);
         if (selfTeam == TeamToken.CAMP_A) {
@@ -487,12 +495,10 @@ final class ClientCaptureWorldIconRenderer {
         }
         return progress;
     }
-
     private float resolveProgress(ClientCaptureOverlayState state, CaptureIconEntry entry) {
         ClientCaptureOverlayModel.ProgressInterpolationState interpolationState = state.progressInterpolation.get(entry.renderId());
         return interpolationState == null ? Mth.clamp(entry.progress(), 0.0F, 100.0F) : interpolationState.current();
     }
-
     private ScreenProjection smoothDynamicProjection(
         ClientCaptureOverlayState state,
         String renderId,
@@ -522,7 +528,6 @@ final class ClientCaptureWorldIconRenderer {
         iconState.screenY = Mth.lerp(t, iconState.startY, iconState.targetY);
         return new ScreenProjection(iconState.screenX, iconState.screenY);
     }
-
     private void drawOrientedTeammateIcon(
         ClientCaptureOverlayState state,
         GuiGraphics gui,
@@ -563,10 +568,10 @@ final class ClientCaptureWorldIconRenderer {
             textBufferSource
         );
         int symbolRgb = entry.teammateCombat() || entry.teammateCreative() ? 0x00FF6B6B : 0x008FC4FF;
-        CaptureDiamondRenderer.drawCenteredHudText(gui, minecraft.font, "\u25BD", 0.0F, -2.3F, symbolRgb, alpha, true, 0.75F, textBufferSource);
+        float glyphScale=ClientDeathFlowState.shouldRenderDeployBoundaries()?1f/1.35f:1f;
+        CaptureDiamondRenderer.drawCenteredHudText(gui, minecraft.font, "\u25BD", 0.0F, -2.3F*glyphScale, symbolRgb, alpha, true, 0.75F*glyphScale, textBufferSource);
         gui.pose().popPose();
     }
-
     private void drawHighlightedBeaconIcon(
         GuiGraphics gui,
         Minecraft minecraft,
@@ -595,7 +600,6 @@ final class ClientCaptureWorldIconRenderer {
             textBufferSource
         );
     }
-
     private void drawVehicleDeployIcon(
         GuiGraphics gui,
         Minecraft minecraft,
@@ -625,7 +629,6 @@ final class ClientCaptureWorldIconRenderer {
             textBufferSource
         );
     }
-
     private void updateSelectedCrosshairState(
         ClientCaptureOverlayState state,
         String renderId,
@@ -651,7 +654,6 @@ final class ClientCaptureWorldIconRenderer {
         float targetAlpha = selected ? ClientCaptureOverlayModel.DEPLOY_SELECTED_CROSS_ALPHA : 0.0F;
         crosshairState.alpha = approachSelectedCrosshairAlpha(crosshairState.alpha, targetAlpha, deltaSeconds);
     }
-
     private void renderMouseDeployCrosshair(
         ClientCaptureOverlayState state,
         GuiGraphics gui,
@@ -706,7 +708,6 @@ final class ClientCaptureWorldIconRenderer {
             alpha * deployAlpha
         );
     }
-
     private void renderSelectedDeployCrosshairs(
         ClientCaptureOverlayState state,
         GuiGraphics gui,
@@ -746,7 +747,6 @@ final class ClientCaptureWorldIconRenderer {
             renderAlpha
         );
     }
-
     private float smoothTeammateYaw(TeammateIconScreenState iconState, float targetYaw, float deltaSeconds) {
         float delta = Mth.wrapDegrees(targetYaw - iconState.targetYaw);
         if (Math.abs(delta) > 0.1F) {
@@ -764,7 +764,6 @@ final class ClientCaptureWorldIconRenderer {
         float diff = Mth.wrapDegrees(iconState.targetYaw - iconState.yawStart);
         return Mth.wrapDegrees(iconState.yawStart + diff * t);
     }
-
     private float approachAlpha(float current, float target, float deltaSeconds) {
         if (Math.abs(target - current) <= 0.001F) {
             return target;
@@ -773,10 +772,9 @@ final class ClientCaptureWorldIconRenderer {
         if (duration <= 1.0E-6F) {
             return target;
         }
-        float step = Mth.clamp(deltaSeconds / duration, 0.0F, 1.0F);
+        float step = 1.0F-(float)Math.exp(-Math.max(0,deltaSeconds)/duration);
         return Mth.lerp(step, current, target);
     }
-
     private float approachSelectedCrosshairAlpha(float current, float target, float deltaSeconds) {
         if (Math.abs(target - current) <= 0.001F) {
             return target;
@@ -785,10 +783,9 @@ final class ClientCaptureWorldIconRenderer {
         if (duration <= 1.0E-6F) {
             return target;
         }
-        float step = Mth.clamp(deltaSeconds / duration, 0.0F, 1.0F);
+        float step = 1.0F-(float)Math.exp(-Math.max(0,deltaSeconds)/duration);
         return Mth.lerp(step, current, target);
     }
-
     private float approachMouseCrossMetric(float current, float target, float deltaSeconds) {
         if (current <= 0.001F) {
             return target;
@@ -796,7 +793,6 @@ final class ClientCaptureWorldIconRenderer {
         float t = 1.0F - (float) Math.exp(-ClientCaptureOverlayModel.DEPLOY_MOUSE_CROSS_ANIMATION_SHARPNESS * Math.max(0.0F, deltaSeconds));
         return Mth.lerp(Mth.clamp(t, 0.0F, 1.0F), current, target);
     }
-
     private float resolveCrosshairWeightedIconAlpha(GuiGraphics gui, ScreenProjection projection) {
         if (ClientDeathFlowState.hasActiveCameraOverride()) {
             return ClientCaptureOverlayModel.WORLD_ICON_ALPHA_FAR_CROSSHAIR;
@@ -812,28 +808,24 @@ final class ClientCaptureWorldIconRenderer {
             ClientCaptureOverlayModel.WORLD_ICON_CROSSHAIR_ALPHA_CURVE
         );
     }
-
     private String toPerspectiveToken(TeamToken token, TeamToken selfTeam) {
         if (token == TeamToken.NEUTRAL || selfTeam == TeamToken.NEUTRAL) {
             return "NEUTRAL";
         }
         return token == selfTeam ? "ALLY" : "ENEMY";
     }
-
     private String resolveOwnerPerspectiveToken(CaptureIconEntry entry, TeamToken selfTeam) {
         if (entry != null && entry.isStageObjectiveProxy()) {
             return "ALLY_STAGE_PROXY";
         }
         return toPerspectiveToken(entry == null ? TeamToken.NEUTRAL : entry.owner(), selfTeam);
     }
-
     private String resolveDrivingPerspectiveToken(CaptureIconEntry entry, TeamToken selfTeam) {
         if (entry != null && entry.isStageObjectiveProxy()) {
             return "ALLY";
         }
         return toPerspectiveToken(entry == null ? TeamToken.NEUTRAL : entry.driving(), selfTeam);
     }
-
     private int resolveVehicleFillRgb(CaptureIconEntry entry) {
         VehicleHudState vehicleState = entry == null || entry.vehicleState() == null
             ? VehicleHudState.READY
@@ -846,7 +838,6 @@ final class ClientCaptureWorldIconRenderer {
             case ENEMY -> 0x00823838;
         };
     }
-
     private int resolveVehicleLabelRgb(CaptureIconEntry entry) {
         if (entry != null && entry.vehicleLowHealth()) {
             return 0x00FFE36A;
@@ -862,7 +853,6 @@ final class ClientCaptureWorldIconRenderer {
             case READY, EMPTY -> 0x00E6EEF8;
         };
     }
-
     private int interpolateRgb(int fromRgb, int toRgb, float t) {
         float clamped = Mth.clamp(t, 0.0F, 1.0F);
         int red = Mth.floor(Mth.lerp(clamped, (fromRgb >>> 16) & 0xFF, (toRgb >>> 16) & 0xFF));
@@ -870,7 +860,6 @@ final class ClientCaptureWorldIconRenderer {
         int blue = Mth.floor(Mth.lerp(clamped, fromRgb & 0xFF, toRgb & 0xFF));
         return (red << 16) | (green << 8) | blue;
     }
-
     private boolean isMousePressed(Minecraft minecraft) {
         if (minecraft == null || minecraft.getWindow() == null) {
             return false;
@@ -880,7 +869,6 @@ final class ClientCaptureWorldIconRenderer {
             || GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS
             || GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_MIDDLE) == GLFW.GLFW_PRESS;
     }
-
     private boolean isDuplicateWithinRadius(
         Map<ClientCaptureOverlayModel.IconKind, List<ScreenProjection>> rendered,
         ClientCaptureOverlayModel.IconKind kind,

@@ -13,6 +13,7 @@ import org.mods.gd656conquest.server.social.party.domain.PartyRequest;
 import org.mods.gd656conquest.server.social.party.domain.PartyRequestType;
 import org.mods.gd656conquest.server.social.party.infra.InMemoryPartyRepository;
 import org.mods.gd656conquest.server.social.party.infra.PartyRepository;
+import org.mods.gd656conquest.server.social.SocialRosterPolicy;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -64,29 +65,49 @@ public final class PartyUiFacade {
     }
 
     public PartyAggregate createParty(ServerPlayer player) {
+        SocialRosterPolicy.requireEditable(server,requirePlayer(player).getUUID(),null,null);
         return membershipService.createParty(requirePlayer(player).getUUID());
     }
 
     public PartyMembershipService.LeavePartyResult leaveParty(ServerPlayer player) {
-        return membershipService.leaveParty(requirePlayer(player).getUUID());
+        SocialRosterPolicy.requireEditable(server,requirePlayer(player).getUUID(),null,null);
+        var result=membershipService.leaveParty(requirePlayer(player).getUUID());
+        if(result.disbanded())org.mods.gd656conquest.server.social.party.sync.PartySnapshotService.of(server).clearPartyState(result.partyId());
+        return result;
     }
 
     public void disbandParty(ServerPlayer player) {
-        membershipService.disbandParty(requirePlayer(player).getUUID());
+        SocialRosterPolicy.requireEditable(server,requirePlayer(player).getUUID(),null,null);
+        var party=repository.findByPlayerId(requirePlayer(player).getUUID()).orElseThrow(()->new org.mods.gd656conquest.server.social.party.domain.PartyError("你当前不在队伍中"));
+        membershipService.disbandParty(player.getUUID());
+        org.mods.gd656conquest.server.social.party.sync.PartySnapshotService.of(server).clearPartyState(party.partyId());
     }
+
+    public void kickMember(ServerPlayer player,UUID target){SocialRosterPolicy.requireEditable(server,requirePlayer(player).getUUID(),null,null);membershipService.kickMember(player.getUUID(),target);}
+    public void setOpen(ServerPlayer player,boolean open){SocialRosterPolicy.requireEditable(server,requirePlayer(player).getUUID(),null,null);membershipService.setOpen(player.getUUID(),open);}
+    public void joinOpen(ServerPlayer player,String partyId){SocialRosterPolicy.requireEditable(server,requirePlayer(player).getUUID(),partyId,null);membershipService.joinOpen(player.getUUID(),partyId);}
 
     public PartyRequest createInvite(ServerPlayer operator, String targetPlayerName) {
         ServerPlayer player = requirePlayer(operator);
         ServerPlayer target = resolveOnlinePlayer(targetPlayerName);
+        SocialRosterPolicy.requireEditable(server,player.getUUID(),null,target.getUUID());
         return inviteService.createInvite(player.getUUID(), target.getUUID());
     }
 
     public PartyRequest createJoinApplication(ServerPlayer operator, String partyId) {
+        SocialRosterPolicy.requireEditable(server,requirePlayer(operator).getUUID(),partyId,null);
         return inviteService.createJoinApplication(requirePlayer(operator).getUUID(), partyId);
     }
 
     public PartyRequest acceptRequest(ServerPlayer operator, String requestId) {
-        return inviteService.acceptRequest(requirePlayer(operator).getUUID(), requestId);
+        ServerPlayer player=requirePlayer(operator);
+        var pending=findPendingRequestForPlayer(player,requestId).orElse(null);
+        if(pending!=null)SocialRosterPolicy.requireEditable(server,player.getUUID(),pending.partyId(),pending.fromPlayerId());
+        if(pending!=null&&pending.type()==PartyRequestType.JOIN_APPLICATION&&server.getPlayerList().getPlayer(pending.fromPlayerId())==null){
+            inviteService.refuseRequest(player.getUUID(),requestId);
+            throw new org.mods.gd656conquest.server.social.party.domain.PartyError("申请人已离线，此申请已结束");
+        }
+        return inviteService.acceptRequest(player.getUUID(), requestId);
     }
 
     public PartyRequest refuseRequest(ServerPlayer operator, String requestId) {
@@ -95,6 +116,7 @@ public final class PartyUiFacade {
 
     public PartyAggregate transferLeader(ServerPlayer operator, String nextLeaderName) {
         ServerPlayer player = requirePlayer(operator);
+        SocialRosterPolicy.requireEditable(server,player.getUUID(),null,null);
         PartyAggregate currentParty = repository.findByPlayerId(player.getUUID()).orElse(null);
         if (currentParty == null) {
             throw new org.mods.gd656conquest.server.social.party.domain.PartyError("该玩家当前不在任何队伍中");
@@ -123,6 +145,10 @@ public final class PartyUiFacade {
     public List<PartyRequestView> listPendingRequests(ServerPlayer player) {
         List<PartyRequestView> result = new ArrayList<>();
         for (PartyRequest request : inviteService.listPendingRequestsForPlayer(requirePlayer(player).getUUID())) {
+            if(SocialRosterPolicy.failure(server,player.getUUID(),request.partyId(),request.fromPlayerId())!=null){
+                inviteService.refuseRequest(player.getUUID(),request.requestId());
+                continue;
+            }
             result.add(toRequestView(request));
         }
         return result;

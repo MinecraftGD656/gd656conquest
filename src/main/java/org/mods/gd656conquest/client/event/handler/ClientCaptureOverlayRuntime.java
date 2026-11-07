@@ -8,6 +8,7 @@ import org.mods.gd656conquest.client.loadout.screen.LoadoutConfigScreen;
 import org.mods.gd656conquest.client.loadout.screen.LoadoutVehicleDeployScreen;
 
 final class ClientCaptureOverlayRuntime {
+    private net.minecraft.client.multiplayer.ClientLevel lastLevel;
     private final ClientCaptureOverlayState state = new ClientCaptureOverlayState();
     private final ClientCaptureOverlayCodec codec = new ClientCaptureOverlayCodec();
     private final ClientCaptureBoundaryRenderer boundaryRenderer = new ClientCaptureBoundaryRenderer();
@@ -38,7 +39,7 @@ final class ClientCaptureOverlayRuntime {
     }
 
     void handleClientLogout() {
-        state.reset();
+        lastLevel=null;state.reset();
     }
 
     void clearRenderCaches() {
@@ -51,14 +52,17 @@ final class ClientCaptureOverlayRuntime {
 
     boolean ensureWorldReady() {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null || minecraft.player == null) {
-            state.reset();
-            return false;
+        if (minecraft.level != lastLevel) {
+            state.reset();BattlefieldDeploymentView.clear();lastLevel=minecraft.level;
+        }
+        if (minecraft.level == null || minecraft.player == null || !org.mods.gd656conquest.client.room.ClientRoomViewScope.current()) {
+            state.reset();return false;
         }
         return true;
     }
 
     void captureWorldProjectionState(RenderLevelStageEvent event) {
+        if(!ensureWorldReady())return;
         boundaryRenderer.captureWorldProjectionState(state, event);
     }
 

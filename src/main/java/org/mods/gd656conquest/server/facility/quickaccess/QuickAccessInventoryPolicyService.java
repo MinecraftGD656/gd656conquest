@@ -18,6 +18,10 @@ import java.util.Optional;
 
 public final class QuickAccessInventoryPolicyService {
     private static final int LOBBY_ENFORCE_INTERVAL_TICKS = 40;
+    private static final boolean REVIEW_PLAYER_FLOW = Boolean.getBoolean("gd656conquest.uiReviewPlayerFlow");
+    private static boolean operatorExempt(ServerPlayer player) {
+        return player.hasPermissions(2) && !(REVIEW_PLAYER_FLOW && !player.server.isDedicatedServer());
+    }
     private static final int HOTBAR_QUICK_JOIN = 0;
     private static final int HOTBAR_ROOM_LIST = 1;
     private static final int HOTBAR_TEAM = 2;
@@ -35,7 +39,7 @@ public final class QuickAccessInventoryPolicyService {
     }
 
     public static void refreshForCurrentContext(ServerPlayer player) {
-        if (player == null || player.server == null || player.hasPermissions(2)) {
+        if (player == null || player.server == null || operatorExempt(player)) {
             return;
         }
         RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(player.server);
@@ -81,7 +85,7 @@ public final class QuickAccessInventoryPolicyService {
     }
 
     private static boolean shouldEnforceLobbyInventory(ServerPlayer player) {
-        if (player == null || player.server == null || player.hasPermissions(2)) {
+        if (player == null || player.server == null || operatorExempt(player)) {
             return false;
         }
         if (!HubDimensionService.isHubDimension(player.level())) {

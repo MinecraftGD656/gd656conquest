@@ -58,10 +58,21 @@ import org.mods.gd656conquest.server.room.runtime.RoomGunmasterWeaponPoolRules;
 
 import java.util.*;
 
+@net.minecraftforge.fml.common.Mod.EventBusSubscriber(modid = "gd656conquest")
 public final class LoadoutUiService {
     private static final Map<UUID, CachedSnapshot> SNAPSHOT_CACHE = new HashMap<>();
 
     private LoadoutUiService() {
+    }
+
+    @net.minecraftforge.eventbus.api.SubscribeEvent
+    public static void onLogout(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) SNAPSHOT_CACHE.remove(player.getUUID());
+    }
+
+    @net.minecraftforge.eventbus.api.SubscribeEvent
+    public static void onServerStopped(net.minecraftforge.event.server.ServerStoppedEvent event) {
+        SNAPSHOT_CACHE.values().removeIf(snapshot -> snapshot.server() == event.getServer());
     }
 
     public static void sendSnapshot(ServerPlayer player, boolean openPanel) {
@@ -81,7 +92,7 @@ public final class LoadoutUiService {
             return;
         }
         LoadoutVehiclePageSnapshotBuilder.Snapshot vehicleSnapshot = LoadoutVehiclePageSnapshotBuilder.build(player);
-        CachedSnapshot cached = forceSend ? null : SNAPSHOT_CACHE.get(player.getUUID());
+        CachedSnapshot cached = forceSend || openPanel ? null : SNAPSHOT_CACHE.get(player.getUUID());
         if (cached != null && cached.server() == player.server) {
             NetworkManager.sendToPlayer(player, cached.toPacket(openPanel, targetTabIndex, vehicleSnapshot));
             return;
@@ -130,7 +141,7 @@ public final class LoadoutUiService {
                 }
             }
             case "select_attachment" -> {
-                if (applyAttachmentSelection(player, slotIndex, contextId, attachmentType, itemId)) {
+                if (applyAttachmentSelection(player, classKey, slotIndex, contextId, attachmentType, itemId)) {
                     sendSnapshot(player, false, true);
                 }
             }
@@ -1048,6 +1059,7 @@ public final class LoadoutUiService {
 
     private static boolean applyAttachmentSelection(
         ServerPlayer player,
+        String editedClassKey,
         int slotIndex,
         String loadoutEntryId,
         String attachmentType,
@@ -1080,6 +1092,9 @@ public final class LoadoutUiService {
         RunningRuntimeState runningState = resolveCurrentRunningState(player);
         RoomDefinition room = resolveCurrentRoom(player);
         PlayerClassType currentClass = CustomLoadoutService.resolveCurrentClass(playerData, runningState, player.getUUID());
+        PlayerClassType editedClass = editedClassKey == null || editedClassKey.isBlank() ? currentClass : PlayerClassType.fromInput(editedClassKey);
+        if (editedClass == null) { sendError(player, "兵种配置无效，请重新选择兵种"); return false; }
+        currentClass = editedClass;
         String selectedLoadoutId = resolveUiSelectedId(room, runningState, playerData, player.getUUID(), resolveCurrentRoomTeam(player), currentClass, slot);
         if (!normalizedLoadoutEntryId.equals(selectedLoadoutId)) {
             sendError(player, "当前武器已变化，请重新打开配件选择器");
@@ -1130,13 +1145,14 @@ public final class LoadoutUiService {
         }
         WeaponAttachmentService.setSelectedAttachmentId(
             playerData,
+            currentClass.getKey(),
             normalizedLoadoutEntryId,
             normalizedAttachmentType,
             normalizedAttachmentEntryId,
             explicitNone
         );
         playerDataStore.savePlayerData(player.getUUID(), playerData);
-        boolean refreshedInRange = refreshRangeLoadoutIfNeeded(player);
+        boolean refreshedInRange = currentClass == CustomLoadoutService.resolveCurrentClass(playerData) && refreshRangeLoadoutIfNeeded(player);
         sendInfo(
             player,
             refreshedInRange
@@ -1309,7 +1325,7 @@ public final class LoadoutUiService {
             boolean applied = switch (edit.action()) {
                 case "select_class" -> applyClassSelection(player, edit.classKey());
                 case "select_slot" -> applySlotSelection(player, edit.classKey(), edit.slotIndex(), edit.itemId());
-                case "select_attachment" -> applyAttachmentSelection(player, edit.slotIndex(), edit.contextId(), edit.attachmentType(), edit.itemId());
+                case "select_attachment" -> applyAttachmentSelection(player, edit.classKey(), edit.slotIndex(), edit.contextId(), edit.attachmentType(), edit.itemId());
                 default -> false;
             };
             anyApplied |= applied;
@@ -1799,11 +1815,10 @@ public final class LoadoutUiService {
         PlayerDataStore playerDataStore = ConquestDataManager.of(server).playerData();
         for (UUID uuid : playerDataStore.listKnownPlayerIds()) {
             PlayerDataModel playerData = playerDataStore.getPlayerData(uuid);
-            int beforeSize = playerData.getAttachmentSelectionByLoadoutEntryId().size();
+            boolean affected = playerData.getAllAttachmentSelectionGroups().stream().anyMatch(group -> group.containsKey(CustomLoadoutService.normalizeEquipmentId(oldId)));
             WeaponAttachmentService.renameLoadoutEntryId(playerData, oldId, newId);
             WeaponAttachmentService.cleanupEmptySelectionGroups(playerData);
-            if (beforeSize != playerData.getAttachmentSelectionByLoadoutEntryId().size()
-                || playerData.getAttachmentSelectionByLoadoutEntryId().containsKey(CustomLoadoutService.normalizeEquipmentId(newId))) {
+            if (affected) {
                 playerDataStore.savePlayerData(uuid, playerData);
             }
         }

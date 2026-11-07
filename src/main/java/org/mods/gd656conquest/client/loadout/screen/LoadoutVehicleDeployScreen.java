@@ -1,36 +1,38 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package org.mods.gd656conquest.client.loadout.screen;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import org.mods.gd656conquest.client.gui.GuiConstants;
-import org.mods.gd656conquest.client.gui.elements.GDButton;
-import org.mods.gd656conquest.client.gui.elements.GDScrollState;
-import org.mods.gd656conquest.client.loadout.ClientLoadoutUiState;
-import org.mods.gd656conquest.client.room.ClientRoomLockState;
-import org.mods.gd656conquest.network.NetworkManager;
-import org.mods.gd656conquest.network.packet.LoadoutUiRequestPacket;
-import org.mods.gd656conquest.network.packet.RoomDeploySelectPacket;
+import org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import org.mods.gd656conquest.client.gui.elements.GDButton;
+import org.mods.gd656conquest.client.gui.elements.GDScrollState;
+import org.mods.gd656conquest.client.loadout.ClientLoadoutUiState;
+import org.mods.gd656conquest.client.loadout.screen.LoadoutConfigScreen;
+import org.mods.gd656conquest.client.room.ClientRoomLockState;
+import org.mods.gd656conquest.network.NetworkManager;
+import org.mods.gd656conquest.network.packet.LoadoutUiRequestPacket;
+import org.mods.gd656conquest.network.packet.RoomDeploySelectPacket;
 
-public final class LoadoutVehicleDeployScreen extends Screen {
+public final class LoadoutVehicleDeployScreen
+extends Screen {
     private static final int LEFT = 18;
     private static final int TOP = 38;
     private static final int ROW_HEIGHT = 46;
     private static final int ROW_GAP = 6;
     private static final int BUTTON_WIDTH = 86;
     private static final long REQUEST_INTERVAL_MS = 1000L;
-
     private final Screen parent;
-    private final Map<String, GDButton> buttonByEntryId = new LinkedHashMap<>();
+    private final Map<String, GDButton> buttonByEntryId = new LinkedHashMap<String, GDButton>();
     private GDButton backButton;
     private GDButton closeButton;
     private long lastRequestAt;
@@ -48,133 +50,109 @@ public final class LoadoutVehicleDeployScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        updateOutOfGameTimer();
-        listScrollState.reset();
-        rebuildStaticButtons();
-        syncVehicleButtons();
-        if (!isOutOfGame()) {
-            requestSnapshotIfNeeded();
+        this.updateOutOfGameTimer();
+        this.listScrollState.reset();
+        this.rebuildStaticButtons();
+        this.syncVehicleButtons();
+        if (!this.isOutOfGame()) {
+            this.requestSnapshotIfNeeded();
         }
     }
 
     @Override
     public void tick() {
         super.tick();
-        updateOutOfGameTimer();
-        if (isOutOfGame() && outOfGameCloseAtMs > 0L && System.currentTimeMillis() >= outOfGameCloseAtMs) {
-            onClose();
+        this.updateOutOfGameTimer();
+        if (this.isOutOfGame() && this.outOfGameCloseAtMs > 0L && System.currentTimeMillis() >= this.outOfGameCloseAtMs) {
+            this.onClose();
             return;
         }
-        if (awaitingSuccessfulDeployClose && !ClientRoomLockState.shouldReleaseMouseForUi()) {
-            closeToGameplay();
+        if (this.awaitingSuccessfulDeployClose && !ClientRoomLockState.shouldReleaseMouseForUi()) {
+            this.closeToGameplay();
             return;
         }
-        requestSnapshotIfNeeded();
+        this.requestSnapshotIfNeeded();
     }
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(guiGraphics);
-        if (isOutOfGame()) {
-            int remain = Math.max(0, (int) Math.ceil((outOfGameCloseAtMs - System.currentTimeMillis()) / 1000.0));
-            guiGraphics.drawCenteredString(this.font, "请在游戏内打开载具部署页", this.width / 2, this.height / 2 - 10, 0xFFFF8080);
-            guiGraphics.drawCenteredString(this.font, "将在 " + remain + " 秒后自动关闭", this.width / 2, this.height / 2 + 6, 0xFFB8C6D6);
-            if (closeButton != null) {
-                closeButton.render(guiGraphics, mouseX, mouseY, partialTick);
+        int totalCount;
+        BattlefieldUiTheme.background(guiGraphics, this.width, this.height);
+        if (this.isOutOfGame()) {
+            int remain = Math.max(0, (int)Math.ceil((double)(this.outOfGameCloseAtMs - System.currentTimeMillis()) / 1000.0));
+            BattlefieldUiTheme.centered(guiGraphics, "\u8bf7\u5728\u6e38\u620f\u5185\u6253\u5f00\u8f7d\u5177\u90e8\u7f72\u9875", this.width / 2, this.height / 2 - 10, -32640);
+            BattlefieldUiTheme.centered(guiGraphics, "\u5c06\u5728 " + remain + " \u79d2\u540e\u81ea\u52a8\u5173\u95ed", this.width / 2, this.height / 2 + 6, -4667690);
+            if (this.closeButton != null) {
+                this.closeButton.render(guiGraphics, mouseX, mouseY, partialTick);
             }
             return;
         }
-        guiGraphics.drawString(this.font, this.title, LEFT, 12, 0xFFFFFF, false);
-        guiGraphics.drawString(
-            this.font,
-            Component.translatable(
-                ClientRoomLockState.shouldReleaseMouseForUi()
-                    ? "gd656conquest.client.gui.loadout.vehicle.deploy_enabled"
-                    : "gd656conquest.client.gui.loadout.vehicle.deploy_disabled"
-            ),
-            LEFT,
-            24,
-            0xFFB8C6D6,
-            false
-        );
-
-        int listY1 = TOP;
+        BattlefieldUiTheme.drawText(guiGraphics, this.title, 18, 12, 0xFFFFFF);
+        BattlefieldUiTheme.drawText(guiGraphics, Component.translatable(ClientRoomLockState.shouldReleaseMouseForUi() ? "gd656conquest.client.gui.loadout.vehicle.deploy_enabled" : "gd656conquest.client.gui.loadout.vehicle.deploy_disabled"), 18, 24, -4667690);
+        int listY1 = 38;
         int listY2 = this.height - 36;
         int viewHeight = Math.max(1, listY2 - listY1);
-        int contentHeight = vehicleListContentHeight();
-        listScrollState.update(mouseY, viewHeight, contentHeight);
-
-        syncVehicleButtons();
-
-        List<ClientLoadoutUiState.VehicleEntryState> entries = sortedEntries();
+        int contentHeight = this.vehicleListContentHeight();
+        this.listScrollState.update(mouseY, viewHeight, contentHeight);
+        this.syncVehicleButtons();
+        List<ClientLoadoutUiState.VehicleEntryState> entries = this.sortedEntries();
         if (entries.isEmpty()) {
-            String key = currentEmptyMessageKey();
-            guiGraphics.drawString(this.font, Component.translatable(key), LEFT, TOP + 8, 0xFFB8C6D6, false);
+            String key = this.currentEmptyMessageKey();
+            BattlefieldUiTheme.drawText(guiGraphics, Component.translatable(key), 18, 46, -4667690);
         } else {
-            guiGraphics.enableScissor(LEFT, listY1, this.width - 18, listY2);
-            for (int index = 0; index < entries.size(); index++) {
-                int rowY = TOP + index * (ROW_HEIGHT + ROW_GAP) - (int) Math.round(listScrollState.scrollY());
-                if (rowY + ROW_HEIGHT <= listY1 || rowY >= listY2) {
-                    continue;
-                }
-                renderVehicleRow(guiGraphics, entries.get(index), buttonByEntryId.get(entries.get(index).entryId()), mouseX, mouseY, partialTick, rowY);
+            org.mods.gd656killicon.client.gui.theme.BattlefieldGuiClip.enable(guiGraphics,18, listY1, this.width - 18, listY2);
+            for (int index = 0; index < entries.size(); ++index) {
+                int rowY = 38 + index * 52 - (int)Math.round(this.listScrollState.scrollY());
+                if (rowY + 46 <= listY1 || rowY >= listY2) continue;
+                this.renderVehicleRow(guiGraphics, entries.get(index), this.buttonByEntryId.get(entries.get(index).entryId()), mouseX, mouseY, partialTick, rowY);
             }
             guiGraphics.disableScissor();
-            listScrollState.renderScrollbar(guiGraphics, LEFT, listY1, this.width - 18, listY2, contentHeight);
+            this.listScrollState.renderScrollbar(guiGraphics, 18, listY1, this.width - 18, listY2, contentHeight);
         }
-
-        if (backButton != null) {
-            backButton.render(guiGraphics, mouseX, mouseY, partialTick);
+        if (this.backButton != null) {
+            this.backButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
-        if (closeButton != null) {
-            closeButton.render(guiGraphics, mouseX, mouseY, partialTick);
+        if (this.closeButton != null) {
+            this.closeButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
-
-        int totalCount = sortedEntries().size();
-        if (totalCount > 0 && contentHeight > viewHeight) {
-            int stride = ROW_HEIGHT + ROW_GAP;
-            int firstVisible = Math.min(totalCount, Math.max(1, (int) Math.floor(listScrollState.scrollY() / stride) + 1));
-            int lastVisible = Math.min(totalCount, Math.max(firstVisible, (int) Math.ceil((listScrollState.scrollY() + viewHeight) / stride)));
+        if ((totalCount = this.sortedEntries().size()) > 0 && contentHeight > viewHeight) {
+            int stride = 52;
+            int firstVisible = Math.min(totalCount, Math.max(1, (int)Math.floor(this.listScrollState.scrollY() / (double)stride) + 1));
+            int lastVisible = Math.min(totalCount, Math.max(firstVisible, (int)Math.ceil((this.listScrollState.scrollY() + (double)viewHeight) / (double)stride)));
             String pageText = String.format("%d-%d / %d", firstVisible, lastVisible, totalCount);
-            guiGraphics.drawString(this.font, pageText, this.width - 84, 12, 0xFFB8C6D6, false);
+            BattlefieldUiTheme.drawText(guiGraphics, pageText, this.width - 84, 12, -4667690);
         }
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
-            if (closeButton != null && closeButton.mouseClicked(mouseX, mouseY, button)) {
+            if (this.closeButton != null && this.closeButton.mouseClicked(mouseX, mouseY, button)) {
                 return true;
             }
-            if (backButton != null && backButton.mouseClicked(mouseX, mouseY, button)) {
+            if (this.backButton != null && this.backButton.mouseClicked(mouseX, mouseY, button)) {
                 return true;
             }
-            for (GDButton rowButton : buttonByEntryId.values()) {
-                if (rowButton.mouseClicked(mouseX, mouseY, button)) {
-                    return true;
-                }
+            if (mouseY >= 38 && mouseY < this.height - 36) for (GDButton rowButton : this.buttonByEntryId.values()) {
+                if (!rowButton.mouseClicked(mouseX, mouseY, button)) continue;
+                return true;
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    /**
-     * GD656Mods: 载具列表的内容高度 = 最后一行的底边(不含其后的行间距)。
-     * 用"行数 ×(行高+行间距)"会多算一个行间距, 滚到底时底部留空隙;
-     * 用这个值可以做到最后一行贴底。
-     */
     private int vehicleListContentHeight() {
-        int rowCount = sortedEntries().size();
+        int rowCount = this.sortedEntries().size();
         if (rowCount <= 0) {
             return 0;
         }
-        return (rowCount - 1) * (ROW_HEIGHT + ROW_GAP) + ROW_HEIGHT;
+        return (rowCount - 1) * 52 + 46;
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (mouseX >= LEFT && mouseX <= this.width - 18 && mouseY >= TOP && mouseY <= this.height - 36) {
-            return listScrollState.mouseScrolled(delta, this.height - 36 - TOP, vehicleListContentHeight());
+        if (mouseX >= 18.0 && mouseX <= (double)(this.width - 18) && mouseY >= 38.0 && mouseY <= (double)(this.height - 36)) {
+            return this.listScrollState.mouseScrolled(delta, this.height - 36 - 38, this.vehicleListContentHeight());
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
     }
@@ -185,74 +163,67 @@ public final class LoadoutVehicleDeployScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == 295) { BattlefieldUiTheme.cycle(); return true; }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
     public void onClose() {
-        if (minecraft != null) {
-            minecraft.setScreen(resolveCloseTarget());
+        if (this.minecraft != null) {
+            this.minecraft.setScreen(this.resolveCloseTarget());
         }
     }
 
     private void closeToParent() {
-        if (minecraft != null) {
-            minecraft.setScreen(parent);
+        if (this.minecraft != null) {
+            this.minecraft.setScreen(this.parent);
         }
     }
 
     private Screen resolveCloseTarget() {
-        if (parent instanceof LoadoutConfigScreen configScreen) {
+        Screen screen = this.parent;
+        if (screen instanceof LoadoutConfigScreen) {
+            LoadoutConfigScreen configScreen = (LoadoutConfigScreen)screen;
             return configScreen.parentScreen();
         }
-        return parent;
+        return this.parent;
     }
 
-    private void renderVehicleRow(
-        GuiGraphics guiGraphics,
-        ClientLoadoutUiState.VehicleEntryState entry,
-        GDButton rowButton,
-        int mouseX,
-        int mouseY,
-        float partialTick,
-        int rowY
-    ) {
-        int rowLeft = LEFT;
+    private void renderVehicleRow(GuiGraphics guiGraphics, ClientLoadoutUiState.VehicleEntryState entry, GDButton rowButton, int mouseX, int mouseY, float partialTick, int rowY) {
+        boolean selected;
+        int rowLeft = 18;
         int rowRight = this.width - 18;
-        int accentColor = resolveStateColor(entry);
-        boolean selectedWaiting = isWaitingForQueuedDeploy(entry);
-        boolean selected = entry != null && entry.selected();
-        int backgroundColor = selectedWaiting
-            ? 0x44304A66
-            : selected
-                ? 0x3A22374E
-                : 0x33151A20;
-        guiGraphics.fill(rowLeft, rowY, rowRight, rowY + ROW_HEIGHT, backgroundColor);
-        guiGraphics.fill(rowLeft, rowY, rowLeft + 4, rowY + ROW_HEIGHT, accentColor);
+        int accentColor = this.resolveStateColor(entry);
+        boolean selectedWaiting = this.isWaitingForQueuedDeploy(entry);
+        boolean bl = selected = entry != null && entry.selected();
+        int backgroundColor = selectedWaiting || selected ? BattlefieldUiTheme.palette().header() : BattlefieldUiTheme.palette().panel();
+        guiGraphics.fill(rowLeft, rowY, rowRight, rowY + 46, backgroundColor);
+        guiGraphics.fill(rowLeft, rowY, rowLeft + 4, rowY + 46, accentColor);
         if (selectedWaiting || selected) {
-            int outlineColor = selectedWaiting ? 0xCC8FC4FF : 0x88E6EEF8;
+            int outlineColor = BattlefieldUiTheme.palette().accent();
             guiGraphics.fill(rowLeft, rowY, rowRight, rowY + 1, outlineColor);
-            guiGraphics.fill(rowLeft, rowY + ROW_HEIGHT - 1, rowRight, rowY + ROW_HEIGHT, outlineColor);
-            guiGraphics.fill(rowLeft, rowY, rowLeft + 1, rowY + ROW_HEIGHT, outlineColor);
-            guiGraphics.fill(rowRight - 1, rowY, rowRight, rowY + ROW_HEIGHT, outlineColor);
+            guiGraphics.fill(rowLeft, rowY + 46 - 1, rowRight, rowY + 46, outlineColor);
+            guiGraphics.fill(rowLeft, rowY, rowLeft + 1, rowY + 46, outlineColor);
+            guiGraphics.fill(rowRight - 1, rowY, rowRight, rowY + 46, outlineColor);
         }
-
         String displayName = entry.displayName().isBlank() ? entry.entryId() : entry.displayName();
-        guiGraphics.drawString(this.font, displayName, rowLeft + 10, rowY + 5, 0xFFFFFFFF, false);
-        guiGraphics.drawString(this.font, resolveDisplayedStatusText(entry), rowLeft + 10, rowY + 18, accentColor, false);
-        guiGraphics.drawString(this.font, entry.detailText(), rowLeft + 10, rowY + 31, 0xFF92A0AF, false);
-
+        BattlefieldUiTheme.drawText(guiGraphics, displayName, rowLeft + 10, rowY + 5, -1);
+        BattlefieldUiTheme.drawText(guiGraphics, this.resolveDisplayedStatusText(entry), rowLeft + 10, rowY + 18, accentColor);
+        BattlefieldUiTheme.drawText(guiGraphics, entry.detailText(), rowLeft + 10, rowY + 31, -7167825);
         if (entry.healthPercent() >= 0) {
-            String healthText = entry.healthCurrent() > 0 && entry.healthMax() > 0
-                ? "耐久 " + entry.healthCurrent() + "/" + entry.healthMax() + "  (" + entry.healthPercent() + "%)"
-                : "耐久 " + entry.healthPercent() + "%";
-            guiGraphics.drawString(this.font, healthText, rowRight - BUTTON_WIDTH - 124, rowY + 8, entry.lowHealth() ? GuiConstants.COLOR_TITLE_TEXT : 0xFF9FD3A9, false);
+            String healthText = entry.healthCurrent() > 0 && entry.healthMax() > 0 ? "\u8010\u4e45 " + entry.healthCurrent() + "/" + entry.healthMax() + "  (" + entry.healthPercent() + "%)" : "\u8010\u4e45 " + entry.healthPercent() + "%";
+            BattlefieldUiTheme.drawText(guiGraphics, healthText, rowRight - 86 - 124, rowY + 8, entry.lowHealth() ? -6237968 : -6302807);
         }
         if (entry.seatCount() > 0) {
-            String seatText = "席位 " + entry.occupiedSeatCount() + "/" + entry.seatCount();
-            guiGraphics.drawString(this.font, seatText, rowRight - BUTTON_WIDTH - 124, rowY + 22, 0xFF8CC4FF, false);
+            String seatText = "\u5e2d\u4f4d " + entry.occupiedSeatCount() + "/" + entry.seatCount();
+            BattlefieldUiTheme.drawText(guiGraphics, seatText, rowRight - 86 - 124, rowY + 22, -7551745);
         } else if (entry.occupiedSeatCount() > 0) {
-            String crewText = "乘员 " + entry.occupiedSeatCount();
-            guiGraphics.drawString(this.font, crewText, rowRight - BUTTON_WIDTH - 124, rowY + 22, 0xFF8CC4FF, false);
-        } else if (resolveDisplayedReadyRemainSeconds(entry) > 0) {
-            String readyText = "倒计时 " + resolveDisplayedReadyRemainSeconds(entry) + "秒";
-            guiGraphics.drawString(this.font, readyText, rowRight - BUTTON_WIDTH - 124, rowY + 22, GuiConstants.COLOR_TITLE_TEXT, false);
+            String crewText = "\u4e58\u5458 " + entry.occupiedSeatCount();
+            BattlefieldUiTheme.drawText(guiGraphics, crewText, rowRight - 86 - 124, rowY + 22, -7551745);
+        } else if (this.resolveDisplayedReadyRemainSeconds(entry) > 0) {
+            String readyText = "\u5012\u8ba1\u65f6 " + this.resolveDisplayedReadyRemainSeconds(entry) + "\u79d2";
+            BattlefieldUiTheme.drawText(guiGraphics, readyText, rowRight - 86 - 124, rowY + 22, -6237968);
         }
         if (rowButton != null) {
             rowButton.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -260,28 +231,25 @@ public final class LoadoutVehicleDeployScreen extends Screen {
     }
 
     private void rebuildStaticButtons() {
-        backButton = new GDButton(LEFT, this.height - 28, 88, 20, Component.translatable("gd656conquest.client.gui.loadout.vehicle.back"), btn -> closeToParent());
-        closeButton = new GDButton(this.width - 86, this.height - 28, 72, 20, Component.translatable("gd656conquest.client.gui.loadout.close"), btn -> onClose());
+        this.backButton = new GDButton(18, this.height - 28, 88, 20, Component.translatable("gd656conquest.client.gui.loadout.vehicle.back"), btn -> this.closeToParent());
+        this.closeButton = new GDButton(this.width - 86, this.height - 28, 72, 20, Component.translatable("gd656conquest.client.gui.loadout.close"), btn -> this.onClose());
     }
 
     private void syncVehicleButtons() {
-        List<ClientLoadoutUiState.VehicleEntryState> entries = sortedEntries();
-        int buttonX = this.width - 18 - BUTTON_WIDTH - 8;
-        pruneUnusedButtons(entries);
-        for (int index = 0; index < entries.size(); index++) {
+        List<ClientLoadoutUiState.VehicleEntryState> entries = this.sortedEntries();
+        int buttonX = this.width - 18 - 86 - 8;
+        this.pruneUnusedButtons(entries);
+        for (int index = 0; index < entries.size(); ++index) {
             ClientLoadoutUiState.VehicleEntryState entry = entries.get(index);
-            int rowY = TOP + index * (ROW_HEIGHT + ROW_GAP) - (int) Math.round(listScrollState.scrollY());
-            GDButton button = buttonByEntryId.computeIfAbsent(
-                entry.entryId(),
-                entryId -> new GDButton(buttonX, rowY + 13, BUTTON_WIDTH, 20, Component.literal(entry.actionText()), btn -> requestVehicleDeployById(entryId))
-            );
+            int rowY = 38 + index * 52 - (int)Math.round(this.listScrollState.scrollY());
+            GDButton button = this.buttonByEntryId.computeIfAbsent(entry.entryId(), entryId -> new GDButton(buttonX, rowY + 13, 86, 20, Component.literal(entry.actionText()), btn -> this.requestVehicleDeployById((String)entryId)));
             button.setX(buttonX);
             button.setY(rowY + 13);
-            button.setWidth(BUTTON_WIDTH);
+            button.setWidth(86);
             button.setHeight(20);
-            button.setMessage(Component.literal(resolveButtonLabel(entry)));
-            button.active = isButtonActive(entry);
-            button.setTextColor(button.active ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY);
+            button.setMessage(Component.literal(this.resolveButtonLabel(entry)));
+            button.active = this.isButtonActive(entry);
+            button.setTextColor(button.active ? -1 : -5592406);
         }
     }
 
@@ -289,27 +257,27 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         if (entryId == null || entryId.isBlank()) {
             return;
         }
-        ClientLoadoutUiState.VehicleEntryState entry = findEntry(entryId);
+        ClientLoadoutUiState.VehicleEntryState entry = this.findEntry(entryId);
         if (entry == null) {
             return;
         }
-        requestVehicleDeploy(entry);
+        this.requestVehicleDeploy(entry);
     }
 
     private void requestVehicleDeploy(ClientLoadoutUiState.VehicleEntryState entry) {
-        if (entry == null || minecraft == null || minecraft.player == null) {
+        if (entry == null || this.minecraft == null || this.minecraft.player == null) {
             return;
         }
         if (!ClientRoomLockState.shouldReleaseMouseForUi() || !entry.actionable() || entry.entryId().isBlank()) {
             return;
         }
-        awaitingSuccessfulDeployClose = true;
+        this.awaitingSuccessfulDeployClose = true;
         NetworkManager.getChannel().sendToServer(RoomDeploySelectPacket.confirmVehicle(entry.entryId()));
         if (!entry.immediateDeploy()) {
-            requestSnapshotNow();
+            this.requestSnapshotNow();
         }
         if (entry.immediateDeploy()) {
-            closeToGameplay();
+            this.closeToGameplay();
         }
     }
 
@@ -325,49 +293,48 @@ public final class LoadoutVehicleDeployScreen extends Screen {
     }
 
     private int resolveStateColor(ClientLoadoutUiState.VehicleEntryState entry) {
+        String token;
         if (entry == null) {
-            return 0xFFFFFFFF;
+            return -1;
         }
-        if (isWaitingForQueuedDeploy(entry)) {
-            return 0xFF9AA3AD;
+        if (this.isWaitingForQueuedDeploy(entry)) {
+            return -6642771;
         }
         if (entry.lowHealth()) {
-            return GuiConstants.COLOR_TITLE_TEXT;
+            return -6237968;
         }
-        String token = entry.stateToken() == null ? "" : entry.stateToken().trim().toUpperCase();
-        return switch (token) {
-            case "EMPTY" -> 0xFFD0D0D0;
-            case "SQUAD" -> 0xFF6DE08B;
-            case "TEAM" -> 0xFF63A5FF;
-            case "FULL", "ENEMY" -> 0xFFFF6B6B;
-            case "WAIT", "WAITING" -> 0xFF9AA3AD;
-            default -> 0xFFFFFFFF;
+        return switch (token = entry.stateToken() == null ? "" : entry.stateToken().trim().toUpperCase()) {
+            case "EMPTY" -> -3092272;
+            case "SQUAD" -> -9576309;
+            case "TEAM" -> -10246657;
+            case "FULL", "ENEMY" -> -38037;
+            case "WAIT", "WAITING" -> -6642771;
+            default -> -1;
         };
     }
 
     private void requestSnapshotIfNeeded() {
-        if (isOutOfGame()) {
+        if (this.isOutOfGame()) {
             return;
         }
         long now = System.currentTimeMillis();
-        if (now - lastRequestAt < REQUEST_INTERVAL_MS) {
+        if (now - this.lastRequestAt < 1000L) {
             return;
         }
-        lastRequestAt = now;
+        this.lastRequestAt = now;
         NetworkManager.getChannel().sendToServer(new LoadoutUiRequestPacket(false));
     }
 
     private void pruneUnusedButtons(List<ClientLoadoutUiState.VehicleEntryState> visibleEntries) {
-        Set<String> activeIds = new HashSet<>();
-        for (ClientLoadoutUiState.VehicleEntryState entry : visibleEntries) {
-            activeIds.add(entry.entryId());
+        HashSet<String> activeIds = new HashSet<String>();
+        for (ClientLoadoutUiState.VehicleEntryState vehicleEntryState : visibleEntries) {
+            activeIds.add(vehicleEntryState.entryId());
         }
-        Iterator<Map.Entry<String, GDButton>> iterator = buttonByEntryId.entrySet().iterator();
+        Iterator<Map.Entry<String, GDButton>> iterator = this.buttonByEntryId.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<String, GDButton> entry = iterator.next();
-            if (!activeIds.contains(entry.getKey())) {
-                iterator.remove();
-            }
+            if (activeIds.contains(entry.getKey())) continue;
+            iterator.remove();
         }
     }
 
@@ -375,30 +342,30 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         if (!ClientRoomLockState.shouldReleaseMouseForUi() || entry == null || !entry.actionable()) {
             return false;
         }
-        return !isWaitingForQueuedDeploy(entry);
+        return !this.isWaitingForQueuedDeploy(entry);
     }
 
     private boolean isWaitingForQueuedDeploy(ClientLoadoutUiState.VehicleEntryState entry) {
         if (entry == null) {
             return false;
         }
-        return isSelectedWaiting(entry);
+        return this.isSelectedWaiting(entry);
     }
 
     private String resolveButtonLabel(ClientLoadoutUiState.VehicleEntryState entry) {
         if (entry == null) {
             return "";
         }
-        return isWaitingForQueuedDeploy(entry) ? "等待部署" : entry.actionText();
+        return this.isWaitingForQueuedDeploy(entry) ? "\u7b49\u5f85\u90e8\u7f72" : entry.actionText();
     }
 
     private String resolveDisplayedStatusText(ClientLoadoutUiState.VehicleEntryState entry) {
         if (entry == null) {
             return "";
         }
-        int remainSeconds = resolveDisplayedReadyRemainSeconds(entry);
-        if (isSelectedWaiting(entry)) {
-            return "已选定部署，等待倒计时结束" + (remainSeconds > 0 ? "（约 " + remainSeconds + " 秒）" : "");
+        int remainSeconds = this.resolveDisplayedReadyRemainSeconds(entry);
+        if (this.isSelectedWaiting(entry)) {
+            return "\u5df2\u9009\u5b9a\u90e8\u7f72\uff0c\u7b49\u5f85\u5012\u8ba1\u65f6\u7ed3\u675f" + (String)(remainSeconds > 0 ? "\uff08\u7ea6 " + remainSeconds + " \u79d2\uff09" : "");
         }
         return entry.statusText();
     }
@@ -411,16 +378,16 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         if (ageMs == Long.MAX_VALUE) {
             return entry.readyRemainSeconds();
         }
-        int elapsedSeconds = (int) (ageMs / 1000L);
+        int elapsedSeconds = (int)(ageMs / 1000L);
         return Math.max(0, entry.readyRemainSeconds() - elapsedSeconds);
     }
 
     private boolean isSelectedWaiting(ClientLoadoutUiState.VehicleEntryState entry) {
-        return entry != null && entry.selected() && resolveDisplayedReadyRemainSeconds(entry) > 0;
+        return entry != null && entry.selected() && this.resolveDisplayedReadyRemainSeconds(entry) > 0;
     }
 
     private void requestSnapshotNow() {
-        lastRequestAt = System.currentTimeMillis();
+        this.lastRequestAt = System.currentTimeMillis();
         NetworkManager.getChannel().sendToServer(new LoadoutUiRequestPacket(false));
     }
 
@@ -428,36 +395,33 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         if (entryId == null || entryId.isBlank()) {
             return null;
         }
-        for (ClientLoadoutUiState.VehicleEntryState entry : sortedEntries()) {
-            if (entryId.equalsIgnoreCase(entry.entryId())) {
-                return entry;
-            }
+        for (ClientLoadoutUiState.VehicleEntryState entry : this.sortedEntries()) {
+            if (!entryId.equalsIgnoreCase(entry.entryId())) continue;
+            return entry;
         }
         return null;
     }
 
     private void closeToGameplay() {
-        awaitingSuccessfulDeployClose = false;
-        if (minecraft != null) {
-            minecraft.setScreen(null);
+        this.awaitingSuccessfulDeployClose = false;
+        if (this.minecraft != null) {
+            this.minecraft.setScreen(null);
         }
     }
 
     private List<ClientLoadoutUiState.VehicleEntryState> sortedEntries() {
         ClientLoadoutUiState.Snapshot snapshot = ClientLoadoutUiState.snapshot();
         if (snapshot == null) {
-            cachedSortedEntriesUpdatedAtMs = Long.MIN_VALUE;
-            cachedSortedEntries = List.of();
-            return cachedSortedEntries;
+            this.cachedSortedEntriesUpdatedAtMs = Long.MIN_VALUE;
+            this.cachedSortedEntries = List.of();
+            return this.cachedSortedEntries;
         }
         long updatedAtMs = ClientLoadoutUiState.snapshotUpdatedAtMs();
-        if (updatedAtMs != cachedSortedEntriesUpdatedAtMs) {
-            cachedSortedEntries = snapshot.vehicleEntries().stream()
-                .sorted((left, right) -> left.displayName().compareToIgnoreCase(right.displayName()))
-                .toList();
-            cachedSortedEntriesUpdatedAtMs = updatedAtMs;
+        if (updatedAtMs != this.cachedSortedEntriesUpdatedAtMs) {
+            this.cachedSortedEntries = snapshot.vehicleEntries().stream().sorted((left, right) -> left.displayName().compareToIgnoreCase(right.displayName())).toList();
+            this.cachedSortedEntriesUpdatedAtMs = updatedAtMs;
         }
-        return cachedSortedEntries;
+        return this.cachedSortedEntries;
     }
 
     private boolean isOutOfGame() {
@@ -466,12 +430,12 @@ public final class LoadoutVehicleDeployScreen extends Screen {
     }
 
     private void updateOutOfGameTimer() {
-        if (!isOutOfGame()) {
-            outOfGameCloseAtMs = -1L;
+        if (!this.isOutOfGame()) {
+            this.outOfGameCloseAtMs = -1L;
             return;
         }
-        if (outOfGameCloseAtMs <= 0L) {
-            outOfGameCloseAtMs = System.currentTimeMillis() + 3000L;
+        if (this.outOfGameCloseAtMs <= 0L) {
+            this.outOfGameCloseAtMs = System.currentTimeMillis() + 3000L;
         }
     }
 
@@ -480,3 +444,4 @@ public final class LoadoutVehicleDeployScreen extends Screen {
         return super.mouseReleased(mouseX, mouseY, button);
     }
 }
+

@@ -12,6 +12,7 @@ public final class PlayerDataModel {
     private int levelExperience;
     private Map<String, String> customLoadoutSelectionBySlot = new HashMap<>();
     private Map<String, Map<String, String>> attachmentSelectionByLoadoutEntryId = new HashMap<>();
+    private Map<String, Map<String, Map<String, String>>> attachmentSelectionByClass = new HashMap<>();
     private String currentClassType = "assault";
     private boolean teamChannelTipAcknowledged;
     private int unacknowledgedTeamChannelMessageCount;
@@ -50,6 +51,21 @@ public final class PlayerDataModel {
     }
 
     public Map<String, Map<String, String>> getAttachmentSelectionByLoadoutEntryId() {
+        return getAttachmentSelectionForClass(getCurrentClassType());
+    }
+
+    /** Each class inherits the legacy configuration once, then owns an independent mutable copy. */
+    public Map<String, Map<String, String>> getAttachmentSelectionForClass(String classKey) {
+        if (attachmentSelectionByClass == null) attachmentSelectionByClass = new HashMap<>();
+        String key = classKey == null || classKey.isBlank() ? "assault" : classKey.trim().toLowerCase(java.util.Locale.ROOT);
+        return attachmentSelectionByClass.computeIfAbsent(key, ignored -> {
+            Map<String, Map<String, String>> copy = new HashMap<>();
+            legacyAttachmentSelection().forEach((id, selection) -> copy.put(id, selection == null ? new HashMap<>() : new HashMap<>(selection)));
+            return copy;
+        });
+    }
+
+    private Map<String, Map<String, String>> legacyAttachmentSelection() {
         if (attachmentSelectionByLoadoutEntryId == null) {
             attachmentSelectionByLoadoutEntryId = new HashMap<>();
         }
@@ -58,6 +74,15 @@ public final class PlayerDataModel {
 
     public void setAttachmentSelectionByLoadoutEntryId(Map<String, Map<String, String>> attachmentSelectionByLoadoutEntryId) {
         this.attachmentSelectionByLoadoutEntryId = attachmentSelectionByLoadoutEntryId;
+        this.attachmentSelectionByClass = new HashMap<>();
+    }
+
+    /** Administrative equipment renames/removals cover the migration seed and every saved class. */
+    public List<Map<String, Map<String, String>>> getAllAttachmentSelectionGroups() {
+        List<Map<String, Map<String, String>>> groups = new ArrayList<>();
+        groups.add(legacyAttachmentSelection());
+        if (attachmentSelectionByClass != null) for (var group : attachmentSelectionByClass.values()) if (group != null) groups.add(group);
+        return groups;
     }
 
     public String getCurrentClassType() {

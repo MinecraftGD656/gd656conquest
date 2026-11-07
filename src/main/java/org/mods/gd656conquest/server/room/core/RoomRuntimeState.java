@@ -12,6 +12,9 @@ public final class RoomRuntimeState {
     private final Map<UUID, String> inventorySnapshots = new LinkedHashMap<>();
     private final Map<UUID, String> squadLabelsByPlayer = new LinkedHashMap<>();
 
+    private final Map<String,RoomSquadService.Settings> socialSquads=new LinkedHashMap<>();
+    public Map<String,RoomSquadService.Settings> getSocialSquads(){return socialSquads;}
+
     public MatchingRuntimeState getMatchingState() {
         return matchingState;
     }

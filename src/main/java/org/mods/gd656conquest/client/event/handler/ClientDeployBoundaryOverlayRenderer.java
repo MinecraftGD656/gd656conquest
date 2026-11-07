@@ -1,3 +1,6 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package org.mods.gd656conquest.client.event.handler;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -6,6 +9,13 @@ import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
@@ -13,37 +23,30 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import org.joml.Matrix4f;
-import org.mods.gd656conquest.client.event.handler.ClientCaptureBoundaryRenderer.ResolvedBoundarySegments;
-import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.BoundaryPoint;
-import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.BoundaryPolygon;
-import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.LineSegment;
-import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.TeamToken;
+import org.mods.gd656conquest.client.event.handler.ClientCaptureBoundaryRenderer;
+import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel;
+import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayState;
+import org.mods.gd656conquest.client.input.ClientFovScrollService;
 import org.mods.gd656conquest.client.render.ClientWorldHudProjectionSupport;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-
 final class ClientDeployBoundaryOverlayRenderer {
-    private static final float SCREEN_LINE_WIDTH_PIXELS = 2.5F;
-    private static final float MASK_ALPHA = 0.48F;
-    private static final float LINE_ALPHA = 0.96F;
-    private static final float GUI_MASK_Z = -110.0F;
-    private static final float GUI_LINE_Z = -108.0F;
-    private static final double EDGE_EPSILON = 1.0E-6D;
+    private final DeploymentBoundaryMask gpuMask=new DeploymentBoundaryMask();
+    void release(){gpuMask.close();cachedGeometry=CachedDeployOverlayGeometry.empty();cachedGeometryBoundaryVersion=Long.MIN_VALUE;}
+    private static final float SCREEN_LINE_WIDTH_PIXELS = 2.5f;
+    private static final float MASK_ALPHA = 0.12f;
+    private static final float LINE_ALPHA = 0.6f;
+    private static final float GUI_MASK_Z = -110.0f;
+    private static final float GUI_LINE_Z = -108.0f;
+    private static final double EDGE_EPSILON = 1.0E-6;
     private static final int ROUND_CAP_SEGMENTS = 18;
-    private static final double ROUND_CAP_RADIUS_MULTIPLIER = 1.35D;
-
+    private static final double ROUND_CAP_RADIUS_MULTIPLIER = 1.35;
     private final ClientCaptureBoundaryRenderer boundaryRenderer;
     private long cachedGeometryBoundaryVersion = Long.MIN_VALUE;
-    private TeamToken cachedGeometrySelfTeam = TeamToken.NEUTRAL;
+    private ClientCaptureOverlayModel.TeamToken cachedGeometrySelfTeam = ClientCaptureOverlayModel.TeamToken.NEUTRAL;
     private int cachedGeometryScreenWidth = -1;
     private int cachedGeometryScreenHeight = -1;
     private CachedDeployOverlayGeometry cachedGeometry = CachedDeployOverlayGeometry.empty();
-
-    // GD656Mods: 临时观测计数，定位部署界面卡顿(测完删除)
     private long totalMaskRebuilds;
     private long totalProjectionPasses;
     private long lastDebugStatsSampleMillis;
@@ -65,179 +68,103 @@ final class ClientDeployBoundaryOverlayRenderer {
         this.boundaryRenderer = boundaryRenderer;
     }
 
-    void renderDeployBoundaryOverlay(
-        ClientCaptureOverlayState state,
-        RenderGuiOverlayEvent.Post event,
-        TeamToken selfTeam
-    ) {
-        renderDeployBoundaryOverlay(
-            state,
-            event.getGuiGraphics(),
-            event.getWindow().getGuiScaledWidth(),
-            event.getWindow().getGuiScaledHeight(),
-            selfTeam
-        );
+    void renderDeployBoundaryOverlay(ClientCaptureOverlayState state, RenderGuiOverlayEvent.Post event, ClientCaptureOverlayModel.TeamToken selfTeam) {
+        this.renderDeployBoundaryOverlay(state, event.getGuiGraphics(), event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight(), selfTeam);
     }
 
-    void renderDeployBoundaryOverlay(
-        ClientCaptureOverlayState state,
-        GuiGraphics guiGraphics,
-        int screenWidth,
-        int screenHeight,
-        TeamToken selfTeam
-    ) {
+    void renderDeployBoundaryOverlay(ClientCaptureOverlayState state, GuiGraphics guiGraphics, int screenWidth, int screenHeight, ClientCaptureOverlayModel.TeamToken selfTeam) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null || state.worldProjectionMatrix == null) {
             return;
         }
         float alphaFactor = ClientDeathFlowState.currentDeployIconAlpha();
-        if (alphaFactor <= 0.001F) {
+        if (alphaFactor <= 0.001f) {
             return;
         }
-        // GD656Mods: 临时观测采样(测完删除)
-        observedBoundaryVersion = state.boundaryGeometryVersion;
-        sampleDebugStatsPerSecond(System.currentTimeMillis());
-        ResolvedBoundarySegments segments = boundaryRenderer.resolveRenderableSegments(
-            state,
-            selfTeam,
-            ClientCaptureBoundaryRenderer.BoundaryDataSource.ROOM
-        );
+        this.observedBoundaryVersion = state.boundaryGeometryVersion;
+        this.sampleDebugStatsPerSecond(System.currentTimeMillis());
+        ClientCaptureBoundaryRenderer.ResolvedBoundarySegments segments = this.boundaryRenderer.resolveRenderableSegments(state, selfTeam, ClientCaptureBoundaryRenderer.BoundaryDataSource.ROOM);
         if (segments.isEmpty()) {
             return;
         }
-        CachedDeployOverlayGeometry geometry = resolveCachedGeometry(state, minecraft, selfTeam, screenWidth, screenHeight, segments);
+        CachedDeployOverlayGeometry geometry = this.resolveCachedGeometry(state, minecraft, selfTeam, screenWidth, screenHeight, segments);
         if (geometry.isEmpty()) {
             return;
         }
-        drawOutsideMask(guiGraphics, geometry.maskFills(), alphaFactor);
-        drawBoundaryLines(guiGraphics, geometry, selfTeam, alphaFactor);
+        boolean masked=gpuMask.render(guiGraphics,state,selfTeam,this.boundaryRenderer.resolveRenderablePolygons(state,selfTeam,ClientCaptureBoundaryRenderer.BoundaryDataSource.ROOM),alphaFactor);
+        if(!masked)this.drawOutsideMask(guiGraphics, this.buildMaskFills(screenWidth,screenHeight,geometry.sourcePolygons()), alphaFactor);
+        this.drawBoundaryLines(guiGraphics, geometry, selfTeam, alphaFactor);
     }
 
-    private CachedDeployOverlayGeometry resolveCachedGeometry(
-        ClientCaptureOverlayState state,
-        Minecraft minecraft,
-        TeamToken selfTeam,
-        int screenWidth,
-        int screenHeight,
-        ResolvedBoundarySegments segments
-    ) {
-        if (!isCachedGeometryBaseValid(state, selfTeam, screenWidth, screenHeight)) {
-            cachedGeometry = CachedDeployOverlayGeometry.empty();
+    private CachedDeployOverlayGeometry resolveCachedGeometry(ClientCaptureOverlayState state, Minecraft minecraft, ClientCaptureOverlayModel.TeamToken selfTeam, int screenWidth, int screenHeight, ClientCaptureBoundaryRenderer.ResolvedBoundarySegments segments) {
+        if (!this.isCachedGeometryBaseValid(state, selfTeam, screenWidth, screenHeight)) {
+            this.cachedGeometry = CachedDeployOverlayGeometry.empty();
         }
-
-        java.util.Map<WorldPointKey, ScreenPoint> pointProjectionCache = new java.util.HashMap<>();
-        // GD656Mods: 临时观测计数(测完删除)
-        totalProjectionPasses++;
-        List<ProjectedBoundaryPolygon> polygons = projectPolygons(state, minecraft, selfTeam, pointProjectionCache);
-        
+        HashMap<WorldPointKey, ScreenPoint> pointProjectionCache = new HashMap<WorldPointKey, ScreenPoint>();
+        ++this.totalProjectionPasses;
+        List<ProjectedBoundaryPolygon> polygons = this.projectPolygons(state, minecraft, selfTeam, pointProjectionCache);
         if (polygons.isEmpty()) {
-            cachedGeometry = CachedDeployOverlayGeometry.empty();
-            updateCachedGeometryBase(state, selfTeam, screenWidth, screenHeight);
-            return cachedGeometry;
+            this.cachedGeometry = CachedDeployOverlayGeometry.empty();
+            this.updateCachedGeometryBase(state, selfTeam, screenWidth, screenHeight);
+            return this.cachedGeometry;
         }
-
-        // GD656Mods: 临时观测计数(测完删除)
-        totalGeometryComparisons++;
-        if (!cachedGeometry.isEmpty() && arePolygonsNear(cachedGeometry.sourcePolygons(), polygons)) {
-            // GD656Mods: 临时观测计数(测完删除)
-            totalGeometryNearHits++;
-            return cachedGeometry;
+        ++this.totalGeometryComparisons;
+        if (!this.cachedGeometry.isEmpty() && this.arePolygonsNear(this.cachedGeometry.sourcePolygons(), polygons)) {
+            ++this.totalGeometryNearHits;
+            return this.cachedGeometry;
         }
-
-        // GD656Mods: 临时观测计数(测完删除)
-        totalMaskRebuilds++;
+        ++this.totalMaskRebuilds;
         long maskBuildStart = System.nanoTime();
-        cachedGeometry = new CachedDeployOverlayGeometry(
-            polygons,
-            buildMaskFills(screenWidth, screenHeight, polygons),
-            projectLineSegments(minecraft, state, segments.selfSegments(), pointProjectionCache),
-            projectLineSegments(minecraft, state, segments.enemySegments(), pointProjectionCache),
-            projectLineSegments(minecraft, state, segments.neutralSegments(), pointProjectionCache),
-            projectLineSegments(minecraft, state, segments.sharedSegments(), pointProjectionCache)
-        );
-        totalMaskBuildNanos += System.nanoTime() - maskBuildStart;
-        updateCachedGeometryBase(state, selfTeam, screenWidth, screenHeight);
-        return cachedGeometry;
+        this.cachedGeometry = new CachedDeployOverlayGeometry(polygons, List.of(), this.projectLineSegments(minecraft, state, segments.selfSegments(), pointProjectionCache), this.projectLineSegments(minecraft, state, segments.enemySegments(), pointProjectionCache), this.projectLineSegments(minecraft, state, segments.neutralSegments(), pointProjectionCache), this.projectLineSegments(minecraft, state, segments.sharedSegments(), pointProjectionCache));
+        this.totalMaskBuildNanos += System.nanoTime() - maskBuildStart;
+        this.updateCachedGeometryBase(state, selfTeam, screenWidth, screenHeight);
+        return this.cachedGeometry;
     }
 
-    private boolean isCachedGeometryBaseValid(
-        ClientCaptureOverlayState state,
-        TeamToken selfTeam,
-        int screenWidth,
-        int screenHeight
-    ) {
-        return cachedGeometryBoundaryVersion == state.boundaryGeometryVersion
-            && cachedGeometrySelfTeam == selfTeam
-            && cachedGeometryScreenWidth == screenWidth
-            && cachedGeometryScreenHeight == screenHeight
-            && state.worldProjectionMatrix != null;
+    private boolean isCachedGeometryBaseValid(ClientCaptureOverlayState state, ClientCaptureOverlayModel.TeamToken selfTeam, int screenWidth, int screenHeight) {
+        return this.cachedGeometryBoundaryVersion == state.boundaryGeometryVersion && this.cachedGeometrySelfTeam == selfTeam && this.cachedGeometryScreenWidth == screenWidth && this.cachedGeometryScreenHeight == screenHeight && state.worldProjectionMatrix != null;
     }
 
-    // GD656Mods: 临时观测，测完删除
     private void sampleDebugStatsPerSecond(long nowMillis) {
-        if (lastDebugStatsSampleMillis == 0L) {
-            lastDebugStatsSampleMillis = nowMillis;
-            lastSampleBoundaryVersion = observedBoundaryVersion;
+        if (this.lastDebugStatsSampleMillis == 0L) {
+            this.lastDebugStatsSampleMillis = nowMillis;
+            this.lastSampleBoundaryVersion = this.observedBoundaryVersion;
             return;
         }
-        if (nowMillis - lastDebugStatsSampleMillis < 1000L) {
+        if (nowMillis - this.lastDebugStatsSampleMillis < 1000L) {
             return;
         }
-        maskRebuildsPerSecond = (int) totalMaskRebuilds;
-        projectionPassesPerSecond = (int) totalProjectionPasses;
-        versionDeltaPerSecond = observedBoundaryVersion - lastSampleBoundaryVersion > Integer.MAX_VALUE
-            ? 0
-            : (int) (observedBoundaryVersion - lastSampleBoundaryVersion);
-        lastSampleBoundaryVersion = observedBoundaryVersion;
-        geometryComparePerSecond = (int) totalGeometryComparisons;
-        geometryHitPerSecond = (int) totalGeometryNearHits;
-        maskColsPerSecond = lastMaskBuildCols;
-        avgMaskBuildMillis = totalMaskRebuilds <= 0L
-            ? 0.0D
-            : totalMaskBuildNanos / 1_000_000.0D / totalMaskRebuilds;
-        totalMaskRebuilds = 0L;
-        totalProjectionPasses = 0L;
-        totalMaskBuildNanos = 0L;
-        totalGeometryComparisons = 0L;
-        totalGeometryNearHits = 0L;
-        lastDebugStatsSampleMillis = nowMillis;
+        this.maskRebuildsPerSecond = (int)this.totalMaskRebuilds;
+        this.projectionPassesPerSecond = (int)this.totalProjectionPasses;
+        this.versionDeltaPerSecond = this.observedBoundaryVersion - this.lastSampleBoundaryVersion > Integer.MAX_VALUE ? 0 : (int)(this.observedBoundaryVersion - this.lastSampleBoundaryVersion);
+        this.lastSampleBoundaryVersion = this.observedBoundaryVersion;
+        this.geometryComparePerSecond = (int)this.totalGeometryComparisons;
+        this.geometryHitPerSecond = (int)this.totalGeometryNearHits;
+        this.maskColsPerSecond = this.lastMaskBuildCols;
+        this.avgMaskBuildMillis = this.totalMaskRebuilds <= 0L ? 0.0 : (double)this.totalMaskBuildNanos / 1000000.0 / (double)this.totalMaskRebuilds;
+        this.totalMaskRebuilds = 0L;
+        this.totalProjectionPasses = 0L;
+        this.totalMaskBuildNanos = 0L;
+        this.totalGeometryComparisons = 0L;
+        this.totalGeometryNearHits = 0L;
+        this.lastDebugStatsSampleMillis = nowMillis;
     }
 
-    // GD656Mods: 临时观测，测完删除
     String debugStatsLine() {
-        double appliedFov = org.mods.gd656conquest.client.input.ClientFovScrollService.getLastAppliedFov();
-        String fovText = appliedFov < 0.0D ? "-" : String.format("%.1f", appliedFov);
-        return String.format(
-            "deploy: mask=%d/s proj=%d/s ver=%d d=%d fov=%s",
-            maskRebuildsPerSecond,
-            projectionPassesPerSecond,
-            observedBoundaryVersion,
-            versionDeltaPerSecond,
-            fovText
-        );
+        double appliedFov = ClientFovScrollService.getLastAppliedFov();
+        String fovText = appliedFov < 0.0 ? "-" : String.format("%.1f", appliedFov);
+        return String.format("deploy: mask=%d/s proj=%d/s ver=%d d=%d fov=%s", this.maskRebuildsPerSecond, this.projectionPassesPerSecond, this.observedBoundaryVersion, this.versionDeltaPerSecond, fovText);
     }
 
-    // GD656Mods: 临时观测，测完删除
     String debugStatsDetailLine() {
-        return String.format(
-            "mask: avg=%.2fms cols=%d hit=%d/%d",
-            avgMaskBuildMillis,
-            maskColsPerSecond,
-            geometryHitPerSecond,
-            geometryComparePerSecond
-        );
+        return String.format("mask: avg=%.2fms cols=%d hit=%d/%d", this.avgMaskBuildMillis, this.maskColsPerSecond, this.geometryHitPerSecond, this.geometryComparePerSecond);
     }
 
-    private void updateCachedGeometryBase(
-        ClientCaptureOverlayState state,
-        TeamToken selfTeam,
-        int screenWidth,
-        int screenHeight
-    ) {
-        cachedGeometryBoundaryVersion = state.boundaryGeometryVersion;
-        cachedGeometrySelfTeam = selfTeam;
-        cachedGeometryScreenWidth = screenWidth;
-        cachedGeometryScreenHeight = screenHeight;
+    private void updateCachedGeometryBase(ClientCaptureOverlayState state, ClientCaptureOverlayModel.TeamToken selfTeam, int screenWidth, int screenHeight) {
+        this.cachedGeometryBoundaryVersion = state.boundaryGeometryVersion;
+        this.cachedGeometrySelfTeam = selfTeam;
+        this.cachedGeometryScreenWidth = screenWidth;
+        this.cachedGeometryScreenHeight = screenHeight;
     }
 
     private boolean arePolygonsNear(List<ProjectedBoundaryPolygon> previous, List<ProjectedBoundaryPolygon> current) {
@@ -247,67 +174,50 @@ final class ClientDeployBoundaryOverlayRenderer {
         if (previous == null || current == null || previous.size() != current.size()) {
             return false;
         }
-        for (int index = 0; index < previous.size(); index++) {
+        for (int index = 0; index < previous.size(); ++index) {
             List<ScreenPoint> prevPoints = previous.get(index).points();
             List<ScreenPoint> currPoints = current.get(index).points();
             if (prevPoints.size() != currPoints.size()) {
                 return false;
             }
-            for (int pointIndex = 0; pointIndex < prevPoints.size(); pointIndex++) {
-                if (!prevPoints.get(pointIndex).isNear(currPoints.get(pointIndex))) {
-                    return false;
-                }
+            for (int pointIndex = 0; pointIndex < prevPoints.size(); ++pointIndex) {
+                if (prevPoints.get(pointIndex).isNear(currPoints.get(pointIndex))) continue;
+                return false;
             }
         }
         return true;
     }
 
-    private List<ProjectedBoundaryPolygon> projectPolygons(
-        ClientCaptureOverlayState state,
-        Minecraft minecraft,
-        TeamToken selfTeam,
-        java.util.Map<WorldPointKey, ScreenPoint> pointProjectionCache
-    ) {
-        List<BoundaryPolygon> rawPolygons = boundaryRenderer.resolveRenderablePolygons(
-            state,
-            selfTeam,
-            ClientCaptureBoundaryRenderer.BoundaryDataSource.ROOM
-        );
+    private List<ProjectedBoundaryPolygon> projectPolygons(ClientCaptureOverlayState state, Minecraft minecraft, ClientCaptureOverlayModel.TeamToken selfTeam, Map<WorldPointKey, ScreenPoint> pointProjectionCache) {
+        List<ClientCaptureOverlayModel.BoundaryPolygon> rawPolygons = this.boundaryRenderer.resolveRenderablePolygons(state, selfTeam, ClientCaptureBoundaryRenderer.BoundaryDataSource.ROOM);
         if (rawPolygons.isEmpty()) {
             return List.of();
         }
-        List<ProjectedBoundaryPolygon> projected = new ArrayList<>();
-        for (BoundaryPolygon polygon : rawPolygons) {
-            ProjectedBoundaryPolygon screenPolygon = projectPolygon(state, minecraft, polygon, pointProjectionCache);
-            if (screenPolygon != null) {
-                projected.add(screenPolygon);
-            }
+        ArrayList<ProjectedBoundaryPolygon> projected = new ArrayList<ProjectedBoundaryPolygon>();
+        for (ClientCaptureOverlayModel.BoundaryPolygon polygon : rawPolygons) {
+            ProjectedBoundaryPolygon screenPolygon = this.projectPolygon(state, minecraft, polygon, pointProjectionCache);
+            if (screenPolygon == null) continue;
+            projected.add(screenPolygon);
         }
         return projected.isEmpty() ? List.of() : List.copyOf(projected);
     }
 
-    private ProjectedBoundaryPolygon projectPolygon(
-        ClientCaptureOverlayState state,
-        Minecraft minecraft,
-        BoundaryPolygon polygon,
-        java.util.Map<WorldPointKey, ScreenPoint> pointProjectionCache
-    ) {
+    private ProjectedBoundaryPolygon projectPolygon(ClientCaptureOverlayState state, Minecraft minecraft, ClientCaptureOverlayModel.BoundaryPolygon polygon, Map<WorldPointKey, ScreenPoint> pointProjectionCache) {
         if (polygon == null || polygon.points() == null || polygon.points().size() < 3) {
             return null;
         }
-        List<ScreenPoint> screenPoints = new ArrayList<>();
+        ArrayList<ScreenPoint> screenPoints = new ArrayList<ScreenPoint>();
         ScreenPoint previous = null;
-        for (BoundaryPoint point : polygon.points()) {
-            ScreenPoint screenPoint = projectWorldPoint(minecraft, state, point.x(), point.y(), point.z(), pointProjectionCache);
+        for (ClientCaptureOverlayModel.BoundaryPoint point : polygon.points()) {
+            ScreenPoint screenPoint = this.projectWorldPoint(minecraft, state, point.x(), point.y(), point.z(), pointProjectionCache);
             if (screenPoint == null) {
                 return null;
             }
-            if (previous == null || !previous.isNear(screenPoint)) {
-                screenPoints.add(screenPoint);
-                previous = screenPoint;
-            }
+            if (previous != null && previous.isNear(screenPoint)) continue;
+            screenPoints.add(screenPoint);
+            previous = screenPoint;
         }
-        if (screenPoints.size() >= 2 && screenPoints.get(0).isNear(screenPoints.get(screenPoints.size() - 1))) {
+        if (screenPoints.size() >= 2 && ((ScreenPoint)screenPoints.get(0)).isNear((ScreenPoint)screenPoints.get(screenPoints.size() - 1))) {
             screenPoints.remove(screenPoints.size() - 1);
         }
         if (screenPoints.size() < 3) {
@@ -315,47 +225,39 @@ final class ClientDeployBoundaryOverlayRenderer {
         }
         double minX = Double.POSITIVE_INFINITY;
         double maxX = Double.NEGATIVE_INFINITY;
-        List<PolygonScanEdge> scanEdges = new ArrayList<>();
-        for (int index = 0; index < screenPoints.size(); index++) {
-            ScreenPoint start = screenPoints.get(index);
-            ScreenPoint end = screenPoints.get((index + 1) % screenPoints.size());
+        ArrayList<PolygonScanEdge> scanEdges = new ArrayList<PolygonScanEdge>();
+        for (int index = 0; index < screenPoints.size(); ++index) {
+            ScreenPoint start = (ScreenPoint)screenPoints.get(index);
+            ScreenPoint end = (ScreenPoint)screenPoints.get((index + 1) % screenPoints.size());
             minX = Math.min(minX, start.x());
             maxX = Math.max(maxX, start.x());
-            PolygonScanEdge edge = buildScanEdge(start, end);
-            if (edge != null) {
-                scanEdges.add(edge);
-            }
+            PolygonScanEdge edge = this.buildScanEdge(start, end);
+            if (edge == null) continue;
+            scanEdges.add(edge);
         }
         if (scanEdges.isEmpty()) {
             return null;
         }
-        return new ProjectedBoundaryPolygon(
-            polygon.team(),
-            List.copyOf(screenPoints),
-            List.copyOf(scanEdges),
-            minX,
-            maxX
-        );
+        return new ProjectedBoundaryPolygon(polygon.team(), List.copyOf(screenPoints), List.copyOf(scanEdges), minX, maxX);
     }
 
     private List<MaskFill> buildMaskFills(int width, int height, List<ProjectedBoundaryPolygon> polygons) {
         if (width <= 0 || height <= 0 || polygons == null || polygons.isEmpty()) {
             return List.of();
         }
-        List<MutableMaskFill> activeFills = new ArrayList<>();
-        List<MaskFill> fills = new ArrayList<>();
+        ArrayList<MutableMaskFill> activeFills = new ArrayList<MutableMaskFill>();
+        ArrayList<MaskFill> fills = new ArrayList<MaskFill>();
         List<Span> previousOutsideSpans = List.of();
         double maxY = height;
         int scanStartX = width;
         int scanEndX = -1;
         for (ProjectedBoundaryPolygon polygon : polygons) {
-            scanStartX = Math.min(scanStartX, clampColumnStart(polygon.minX(), width));
-            scanEndX = Math.max(scanEndX, clampColumnEndExclusive(polygon.maxX(), width));
+            scanStartX = Math.min(scanStartX, this.clampColumnStart(polygon.minX(), width));
+            scanEndX = Math.max(scanEndX, this.clampColumnEndExclusive(polygon.maxX(), width));
         }
         scanStartX = Mth.clamp(scanStartX, 0, width);
         scanEndX = Mth.clamp(scanEndX, 0, width);
-        // GD656Mods: 临时观测(测完删除)
-        lastMaskBuildCols = Math.max(0, scanEndX - scanStartX);
+        this.lastMaskBuildCols = Math.max(0, scanEndX - scanStartX);
         if (scanStartX > 0) {
             fills.add(new MaskFill(0, 0, scanStartX, height));
         }
@@ -365,12 +267,12 @@ final class ClientDeployBoundaryOverlayRenderer {
         if (scanStartX >= scanEndX) {
             return fills.isEmpty() ? List.of() : List.copyOf(fills);
         }
-        for (int x = scanStartX; x < scanEndX; x++) {
-            List<Span> outsideSpans = resolveOutsideSpans(polygons, x + 0.5D, maxY, height);
-            if (!sameSpans(previousOutsideSpans, outsideSpans)) {
-                flushActiveFills(activeFills, fills);
+        for (int x = scanStartX; x < scanEndX; ++x) {
+            List<Span> outsideSpans = this.resolveOutsideSpans(polygons, (double)x + 0.5, maxY, height);
+            if (!this.sameSpans(previousOutsideSpans, outsideSpans)) {
+                this.flushActiveFills(activeFills, fills);
                 for (Span span : outsideSpans) {
-                    activeFills.add(new MutableMaskFill(x, (int) Math.floor(span.start()), x + 1, (int) Math.ceil(span.end())));
+                    activeFills.add(new MutableMaskFill(x, (int)Math.floor(span.start()), x + 1, (int)Math.ceil(span.end())));
                 }
                 previousOutsideSpans = outsideSpans;
                 continue;
@@ -379,24 +281,22 @@ final class ClientDeployBoundaryOverlayRenderer {
                 fill.endX = x + 1;
             }
         }
-        flushActiveFills(activeFills, fills);
+        this.flushActiveFills(activeFills, fills);
         return fills.isEmpty() ? List.of() : List.copyOf(fills);
     }
 
     private List<Span> resolveOutsideSpans(List<ProjectedBoundaryPolygon> polygons, double sampleX, double maxY, int height) {
-        List<Span> spans = resolveMergedInsideSpans(polygons, sampleX);
-        List<Span> outsideSpans = new ArrayList<>();
-        double fillStartY = 0.0D;
+        List<Span> spans = this.resolveMergedInsideSpans(polygons, sampleX);
+        ArrayList<Span> outsideSpans = new ArrayList<Span>();
+        double fillStartY = 0.0;
         for (Span span : spans) {
-            double insideStart = Mth.clamp(span.start(), 0.0D, maxY);
-            double insideEnd = Mth.clamp(span.end(), 0.0D, maxY);
+            double insideStart = Mth.clamp(span.start(), 0.0, maxY);
+            double insideEnd = Mth.clamp(span.end(), 0.0, maxY);
             if (insideStart > fillStartY) {
                 outsideSpans.add(new Span(fillStartY, insideStart));
             }
-            fillStartY = Math.max(fillStartY, insideEnd);
-            if (fillStartY >= maxY) {
-                break;
-            }
+            if (!((fillStartY = Math.max(fillStartY, insideEnd)) >= maxY)) continue;
+            break;
         }
         if (fillStartY < maxY) {
             outsideSpans.add(new Span(fillStartY, height));
@@ -411,12 +311,11 @@ final class ClientDeployBoundaryOverlayRenderer {
         if (previous == null || current == null || previous.size() != current.size()) {
             return false;
         }
-        for (int index = 0; index < previous.size(); index++) {
+        for (int index = 0; index < previous.size(); ++index) {
             Span left = previous.get(index);
             Span right = current.get(index);
-            if (Math.abs(left.start() - right.start()) > 0.5D || Math.abs(left.end() - right.end()) > 0.5D) {
-                return false;
-            }
+            if (!(Math.abs(left.start() - right.start()) > 0.5) && !(Math.abs(left.end() - right.end()) > 0.5)) continue;
+            return false;
         }
         return true;
     }
@@ -426,25 +325,20 @@ final class ClientDeployBoundaryOverlayRenderer {
             return;
         }
         for (MutableMaskFill fill : activeFills) {
-            if (fill.endY > fill.startY && fill.endX > fill.startX) {
-                fills.add(new MaskFill(fill.startX, fill.startY, fill.endX, fill.endY));
-            }
+            if (fill.endY <= fill.startY || fill.endX <= fill.startX) continue;
+            fills.add(new MaskFill(fill.startX, fill.startY, fill.endX, fill.endY));
         }
         activeFills.clear();
     }
 
-    private void drawOutsideMask(
-        GuiGraphics guiGraphics,
-        List<MaskFill> fills,
-        float alphaFactor
-    ) {
-        int alpha = Mth.clamp(Math.round(255.0F * MASK_ALPHA * alphaFactor), 0, 255);
+    private void drawOutsideMask(GuiGraphics guiGraphics, List<MaskFill> fills, float alphaFactor) {
+        int alpha = Mth.clamp(Math.round(30.6f * alphaFactor), 0, 255);
         if (alpha <= 0 || fills == null || fills.isEmpty()) {
             return;
         }
-        float a = alpha / 255.0F;
+        float a = (float)alpha / 255.0f;
         guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0.0F, 0.0F, GUI_MASK_Z);
+        guiGraphics.pose().translate(0.0f, 0.0f, -110.0f);
         Matrix4f matrix = guiGraphics.pose().last().pose();
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -455,17 +349,15 @@ final class ClientDeployBoundaryOverlayRenderer {
         BufferBuilder buffer = tesselator.getBuilder();
         buffer.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         for (MaskFill fill : fills) {
-            if (fill.endY() <= fill.startY()) {
-                continue;
-            }
-            float left = (float) fill.startX();
-            float top = (float) fill.startY();
-            float right = (float) fill.endX();
-            float bottom = (float) fill.endY();
-            buffer.vertex(matrix, left, top, 0.0F).color(0.0F, 0.0F, 0.0F, a).endVertex();
-            buffer.vertex(matrix, left, bottom, 0.0F).color(0.0F, 0.0F, 0.0F, a).endVertex();
-            buffer.vertex(matrix, right, bottom, 0.0F).color(0.0F, 0.0F, 0.0F, a).endVertex();
-            buffer.vertex(matrix, right, top, 0.0F).color(0.0F, 0.0F, 0.0F, a).endVertex();
+            if (fill.endY() <= fill.startY()) continue;
+            float left = fill.startX();
+            float top = fill.startY();
+            float right = fill.endX();
+            float bottom = fill.endY();
+            buffer.vertex(matrix, left, top, 0.0f).color(0.0f, 0.0f, 0.0f, a).endVertex();
+            buffer.vertex(matrix, left, bottom, 0.0f).color(0.0f, 0.0f, 0.0f, a).endVertex();
+            buffer.vertex(matrix, right, bottom, 0.0f).color(0.0f, 0.0f, 0.0f, a).endVertex();
+            buffer.vertex(matrix, right, top, 0.0f).color(0.0f, 0.0f, 0.0f, a).endVertex();
         }
         BufferUploader.drawWithShader(buffer.end());
         RenderSystem.enableCull();
@@ -475,22 +367,22 @@ final class ClientDeployBoundaryOverlayRenderer {
     }
 
     private List<Span> resolveMergedInsideSpans(List<ProjectedBoundaryPolygon> polygons, double sampleX) {
-        List<Span> spans = new ArrayList<>();
+        ArrayList<Span> spans = new ArrayList<Span>();
         for (ProjectedBoundaryPolygon polygon : polygons) {
-            spans.addAll(resolveInsideSpansForPolygon(polygon, sampleX));
+            spans.addAll(this.resolveInsideSpansForPolygon(polygon, sampleX));
         }
         if (spans.isEmpty()) {
             return List.of();
         }
         spans.sort(Comparator.comparingDouble(Span::start));
-        List<Span> merged = new ArrayList<>();
+        ArrayList<Span> merged = new ArrayList<Span>();
         for (Span span : spans) {
             if (merged.isEmpty()) {
                 merged.add(span);
                 continue;
             }
-            Span last = merged.get(merged.size() - 1);
-            if (span.start() <= last.end() + 0.5D) {
+            Span last = (Span)merged.get(merged.size() - 1);
+            if (span.start() <= last.end() + 0.5) {
                 merged.set(merged.size() - 1, new Span(last.start(), Math.max(last.end(), span.end())));
                 continue;
             }
@@ -503,40 +395,37 @@ final class ClientDeployBoundaryOverlayRenderer {
         if (polygon == null || sampleX < polygon.minX() || sampleX >= polygon.maxX()) {
             return List.of();
         }
-        List<Double> intersections = new ArrayList<>();
+        ArrayList<Double> intersections = new ArrayList<Double>();
         for (PolygonScanEdge edge : polygon.scanEdges()) {
-            if (sampleX < edge.minX() || sampleX >= edge.maxX()) {
-                continue;
-            }
+            if (sampleX < edge.minX() || sampleX >= edge.maxX()) continue;
             intersections.add(edge.yAt(sampleX));
         }
         if (intersections.size() < 2) {
             return List.of();
         }
         intersections.sort(Double::compareTo);
-        List<Span> spans = new ArrayList<>();
-        for (int index = 0; index + 1 < intersections.size(); index += 2) {
-            double startY = intersections.get(index);
-            double endY = intersections.get(index + 1);
-            if (endY - startY <= EDGE_EPSILON) {
-                continue;
+        ArrayList<Span> spans = new ArrayList<Span>();
+        int index = 0;
+        while (index + 1 < intersections.size()) {
+            double startY = (Double)intersections.get(index);
+            double endY = (Double)intersections.get(index + 1);
+            if (!(endY - startY <= 1.0E-6)) {
+                spans.add(new Span(startY, endY));
             }
-            spans.add(new Span(startY, endY));
+            index += 2;
         }
         return spans;
     }
 
-    private void drawBoundaryLines(
-        GuiGraphics guiGraphics,
-        CachedDeployOverlayGeometry geometry,
-        TeamToken selfTeam,
-        float alphaFactor
-    ) {
-        float[] selfColor = resolveBoundaryColorForTeam(selfTeam, true);
-        float[] enemyColor = resolveBoundaryColorForTeam(selfTeam, false);
-        float[] neutralColor = new float[]{1.0F, 1.0F, 1.0F};
+    /*
+     * WARNING - Removed try catching itself - possible behaviour change.
+     */
+    private void drawBoundaryLines(GuiGraphics guiGraphics, CachedDeployOverlayGeometry geometry, ClientCaptureOverlayModel.TeamToken selfTeam, float alphaFactor) {
+        float[] selfColor = this.resolveBoundaryColorForTeam(selfTeam, true);
+        float[] enemyColor = this.resolveBoundaryColorForTeam(selfTeam, false);
+        float[] neutralColor = new float[]{1.0f, 1.0f, 1.0f};
         guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0.0F, 0.0F, GUI_LINE_Z);
+        guiGraphics.pose().translate(0.0f, 0.0f, -108.0f);
         Matrix4f matrix = guiGraphics.pose().last().pose();
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -544,11 +433,12 @@ final class ClientDeployBoundaryOverlayRenderer {
         RenderSystem.disableCull();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         try {
-            drawProjectedSegmentBucket(matrix, geometry.selfSegments(), selfColor[0], selfColor[1], selfColor[2], alphaFactor * LINE_ALPHA);
-            drawProjectedSegmentBucket(matrix, geometry.enemySegments(), enemyColor[0], enemyColor[1], enemyColor[2], alphaFactor * LINE_ALPHA);
-            drawProjectedSegmentBucket(matrix, geometry.neutralSegments(), neutralColor[0], neutralColor[1], neutralColor[2], alphaFactor * LINE_ALPHA);
-            drawProjectedSegmentBucket(matrix, geometry.sharedSegments(), neutralColor[0], neutralColor[1], neutralColor[2], alphaFactor * LINE_ALPHA);
-        } finally {
+            this.drawProjectedSegmentBucket(matrix, geometry.selfSegments(), selfColor[0], selfColor[1], selfColor[2], alphaFactor * 0.6f);
+            this.drawProjectedSegmentBucket(matrix, geometry.enemySegments(), enemyColor[0], enemyColor[1], enemyColor[2], alphaFactor * 0.6f);
+            this.drawProjectedSegmentBucket(matrix, geometry.neutralSegments(), neutralColor[0], neutralColor[1], neutralColor[2], alphaFactor * 0.6f);
+            this.drawProjectedSegmentBucket(matrix, geometry.sharedSegments(), neutralColor[0], neutralColor[1], neutralColor[2], alphaFactor * 0.6f);
+        }
+        finally {
             RenderSystem.enableCull();
             RenderSystem.enableDepthTest();
             RenderSystem.disableBlend();
@@ -556,41 +446,27 @@ final class ClientDeployBoundaryOverlayRenderer {
         }
     }
 
-    private void drawProjectedSegmentBucket(
-        Matrix4f matrix,
-        List<ProjectedLineSegment> projectedSegments,
-        float red,
-        float green,
-        float blue,
-        float alpha
-    ) {
-        if (projectedSegments.isEmpty() || alpha <= 0.001F) {
+    private void drawProjectedSegmentBucket(Matrix4f matrix, List<ProjectedLineSegment> projectedSegments, float red, float green, float blue, float alpha) {
+        if (projectedSegments.isEmpty() || alpha <= 0.001f) {
             return;
         }
         Tesselator tesselator = Tesselator.getInstance();
         BufferBuilder buffer = tesselator.getBuilder();
         buffer.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
-        appendProjectedSegments(buffer, matrix, projectedSegments, red, green, blue, alpha);
-        appendProjectedEndpointCaps(buffer, matrix, projectedSegments, red, green, blue, alpha);
+        this.appendProjectedSegments(buffer, matrix, projectedSegments, red, green, blue, alpha);
+        this.appendProjectedEndpointCaps(buffer, matrix, projectedSegments, red, green, blue, alpha);
         BufferUploader.drawWithShader(buffer.end());
     }
 
-    private List<ProjectedLineSegment> projectLineSegments(
-        Minecraft minecraft,
-        ClientCaptureOverlayState state,
-        List<LineSegment> segments,
-        java.util.Map<WorldPointKey, ScreenPoint> pointProjectionCache
-    ) {
+    private List<ProjectedLineSegment> projectLineSegments(Minecraft minecraft, ClientCaptureOverlayState state, List<ClientCaptureOverlayModel.LineSegment> segments, Map<WorldPointKey, ScreenPoint> pointProjectionCache) {
         if (segments == null || segments.isEmpty()) {
             return List.of();
         }
-        List<ProjectedLineSegment> projected = new ArrayList<>();
-        for (LineSegment segment : segments) {
-            ScreenPoint start = projectWorldPoint(minecraft, state, segment.ax(), segment.ay(), segment.az(), pointProjectionCache);
-            ScreenPoint end = projectWorldPoint(minecraft, state, segment.bx(), segment.by(), segment.bz(), pointProjectionCache);
-            if (start == null || end == null || start.isNear(end)) {
-                continue;
-            }
+        ArrayList<ProjectedLineSegment> projected = new ArrayList<ProjectedLineSegment>();
+        for (ClientCaptureOverlayModel.LineSegment segment : segments) {
+            ScreenPoint start = this.projectWorldPoint(minecraft, state, segment.ax(), segment.ay(), segment.az(), pointProjectionCache);
+            ScreenPoint end = this.projectWorldPoint(minecraft, state, segment.bx(), segment.by(), segment.bz(), pointProjectionCache);
+            if (start == null || end == null || start.isNear(end)) continue;
             projected.add(new ProjectedLineSegment(start, end));
         }
         return projected.isEmpty() ? List.of() : List.copyOf(projected);
@@ -598,7 +474,7 @@ final class ClientDeployBoundaryOverlayRenderer {
 
     private PolygonScanEdge buildScanEdge(ScreenPoint start, ScreenPoint end) {
         double dx = end.x() - start.x();
-        if (Math.abs(dx) <= EDGE_EPSILON) {
+        if (Math.abs(dx) <= 1.0E-6) {
             return null;
         }
         if (start.x() <= end.x()) {
@@ -608,163 +484,123 @@ final class ClientDeployBoundaryOverlayRenderer {
     }
 
     private int clampColumnStart(double minX, int width) {
-        return Mth.clamp((int) Math.floor(minX), 0, width);
+        return Mth.clamp((int)Math.floor(minX), 0, width);
     }
 
     private int clampColumnEndExclusive(double maxX, int width) {
-        return Mth.clamp((int) Math.ceil(maxX), 0, width);
+        return Mth.clamp((int)Math.ceil(maxX), 0, width);
     }
 
-    private void appendProjectedSegments(
-        BufferBuilder buffer,
-        Matrix4f matrix,
-        List<ProjectedLineSegment> segments,
-        float red,
-        float green,
-        float blue,
-        float alpha
-    ) {
-        if (segments == null || segments.isEmpty() || alpha <= 0.001F) {
+    private void appendProjectedSegments(BufferBuilder buffer, Matrix4f matrix, List<ProjectedLineSegment> segments, float red, float green, float blue, float alpha) {
+        if (segments == null || segments.isEmpty() || alpha <= 0.001f) {
             return;
         }
         for (ProjectedLineSegment segment : segments) {
-            appendSegmentTriangles(buffer, matrix, segment.start(), segment.end(), red, green, blue, alpha);
+            this.appendSegmentTriangles(buffer, matrix, segment.start(), segment.end(), red, green, blue, alpha);
         }
     }
 
-    private void appendProjectedEndpointCaps(
-        BufferBuilder buffer,
-        Matrix4f matrix,
-        List<ProjectedLineSegment> segments,
-        float red,
-        float green,
-        float blue,
-        float alpha
-    ) {
-        Set<String> seenEndpoints = new java.util.HashSet<>();
-        double radius = SCREEN_LINE_WIDTH_PIXELS * 0.5D * ROUND_CAP_RADIUS_MULTIPLIER;
+    private void appendProjectedEndpointCaps(BufferBuilder buffer, Matrix4f matrix, List<ProjectedLineSegment> segments, float red, float green, float blue, float alpha) {
+        HashSet<String> seenEndpoints = new HashSet<String>();
+        double radius = 0.9;
         for (ProjectedLineSegment segment : segments) {
-            appendScreenRoundCap(buffer, matrix, segment.start(), radius, red, green, blue, alpha, seenEndpoints);
-            appendScreenRoundCap(buffer, matrix, segment.end(), radius, red, green, blue, alpha, seenEndpoints);
+            this.appendScreenRoundCap(buffer, matrix, segment.start(), radius, red, green, blue, alpha, seenEndpoints);
+            this.appendScreenRoundCap(buffer, matrix, segment.end(), radius, red, green, blue, alpha, seenEndpoints);
         }
     }
 
-    private ScreenPoint projectWorldPoint(
-        Minecraft minecraft,
-        ClientCaptureOverlayState state,
-        double x,
-        double y,
-        double z,
-        java.util.Map<WorldPointKey, ScreenPoint> pointProjectionCache
-    ) {
+    private ScreenPoint projectWorldPoint(Minecraft minecraft, ClientCaptureOverlayState state, double x, double y, double z, Map<WorldPointKey, ScreenPoint> pointProjectionCache) {
+        ScreenPoint screenPoint;
         WorldPointKey key = new WorldPointKey(x, y, z);
         ScreenPoint cached = pointProjectionCache.get(key);
         if (cached != null) {
             return cached;
         }
-        ClientWorldHudProjectionSupport.ProjectedPoint projected =
-            ClientWorldHudProjectionSupport.projectToScreen(minecraft, state.worldProjectionMatrix, new Vec3(x, y, z));
-        ScreenPoint screenPoint = projected == null ? null : new ScreenPoint(projected.screenX(), projected.screenY());
+        ClientWorldHudProjectionSupport.ProjectedPoint projected = ClientWorldHudProjectionSupport.projectToScreen(minecraft, state.worldProjectionMatrix, new Vec3(x, y, z));
+        ScreenPoint screenPoint2 = screenPoint = projected == null ? null : new ScreenPoint(projected.screenX(), projected.screenY());
         if (screenPoint != null) {
             pointProjectionCache.put(key, screenPoint);
         }
         return screenPoint;
     }
 
-    private void appendSegmentTriangles(
-        BufferBuilder buffer,
-        Matrix4f matrix,
-        ScreenPoint start,
-        ScreenPoint end,
-        float red,
-        float green,
-        float blue,
-        float alpha
-    ) {
+    private void appendSegmentTriangles(BufferBuilder buffer, Matrix4f matrix, ScreenPoint start, ScreenPoint end, float red, float green, float blue, float alpha) {
+        double dy;
         double dx = end.x() - start.x();
-        double dy = end.y() - start.y();
-        double length = Math.sqrt(dx * dx + dy * dy);
-        if (length <= EDGE_EPSILON) {
+        double length = Math.sqrt(dx * dx + (dy = end.y() - start.y()) * dy);
+        if (length <= 1.0E-6) {
             return;
         }
-        double halfWidth = SCREEN_LINE_WIDTH_PIXELS * 0.5D;
+        double halfWidth = 0.6;
         double offsetX = -dy / length * halfWidth;
         double offsetY = dx / length * halfWidth;
-        float axPlus = (float) (start.x() + offsetX);
-        float ayPlus = (float) (start.y() + offsetY);
-        float bxPlus = (float) (end.x() + offsetX);
-        float byPlus = (float) (end.y() + offsetY);
-        float bxMinus = (float) (end.x() - offsetX);
-        float byMinus = (float) (end.y() - offsetY);
-        float axMinus = (float) (start.x() - offsetX);
-        float ayMinus = (float) (start.y() - offsetY);
-        appendTriangle(buffer, matrix, axPlus, ayPlus, bxPlus, byPlus, bxMinus, byMinus, red, green, blue, alpha);
-        appendTriangle(buffer, matrix, axPlus, ayPlus, bxMinus, byMinus, axMinus, ayMinus, red, green, blue, alpha);
+        float axPlus = (float)(start.x() + offsetX);
+        float ayPlus = (float)(start.y() + offsetY);
+        float bxPlus = (float)(end.x() + offsetX);
+        float byPlus = (float)(end.y() + offsetY);
+        float bxMinus = (float)(end.x() - offsetX);
+        float byMinus = (float)(end.y() - offsetY);
+        float axMinus = (float)(start.x() - offsetX);
+        float ayMinus = (float)(start.y() - offsetY);
+        this.appendTriangle(buffer, matrix, axPlus, ayPlus, bxPlus, byPlus, bxMinus, byMinus, red, green, blue, alpha);
+        this.appendTriangle(buffer, matrix, axPlus, ayPlus, bxMinus, byMinus, axMinus, ayMinus, red, green, blue, alpha);
     }
 
-    private void appendScreenRoundCap(
-        BufferBuilder buffer,
-        Matrix4f matrix,
-        ScreenPoint center,
-        double radius,
-        float red,
-        float green,
-        float blue,
-        float alpha,
-        Set<String> seenEndpoints
-    ) {
-        String key = roundedScreenPointKey(center);
+    private void appendScreenRoundCap(BufferBuilder buffer, Matrix4f matrix, ScreenPoint center, double radius, float red, float green, float blue, float alpha, Set<String> seenEndpoints) {
+        String key = this.roundedScreenPointKey(center);
         if (!seenEndpoints.add(key)) {
             return;
         }
-        for (int step = 0; step < ROUND_CAP_SEGMENTS; step++) {
-            double startAngle = (Math.PI * 2.0D * step) / ROUND_CAP_SEGMENTS;
-            double endAngle = (Math.PI * 2.0D * (step + 1)) / ROUND_CAP_SEGMENTS;
-            float startX = (float) (center.x() + Math.cos(startAngle) * radius);
-            float startY = (float) (center.y() + Math.sin(startAngle) * radius);
-            float endX = (float) (center.x() + Math.cos(endAngle) * radius);
-            float endY = (float) (center.y() + Math.sin(endAngle) * radius);
-            appendTriangle(buffer, matrix, (float) center.x(), (float) center.y(), startX, startY, endX, endY, red, green, blue, alpha);
+        for (int step = 0; step < 18; ++step) {
+            double startAngle = Math.PI * 2 * (double)step / 18.0;
+            double endAngle = Math.PI * 2 * (double)(step + 1) / 18.0;
+            float startX = (float)(center.x() + Math.cos(startAngle) * radius);
+            float startY = (float)(center.y() + Math.sin(startAngle) * radius);
+            float endX = (float)(center.x() + Math.cos(endAngle) * radius);
+            float endY = (float)(center.y() + Math.sin(endAngle) * radius);
+            this.appendTriangle(buffer, matrix, (float)center.x(), (float)center.y(), startX, startY, endX, endY, red, green, blue, alpha);
         }
     }
 
-    private void appendTriangle(
-        BufferBuilder buffer,
-        Matrix4f matrix,
-        float ax,
-        float ay,
-        float bx,
-        float by,
-        float cx,
-        float cy,
-        float red,
-        float green,
-        float blue,
-        float alpha
-    ) {
-        buffer.vertex(matrix, ax, ay, 0.0F).color(red, green, blue, alpha).endVertex();
-        buffer.vertex(matrix, bx, by, 0.0F).color(red, green, blue, alpha).endVertex();
-        buffer.vertex(matrix, cx, cy, 0.0F).color(red, green, blue, alpha).endVertex();
+    private void appendTriangle(BufferBuilder buffer, Matrix4f matrix, float ax, float ay, float bx, float by, float cx, float cy, float red, float green, float blue, float alpha) {
+        buffer.vertex(matrix, ax, ay, 0.0f).color(red, green, blue, alpha).endVertex();
+        buffer.vertex(matrix, bx, by, 0.0f).color(red, green, blue, alpha).endVertex();
+        buffer.vertex(matrix, cx, cy, 0.0f).color(red, green, blue, alpha).endVertex();
     }
 
     private String roundedScreenPointKey(ScreenPoint point) {
-        long rx = Math.round(point.x() * 100.0D);
-        long ry = Math.round(point.y() * 100.0D);
+        long rx = Math.round(point.x() * 100.0);
+        long ry = Math.round(point.y() * 100.0);
         return rx + "," + ry;
     }
 
-    private float[] resolveBoundaryColorForTeam(TeamToken selfTeam, boolean selfBoundary) {
-        if (selfTeam == TeamToken.NEUTRAL) {
-            return new float[]{1.0F, 1.0F, 1.0F};
+    private float[] resolveBoundaryColorForTeam(ClientCaptureOverlayModel.TeamToken selfTeam, boolean selfBoundary) {
+        if (selfTeam == ClientCaptureOverlayModel.TeamToken.NEUTRAL) {
+            return new float[]{1.0f, 1.0f, 1.0f};
         }
         if (selfBoundary) {
-            return new float[]{0.25F, 0.45F, 1.0F};
+            return themeRgb(true);
         }
-        return new float[]{1.0F, 0.2F, 0.2F};
+        return themeRgb(false);
     }
 
     private double lerp(double start, double end, double t) {
         return start + (end - start) * t;
+    }
+
+    private record CachedDeployOverlayGeometry(List<ProjectedBoundaryPolygon> sourcePolygons, List<MaskFill> maskFills, List<ProjectedLineSegment> selfSegments, List<ProjectedLineSegment> enemySegments, List<ProjectedLineSegment> neutralSegments, List<ProjectedLineSegment> sharedSegments) {
+        private static final CachedDeployOverlayGeometry EMPTY = new CachedDeployOverlayGeometry(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+
+        static CachedDeployOverlayGeometry empty() {
+            return EMPTY;
+        }
+
+        boolean isEmpty() {
+            return this.maskFills.isEmpty() && this.selfSegments.isEmpty() && this.enemySegments.isEmpty() && this.neutralSegments.isEmpty() && this.sharedSegments.isEmpty();
+        }
+    }
+
+    private record ProjectedBoundaryPolygon(ClientCaptureOverlayModel.TeamToken team, List<ScreenPoint> points, List<PolygonScanEdge> scanEdges, double minX, double maxX) {
     }
 
     private record ScreenPoint(double x, double y) {
@@ -772,26 +608,20 @@ final class ClientDeployBoundaryOverlayRenderer {
             if (other == null) {
                 return false;
             }
-            return Math.abs(x - other.x) <= 0.5D && Math.abs(y - other.y) <= 0.5D;
+            return Math.abs(this.x - other.x) <= 0.5 && Math.abs(this.y - other.y) <= 0.5;
         }
-    }
-
-    private record ProjectedBoundaryPolygon(
-        TeamToken team,
-        List<ScreenPoint> points,
-        List<PolygonScanEdge> scanEdges,
-        double minX,
-        double maxX
-    ) {
     }
 
     private record PolygonScanEdge(double minX, double maxX, double startY, double slopeYPerX) {
         double yAt(double sampleX) {
-            return startY + (sampleX - minX) * slopeYPerX;
+            return this.startY + (sampleX - this.minX) * this.slopeYPerX;
         }
     }
 
-    private record ProjectedLineSegment(ScreenPoint start, ScreenPoint end) {
+    private record MaskFill(int startX, int startY, int endX, int endY) {
+    }
+
+    private record Span(double start, double end) {
     }
 
     private static final class MutableMaskFill {
@@ -808,39 +638,19 @@ final class ClientDeployBoundaryOverlayRenderer {
         }
     }
 
+    private record ProjectedLineSegment(ScreenPoint start, ScreenPoint end) {
+    }
+
     private record WorldPointKey(long x, long y, long z) {
         private WorldPointKey(double x, double y, double z) {
-            this(Math.round(x * 1000.0D), Math.round(y * 1000.0D), Math.round(z * 1000.0D));
+            this(Math.round(x * 1000.0), Math.round(y * 1000.0), Math.round(z * 1000.0));
         }
     }
-
-    private record Span(double start, double end) {
+    private static float[] themeRgb(boolean ally) {
+        var theme=org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme.current();
+        int c=ally?org.mods.gd656killicon.client.gui.theme.BattlefieldPovLayout.ally(theme):org.mods.gd656killicon.client.gui.theme.BattlefieldPovLayout.enemy(theme);
+        return new float[]{((c>>16)&255)/255f,((c>>8)&255)/255f,(c&255)/255f};
     }
 
-    private record MaskFill(int startX, int startY, int endX, int endY) {
-    }
-
-    private record CachedDeployOverlayGeometry(
-        List<ProjectedBoundaryPolygon> sourcePolygons,
-        List<MaskFill> maskFills,
-        List<ProjectedLineSegment> selfSegments,
-        List<ProjectedLineSegment> enemySegments,
-        List<ProjectedLineSegment> neutralSegments,
-        List<ProjectedLineSegment> sharedSegments
-    ) {
-        private static final CachedDeployOverlayGeometry EMPTY =
-            new CachedDeployOverlayGeometry(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
-
-        static CachedDeployOverlayGeometry empty() {
-            return EMPTY;
-        }
-
-        boolean isEmpty() {
-            return maskFills.isEmpty()
-                && selfSegments.isEmpty()
-                && enemySegments.isEmpty()
-                && neutralSegments.isEmpty()
-                && sharedSegments.isEmpty();
-        }
-    }
 }
+

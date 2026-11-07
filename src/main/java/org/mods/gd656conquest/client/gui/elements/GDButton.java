@@ -1,30 +1,32 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package org.mods.gd656conquest.client.gui.elements;
 
+import org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme;
+
+import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import org.mods.gd656conquest.client.gui.GuiConstants;
+import org.mods.gd656conquest.client.gui.elements.GDTextRenderer;
 
-import java.util.function.Consumer;
-
-/**
- * 自定义按钮类，具有悬停动画效果。
- */
 public class GDButton {
-    private static final float DEFAULT_FONT_SCALE = 1.0F;
-    private static final float DEFAULT_MIN_AUTO_SCALE = 0.62F;
-    private int x, y, width, height;
+    private static final float DEFAULT_FONT_SCALE = 1.0f;
+    private static final float DEFAULT_MIN_AUTO_SCALE = 0.62f;
+    private int x;
+    private int y;
+    private int width;
+    private int height;
     private Component message;
     private final Consumer<GDButton> onPress;
     private final Minecraft minecraft;
-    private int textColor = GuiConstants.COLOR_WHITE;
+    private int textColor = -1;
     public boolean active = true;
-
     private float hoverProgress = 0.0f;
     private long lastTime;
     private boolean autoScaleTextToFit = false;
-    private float minAutoScale = DEFAULT_MIN_AUTO_SCALE;
-
+    private float minAutoScale = 0.62f;
     private GDTextRenderer textRenderer;
 
     public GDButton(int x, int y, int width, int height, Component message, Consumer<GDButton> onPress) {
@@ -36,120 +38,118 @@ public class GDButton {
         this.onPress = onPress;
         this.minecraft = Minecraft.getInstance();
         this.lastTime = System.currentTimeMillis();
-        
         int textY = y + (height - 9) / 2;
-        this.textRenderer = new GDTextRenderer(message.getString(), x, textY, x + width, textY + 9, 1.0f, textColor, false);
+        this.textRenderer = new GDTextRenderer(message.getString(), x, textY, x + width, textY + 9, 1.0f, this.textColor, false);
         this.textRenderer.setCentered(true);
     }
 
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        long now = System.currentTimeMillis();
-        float dt = (now - lastTime) / (float) GuiConstants.BUTTON_ANIM_DURATION_MS;
-        lastTime = now;
-
-        boolean hovered = mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
-
-        if (hovered) {
-            hoverProgress = Math.min(1.0f, hoverProgress + dt);
-        } else {
-            hoverProgress = Math.max(0.0f, hoverProgress - dt);
-        }
-
-        guiGraphics.fill(x, y, x + width, y + height, GuiConstants.COLOR_BG);
-
-        textRenderer.render(guiGraphics, partialTick);
-
-        if (hoverProgress > 0.001f) {
-            float ease = 1.0f - (float) Math.pow(1.0f - hoverProgress, 3);             float floatBarWidth = width * ease;
-            
-            guiGraphics.pose().pushPose();
-            guiGraphics.pose().translate(x, y + height - 1.0f, 0);
-            guiGraphics.pose().scale(floatBarWidth, 1.0f, 1.0f);
-            guiGraphics.fill(0, 0, 1, 1, GuiConstants.COLOR_GOLD);
-            guiGraphics.pose().popPose();
-        }
+        boolean hovered = mouseX >= this.x && mouseX <= this.x + this.width && mouseY >= this.y && mouseY <= this.y + this.height;
+        BattlefieldUiTheme.button(guiGraphics, this.x, this.y, this.width, this.height, hovered, this.active);
+        this.updateTextRendererBounds();
+        int rgb = this.textColor & 0xffffff;
+        boolean neutral = rgb == 0xffffff || rgb == 0xaaaaaa || rgb == 0x666666;
+        int labelColor = BattlefieldUiTheme.textColor(this.textColor);
+        if (neutral) labelColor = !this.active ? BattlefieldUiTheme.palette().muted() : hovered ? BattlefieldUiTheme.palette().onSelection() : labelColor;
+        this.textRenderer.setOverrideColor(labelColor);
+        this.textRenderer.render(guiGraphics, partialTick);
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (active && button == 0 && mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height) {
+        if (this.active && button == 0 && mouseX >= (double)this.x && mouseX <= (double)(this.x + this.width) && mouseY >= (double)this.y && mouseY <= (double)(this.y + this.height)) {
             this.onPress.accept(this);
             return true;
         }
         return false;
     }
 
-    public void setX(int x) { 
-        this.x = x; 
-        updateTextRendererBounds();
+    public void setX(int x) {
+        this.x = x;
+        this.updateTextRendererBounds();
     }
-    
-    public void setY(int y) { 
-        this.y = y; 
-        updateTextRendererBounds();
+
+    public void setY(int y) {
+        this.y = y;
+        this.updateTextRendererBounds();
     }
-    
-    public void setWidth(int width) { 
-        this.width = width; 
-        updateTextRendererBounds();
+
+    public void setWidth(int width) {
+        this.width = width;
+        this.updateTextRendererBounds();
     }
-    
-    public void setHeight(int height) { 
-        this.height = height; 
-        updateTextRendererBounds();
+
+    public void setHeight(int height) {
+        this.height = height;
+        this.updateTextRendererBounds();
     }
-    
-    public void setMessage(Component message) { 
-        this.message = message; 
-        if (textRenderer != null) {
-            textRenderer.setText(message.getString());
+
+    public void setMessage(Component message) {
+        this.message = message;
+        if (this.textRenderer != null) {
+            this.textRenderer.setText(message.getString());
         }
     }
-    
-    public void setTextColor(int color) { 
-        this.textColor = color; 
-        if (textRenderer != null) {
-            textRenderer.setColor(color);
+
+    public void setTextColor(int color) {
+        this.textColor = color;
+        if (this.textRenderer != null) {
+            this.textRenderer.setColor(color);
         }
     }
 
     public void setAutoScaleTextToFit(boolean autoScaleTextToFit) {
         this.autoScaleTextToFit = autoScaleTextToFit;
-        updateTextRendererBounds();
+        this.updateTextRendererBounds();
     }
 
     public void setMinAutoScale(float minAutoScale) {
-        this.minAutoScale = Math.max(0.1F, Math.min(1.0F, minAutoScale));
-        updateTextRendererBounds();
+        this.minAutoScale = Math.max(0.1f, Math.min(1.0f, minAutoScale));
+        this.updateTextRendererBounds();
     }
-    
+
     private void updateTextRendererBounds() {
-        if (textRenderer != null) {
-            float fontScale = resolveFontScale();
-            int textHeight = Math.max(1, Math.round(9.0F * fontScale));
-            int textY = y + (height - textHeight) / 2;
-            textRenderer.setX1(x);
-            textRenderer.setY1(textY);
-            textRenderer.setX2(x + width);
-            textRenderer.setY2(textY + textHeight);
-            textRenderer.setFontSize(fontScale);
+        if (this.textRenderer != null) {
+            float fontScale = this.resolveFontScale();
+            int textHeight = Math.max(1, Math.round(9.0f * fontScale));
+            int textY = this.y + (this.height - textHeight) / 2;
+            this.textRenderer.setX1(this.x);
+            this.textRenderer.setY1(textY);
+            this.textRenderer.setX2(this.x + this.width);
+            this.textRenderer.setY2(textY + textHeight);
+            this.textRenderer.setFontSize(fontScale);
         }
     }
 
     private float resolveFontScale() {
-        if (!autoScaleTextToFit || minecraft == null || minecraft.font == null || message == null) {
-            return DEFAULT_FONT_SCALE;
+        if (!this.autoScaleTextToFit || this.minecraft == null || this.minecraft.font == null || this.message == null) {
+            return 1.0f;
         }
-        int textWidth = minecraft.font.width(message.getString());
-        int availableWidth = Math.max(1, width - 8);
+        int textWidth = BattlefieldUiTheme.textWidth(this.message.getString());
+        int availableWidth = Math.max(1, this.width - 8);
         if (textWidth <= 0 || textWidth <= availableWidth) {
-            return DEFAULT_FONT_SCALE;
+            return 1.0f;
         }
-        return Math.max(minAutoScale, Math.min(DEFAULT_FONT_SCALE, availableWidth / (float) textWidth));
+        return Math.max(this.minAutoScale, Math.min(1.0f, (float)availableWidth / (float)textWidth));
     }
-    
-    public int getX() { return x; }
-    public int getY() { return y; }
-    public int getWidth() { return width; }
-    public int getHeight() { return height; }
-    public Component getMessage() { return message; }
+
+    public int getX() {
+        return this.x;
+    }
+
+    public int getY() {
+        return this.y;
+    }
+
+    public int getWidth() {
+        return this.width;
+    }
+
+    public int getHeight() {
+        return this.height;
+    }
+
+    public Component getMessage() {
+        return this.message;
+    }
 }
+

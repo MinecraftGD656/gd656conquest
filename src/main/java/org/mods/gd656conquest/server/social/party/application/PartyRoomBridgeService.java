@@ -80,6 +80,8 @@ public final class PartyRoomBridgeService {
         if (party == null) {
             return Optional.empty();
         }
+        String rosterFailure=org.mods.gd656conquest.server.social.SocialRosterPolicy.failure(server,operator.getUUID(),party.partyId(),null);
+        if(rosterFailure!=null)return Optional.of(new RoomSessionTransitionService.JoinExecutionResult(false,rosterFailure,0,true,null,""));
         if (party.memberCount() > PartyAggregate.MAX_MEMBER_COUNT) {
             return Optional.of(new RoomSessionTransitionService.JoinExecutionResult(
                 false,
@@ -267,7 +269,7 @@ public final class PartyRoomBridgeService {
                 ""
             ));
         }
-        List<ServerPlayer> members = resolveOnlineMembers(snapshot.memberIds());
+        List<ServerPlayer> members = resolveBoundMembers(party,snapshot);
         RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(server);
         long gameTick = server.getTickCount();
         PartyRoomTransitionRecord record = new PartyRoomTransitionRecord(
@@ -363,7 +365,7 @@ public final class PartyRoomBridgeService {
                 ""
             ));
         }
-        List<ServerPlayer> members = resolveOnlineMembers(snapshot.memberIds());
+        List<ServerPlayer> members = resolveBoundMembers(party,snapshot);
         RoomCoreRuntimeManager roomManager = RoomCoreRuntimeManager.of(server);
         long gameTick = server.getTickCount();
         PartyRoomTransitionRecord record = new PartyRoomTransitionRecord(
@@ -445,6 +447,16 @@ public final class PartyRoomBridgeService {
         return party;
     }
 
+    private List<ServerPlayer> resolveBoundMembers(PartyAggregate party,PartySnapshot snapshot) {
+        var manager=RoomCoreRuntimeManager.of(server);
+        return resolveOnlineMembers(currentBoundMembers(party,snapshot,id->manager.findPlayerRoomId(id).orElse("")));
+    }
+
+    public static List<UUID> currentBoundMembers(PartyAggregate party,PartySnapshot snapshot,java.util.function.Function<UUID,String> roomOf) {
+        // The current leader owns the action, including after a cross-room leadership transfer.
+        return party.memberIds().stream().filter(id->party.isLeader(id)||snapshot.targetRoomId().equalsIgnoreCase(roomOf.apply(id))).toList();
+    }
+
     private List<ServerPlayer> resolveOnlineMembers(List<UUID> memberIds) {
         List<ServerPlayer> members = new ArrayList<>();
         if (memberIds == null) {
@@ -515,7 +527,7 @@ public final class PartyRoomBridgeService {
             if (plan.teamId() != null && !roomManager.canFitGroupInTeam(roomId, plan.teamId(), externalJoiners)) {
                 return null;
             }
-            return new GroupJoinPlacement(plan.teamId(), plan.squadLabel());
+            return new GroupJoinPlacement(plan.teamId(), org.mods.gd656conquest.server.room.core.RoomSquadService.labelForGroup(roomManager,roomId,plan.teamId(),members.stream().map(ServerPlayer::getUUID).toList(),plan.squadLabel()));
         }
         GroupJoinPlacement emptyTeamPlacement = resolveEmptyTeamPlacement(roomManager, room, members.size());
         if (emptyTeamPlacement != null) {
@@ -760,17 +772,7 @@ public final class PartyRoomBridgeService {
         PartyRoomActionState pendingRoomAction,
         long gameTick
     ) {
-        return PartyAggregate.restore(
-            party.partyId(),
-            party.leaderId(),
-            party.memberIds(),
-            party.createdTick(),
-            Math.max(0L, gameTick),
-            party.version() + 1L,
-            status,
-            lockState,
-            pendingRoomAction
-        );
+        return party.copyWithState(status,lockState,pendingRoomAction,Math.max(0L,gameTick));
     }
 
     private record GroupJoinPlacement(RoomTeamId targetTeam, String squadLabel) {

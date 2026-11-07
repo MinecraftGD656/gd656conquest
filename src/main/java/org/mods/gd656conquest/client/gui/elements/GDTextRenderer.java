@@ -1,44 +1,38 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package org.mods.gd656conquest.client.gui.elements;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme;
+
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 
-/**
- * 自定义文本渲染器，支持滚动和自动换行。
- */
 public class GDTextRenderer {
-    private final Minecraft minecraft;
+    private final Minecraft minecraft = Minecraft.getInstance();
     private String text;
-    private int x1, y1, x2, y2;
-    private int width, height;
+    private int x1;
+    private int y1;
+    private int x2;
+    private int y2;
+    private int width;
+    private int height;
     private float fontSize;
     private int color;
     private List<ColoredText> coloredTexts;
     private boolean autoWrap;
-    private long pauseStartTime = -1;
-
-    /**
-     * 支持混合颜色的文本段
-     */
-    public static class ColoredText {
-        public String text;
-        public int color;
-
-        public ColoredText(String text, int color) {
-            this.text = text;
-            this.color = color;
-        }
-    }
-
-    private float scrollOffset = 0;
+    private long pauseStartTime = -1L;
+    private float scrollOffset = 0.0f;
     private boolean scrollingForward = true;
     private long lastTime;
-    private static final float SCROLL_SPEED = 30.0f;     private static final long PAUSE_TIME_MS = 1000;      private boolean centered = false;     private Integer overrideColor = null;
+    private static final float SCROLL_SPEED = 30.0f;
+    private static final long PAUSE_TIME_MS = 1000L;
+    private boolean centered = false;
+    private Integer overrideColor = null;
     private Integer backgroundColor = null;
-
-    private float scrollY = 0;
+    private float scrollY = 0.0f;
 
     public void setOverrideColor(Integer color) {
         this.overrideColor = color;
@@ -49,7 +43,6 @@ public class GDTextRenderer {
     }
 
     public GDTextRenderer(String text, int x1, int y1, int x2, int y2, float fontSize, int color, boolean autoWrap) {
-        this.minecraft = Minecraft.getInstance();
         this.text = text;
         this.coloredTexts = null;
         this.x1 = Math.min(x1, x2);
@@ -65,10 +58,11 @@ public class GDTextRenderer {
     }
 
     public GDTextRenderer(List<ColoredText> coloredTexts, int x1, int y1, int x2, int y2, float fontSize, boolean autoWrap) {
-        this.minecraft = Minecraft.getInstance();
         this.coloredTexts = coloredTexts;
         this.text = "";
-        for (ColoredText ct : coloredTexts) this.text += ct.text;
+        for (ColoredText ct : coloredTexts) {
+            this.text = this.text + ct.text;
+        }
         this.x1 = Math.min(x1, x2);
         this.y1 = Math.min(y1, y2);
         this.x2 = Math.max(x1, x2);
@@ -76,7 +70,7 @@ public class GDTextRenderer {
         this.width = this.x2 - this.x1;
         this.height = this.y2 - this.y1;
         this.fontSize = fontSize;
-        this.color = 0xFFFFFFFF;
+        this.color = -1;
         this.autoWrap = autoWrap;
         this.lastTime = System.currentTimeMillis();
     }
@@ -86,46 +80,35 @@ public class GDTextRenderer {
     }
 
     public void setFontSize(float fontSize) {
-        this.fontSize = Math.max(0.1F, fontSize);
+        this.fontSize = Math.max(0.1f, fontSize);
     }
 
     public void render(GuiGraphics guiGraphics, float partialTick) {
-        render(guiGraphics, partialTick, true);
+        this.render(guiGraphics, partialTick, true);
     }
 
     public void render(GuiGraphics guiGraphics, float partialTick, boolean useScissor) {
         long now = System.currentTimeMillis();
-        float dt = (now - lastTime) / 1000.0f;
-        lastTime = now;
-        
-        renderInternal(guiGraphics, partialTick, useScissor, dt);
+        float dt = (float)(now - this.lastTime) / 1000.0f;
+        this.lastTime = now;
+        this.renderInternal(guiGraphics, partialTick, useScissor, dt);
     }
 
-    /**
-     * 内部渲染核心。
-     * 无论是否使用外部 Scissor，只要不换行且宽度超限，就执行滚动逻辑。
-     */
     public void renderInternal(GuiGraphics guiGraphics, float partialTick, boolean useOwnScissorAndScroll, float dt) {
         guiGraphics.pose().pushPose();
-        
         if (useOwnScissorAndScroll) {
-            guiGraphics.enableScissor(x1, y1, x2, y2);
+            org.mods.gd656killicon.client.gui.theme.BattlefieldGuiClip.enable(guiGraphics,this.x1, this.y1, this.x2, this.y2);
         }
-
-        float scale = fontSize; 
-        guiGraphics.pose().translate(x1, y1, 0);
+        float scale = this.fontSize;
+        guiGraphics.pose().translate(this.x1, this.y1, 0.0f);
         guiGraphics.pose().scale(scale, scale, 1.0f);
-
-        float scaledWidth = width / scale;
-
-        if (autoWrap) {
-            renderWrappedText(guiGraphics, scaledWidth);
+        float scaledWidth = (float)this.width / scale;
+        if (this.autoWrap) {
+            this.renderWrappedText(guiGraphics, scaledWidth);
         } else {
-            renderScrollingText(guiGraphics, dt, scaledWidth);
+            this.renderScrollingText(guiGraphics, dt, scaledWidth);
         }
-
         guiGraphics.pose().popPose();
-        
         if (useOwnScissorAndScroll) {
             guiGraphics.disableScissor();
         }
@@ -133,8 +116,8 @@ public class GDTextRenderer {
 
     private void renderWrappedText(GuiGraphics guiGraphics, float maxWidth) {
         guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, -scrollY, 0);
-        drawWrappedInternal(guiGraphics, maxWidth);
+        guiGraphics.pose().translate(0.0f, -this.scrollY, 0.0f);
+        this.drawWrappedInternal(guiGraphics, maxWidth);
         guiGraphics.pose().popPose();
     }
 
@@ -143,279 +126,259 @@ public class GDTextRenderer {
     }
 
     public float getScrollY() {
-        return scrollY;
+        return this.scrollY;
     }
 
     public float getMaxScrollY() {
-        if (!autoWrap) return 0;
-        int contentHeight = getFinalHeight();
-        float containerHeight = this.height / fontSize;
-        return Math.max(0, contentHeight - containerHeight);
+        if (!this.autoWrap) {
+            return 0.0f;
+        }
+        int contentHeight = this.getFinalHeight();
+        float containerHeight = (float)this.height / this.fontSize;
+        return Math.max(0.0f, (float)contentHeight - containerHeight);
     }
 
     private void drawWrappedInternal(GuiGraphics guiGraphics, float maxWidth) {
-        if (coloredTexts != null) {
-            renderMixedColorWrapped(guiGraphics, maxWidth);
+        if (this.coloredTexts != null) {
+            this.renderMixedColorWrapped(guiGraphics, maxWidth);
             return;
         }
-        List<String> lines = wrapText(text, maxWidth);
-        for (int i = 0; i < lines.size(); i++) {
+        List<String> lines = this.wrapText(this.text, maxWidth);
+        for (int i = 0; i < lines.size(); ++i) {
             String line = lines.get(i);
-            float lineX = 0;
-            if (centered) {
-                lineX = (maxWidth - minecraft.font.width(line)) / 2.0f;
+            float lineX = 0.0f;
+            if (this.centered) {
+                lineX = (maxWidth - (float)BattlefieldUiTheme.textWidth(line)) / 2.0f;
             }
-            drawLineBackground(guiGraphics, lineX, i * 9, minecraft.font.width(line));
-            guiGraphics.drawString(minecraft.font, line, (int)lineX, i * 9, overrideColor != null ? overrideColor : color, true);
+            this.drawLineBackground(guiGraphics, lineX, i * 9, BattlefieldUiTheme.textWidth(line));
+            BattlefieldUiTheme.drawText(guiGraphics, line, (int)lineX, i * 9, this.overrideColor != null ? this.overrideColor : this.color);
         }
     }
 
     private void renderMixedColorWrapped(GuiGraphics guiGraphics, float maxWidth) {
         int yOffset = 0;
-        float currentX = 0;
-        
-        for (ColoredText ct : coloredTexts) {
+        float currentX = 0.0f;
+        for (ColoredText ct : this.coloredTexts) {
             String remaining = ct.text;
             while (!remaining.isEmpty()) {
-                int count = minecraft.font.width(remaining) > (maxWidth - currentX) ? 
-                            minecraft.font.plainSubstrByWidth(remaining, (int)(maxWidth - currentX)).length() : 
-                            remaining.length();
-                
-                if (count == 0 && currentX > 0) {                     currentX = 0;
+                int count;
+                int n = count = (float)BattlefieldUiTheme.textWidth(remaining) > maxWidth - currentX ? BattlefieldUiTheme.truncate(remaining, (int)(maxWidth - currentX)).length() : remaining.length();
+                if (count == 0 && currentX > 0.0f) {
+                    currentX = 0.0f;
                     yOffset += 9;
                     continue;
                 }
-                
                 String part = remaining.substring(0, Math.max(1, count));
-                drawLineBackground(guiGraphics, currentX, yOffset, minecraft.font.width(part));
-                guiGraphics.drawString(minecraft.font, part, (int)currentX, yOffset, overrideColor != null ? overrideColor : ct.color, true);
-                
-                currentX += minecraft.font.width(part);
+                this.drawLineBackground(guiGraphics, currentX, yOffset, BattlefieldUiTheme.textWidth(part));
+                BattlefieldUiTheme.drawText(guiGraphics, part, (int)currentX, yOffset, this.overrideColor != null ? this.overrideColor : ct.color);
+                currentX += (float)BattlefieldUiTheme.textWidth(part);
                 remaining = remaining.substring(part.length());
-                
-                if (currentX >= maxWidth - 1) {
-                    currentX = 0;
-                    yOffset += 9;
-                }
+                if (!(currentX >= maxWidth - 1.0f)) continue;
+                currentX = 0.0f;
+                yOffset += 9;
             }
         }
     }
 
     private List<String> wrapText(String text, float maxWidth) {
-        List<String> lines = new ArrayList<>();
+        String[] paragraphs;
+        ArrayList<String> lines = new ArrayList<String>();
         String processedText = text.replace("\\n", "\n").replace("\r\n", "\n").replace("\r", "\n");
-        String[] paragraphs = processedText.split("\n", -1);
-
-        for (String paragraph : paragraphs) {
+        for (String paragraph : paragraphs = processedText.split("\n", -1)) {
             if (paragraph.isEmpty()) {
                 lines.add("");
                 continue;
             }
-
             StringBuilder currentLine = new StringBuilder();
-            
-            for (int i = 0; i < paragraph.length(); i++) {
+            for (int i = 0; i < paragraph.length(); ++i) {
                 char c = paragraph.charAt(i);
                 String nextText = currentLine.toString() + c;
-                if (minecraft.font.width(nextText) > maxWidth && currentLine.length() > 0) {
+                if ((float)BattlefieldUiTheme.textWidth(nextText) > maxWidth && currentLine.length() > 0) {
                     lines.add(currentLine.toString());
                     currentLine = new StringBuilder();
                 }
                 currentLine.append(c);
             }
-            if (currentLine.length() > 0) {
-                lines.add(currentLine.toString());
-            }
+            if (currentLine.length() <= 0) continue;
+            lines.add(currentLine.toString());
         }
         return lines;
     }
 
     private void renderScrollingText(GuiGraphics guiGraphics, float dt, float maxWidth) {
         int textWidth = 0;
-        if (coloredTexts == null) {
-            textWidth = minecraft.font.width(text);
+        if (this.coloredTexts == null) {
+            textWidth = BattlefieldUiTheme.textWidth(this.text);
         } else {
-            for (ColoredText ct : coloredTexts) textWidth += minecraft.font.width(ct.text);
+            for (ColoredText ct : this.coloredTexts) {
+                textWidth += BattlefieldUiTheme.textWidth(ct.text);
+            }
         }
-        
-        if (textWidth <= maxWidth + 1) {             drawInternal(guiGraphics, 0, 0, maxWidth);
-            scrollOffset = 0;
-            pauseStartTime = -1;
-            scrollingForward = true;
+        if ((float)textWidth <= maxWidth + 1.0f) {
+            this.drawInternal(guiGraphics, 0, 0, maxWidth);
+            this.scrollOffset = 0.0f;
+            this.pauseStartTime = -1L;
+            this.scrollingForward = true;
             return;
         }
-
-        float maxScroll = textWidth - maxWidth;
-        
-        if (pauseStartTime != -1) {
-            long elapsed = System.currentTimeMillis() - pauseStartTime;
-            if (elapsed > PAUSE_TIME_MS) {
-                pauseStartTime = -1;
+        float maxScroll = (float)textWidth - maxWidth;
+        if (this.pauseStartTime != -1L) {
+            long elapsed = System.currentTimeMillis() - this.pauseStartTime;
+            if (elapsed > 1000L) {
+                this.pauseStartTime = -1L;
+            }
+        } else if (this.scrollingForward) {
+            this.scrollOffset += 30.0f * dt;
+            if (this.scrollOffset >= maxScroll) {
+                this.scrollOffset = maxScroll;
+                this.scrollingForward = false;
+                this.pauseStartTime = System.currentTimeMillis();
             }
         } else {
-            if (scrollingForward) {
-                scrollOffset += SCROLL_SPEED * dt;
-                if (scrollOffset >= maxScroll) {
-                    scrollOffset = maxScroll;
-                    scrollingForward = false;
-                    pauseStartTime = System.currentTimeMillis();
-                }
-            } else {
-                scrollOffset -= SCROLL_SPEED * dt;
-                if (scrollOffset <= 0) {
-                    scrollOffset = 0;
-                    scrollingForward = true;
-                    pauseStartTime = System.currentTimeMillis();
-                }
+            this.scrollOffset -= 30.0f * dt;
+            if (this.scrollOffset <= 0.0f) {
+                this.scrollOffset = 0.0f;
+                this.scrollingForward = true;
+                this.pauseStartTime = System.currentTimeMillis();
             }
         }
-
         guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(-scrollOffset, 0, 0);
-        
-        drawInternal(guiGraphics, 0, 0, textWidth); 
-        
+        guiGraphics.pose().translate(-this.scrollOffset, 0.0f, 0.0f);
+        this.drawInternal(guiGraphics, 0, 0, textWidth);
         guiGraphics.pose().popPose();
     }
 
     private void drawInternal(GuiGraphics guiGraphics, int x, int y, float containerWidth) {
-        if (coloredTexts == null) {
+        if (this.coloredTexts == null) {
             float drawX = x;
-            int textWidth = minecraft.font.width(text);
-            if (centered && !isCurrentlyScrolling()) {
-                drawX += (containerWidth - textWidth) / 2.0f;
+            int textWidth = BattlefieldUiTheme.textWidth(this.text);
+            if (this.centered && !this.isCurrentlyScrolling()) {
+                drawX += (containerWidth - (float)textWidth) / 2.0f;
             }
-            int backgroundWidth = isCurrentlyScrolling() ? Math.max(0, (int) containerWidth) : textWidth;
-            drawLineBackground(guiGraphics, drawX, y, backgroundWidth);
-            guiGraphics.drawString(minecraft.font, text, (int)drawX, y, overrideColor != null ? overrideColor : color, true);
+            int backgroundWidth = this.isCurrentlyScrolling() ? Math.max(0, (int)containerWidth) : textWidth;
+            this.drawLineBackground(guiGraphics, drawX, y, backgroundWidth);
+            BattlefieldUiTheme.drawText(guiGraphics, this.text, (int)drawX, y, this.overrideColor != null ? this.overrideColor : this.color);
         } else {
             float currentX = x;
-            float totalWidth = 0;
-            for (ColoredText ct : coloredTexts) totalWidth += minecraft.font.width(ct.text);
-            if (centered && !isCurrentlyScrolling()) {
+            float totalWidth = 0.0f;
+            for (ColoredText ct : this.coloredTexts) {
+                totalWidth += (float)BattlefieldUiTheme.textWidth(ct.text);
+            }
+            if (this.centered && !this.isCurrentlyScrolling()) {
                 currentX += (containerWidth - totalWidth) / 2.0f;
             }
-            int backgroundWidth = isCurrentlyScrolling() ? Math.max(0, (int) containerWidth) : (int) totalWidth;
-            drawLineBackground(guiGraphics, currentX, y, backgroundWidth);
-            for (ColoredText ct : coloredTexts) {
-                guiGraphics.drawString(minecraft.font, ct.text, (int)currentX, y, overrideColor != null ? overrideColor : ct.color, true);
-                currentX += minecraft.font.width(ct.text);
+            int backgroundWidth = this.isCurrentlyScrolling() ? Math.max(0, (int)containerWidth) : (int)totalWidth;
+            this.drawLineBackground(guiGraphics, currentX, y, backgroundWidth);
+            for (ColoredText ct : this.coloredTexts) {
+                BattlefieldUiTheme.drawText(guiGraphics, ct.text, (int)currentX, y, this.overrideColor != null ? this.overrideColor : ct.color);
+                currentX += (float)BattlefieldUiTheme.textWidth(ct.text);
             }
         }
     }
 
     private void drawEllipsizedInternal(GuiGraphics guiGraphics, int x, int y, float maxWidth) {
         String ellipsis = "...";
-        int ellipsisWidth = minecraft.font.width(ellipsis);
-        int targetWidth = Math.max(0, (int) maxWidth - ellipsisWidth);
-        if (coloredTexts == null) {
-            String base = text == null ? "" : text;
-            String clipped = minecraft.font.plainSubstrByWidth(base, targetWidth);
-            guiGraphics.drawString(minecraft.font, clipped + ellipsis, x, y, overrideColor != null ? overrideColor : color, true);
+        int ellipsisWidth = BattlefieldUiTheme.textWidth(ellipsis);
+        int targetWidth = Math.max(0, (int)maxWidth - ellipsisWidth);
+        if (this.coloredTexts == null) {
+            String base = this.text == null ? "" : this.text;
+            String clipped = BattlefieldUiTheme.truncate(base, targetWidth);
+            BattlefieldUiTheme.drawText(guiGraphics, clipped + ellipsis, x, y, this.overrideColor != null ? this.overrideColor : this.color);
             return;
         }
-        List<ColoredText> segments = buildEllipsizedColoredTexts(targetWidth);
+        List<ColoredText> segments = this.buildEllipsizedColoredTexts(targetWidth);
         float currentX = x;
-        int lastColor = overrideColor != null ? overrideColor : (segments.isEmpty() ? color : segments.get(segments.size() - 1).color);
+        int lastColor = this.overrideColor != null ? this.overrideColor : (segments.isEmpty() ? this.color : segments.get((int)(segments.size() - 1)).color);
         for (ColoredText segment : segments) {
-            int segmentColor = overrideColor != null ? overrideColor : segment.color;
-            guiGraphics.drawString(minecraft.font, segment.text, (int) currentX, y, segmentColor, true);
-            currentX += minecraft.font.width(segment.text);
+            int segmentColor = this.overrideColor != null ? this.overrideColor : segment.color;
+            BattlefieldUiTheme.drawText(guiGraphics, segment.text, (int)currentX, y, segmentColor);
+            currentX += (float)BattlefieldUiTheme.textWidth(segment.text);
             lastColor = segmentColor;
         }
-        guiGraphics.drawString(minecraft.font, ellipsis, (int) currentX, y, lastColor, true);
+        BattlefieldUiTheme.drawText(guiGraphics, ellipsis, (int)currentX, y, lastColor);
     }
 
     private List<ColoredText> buildEllipsizedColoredTexts(int targetWidth) {
-        List<ColoredText> result = new ArrayList<>();
-        if (targetWidth <= 0 || coloredTexts == null) {
+        ArrayList<ColoredText> result = new ArrayList<ColoredText>();
+        if (targetWidth <= 0 || this.coloredTexts == null) {
             return result;
         }
         int used = 0;
-        for (ColoredText ct : coloredTexts) {
-            if (ct == null || ct.text == null || ct.text.isEmpty()) {
-                continue;
-            }
+        for (ColoredText ct : this.coloredTexts) {
+            String part;
+            if (ct == null || ct.text == null || ct.text.isEmpty()) continue;
             int remaining = targetWidth - used;
-            if (remaining <= 0) {
-                break;
-            }
-            String part = minecraft.font.plainSubstrByWidth(ct.text, remaining);
-            if (part == null || part.isEmpty()) {
-                break;
-            }
+            if (remaining <= 0 || (part = BattlefieldUiTheme.truncate(ct.text, remaining)) == null || part.isEmpty()) break;
             result.add(new ColoredText(part, ct.color));
-            used += minecraft.font.width(part);
-            if (part.length() < ct.text.length()) {
-                break;
-            }
+            used += BattlefieldUiTheme.textWidth(part);
+            if (part.length() >= ct.text.length()) continue;
+            break;
         }
         return result;
     }
 
     private void drawLineBackground(GuiGraphics guiGraphics, float drawX, int drawY, int lineWidth) {
-        if (backgroundColor == null || backgroundColor == 0 || !hasContent() || lineWidth <= 0) {
+        if (this.backgroundColor == null || this.backgroundColor == 0 || !this.hasContent() || lineWidth <= 0) {
             return;
         }
-        int left = (int) Math.floor(drawX);
-        int right = (int) Math.ceil(drawX + lineWidth);
-        guiGraphics.fill(left, drawY, right, drawY + 9, backgroundColor);
+        int left = (int)Math.floor(drawX);
+        int right = (int)Math.ceil(drawX + (float)lineWidth);
+        guiGraphics.fill(left, drawY, right, drawY + 9, this.backgroundColor);
     }
 
     private boolean hasContent() {
-        if (coloredTexts != null) {
-            return !coloredTexts.isEmpty();
+        if (this.coloredTexts != null) {
+            return !this.coloredTexts.isEmpty();
         }
-        return text != null && !text.isBlank();
+        return this.text != null && !this.text.isBlank();
     }
 
     private boolean isCurrentlyScrolling() {
         int textWidth = 0;
-        if (coloredTexts == null) {
-            textWidth = minecraft.font.width(text);
+        if (this.coloredTexts == null) {
+            textWidth = BattlefieldUiTheme.textWidth(this.text);
         } else {
-            for (ColoredText ct : coloredTexts) textWidth += minecraft.font.width(ct.text);
+            for (ColoredText ct : this.coloredTexts) {
+                textWidth += BattlefieldUiTheme.textWidth(ct.text);
+            }
         }
-        float scale = fontSize;
-        float scaledWidth = width / scale;
-        return textWidth > scaledWidth + 1;
+        float scale = this.fontSize;
+        float scaledWidth = (float)this.width / scale;
+        return (float)textWidth > scaledWidth + 1.0f;
     }
 
     public int getFinalHeight() {
-        if (!autoWrap) return (int)(9 * fontSize);
-        
-        float scale = fontSize;
-        float scaledWidth = width / scale;
-        
-        if (coloredTexts != null) {
-            return (int)(getMixedColorWrappedHeight(scaledWidth) * scale);
+        if (!this.autoWrap) {
+            return (int)(9.0f * this.fontSize);
         }
-        
-        List<String> lines = wrapText(text, scaledWidth);
-        return (int)(lines.size() * 9 * scale);
+        float scale = this.fontSize;
+        float scaledWidth = (float)this.width / scale;
+        if (this.coloredTexts != null) {
+            return (int)((float)this.getMixedColorWrappedHeight(scaledWidth) * scale);
+        }
+        List<String> lines = this.wrapText(this.text, scaledWidth);
+        return (int)((float)(lines.size() * 9) * scale);
     }
 
     private int getMixedColorWrappedHeight(float maxWidth) {
         int lines = 1;
-        float currentX = 0;
-        for (ColoredText ct : coloredTexts) {
+        float currentX = 0.0f;
+        for (ColoredText ct : this.coloredTexts) {
             String remaining = ct.text;
             while (!remaining.isEmpty()) {
-                int count = minecraft.font.width(remaining) > (maxWidth - currentX) ? 
-                            minecraft.font.plainSubstrByWidth(remaining, (int)(maxWidth - currentX)).length() : 
-                            remaining.length();
-                if (count == 0 && currentX > 0) {
-                    currentX = 0;
-                    lines++;
+                int count;
+                int n = count = (float)BattlefieldUiTheme.textWidth(remaining) > maxWidth - currentX ? BattlefieldUiTheme.truncate(remaining, (int)(maxWidth - currentX)).length() : remaining.length();
+                if (count == 0 && currentX > 0.0f) {
+                    currentX = 0.0f;
+                    ++lines;
                     continue;
                 }
                 String part = remaining.substring(0, Math.max(1, count));
-                currentX += minecraft.font.width(part);
+                currentX += (float)BattlefieldUiTheme.textWidth(part);
                 remaining = remaining.substring(part.length());
-                if (currentX >= maxWidth - 1 && !remaining.isEmpty()) {
-                    currentX = 0;
-                    lines++;
-                }
+                if (!(currentX >= maxWidth - 1.0f) || remaining.isEmpty()) continue;
+                currentX = 0.0f;
+                ++lines;
             }
         }
         return lines * 9;
@@ -436,33 +399,46 @@ public class GDTextRenderer {
         if (coloredTexts != null) {
             this.coloredTexts = coloredTexts;
             StringBuilder sb = new StringBuilder();
-            for (ColoredText ct : coloredTexts) sb.append(ct.text);
+            for (ColoredText ct : coloredTexts) {
+                sb.append(ct.text);
+            }
             this.text = sb.toString();
         }
     }
 
     public void setX1(int x1) {
         this.x1 = x1;
-        updateWidthHeight();
+        this.updateWidthHeight();
     }
 
     public void setY1(int y1) {
         this.y1 = y1;
-        updateWidthHeight();
+        this.updateWidthHeight();
     }
 
     public void setX2(int x2) {
         this.x2 = x2;
-        updateWidthHeight();
+        this.updateWidthHeight();
     }
 
     public void setY2(int y2) {
         this.y2 = y2;
-        updateWidthHeight();
+        this.updateWidthHeight();
     }
 
     private void updateWidthHeight() {
-        this.width = Math.abs(x2 - x1);
-        this.height = Math.abs(y2 - y1);
+        this.width = Math.abs(this.x2 - this.x1);
+        this.height = Math.abs(this.y2 - this.y1);
+    }
+
+    public static class ColoredText {
+        public String text;
+        public int color;
+
+        public ColoredText(String text, int color) {
+            this.text = text;
+            this.color = color;
+        }
     }
 }
+

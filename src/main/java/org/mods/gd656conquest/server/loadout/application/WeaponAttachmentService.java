@@ -148,6 +148,12 @@ public final class WeaponAttachmentService {
         String attachmentEntryId,
         boolean explicitNone
     ) {
+        if (playerData != null) setSelectedAttachmentId(playerData, playerData.getCurrentClassType(), loadoutEntryId, attachmentType, attachmentEntryId, explicitNone);
+    }
+
+    public static void setSelectedAttachmentId(
+        PlayerDataModel playerData, String classKey, String loadoutEntryId, String attachmentType, String attachmentEntryId, boolean explicitNone
+    ) {
         if (playerData == null) {
             return;
         }
@@ -157,7 +163,7 @@ public final class WeaponAttachmentService {
         if (normalizedLoadoutEntryId.isBlank() || normalizedType.isBlank()) {
             return;
         }
-        Map<String, Map<String, String>> selectionByLoadoutEntry = playerData.getAttachmentSelectionByLoadoutEntryId();
+        Map<String, Map<String, String>> selectionByLoadoutEntry = playerData.getAttachmentSelectionForClass(classKey);
         if (!explicitNone && normalizedAttachmentId.isBlank()) {
             Map<String, String> existing = selectionByLoadoutEntry.get(normalizedLoadoutEntryId);
             if (existing == null) {
@@ -242,16 +248,12 @@ public final class WeaponAttachmentService {
         if (normalizedOldId.isBlank() || Objects.equals(normalizedOldId, normalizedNewId)) {
             return;
         }
-        Map<String, Map<String, String>> selection = playerData.getAttachmentSelectionByLoadoutEntryId();
-        Map<String, String> oldSelection = selection.remove(normalizedOldId);
-        if (oldSelection == null) {
-            return;
+        for (Map<String, Map<String, String>> selection : playerData.getAllAttachmentSelectionGroups()) {
+            Map<String, String> oldSelection = selection.remove(normalizedOldId);
+            if (oldSelection == null || normalizedNewId.isBlank()) continue;
+            Map<String, String> target = selection.computeIfAbsent(normalizedNewId, ignored -> new LinkedHashMap<>());
+            target.putAll(oldSelection);
         }
-        if (normalizedNewId.isBlank()) {
-            return;
-        }
-        Map<String, String> target = selection.computeIfAbsent(normalizedNewId, ignored -> new LinkedHashMap<>());
-        target.putAll(oldSelection);
     }
 
     public static boolean replaceAttachmentEntryId(PlayerDataModel playerData, String oldId, String newId) {
@@ -264,7 +266,7 @@ public final class WeaponAttachmentService {
             return false;
         }
         boolean changed = false;
-        for (Map<String, String> selection : playerData.getAttachmentSelectionByLoadoutEntryId().values()) {
+        for (var group : playerData.getAllAttachmentSelectionGroups()) for (Map<String, String> selection : group.values()) {
             if (selection == null || selection.isEmpty()) {
                 continue;
             }
@@ -288,7 +290,7 @@ public final class WeaponAttachmentService {
         if (playerData == null) {
             return;
         }
-        playerData.getAttachmentSelectionByLoadoutEntryId().entrySet().removeIf(entry -> entry == null
+        for (var group : playerData.getAllAttachmentSelectionGroups()) group.entrySet().removeIf(entry -> entry == null
             || normalizeAttachmentId(entry.getKey()).isBlank()
             || entry.getValue() == null
             || entry.getValue().isEmpty());

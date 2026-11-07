@@ -219,7 +219,7 @@ public final class ServerChatFormatService {
             line.append(Component.literal(teamText + " ").withStyle(relationColor));
         }
         ChatFormatting messageColor = sender.hasPermissions(2) ? ChatFormatting.RED : channel.color;
-        line.append(Component.literal(sender.getScoreboardName()).withStyle(ChatFormatting.WHITE))
+        line.append(Component.literal(org.mods.gd656killicon.profile.ProfileServer.displayName(sender)).withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(">> ").withStyle(ChatFormatting.DARK_GRAY))
                 .append(Component.literal(messageBody).withStyle(messageColor));
         return line;

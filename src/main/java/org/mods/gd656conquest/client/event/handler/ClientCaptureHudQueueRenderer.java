@@ -1,3 +1,6 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package org.mods.gd656conquest.client.event.handler;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -6,122 +9,34 @@ import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import java.util.HashSet;
+import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.util.Mth;
 import org.joml.Matrix4f;
-import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.CaptureFocusData;
-import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.CaptureIconEntry;
-import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.HudIconLayoutState;
-import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel.TeamToken;
+import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayModel;
+import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayState;
 import org.mods.gd656conquest.client.render.CaptureDiamondRenderer;
 
-import java.util.List;
-import java.util.Set;
-import java.util.HashSet;
-
 final class ClientCaptureHudQueueRenderer {
-    void renderHudCaptureQueue(
-        ClientCaptureOverlayState state,
-        GuiGraphics gui,
-        Minecraft minecraft,
-        float deltaSeconds,
-        TeamToken selfTeam
-    ) {
-        List<CaptureIconEntry> captureEntries = state.cachedObjectiveEntries;
-        if (captureEntries.isEmpty()) {
-            state.hudIconLayoutStates.clear();
-            return;
-        }
-        int centerX = gui.guiWidth() / 2;
-        float queueY = 29.0F;
-        float focusX = centerX;
-        float focusY = 67.0F;
-        String focusCode = state.currentCaptureFocus == null ? null : state.currentCaptureFocus.code();
-        int spacing = 24;
-        CaptureIconEntry focusEntry = focusCode == null ? null : state.objectiveEntryByCode.get(focusCode);
-        int queueEntryCount = focusEntry == null ? captureEntries.size() : Math.max(0, captureEntries.size() - 1);
-        float queueStartX = centerX - (queueEntryCount - 1) * spacing / 2.0F;
-        MultiBufferSource.BufferSource textBufferSource = minecraft.renderBuffers().bufferSource();
-        Set<String> seen = new HashSet<>();
-        int queueIndex = 0;
-        for (CaptureIconEntry entry : captureEntries) {
-            if (entry.code().equals(focusCode)) {
-                continue;
-            }
-            seen.add(entry.renderId());
-            updateHudLayoutState(
-                state,
-                entry,
-                queueStartX + queueIndex * spacing,
-                queueY,
-                ClientCaptureOverlayModel.HUD_QUEUE_ICON_RADIUS,
-                ClientCaptureOverlayModel.HUD_QUEUE_ICON_ALPHA,
-                ClientCaptureOverlayModel.HUD_QUEUE_LABEL_SCALE,
-                deltaSeconds
-            );
-            queueIndex++;
-        }
-        if (focusEntry != null) {
-            seen.add(focusEntry.renderId());
-            updateHudLayoutState(
-                state,
-                focusEntry,
-                focusX,
-                focusY,
-                ClientCaptureOverlayModel.HUD_FOCUS_ICON_RADIUS,
-                ClientCaptureOverlayModel.HUD_FOCUS_ICON_ALPHA,
-                ClientCaptureOverlayModel.HUD_FOCUS_LABEL_SCALE,
-                deltaSeconds
-            );
-        }
-        state.hudIconLayoutStates.keySet().retainAll(seen);
-        for (CaptureIconEntry entry : captureEntries) {
-            HudIconLayoutState layout = state.hudIconLayoutStates.get(entry.renderId());
-            if (layout == null || layout.alpha <= 0.01F) {
-                continue;
-            }
-            CaptureDiamondRenderer.drawCaptureIconInHud(
-                gui,
-                minecraft.font,
-                entry.code(),
-                false,
-                layout.x,
-                layout.y,
-                layout.radius,
-                resolveDisplayProgress(state, entry, selfTeam),
-                layout.alpha,
-                toPerspectiveToken(entry.owner(), selfTeam),
-                toPerspectiveToken(entry.driving(), selfTeam),
-                layout.labelScale,
-                entry.code().equals(focusCode) ? 0.0F : 1.0F,
-                false,
-                false,
-                textBufferSource
-            );
-        }
-        renderFocusDetails(state, gui, minecraft, focusEntry, textBufferSource);
-        textBufferSource.endBatch();
+    ClientCaptureHudQueueRenderer() {
     }
 
-    private void updateHudLayoutState(
-        ClientCaptureOverlayState state,
-        CaptureIconEntry entry,
-        float targetX,
-        float targetY,
-        float targetRadius,
-        float targetAlpha,
-        float targetLabelScale,
-        float deltaSeconds
-    ) {
-        HudIconLayoutState layout = state.hudIconLayoutStates.get(entry.renderId());
+    void renderHudCaptureQueue(ClientCaptureOverlayState state, GuiGraphics gui, Minecraft minecraft, float deltaSeconds, ClientCaptureOverlayModel.TeamToken selfTeam) {
+        // The shared POV layer reads the original synchronized objective and focus payloads.
+        state.hudIconLayoutStates.clear();
+    }
+
+    private void updateHudLayoutState(ClientCaptureOverlayState state, ClientCaptureOverlayModel.CaptureIconEntry entry, float targetX, float targetY, float targetRadius, float targetAlpha, float targetLabelScale, float deltaSeconds) {
+        ClientCaptureOverlayModel.HudIconLayoutState layout = state.hudIconLayoutStates.get(entry.renderId());
         if (layout == null) {
-            state.hudIconLayoutStates.put(entry.renderId(), new HudIconLayoutState(targetX, targetY, targetRadius, targetAlpha, targetLabelScale));
+            state.hudIconLayoutStates.put(entry.renderId(), new ClientCaptureOverlayModel.HudIconLayoutState(targetX, targetY, targetRadius, targetAlpha, targetLabelScale));
             return;
         }
-        float step = 1.0F - (float) Math.exp(-Math.max(deltaSeconds, 1.0F / 240.0F) / ClientCaptureOverlayModel.ICON_LAYOUT_APPROACH_SECONDS);
+        float step = 1.0f - (float)Math.exp(-Math.max(deltaSeconds, 0.004166667f) / 0.18f);
         layout.x = Mth.lerp(step, layout.x, targetX);
         layout.y = Mth.lerp(step, layout.y, targetY);
         layout.radius = Mth.lerp(step, layout.radius, targetRadius);
@@ -129,99 +44,78 @@ final class ClientCaptureHudQueueRenderer {
         layout.labelScale = Mth.lerp(step, layout.labelScale, targetLabelScale);
     }
 
-    private void renderFocusDetails(
-        ClientCaptureOverlayState state,
-        GuiGraphics gui,
-        Minecraft minecraft,
-        CaptureIconEntry focusEntry,
-        MultiBufferSource.BufferSource textBufferSource
-    ) {
-        CaptureFocusData focus = state.currentCaptureFocus;
+    private void renderFocusDetails(ClientCaptureOverlayState state, GuiGraphics gui, Minecraft minecraft, ClientCaptureOverlayModel.CaptureIconEntry focusEntry, MultiBufferSource.BufferSource textBufferSource) {
+        ClientCaptureOverlayModel.CaptureFocusData focus = state.currentCaptureFocus;
         if (focusEntry == null || focus == null || !focus.code().equals(focusEntry.code())) {
             return;
         }
-        HudIconLayoutState layout = state.hudIconLayoutStates.get(focusEntry.renderId());
+        ClientCaptureOverlayModel.HudIconLayoutState layout = state.hudIconLayoutStates.get(focusEntry.renderId());
         if (layout == null) {
             return;
         }
-        float blend = Mth.clamp(
-            (layout.radius - ClientCaptureOverlayModel.HUD_QUEUE_ICON_RADIUS)
-                / Math.max(0.01F, ClientCaptureOverlayModel.HUD_FOCUS_ICON_RADIUS - ClientCaptureOverlayModel.HUD_QUEUE_ICON_RADIUS),
-            0.0F,
-            1.0F
-        );
+        float blend = Mth.clamp((layout.radius - 5.8f) / Math.max(0.01f, 5.8f), 0.0f, 1.0f);
         float alpha = layout.alpha * blend;
-        if (alpha <= 0.01F) {
+        if (alpha <= 0.01f) {
             return;
         }
-        CaptureDiamondRenderer.drawCenteredHudText(
-            gui,
-            minecraft.font,
-            focus.name(),
-            layout.x,
-            layout.y + layout.radius + 5.0F,
-            0x00FFFFFF,
-            alpha,
-            true,
-            0.8F,
-            textBufferSource
-        );
+        CaptureDiamondRenderer.drawCenteredHudText(gui, minecraft.font, focus.name(), layout.x, layout.y + layout.radius + 5.0f, 0xFFFFFF, alpha, true, 0.8f, textBufferSource);
         if (focus.enemyCount() <= 0) {
             return;
         }
-        float barWidth = 40.0F;
-        float barLeft = layout.x - barWidth / 2.0F;
-        float barTop = layout.y + layout.radius + 17.0F;
+        float barWidth = 40.0f;
+        float barLeft = layout.x - barWidth / 2.0f;
+        float barTop = layout.y + layout.radius + 17.0f;
         int total = Math.max(1, focus.allyCount() + focus.enemyCount());
-        float allyWidth = Math.max(1.0F, barWidth * (focus.allyCount() / (float) total));
-        drawHudRect(gui, barLeft, barTop, barLeft + barWidth, barTop + 4.0F, withAlpha(0x00101010, alpha * 0.48F));
-        drawHudRect(gui, barLeft, barTop, barLeft + allyWidth, barTop + 4.0F, withAlpha(0x004A96FF, alpha));
-        drawHudRect(gui, barLeft + allyWidth, barTop, barLeft + barWidth, barTop + 4.0F, withAlpha(0x00FF4A4A, alpha));
+        float allyWidth = Math.max(1.0f, barWidth * ((float)focus.allyCount() / (float)total));
+        this.drawHudRect(gui, barLeft, barTop, barLeft + barWidth, barTop + 4.0f, this.withAlpha(0x101010, alpha * 0.48f));
+        this.drawHudRect(gui, barLeft, barTop, barLeft + allyWidth, barTop + 4.0f, this.withAlpha(4888319, alpha));
+        this.drawHudRect(gui, barLeft + allyWidth, barTop, barLeft + barWidth, barTop + 4.0f, this.withAlpha(0xFF4A4A, alpha));
         String allyText = String.valueOf(focus.allyCount());
         String enemyText = String.valueOf(focus.enemyCount());
-        CaptureDiamondRenderer.drawCenteredHudText(gui, minecraft.font, allyText, barLeft - 5.0F - minecraft.font.width(allyText) * 0.5F, barTop - 2.0F, 0x009BC2FF, alpha, false, 1.0F, textBufferSource);
-        CaptureDiamondRenderer.drawCenteredHudText(gui, minecraft.font, enemyText, barLeft + barWidth + 5.0F + minecraft.font.width(enemyText) * 0.5F, barTop - 2.0F, 0x00FF9B9B, alpha, false, 1.0F, textBufferSource);
+        CaptureDiamondRenderer.drawCenteredHudText(gui, minecraft.font, allyText, barLeft - 5.0f - (float)minecraft.font.width(allyText) * 0.5f, barTop - 2.0f, 10207999, alpha, false, 1.0f, textBufferSource);
+        CaptureDiamondRenderer.drawCenteredHudText(gui, minecraft.font, enemyText, barLeft + barWidth + 5.0f + (float)minecraft.font.width(enemyText) * 0.5f, barTop - 2.0f, 0xFF9B9B, alpha, false, 1.0f, textBufferSource);
     }
 
-    private float resolveDisplayProgress(ClientCaptureOverlayState state, CaptureIconEntry entry, TeamToken selfTeam) {
-        float progress = resolveProgress(state, entry);
-        if (selfTeam == TeamToken.CAMP_A) {
-            return 100.0F - progress;
+    private float resolveDisplayProgress(ClientCaptureOverlayState state, ClientCaptureOverlayModel.CaptureIconEntry entry, ClientCaptureOverlayModel.TeamToken selfTeam) {
+        float progress = this.resolveProgress(state, entry);
+        if (selfTeam == ClientCaptureOverlayModel.TeamToken.CAMP_A) {
+            return 100.0f - progress;
         }
         return progress;
     }
 
-    private float resolveProgress(ClientCaptureOverlayState state, CaptureIconEntry entry) {
+    private float resolveProgress(ClientCaptureOverlayState state, ClientCaptureOverlayModel.CaptureIconEntry entry) {
         ClientCaptureOverlayModel.ProgressInterpolationState interpolationState = state.progressInterpolation.get(entry.renderId());
-        return interpolationState == null ? Mth.clamp(entry.progress(), 0.0F, 100.0F) : interpolationState.current();
+        return interpolationState == null ? Mth.clamp(entry.progress(), 0.0f, 100.0f) : interpolationState.current();
     }
 
     private int withAlpha(int rgb, float alpha) {
-        int alphaByte = Mth.clamp((int) (alpha * 255.0F), 0, 255);
-        return (alphaByte << 24) | (rgb & 0x00FFFFFF);
+        int alphaByte = Mth.clamp((int)(alpha * 255.0f), 0, 255);
+        return alphaByte << 24 | rgb & 0xFFFFFF;
     }
 
     private void drawHudRect(GuiGraphics gui, float left, float top, float right, float bottom, int color) {
         Matrix4f matrix = gui.pose().last().pose();
-        float alpha = ((color >>> 24) & 0xFF) / 255.0F;
-        float red = ((color >>> 16) & 0xFF) / 255.0F;
-        float green = ((color >>> 8) & 0xFF) / 255.0F;
-        float blue = (color & 0xFF) / 255.0F;
+        float alpha = (float)(color >>> 24 & 0xFF) / 255.0f;
+        float red = (float)(color >>> 16 & 0xFF) / 255.0f;
+        float green = (float)(color >>> 8 & 0xFF) / 255.0f;
+        float blue = (float)(color & 0xFF) / 255.0f;
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         Tesselator tesselator = Tesselator.getInstance();
         BufferBuilder buffer = tesselator.getBuilder();
         buffer.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-        buffer.vertex(matrix, left, bottom, 0.0F).color(red, green, blue, alpha).endVertex();
-        buffer.vertex(matrix, right, bottom, 0.0F).color(red, green, blue, alpha).endVertex();
-        buffer.vertex(matrix, right, top, 0.0F).color(red, green, blue, alpha).endVertex();
-        buffer.vertex(matrix, left, top, 0.0F).color(red, green, blue, alpha).endVertex();
+        buffer.vertex(matrix, left, bottom, 0.0f).color(red, green, blue, alpha).endVertex();
+        buffer.vertex(matrix, right, bottom, 0.0f).color(red, green, blue, alpha).endVertex();
+        buffer.vertex(matrix, right, top, 0.0f).color(red, green, blue, alpha).endVertex();
+        buffer.vertex(matrix, left, top, 0.0f).color(red, green, blue, alpha).endVertex();
         BufferUploader.drawWithShader(buffer.end());
     }
 
-    private String toPerspectiveToken(TeamToken token, TeamToken selfTeam) {
-        if (token == TeamToken.NEUTRAL || selfTeam == TeamToken.NEUTRAL) {
+    private String toPerspectiveToken(ClientCaptureOverlayModel.TeamToken token, ClientCaptureOverlayModel.TeamToken selfTeam) {
+        if (token == ClientCaptureOverlayModel.TeamToken.NEUTRAL || selfTeam == ClientCaptureOverlayModel.TeamToken.NEUTRAL) {
             return "NEUTRAL";
         }
         return token == selfTeam ? "ALLY" : "ENEMY";
     }
 }
+

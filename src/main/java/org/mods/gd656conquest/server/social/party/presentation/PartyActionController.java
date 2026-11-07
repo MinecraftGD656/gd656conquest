@@ -232,6 +232,9 @@ public final class PartyActionController {
         if (player == null) {
             return false;
         }
+        if(org.mods.gd656conquest.social.SocialNetwork.supported(player.connection.connection)){
+            org.mods.gd656conquest.social.SocialNetwork.open(player);return true;
+        }
         sendHelpLines(player);
         return true;
     }

@@ -1,16 +1,19 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package org.mods.gd656conquest.client.event.handler;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
+import java.lang.reflect.Field;
+import java.util.Locale;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.screens.ReceivingLevelScreen;
-import net.minecraft.client.resources.language.I18n;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -18,59 +21,60 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.scores.Team;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.MovementInputUpdateEvent;
-import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
+import net.minecraftforge.client.event.ScreenEvent;
 import org.lwjgl.glfw.GLFW;
 import org.mods.gd656conquest.client.compat.tacz.TaczClientInputCompat;
+import org.mods.gd656conquest.client.event.handler.ClientCaptureOverlayController;
+import org.mods.gd656conquest.client.event.handler.ClientVehicleMountedHotbarLockService;
 import org.mods.gd656conquest.client.gui.elements.GDButton;
 import org.mods.gd656conquest.client.hud.ClientHudDebugState;
+import org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService;
+import org.mods.gd656conquest.client.input.ClientKeyMappings;
 import org.mods.gd656conquest.client.loadout.ClientLoadoutUiController;
 import org.mods.gd656conquest.client.loadout.screen.LoadoutConfigScreen;
 import org.mods.gd656conquest.client.room.ClientDeathFlowState;
 import org.mods.gd656conquest.client.room.ClientDownedState;
+import org.mods.gd656conquest.client.room.ClientReviveState;
 import org.mods.gd656conquest.client.room.ClientRoomLockState;
 import org.mods.gd656conquest.client.room.ClientRoomTeamMirror;
-import org.mods.gd656conquest.client.room.ClientReviveState;
 import org.mods.gd656conquest.network.NetworkManager;
 import org.mods.gd656conquest.network.packet.LoadoutUiActionPacket;
 import org.mods.gd656conquest.network.packet.MainHandItemNameUploadPacket;
 import org.mods.gd656conquest.network.packet.ServerboundAmmoBoxInteractPacket;
 import org.mods.gd656conquest.server.compat.superbwarfare.SuperbWarfareVehicleCompatBridge;
 
-import java.lang.reflect.Field;
-import java.util.Locale;
-
 final class ClientRoomSessionController {
     private static final ResourceLocation VIGNETTE_TEXTURE = ResourceLocation.withDefaultNamespace("textures/misc/vignette.png");
     private static final int VIGNETTE_TEXTURE_SIZE = 256;
     private static final int MAIN_HAND_UPLOAD_INTERVAL_TICKS = 20;
-    private static final double DEPLOY_FOV_SCROLL_STEP = 2.0D;
-    private static final double DEPLOY_FOV_MIN = 30.0D;
-    private static final double DEPLOY_FOV_MAX = 110.0D;
-    private static final float DEPLOY_FOV_RESTORE_SECONDS = 1.0F;
+    private static final double DEPLOY_FOV_SCROLL_STEP = 2.0;
+    private static final double DEPLOY_FOV_MIN = 30.0;
+    private static final double DEPLOY_FOV_MAX = 110.0;
+    private static final float DEPLOY_FOV_RESTORE_SECONDS = 1.0f;
     private static final int PRIMARY_DEPLOY_HOTBAR_SLOT = 0;
     private static final int DEATH_FLOW_LOCKED_HOTBAR_SLOT = 6;
     private static final int UI_BUTTON_WIDTH = 132;
     private static final int UI_BUTTON_HEIGHT = 18;
     private static final int UI_BUTTON_GAP = 4;
     private static final int UI_BUTTON_MARGIN = 10;
-
     private final ClientLoadoutUiController loadoutUiController;
     private boolean deathMouseReleased;
     private long lastTeamColorSyncTick = -1L;
     private String lastTeamColorRoomPrefix = "";
     private boolean wasDeployUiOpen;
     private GDButton deployLoadoutButton;
-    /** GD656Mods: 快速打开载具部署界面(位于"切换阵营"与"打开配装界面"两键之间)。 */
+    private GDButton battlefieldDeployButton;
     private GDButton deployVehicleButton;
     private GDButton deployTeamSwitchButton;
     private GDButton matchEndExitButton;
     private boolean deployFovActive;
     private boolean deployFovRestoreActive;
-    private double deployFovBase = -1.0D;
-    private double deployFovRestoreStart = -1.0D;
+    private double deployFovBase = -1.0;
+    private double deployFovRestoreStart = -1.0;
     private float deployFovRestoreElapsedSeconds;
     private final ClientVehicleMountedHotbarLockService vehicleMountedHotbarLockService = new ClientVehicleMountedHotbarLockService();
     private String lastUploadedMainHandItemId = "";
@@ -86,62 +90,62 @@ final class ClientRoomSessionController {
 
     void tick(Minecraft minecraft, ClientCaptureOverlayController overlayController) {
         if (minecraft == null || minecraft.player == null || minecraft.level == null) {
-            vehicleMountedHotbarLockService.reset();
-            wasVehiclePerspectiveAllowed = false;
+            this.vehicleMountedHotbarLockService.reset();
+            this.wasVehiclePerspectiveAllowed = false;
             return;
         }
-        org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedHudOnly(ClientRoomLockState.shouldForceHudOnly());
-        org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedVisible(ClientRoomLockState.shouldForceVisibleHud());
-        loadoutUiController.tick();
-        uploadMainHandItemNameIfNeeded(minecraft);
-        vehicleMountedHotbarLockService.tick(minecraft);
-        while (org.mods.gd656conquest.client.input.ClientKeyMappings.OPEN_LOADOUT_SCREEN.consumeClick()) {
-            loadoutUiController.toggleConfigScreen();
+        ClientHudVisibilityCycleService.setForcedHudOnly(ClientRoomLockState.shouldForceHudOnly());
+        ClientHudVisibilityCycleService.setForcedVisible(ClientRoomLockState.shouldForceVisibleHud());
+        this.loadoutUiController.tick();
+        this.uploadMainHandItemNameIfNeeded(minecraft);
+        this.vehicleMountedHotbarLockService.tick(minecraft);
+        while (ClientKeyMappings.OPEN_LOADOUT_SCREEN.consumeClick()) {
+            this.loadoutUiController.toggleConfigScreen();
         }
-        tickCommonUseState(minecraft);
+        this.tickCommonUseState(minecraft);
         boolean deployUiOpen = ClientRoomLockState.isDeployUiActive();
-        if (deployUiOpen && !wasDeployUiOpen) {
+        if (deployUiOpen && !this.wasDeployUiOpen) {
             overlayController.onDeployUiOpened();
-        } else if (!deployUiOpen && wasDeployUiOpen) {
+        } else if (!deployUiOpen && this.wasDeployUiOpen) {
             overlayController.onDeployUiClosed();
-            resetPostDeployUseState(minecraft);
+            this.resetPostDeployUseState(minecraft);
         }
-        wasDeployUiOpen = deployUiOpen;
+        this.wasDeployUiOpen = deployUiOpen;
         String roomId = ClientHudDebugState.getRoomId();
         String roomState = ClientHudDebugState.getRoomState();
-        boolean inRoom = roomId != null && !roomId.isBlank() && !"-".equals(roomId) && (roomState == null || !roomState.contains("未加入"));
-        syncClientTeamColors(minecraft, roomId, inRoom);
+        boolean inRoom = roomId != null && !roomId.isBlank() && !"-".equals(roomId) && (roomState == null || !roomState.contains("\u672a\u52a0\u5165"));
+        this.syncClientTeamColors(minecraft, roomId, inRoom);
         if (ClientDeathFlowState.hasActiveCameraOverride() && minecraft.screen instanceof ReceivingLevelScreen) {
             minecraft.setScreen(null);
         }
-        boolean vehiclePerspectiveAllowed = shouldAllowVehiclePerspective(minecraft);
-        if (wasVehiclePerspectiveAllowed && !vehiclePerspectiveAllowed) {
-            enforceFirstPersonAfterVehicleExit(minecraft);
+        boolean vehiclePerspectiveAllowed = this.shouldAllowVehiclePerspective(minecraft);
+        if (this.wasVehiclePerspectiveAllowed && !vehiclePerspectiveAllowed) {
+            this.enforceFirstPersonAfterVehicleExit(minecraft);
         } else if (!vehiclePerspectiveAllowed) {
-            enforceFirstPersonForNonAdmin(minecraft);
+            this.enforceFirstPersonForNonAdmin(minecraft);
         }
-        wasVehiclePerspectiveAllowed = vehiclePerspectiveAllowed;
-        enforceMountedVehicleControlLock(minecraft);
-        enforceInitialMovementLock(minecraft);
-        enforceDeathInputLock(minecraft);
-        enforceHeldItemUseLock(minecraft);
-        enforceLockedHotbarSelection(minecraft);
-        enforceInventoryAccessLock(minecraft);
-        syncMouseGrabState(minecraft, overlayController);
-        tickDeployFovState(minecraft, 1.0F / 20.0F);
-        enforceNoF3ForNonAdmin(minecraft);
+        this.wasVehiclePerspectiveAllowed = vehiclePerspectiveAllowed;
+        this.enforceMountedVehicleControlLock(minecraft);
+        this.enforceInitialMovementLock(minecraft);
+        this.enforceDeathInputLock(minecraft);
+        this.enforceHeldItemUseLock(minecraft);
+        this.enforceLockedHotbarSelection(minecraft);
+        this.enforceInventoryAccessLock(minecraft);
+        this.syncMouseGrabState(minecraft, overlayController);
+        this.tickDeployFovState(minecraft, 0.05f);
+        this.enforceNoF3ForNonAdmin(minecraft);
     }
 
     void enforceFirstPersonDuringCameraSetup() {
         Minecraft minecraft = Minecraft.getInstance();
-        if (shouldAllowVehiclePerspective(minecraft)) {
+        if (this.shouldAllowVehiclePerspective(minecraft)) {
             return;
         }
-        enforceFirstPersonForNonAdmin(minecraft);
+        this.enforceFirstPersonForNonAdmin(minecraft);
     }
 
     void handleScreenOpening(ScreenEvent.Opening event, ClientCaptureOverlayController overlayController) {
-        if (event.getNewScreen() instanceof InventoryScreen && shouldLockInventoryClient()) {
+        if (event.getNewScreen() instanceof InventoryScreen && this.shouldLockInventoryClient()) {
             event.setCanceled(true);
             return;
         }
@@ -162,7 +166,7 @@ final class ClientRoomSessionController {
         if (minecraft.player == null || minecraft.level == null) {
             return;
         }
-        if (vehicleMountedHotbarLockService.shouldCancelHotbarKeyInput(minecraft, event)) {
+        if (this.vehicleMountedHotbarLockService.shouldCancelHotbarKeyInput(minecraft, event)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
@@ -177,63 +181,58 @@ final class ClientRoomSessionController {
             TaczClientInputCompat.clearTransientCombatState(minecraft);
             return;
         }
-        if (isAdmin(minecraft)) {
+        if (this.isAdmin(minecraft)) {
             return;
         }
-        if (shouldBlockGameplayKeyInput(minecraft, event)) {
+        if (this.shouldBlockGameplayKeyInput(minecraft, event)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
             return;
         }
-        if (shouldBlockHeldItemUseKeyInput(minecraft, event)) {
+        if (this.shouldBlockHeldItemUseKeyInput(minecraft, event)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
             return;
         }
         if (minecraft.options.keyTogglePerspective.matches(event.getKey(), event.getScanCode())) {
-            if (shouldAllowVehiclePerspective(minecraft)) {
+            if (this.shouldAllowVehiclePerspective(minecraft)) {
                 return;
             }
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
-            enforceFirstPersonForNonAdmin(minecraft);
+            this.enforceFirstPersonForNonAdmin(minecraft);
             return;
         }
-        if (event.getKey() == GLFW.GLFW_KEY_F3 || minecraft.options.keyShift.isDown() && event.getKey() == GLFW.GLFW_KEY_F3) {
+        if (event.getKey() == 292 || minecraft.options.keyShift.isDown() && event.getKey() == 292) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
-            enforceNoF3ForNonAdmin(minecraft);
+            this.enforceNoF3ForNonAdmin(minecraft);
         }
-        if (event.getKey() == GLFW.GLFW_KEY_B || event.getKey() == GLFW.GLFW_KEY_G || event.getKey() == GLFW.GLFW_KEY_Q) {
-            if (GLFW.glfwGetKey(minecraft.getWindow().getWindow(), GLFW.GLFW_KEY_F3) == GLFW.GLFW_PRESS) {
-                if (event.isCancelable()) {
-                    event.setCanceled(true);
-                }
-                enforceNoF3ForNonAdmin(minecraft);
+        if ((event.getKey() == 66 || event.getKey() == 71 || event.getKey() == 81) && GLFW.glfwGetKey(minecraft.getWindow().getWindow(), 292) == 1) {
+            if (event.isCancelable()) {
+                event.setCanceled(true);
             }
+            this.enforceNoF3ForNonAdmin(minecraft);
         }
-        if (minecraft.options.keyInventory.matches(event.getKey(), event.getScanCode()) && shouldLockInventoryClient()) {
+        if (minecraft.options.keyInventory.matches(event.getKey(), event.getScanCode()) && this.shouldLockInventoryClient()) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
             if (minecraft.player != null && minecraft.level != null && minecraft.level.getGameTime() % 20L == 0L) {
-                minecraft.player.displayClientMessage(Component.literal("当前房间已禁用背包").withStyle(ChatFormatting.RED), true);
+                minecraft.player.displayClientMessage(Component.literal("\u5f53\u524d\u623f\u95f4\u5df2\u7981\u7528\u80cc\u5305").withStyle(ChatFormatting.RED), true);
             }
         }
-        // GD656Mods: 房间禁用背包时同样阻止按 Q 丢弃物品 —— 物品必须留在背包。
-        // 服务端 handlePlayerAction 会 cancel 丢弃包并强制全量同步背包回滚, 双保险。
-        if (minecraft.options.keyDrop.matches(event.getKey(), event.getScanCode()) && shouldLockInventoryClient()) {
-            if (event.isCancelable()) {
-                event.setCanceled(true);
-            }
+        if (minecraft.options.keyDrop.matches(event.getKey(), event.getScanCode()) && this.shouldLockInventoryClient() && event.isCancelable()) {
+            event.setCanceled(true);
         }
     }
 
     boolean handleMouseButton(InputEvent.MouseButton event) {
+        boolean useMouse;
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null) {
             return false;
@@ -241,30 +240,23 @@ final class ClientRoomSessionController {
         if (minecraft.screen != null) {
             return false;
         }
-        // GD656Mods: 房间禁用背包时, 即使玩家把"打开物品栏/丢弃物品"重绑定到鼠标键也一并拦截,
-        // 避免绕过 InputEvent.Key 的键盘拦截; 物品必须留在背包, 丢弃被完全禁止。
-        if (event.getAction() != GLFW.GLFW_RELEASE
-            && shouldLockInventoryClient()
-            && (minecraft.options.keyInventory.matchesMouse(event.getButton())
-                || minecraft.options.keyDrop.matchesMouse(event.getButton()))) {
+        if (event.getAction() != 0 && this.shouldLockInventoryClient() && (minecraft.options.keyInventory.matchesMouse(event.getButton()) || minecraft.options.keyDrop.matchesMouse(event.getButton()))) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
             return true;
         }
-        double mouseX = minecraft.mouseHandler.xpos() * minecraft.getWindow().getGuiScaledWidth() / Math.max(1, minecraft.getWindow().getScreenWidth());
-        double mouseY = minecraft.mouseHandler.ypos() * minecraft.getWindow().getGuiScaledHeight() / Math.max(1, minecraft.getWindow().getScreenHeight());
-        if (event.getAction() == GLFW.GLFW_PRESS
-            && event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT
-            && ClientDownedState.handleLeftClick()) {
+        double mouseX = minecraft.mouseHandler.xpos() * (double)minecraft.getWindow().getGuiScaledWidth() / (double)Math.max(1, minecraft.getWindow().getScreenWidth());
+        double mouseY = minecraft.mouseHandler.ypos() * (double)minecraft.getWindow().getGuiScaledHeight() / (double)Math.max(1, minecraft.getWindow().getScreenHeight());
+        if (event.getAction() == 1 && event.getButton() == 0 && ClientDownedState.handleLeftClick()) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
             return true;
         }
-        boolean allowReleasedMouseUiClick = shouldAllowReleasedMouseUiLeftClick(minecraft, event);
-        boolean attackMouse = event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT;
-        boolean useMouse = event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT;
+        boolean allowReleasedMouseUiClick = this.shouldAllowReleasedMouseUiLeftClick(minecraft, event);
+        boolean attackMouse = event.getButton() == 0;
+        boolean bl = useMouse = event.getButton() == 1;
         if (TaczClientInputCompat.shouldBlockCombatInputUntilRelease(minecraft, attackMouse, useMouse)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
@@ -272,19 +264,19 @@ final class ClientRoomSessionController {
             TaczClientInputCompat.clearTransientCombatState(minecraft);
             return true;
         }
-        if (!allowReleasedMouseUiClick && shouldBlockHeldItemUseMouseInput(minecraft, event)) {
+        if (!allowReleasedMouseUiClick && this.shouldBlockHeldItemUseMouseInput(minecraft, event)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
             return true;
         }
-        if (!allowReleasedMouseUiClick && shouldBlockGameplayMouseInput(minecraft)) {
+        if (!allowReleasedMouseUiClick && this.shouldBlockGameplayMouseInput(minecraft)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
             return true;
         }
-        if (event.getAction() == GLFW.GLFW_PRESS && event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && handleCornerActionButtonsClick(mouseX, mouseY, event.getButton())) {
+        if (event.getAction() == 1 && event.getButton() == 0 && this.handleCornerActionButtonsClick(mouseX, mouseY, event.getButton())) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
@@ -301,14 +293,14 @@ final class ClientRoomSessionController {
         if (minecraft.screen != null) {
             return false;
         }
-        boolean allowDeployReleasedMouseScrollZoom = shouldAllowDeployReleasedMouseScrollZoom(minecraft);
-        if (vehicleMountedHotbarLockService.shouldCancelMouseScroll(minecraft)) {
+        boolean allowDeployReleasedMouseScrollZoom = this.shouldAllowDeployReleasedMouseScrollZoom(minecraft);
+        if (this.vehicleMountedHotbarLockService.shouldCancelMouseScroll(minecraft)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
             return true;
         }
-        if (!allowDeployReleasedMouseScrollZoom && shouldBlockGameplayMouseScroll(minecraft)) {
+        if (!allowDeployReleasedMouseScrollZoom && this.shouldBlockGameplayMouseScroll(minecraft)) {
             if (event.isCancelable()) {
                 event.setCanceled(true);
             }
@@ -318,18 +310,18 @@ final class ClientRoomSessionController {
             return false;
         }
         double delta = event.getScrollDelta();
-        if (Math.abs(delta) <= 1.0E-6D) {
+        if (Math.abs(delta) <= 1.0E-6) {
             return false;
         }
-        double current = getCurrentFov(minecraft);
-        if (deployFovBase < 0.0D) {
-            deployFovBase = current;
+        double current = this.getCurrentFov(minecraft);
+        if (this.deployFovBase < 0.0) {
+            this.deployFovBase = current;
         }
-        deployFovActive = true;
-        deployFovRestoreActive = false;
-        deployFovRestoreElapsedSeconds = 0.0F;
-        double target = Mth.clamp(current - delta * DEPLOY_FOV_SCROLL_STEP, DEPLOY_FOV_MIN, DEPLOY_FOV_MAX);
-        setCurrentFov(minecraft, target);
+        this.deployFovActive = true;
+        this.deployFovRestoreActive = false;
+        this.deployFovRestoreElapsedSeconds = 0.0f;
+        double target = Mth.clamp(current - delta * 2.0, 30.0, 110.0);
+        this.setCurrentFov(minecraft, target);
         if (event.isCancelable()) {
             event.setCanceled(true);
         }
@@ -340,8 +332,8 @@ final class ClientRoomSessionController {
         if (!ClientRoomLockState.shouldLockMovement()) {
             return;
         }
-        event.getInput().forwardImpulse = 0.0F;
-        event.getInput().leftImpulse = 0.0F;
+        event.getInput().forwardImpulse = 0.0f;
+        event.getInput().leftImpulse = 0.0f;
         event.getInput().jumping = false;
         event.getInput().shiftKeyDown = ClientRoomLockState.shouldForceCrouch();
     }
@@ -350,79 +342,81 @@ final class ClientRoomSessionController {
     }
 
     void renderSessionOverlay(GuiGraphics guiGraphics, float partialTick) {
-        renderCornerActionButtons(guiGraphics, partialTick);
+        this.renderCornerActionButtons(guiGraphics, partialTick);
     }
 
     void renderVignetteOverlay(RenderGuiOverlayEvent.Post event) {
-        renderVignetteOverlay(event.getGuiGraphics(), event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
+        this.renderVignetteOverlay(event.getGuiGraphics(), event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
     }
 
     void renderVignetteOverlay(GuiGraphics guiGraphics, int width, int height) {
-        float darknessAlpha = ClientDeathFlowState.currentDarknessAlpha();
-        float hurtAlpha = ClientDeathFlowState.currentHurtFlashAlpha() * 0.4F;
-        if (darknessAlpha <= 0.001F && hurtAlpha <= 0.001F) {
+        float darknessAlpha = org.mods.gd656killicon.client.downed.DownedScene.ownsWorldGrade() ? 0.0f : ClientDeathFlowState.currentDarknessAlpha();
+        float hurtAlpha = ClientDeathFlowState.currentHurtFlashAlpha() * 0.4f;
+        if (darknessAlpha <= 0.001f && hurtAlpha <= 0.001f) {
             return;
         }
-        int drawX = (int) (-width * 0.25F);
-        int drawY = (int) (-height * 0.25F);
-        int drawWidth = (int) (width * 1.5F);
-        int drawHeight = (int) (height * 1.5F);
+        int drawX = (int)((float)(-width) * 0.25f);
+        int drawY = (int)((float)(-height) * 0.25f);
+        int drawWidth = (int)((float)width * 1.5f);
+        int drawHeight = (int)((float)height * 1.5f);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        if (darknessAlpha > 0.001F) {
-            RenderSystem.setShaderColor(0.0F, 0.0F, 0.0F, darknessAlpha);
-            guiGraphics.blit(VIGNETTE_TEXTURE, drawX, drawY, -90, 0.0F, 0.0F, drawWidth, drawHeight, VIGNETTE_TEXTURE_SIZE, VIGNETTE_TEXTURE_SIZE);
+        if (darknessAlpha > 0.001f) {
+            RenderSystem.setShaderColor(0.0f, 0.0f, 0.0f, darknessAlpha);
+            guiGraphics.blit(VIGNETTE_TEXTURE, drawX, drawY, -90, 0.0f, 0.0f, drawWidth, drawHeight, 256, 256);
         }
-        if (hurtAlpha > 0.001F) {
-            RenderSystem.setShaderColor(0.8F, 0.08F, 0.08F, hurtAlpha);
-            guiGraphics.blit(VIGNETTE_TEXTURE, drawX, drawY, -90, 0.0F, 0.0F, drawWidth, drawHeight, VIGNETTE_TEXTURE_SIZE, VIGNETTE_TEXTURE_SIZE);
+        if (hurtAlpha > 0.001f) {
+            RenderSystem.setShaderColor(0.8f, 0.08f, 0.08f, hurtAlpha);
+            guiGraphics.blit(VIGNETTE_TEXTURE, drawX, drawY, -90, 0.0f, 0.0f, drawWidth, drawHeight, 256, 256);
         }
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
         RenderSystem.disableBlend();
     }
 
     void handleLogout() {
-        forceRestoreDeployFov(Minecraft.getInstance());
-        deathMouseReleased = false;
-        wasDeployUiOpen = false;
-        deployFovActive = false;
-        deployFovRestoreActive = false;
-        deployFovBase = -1.0D;
-        deployFovRestoreStart = -1.0D;
-        deployFovRestoreElapsedSeconds = 0.0F;
-        vehicleMountedHotbarLockService.reset();
-        mountedVehicleControlSuppressed = false;
-        lastUploadedMainHandItemId = "";
-        lastUploadedMainHandDisplayName = "";
-        lastUploadedMainHandTick = -1L;
-        commonUseHeld = false;
-        org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedVisible(false);
-        org.mods.gd656conquest.client.hud.ClientHudVisibilityCycleService.setForcedHudOnly(false);
-        loadoutUiController.onClientLogout();
+        this.forceRestoreDeployFov(Minecraft.getInstance());
+        this.deathMouseReleased = false;
+        this.wasDeployUiOpen = false;
+        this.deployFovActive = false;
+        this.deployFovRestoreActive = false;
+        this.deployFovBase = -1.0;
+        this.deployFovRestoreStart = -1.0;
+        this.deployFovRestoreElapsedSeconds = 0.0f;
+        this.vehicleMountedHotbarLockService.reset();
+        this.mountedVehicleControlSuppressed = false;
+        this.lastUploadedMainHandItemId = "";
+        this.lastUploadedMainHandDisplayName = "";
+        this.lastUploadedMainHandTick = -1L;
+        this.commonUseHeld = false;
+        ClientHudVisibilityCycleService.setForcedVisible(false);
+        ClientHudVisibilityCycleService.setForcedHudOnly(false);
+        this.loadoutUiController.onClientLogout();
     }
 
     private void syncClientTeamColors(Minecraft minecraft, String roomId, boolean inRoom) {
         long gameTime = minecraft.level.getGameTime();
-        if (gameTime == lastTeamColorSyncTick) {
+        if (gameTime == this.lastTeamColorSyncTick) {
             return;
         }
-        lastTeamColorSyncTick = gameTime;
+        this.lastTeamColorSyncTick = gameTime;
         Scoreboard scoreboard = minecraft.level.getScoreboard();
         if (scoreboard == null) {
             return;
         }
         if (!inRoom || roomId == null || roomId.isBlank() || "-".equals(roomId)) {
-            restoreLastRoomTeamColors(scoreboard);
+            this.restoreLastRoomTeamColors(scoreboard);
             return;
         }
         String roomPrefix = roomId.toLowerCase(Locale.ROOT) + "_";
-        if (!(minecraft.player.getTeam() instanceof PlayerTeam localTeam)) {
-            restoreLastRoomTeamColors(scoreboard);
+        Team team = minecraft.player.getTeam();
+        if (!(team instanceof PlayerTeam)) {
+            this.restoreLastRoomTeamColors(scoreboard);
             return;
         }
-        TeamSide selfSide = parseTeamSide(localTeam.getName());
+        PlayerTeam localTeam = (PlayerTeam)team;
+        TeamSide selfSide = this.parseTeamSide(localTeam.getName());
         if (selfSide == null || !selfSide.roomPrefix.equals(roomId.toLowerCase(Locale.ROOT))) {
-            restoreLastRoomTeamColors(scoreboard);
+            this.restoreLastRoomTeamColors(scoreboard);
             return;
         }
         PlayerTeam campA = scoreboard.getPlayerTeam(roomPrefix + "camp_a");
@@ -433,79 +427,97 @@ final class ClientRoomSessionController {
         if (campB != null) {
             campB.setColor(selfSide.campIndex == 2 ? ChatFormatting.BLUE : ChatFormatting.RED);
         }
-        lastTeamColorRoomPrefix = roomPrefix;
+        this.lastTeamColorRoomPrefix = roomPrefix;
     }
 
     private void restoreLastRoomTeamColors(Scoreboard scoreboard) {
-        if (lastTeamColorRoomPrefix == null || lastTeamColorRoomPrefix.isBlank()) {
+        if (this.lastTeamColorRoomPrefix == null || this.lastTeamColorRoomPrefix.isBlank()) {
             return;
         }
-        PlayerTeam campA = scoreboard.getPlayerTeam(lastTeamColorRoomPrefix + "camp_a");
-        PlayerTeam campB = scoreboard.getPlayerTeam(lastTeamColorRoomPrefix + "camp_b");
+        PlayerTeam campA = scoreboard.getPlayerTeam(this.lastTeamColorRoomPrefix + "camp_a");
+        PlayerTeam campB = scoreboard.getPlayerTeam(this.lastTeamColorRoomPrefix + "camp_b");
         if (campA != null) {
             campA.setColor(ChatFormatting.WHITE);
         }
         if (campB != null) {
             campB.setColor(ChatFormatting.WHITE);
         }
-        lastTeamColorRoomPrefix = "";
+        this.lastTeamColorRoomPrefix = "";
     }
 
     private TeamSide parseTeamSide(String rawName) {
-        String teamName = rawName == null ? "" : rawName.trim().toLowerCase(Locale.ROOT);
-        if (teamName.isEmpty()) return null;
-        if (teamName.endsWith("_camp_a")) return new TeamSide(teamName.substring(0, teamName.length() - "_camp_a".length()), 1);
-        if (teamName.endsWith("_camp_b")) return new TeamSide(teamName.substring(0, teamName.length() - "_camp_b".length()), 2);
-        if (teamName.endsWith("_campa")) return new TeamSide(teamName.substring(0, teamName.length() - "_campa".length()), 1);
-        if (teamName.endsWith("_campb")) return new TeamSide(teamName.substring(0, teamName.length() - "_campb".length()), 2);
-        if (teamName.endsWith("_taiga")) return new TeamSide(teamName.substring(0, teamName.length() - "_taiga".length()), 1);
-        if (teamName.endsWith("_savanna")) return new TeamSide(teamName.substring(0, teamName.length() - "_savanna".length()), 2);
-        if (teamName.endsWith("_t")) return new TeamSide(teamName.substring(0, teamName.length() - "_t".length()), 1);
-        if (teamName.endsWith("_s")) return new TeamSide(teamName.substring(0, teamName.length() - "_s".length()), 2);
+        String teamName;
+        String string = teamName = rawName == null ? "" : rawName.trim().toLowerCase(Locale.ROOT);
+        if (teamName.isEmpty()) {
+            return null;
+        }
+        if (teamName.endsWith("_camp_a")) {
+            return new TeamSide(teamName.substring(0, teamName.length() - "_camp_a".length()), 1);
+        }
+        if (teamName.endsWith("_camp_b")) {
+            return new TeamSide(teamName.substring(0, teamName.length() - "_camp_b".length()), 2);
+        }
+        if (teamName.endsWith("_campa")) {
+            return new TeamSide(teamName.substring(0, teamName.length() - "_campa".length()), 1);
+        }
+        if (teamName.endsWith("_campb")) {
+            return new TeamSide(teamName.substring(0, teamName.length() - "_campb".length()), 2);
+        }
+        if (teamName.endsWith("_taiga")) {
+            return new TeamSide(teamName.substring(0, teamName.length() - "_taiga".length()), 1);
+        }
+        if (teamName.endsWith("_savanna")) {
+            return new TeamSide(teamName.substring(0, teamName.length() - "_savanna".length()), 2);
+        }
+        if (teamName.endsWith("_t")) {
+            return new TeamSide(teamName.substring(0, teamName.length() - "_t".length()), 1);
+        }
+        if (teamName.endsWith("_s")) {
+            return new TeamSide(teamName.substring(0, teamName.length() - "_s".length()), 2);
+        }
         return null;
     }
 
     private void uploadMainHandItemNameIfNeeded(Minecraft minecraft) {
+        boolean intervalReached;
         ItemStack held = minecraft.player.getMainHandItem();
         ResourceLocation itemKey = held == null || held.isEmpty() ? null : BuiltInRegistries.ITEM.getKey(held.getItem());
         String itemId = itemKey == null ? "" : itemKey.toString();
-        String displayName = held == null || held.isEmpty() ? "" : normalizeText(held.getHoverName().getString());
+        String displayName = held == null || held.isEmpty() ? "" : this.normalizeText(held.getHoverName().getString());
         long gameTick = minecraft.level.getGameTime();
-        boolean changed = !itemId.equals(lastUploadedMainHandItemId) || !displayName.equals(lastUploadedMainHandDisplayName);
-        boolean intervalReached = lastUploadedMainHandTick < 0L || gameTick - lastUploadedMainHandTick >= MAIN_HAND_UPLOAD_INTERVAL_TICKS;
+        boolean changed = !itemId.equals(this.lastUploadedMainHandItemId) || !displayName.equals(this.lastUploadedMainHandDisplayName);
+        boolean bl = intervalReached = this.lastUploadedMainHandTick < 0L || gameTick - this.lastUploadedMainHandTick >= 20L;
         if (!changed && !intervalReached) {
             return;
         }
         NetworkManager.getChannel().sendToServer(new MainHandItemNameUploadPacket(itemId, displayName));
-        lastUploadedMainHandItemId = itemId;
-        lastUploadedMainHandDisplayName = displayName;
-        lastUploadedMainHandTick = gameTick;
+        this.lastUploadedMainHandItemId = itemId;
+        this.lastUploadedMainHandDisplayName = displayName;
+        this.lastUploadedMainHandTick = gameTick;
     }
 
     private void tickCommonUseState(Minecraft minecraft) {
+        boolean shouldHold;
         if (minecraft == null || minecraft.player == null || minecraft.level == null) {
-            stopCommonUseHold();
+            this.stopCommonUseHold();
             return;
         }
-        boolean shouldHold = minecraft.screen == null
-            && !ClientRoomLockState.shouldLockMovement()
-            && !ClientReviveState.isCommonUseReserved(minecraft)
-            && org.mods.gd656conquest.client.input.ClientKeyMappings.COMMON_USE.isDown();
+        boolean bl = shouldHold = minecraft.screen == null && !ClientRoomLockState.shouldLockMovement() && !ClientReviveState.isCommonUseReserved(minecraft) && ClientKeyMappings.COMMON_USE.isDown();
         if (shouldHold) {
-            if (!commonUseHeld) {
+            if (!this.commonUseHeld) {
                 NetworkManager.getChannel().sendToServer(new ServerboundAmmoBoxInteractPacket(ServerboundAmmoBoxInteractPacket.Action.START));
-                commonUseHeld = true;
+                this.commonUseHeld = true;
             }
             return;
         }
-        if (commonUseHeld) {
+        if (this.commonUseHeld) {
             NetworkManager.getChannel().sendToServer(new ServerboundAmmoBoxInteractPacket(ServerboundAmmoBoxInteractPacket.Action.STOP));
         }
-        stopCommonUseHold();
+        this.stopCommonUseHold();
     }
 
     private void stopCommonUseHold() {
-        commonUseHeld = false;
+        this.commonUseHeld = false;
     }
 
     private String normalizeText(String value) {
@@ -513,23 +525,21 @@ final class ClientRoomSessionController {
     }
 
     private void enforceNoF3ForNonAdmin(Minecraft minecraft) {
-        if (isAdmin(minecraft)) {
+        if (this.isAdmin(minecraft)) {
             return;
         }
-        trySetBooleanField(minecraft.options, "renderDebug", false);
+        this.trySetBooleanField(minecraft.options, "renderDebug", false);
         minecraft.getEntityRenderDispatcher().setRenderHitBoxes(false);
         if (minecraft.debugRenderer != null) {
             for (Field field : minecraft.debugRenderer.getClass().getDeclaredFields()) {
-                if (field.getType() != boolean.class) {
-                    continue;
+                String lower;
+                if (field.getType() != Boolean.TYPE || !(lower = field.getName().toLowerCase(Locale.ROOT)).contains("chunk") && !lower.contains("debug")) continue;
+                try {
+                    field.setAccessible(true);
+                    field.setBoolean(minecraft.debugRenderer, false);
                 }
-                String lower = field.getName().toLowerCase(Locale.ROOT);
-                if (lower.contains("chunk") || lower.contains("debug")) {
-                    try {
-                        field.setAccessible(true);
-                        field.setBoolean(minecraft.debugRenderer, false);
-                    } catch (Exception ignored) {
-                    }
+                catch (Exception exception) {
+                    // empty catch block
                 }
             }
         }
@@ -539,7 +549,7 @@ final class ClientRoomSessionController {
         if (minecraft == null || minecraft.options == null || minecraft.player == null) {
             return;
         }
-        if (isAdmin(minecraft) || ClientDeathFlowState.hasActiveCameraOverride()) {
+        if (this.isAdmin(minecraft) || ClientDeathFlowState.hasActiveCameraOverride()) {
             return;
         }
         if (minecraft.options.getCameraType() != CameraType.FIRST_PERSON) {
@@ -560,9 +570,7 @@ final class ClientRoomSessionController {
     }
 
     private boolean shouldAllowVehiclePerspective(Minecraft minecraft) {
-        return minecraft != null
-            && minecraft.player != null
-            && minecraft.player.getVehicle() != null;
+        return minecraft != null && minecraft.player != null && minecraft.player.getVehicle() != null;
     }
 
     private boolean isAdmin(Minecraft minecraft) {
@@ -576,17 +584,17 @@ final class ClientRoomSessionController {
         }
         TaczClientInputCompat.clearTransientCombatState(minecraft);
         if (minecraft.player != null) {
-            minecraft.player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+            minecraft.player.setDeltaMovement(0.0, 0.0, 0.0);
         }
     }
 
     private void enforceInitialMovementLock(Minecraft minecraft) {
-        if (!isInitialMovementLockActive(minecraft) || minecraft == null || minecraft.options == null) {
+        if (!this.isInitialMovementLockActive(minecraft) || minecraft == null || minecraft.options == null) {
             return;
         }
         TaczClientInputCompat.clearTransientCombatState(minecraft);
         if (minecraft.player != null) {
-            minecraft.player.setDeltaMovement(0.0D, 0.0D, 0.0D);
+            minecraft.player.setDeltaMovement(0.0, 0.0, 0.0);
         }
     }
 
@@ -598,37 +606,38 @@ final class ClientRoomSessionController {
     }
 
     private void enforceHeldItemUseLock(Minecraft minecraft) {
-        if (!shouldRestrictHeldItemUse(minecraft)) {
+        if (!this.shouldRestrictHeldItemUse(minecraft)) {
             return;
         }
         TaczClientInputCompat.clearTransientCombatState(minecraft);
     }
 
     private void enforceMountedVehicleControlLock(Minecraft minecraft) {
-        boolean shouldSuppress = shouldSuppressMountedVehicleControls(minecraft);
+        boolean shouldSuppress = this.shouldSuppressMountedVehicleControls(minecraft);
         if (!shouldSuppress) {
-            if (mountedVehicleControlSuppressed) {
-                restoreMountedVehicleControlState(minecraft);
-                mountedVehicleControlSuppressed = false;
+            if (this.mountedVehicleControlSuppressed) {
+                this.restoreMountedVehicleControlState(minecraft);
+                this.mountedVehicleControlSuppressed = false;
             }
             return;
         }
-        mountedVehicleControlSuppressed = true;
-        for (KeyMapping keyMapping : resolveMountedVehicleSuppressedKeys(minecraft)) {
-            releaseKeyMapping(keyMapping);
+        this.mountedVehicleControlSuppressed = true;
+        for (KeyMapping keyMapping : this.resolveMountedVehicleSuppressedKeys(minecraft)) {
+            this.releaseKeyMapping(keyMapping);
         }
         if (minecraft != null && minecraft.player != null && minecraft.player.getVehicle() != null) {
-            minecraft.player.getVehicle().setDeltaMovement(0.0D, 0.0D, 0.0D);
+            minecraft.player.getVehicle().setDeltaMovement(0.0, 0.0, 0.0);
         }
     }
 
     private void enforceLockedHotbarSelection(Minecraft minecraft) {
+        int targetSlot;
         if (minecraft == null || minecraft.player == null) {
             return;
         }
         boolean roomHotbarLocked = ClientRoomLockState.shouldLockHotbarSelection();
-        int vehicleLockedSlot = vehicleMountedHotbarLockService.resolveLockedHotbarSlot(minecraft);
-        int targetSlot = roomHotbarLocked ? resolveLockedHotbarSlot(minecraft) : vehicleLockedSlot;
+        int vehicleLockedSlot = this.vehicleMountedHotbarLockService.resolveLockedHotbarSlot(minecraft);
+        int n = targetSlot = roomHotbarLocked ? this.resolveLockedHotbarSlot(minecraft) : vehicleLockedSlot;
         if (targetSlot < 0) {
             return;
         }
@@ -638,20 +647,18 @@ final class ClientRoomSessionController {
     }
 
     private int resolveLockedHotbarSlot(Minecraft minecraft) {
-        if (isInitialMovementLockActive(minecraft)) {
-            int vehicleSlot = vehicleMountedHotbarLockService.resolveLockedHotbarSlot(minecraft);
+        if (this.isInitialMovementLockActive(minecraft)) {
+            int vehicleSlot = this.vehicleMountedHotbarLockService.resolveLockedHotbarSlot(minecraft);
             if (vehicleSlot >= 0) {
                 return vehicleSlot;
             }
-            return minecraft != null && minecraft.player != null
-                ? minecraft.player.getInventory().selected
-                : PRIMARY_DEPLOY_HOTBAR_SLOT;
+            return minecraft != null && minecraft.player != null ? minecraft.player.getInventory().selected : 0;
         }
-        return DEATH_FLOW_LOCKED_HOTBAR_SLOT;
+        return 6;
     }
 
     private void enforceInventoryAccessLock(Minecraft minecraft) {
-        if (shouldLockInventoryClient() && minecraft.screen instanceof InventoryScreen) {
+        if (this.shouldLockInventoryClient() && minecraft.screen instanceof InventoryScreen) {
             minecraft.setScreen(null);
         }
     }
@@ -674,16 +681,13 @@ final class ClientRoomSessionController {
         if (!ClientRoomLockState.shouldRestrictGameplayInteraction()) {
             return false;
         }
-        if (event.getAction() != GLFW.GLFW_PRESS && event.getAction() != GLFW.GLFW_REPEAT) {
+        if (event.getAction() != 1 && event.getAction() != 2) {
             return false;
         }
-        if (event.getKey() == GLFW.GLFW_KEY_ESCAPE) {
+        if (event.getKey() == 256) {
             return false;
         }
-        if (minecraft.options != null && minecraft.options.keyJump.matches(event.getKey(), event.getScanCode())) {
-            return false;
-        }
-        return true;
+        return minecraft.options == null || !minecraft.options.keyJump.matches(event.getKey(), event.getScanCode());
     }
 
     private boolean shouldBlockGameplayMouseInput(Minecraft minecraft) {
@@ -691,27 +695,18 @@ final class ClientRoomSessionController {
     }
 
     private boolean shouldAllowReleasedMouseUiLeftClick(Minecraft minecraft, InputEvent.MouseButton event) {
-        return minecraft != null
-            && event != null
-            && minecraft.screen == null
-            && event.getAction() == GLFW.GLFW_PRESS
-            && event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT
-            && ClientRoomLockState.shouldReleaseMouseForUi();
+        return minecraft != null && event != null && minecraft.screen == null && event.getAction() == 1 && event.getButton() == 0 && ClientRoomLockState.shouldReleaseMouseForUi();
     }
 
     private boolean shouldAllowDeployReleasedMouseScrollZoom(Minecraft minecraft) {
-        return minecraft != null
-            && minecraft.screen == null
-            && ClientRoomLockState.shouldReleaseMouseForUi()
-            && ClientRoomLockState.isDeployUiActive()
-            && !ClientRoomLockState.isEndingState();
+        return minecraft != null && minecraft.screen == null && ClientRoomLockState.shouldReleaseMouseForUi() && ClientRoomLockState.isDeployUiActive() && !ClientRoomLockState.isEndingState();
     }
 
     private boolean shouldBlockHeldItemUseMouseInput(Minecraft minecraft, InputEvent.MouseButton event) {
-        if (minecraft == null || event == null || minecraft.screen != null || !shouldRestrictHeldItemUse(minecraft)) {
+        if (minecraft == null || event == null || minecraft.screen != null || !this.shouldRestrictHeldItemUse(minecraft)) {
             return false;
         }
-        return event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT || event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT;
+        return event.getButton() == 0 || event.getButton() == 1;
     }
 
     private boolean shouldBlockGameplayMouseScroll(Minecraft minecraft) {
@@ -726,26 +721,18 @@ final class ClientRoomSessionController {
         if (minecraft == null || event == null || minecraft.screen != null || !ClientRoomLockState.shouldRestrictHeldItemUse()) {
             return false;
         }
-        if (event.getAction() != GLFW.GLFW_PRESS && event.getAction() != GLFW.GLFW_REPEAT) {
+        if (event.getAction() != 1 && event.getAction() != 2) {
             return false;
         }
-        return minecraft.options.keyAttack.matches(event.getKey(), event.getScanCode())
-            || minecraft.options.keyUse.matches(event.getKey(), event.getScanCode())
-            || minecraft.options.keyDrop.matches(event.getKey(), event.getScanCode())
-            || minecraft.options.keySwapOffhand.matches(event.getKey(), event.getScanCode());
+        return minecraft.options.keyAttack.matches(event.getKey(), event.getScanCode()) || minecraft.options.keyUse.matches(event.getKey(), event.getScanCode()) || minecraft.options.keyDrop.matches(event.getKey(), event.getScanCode()) || minecraft.options.keySwapOffhand.matches(event.getKey(), event.getScanCode());
     }
 
     private boolean isInitialMovementLockActive(Minecraft minecraft) {
-        return minecraft != null
-            && minecraft.player != null
-            && ClientRoomLockState.snapshot().reason().equals("initial_movement_lock");
+        return minecraft != null && minecraft.player != null && ClientRoomLockState.snapshot().reason().equals("initial_movement_lock");
     }
 
     private boolean shouldSuppressMountedVehicleControls(Minecraft minecraft) {
-        return isInitialMovementLockActive(minecraft)
-            && minecraft != null
-            && minecraft.player != null
-            && SuperbWarfareVehicleCompatBridge.isVehicleEntity(minecraft.player.getVehicle());
+        return this.isInitialMovementLockActive(minecraft) && minecraft != null && minecraft.player != null && SuperbWarfareVehicleCompatBridge.isVehicleEntity(minecraft.player.getVehicle());
     }
 
     private KeyMapping[] resolveMountedVehicleSuppressedKeys(Minecraft minecraft) {
@@ -753,7 +740,7 @@ final class ClientRoomSessionController {
             return new KeyMapping[0];
         }
         KeyMapping[] hotbarSlots = minecraft.options.keyHotbarSlots;
-        KeyMapping[] keys = new KeyMapping[9 + 10];
+        KeyMapping[] keys = new KeyMapping[19];
         int index = 0;
         keys[index++] = minecraft.options.keyUp;
         keys[index++] = minecraft.options.keyDown;
@@ -766,15 +753,15 @@ final class ClientRoomSessionController {
         keys[index++] = minecraft.options.keyUse;
         keys[index++] = minecraft.options.keyDrop;
         keys[index++] = minecraft.options.keySwapOffhand;
-        for (int slot = 0; slot < hotbarSlots.length && index < keys.length; slot++) {
+        for (int slot = 0; slot < hotbarSlots.length && index < keys.length; ++slot) {
             keys[index++] = hotbarSlots[slot];
         }
         return keys;
     }
 
     private void restoreMountedVehicleControlState(Minecraft minecraft) {
-        for (KeyMapping keyMapping : resolveMountedVehicleSuppressedKeys(minecraft)) {
-            syncKeyMappingToPhysicalState(minecraft, keyMapping);
+        for (KeyMapping keyMapping : this.resolveMountedVehicleSuppressedKeys(minecraft)) {
+            this.syncKeyMappingToPhysicalState(minecraft, keyMapping);
         }
     }
 
@@ -791,7 +778,7 @@ final class ClientRoomSessionController {
         if (keyMapping == null) {
             return;
         }
-        keyMapping.setDown(isPhysicalInputPressed(minecraft, keyMapping));
+        keyMapping.setDown(this.isPhysicalInputPressed(minecraft, keyMapping));
     }
 
     private boolean isPhysicalInputPressed(Minecraft minecraft, KeyMapping keyMapping) {
@@ -804,9 +791,9 @@ final class ClientRoomSessionController {
             return false;
         }
         if (key.getType() == InputConstants.Type.MOUSE) {
-            return GLFW.glfwGetMouseButton(window, key.getValue()) == GLFW.GLFW_PRESS;
+            return GLFW.glfwGetMouseButton(window, key.getValue()) == 1;
         }
-        return GLFW.glfwGetKey(window, key.getValue()) == GLFW.GLFW_PRESS;
+        return GLFW.glfwGetKey(window, key.getValue()) == 1;
     }
 
     private void syncMouseGrabState(Minecraft minecraft, ClientCaptureOverlayController overlayController) {
@@ -819,74 +806,75 @@ final class ClientRoomSessionController {
                 minecraft.setScreen(null);
             }
             minecraft.mouseHandler.releaseMouse();
-            deathMouseReleased = true;
+            this.deathMouseReleased = true;
             return;
         }
-        if (!deathMouseReleased) {
+        if (!this.deathMouseReleased) {
             return;
         }
         if (minecraft.screen == null) {
             minecraft.mouseHandler.grabMouse();
-            deathMouseReleased = false;
+            this.deathMouseReleased = false;
         }
     }
 
     private void tickDeployFovState(Minecraft minecraft, float deltaSeconds) {
         boolean deployActiveNow = ClientRoomLockState.shouldReleaseMouse();
         if (deployActiveNow) {
-            if (!deployFovActive) {
-                deployFovActive = true;
-                deployFovRestoreActive = false;
-                deployFovRestoreElapsedSeconds = 0.0F;
-                deployFovBase = getCurrentFov(minecraft);
+            if (!this.deployFovActive) {
+                this.deployFovActive = true;
+                this.deployFovRestoreActive = false;
+                this.deployFovRestoreElapsedSeconds = 0.0f;
+                this.deployFovBase = this.getCurrentFov(minecraft);
             }
             return;
         }
-        if (deployFovActive) {
-            deployFovActive = false;
-            if (deployFovBase > 0.0D) {
-                deployFovRestoreActive = true;
-                deployFovRestoreStart = getCurrentFov(minecraft);
-                deployFovRestoreElapsedSeconds = 0.0F;
+        if (this.deployFovActive) {
+            this.deployFovActive = false;
+            if (this.deployFovBase > 0.0) {
+                this.deployFovRestoreActive = true;
+                this.deployFovRestoreStart = this.getCurrentFov(minecraft);
+                this.deployFovRestoreElapsedSeconds = 0.0f;
             }
         }
-        if (!deployFovRestoreActive || deployFovBase <= 0.0D) {
+        if (!this.deployFovRestoreActive || this.deployFovBase <= 0.0) {
             return;
         }
-        deployFovRestoreElapsedSeconds = Math.min(DEPLOY_FOV_RESTORE_SECONDS, deployFovRestoreElapsedSeconds + Math.max(0.0F, deltaSeconds));
-        float t = Mth.clamp(deployFovRestoreElapsedSeconds / DEPLOY_FOV_RESTORE_SECONDS, 0.0F, 1.0F);
-        float eased = 1.0F - (1.0F - t) * (1.0F - t) * (1.0F - t);
-        double fov = Mth.lerp(eased, deployFovRestoreStart, deployFovBase);
-        setCurrentFov(minecraft, fov);
-        if (t >= 0.999F) {
-            setCurrentFov(minecraft, deployFovBase);
-            deployFovRestoreActive = false;
-            deployFovBase = -1.0D;
-            deployFovRestoreStart = -1.0D;
-            deployFovRestoreElapsedSeconds = 0.0F;
+        this.deployFovRestoreElapsedSeconds = Math.min(1.0f, this.deployFovRestoreElapsedSeconds + Math.max(0.0f, deltaSeconds));
+        float t = Mth.clamp(this.deployFovRestoreElapsedSeconds / 1.0f, 0.0f, 1.0f);
+        float eased = 1.0f - (1.0f - t) * (1.0f - t) * (1.0f - t);
+        double fov = Mth.lerp((double)eased, this.deployFovRestoreStart, this.deployFovBase);
+        this.setCurrentFov(minecraft, fov);
+        if (t >= 0.999f) {
+            this.setCurrentFov(minecraft, this.deployFovBase);
+            this.deployFovRestoreActive = false;
+            this.deployFovBase = -1.0;
+            this.deployFovRestoreStart = -1.0;
+            this.deployFovRestoreElapsedSeconds = 0.0f;
         }
     }
 
     private void forceRestoreDeployFov(Minecraft minecraft) {
         if (minecraft == null || minecraft.options == null) {
-            deployFovActive = false;
-            deployFovRestoreActive = false;
-            deployFovBase = -1.0D;
-            deployFovRestoreStart = -1.0D;
-            deployFovRestoreElapsedSeconds = 0.0F;
+            this.deployFovActive = false;
+            this.deployFovRestoreActive = false;
+            this.deployFovBase = -1.0;
+            this.deployFovRestoreStart = -1.0;
+            this.deployFovRestoreElapsedSeconds = 0.0f;
             return;
         }
-        if (deployFovBase > 0.0D) {
-            setCurrentFov(minecraft, deployFovBase);
+        if (this.deployFovBase > 0.0) {
+            this.setCurrentFov(minecraft, this.deployFovBase);
         }
-        deployFovActive = false;
-        deployFovRestoreActive = false;
-        deployFovBase = -1.0D;
-        deployFovRestoreStart = -1.0D;
-        deployFovRestoreElapsedSeconds = 0.0F;
+        this.deployFovActive = false;
+        this.deployFovRestoreActive = false;
+        this.deployFovBase = -1.0;
+        this.deployFovRestoreStart = -1.0;
+        this.deployFovRestoreElapsedSeconds = 0.0f;
     }
 
     private void renderCornerActionButtons(GuiGraphics guiGraphics, float partialTick) {
+        boolean deployOpen;
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null || minecraft.player == null || minecraft.level == null) {
             return;
@@ -896,56 +884,50 @@ final class ClientRoomSessionController {
         }
         int width = minecraft.getWindow().getGuiScaledWidth();
         int height = minecraft.getWindow().getGuiScaledHeight();
-        int mouseX = (int) Math.round(minecraft.mouseHandler.xpos() * width / Math.max(1, minecraft.getWindow().getScreenWidth()));
-        int mouseY = (int) Math.round(minecraft.mouseHandler.ypos() * height / Math.max(1, minecraft.getWindow().getScreenHeight()));
-        boolean ending = isEndingState();
-        boolean deployOpen = ClientRoomLockState.isDeployUiActive() && !ending;
+        int mouseX = (int)Math.round(minecraft.mouseHandler.xpos() * (double)width / (double)Math.max(1, minecraft.getWindow().getScreenWidth()));
+        int mouseY = (int)Math.round(minecraft.mouseHandler.ypos() * (double)height / (double)Math.max(1, minecraft.getWindow().getScreenHeight()));
+        boolean ending = this.isEndingState();
+        boolean bl = deployOpen = ClientRoomLockState.isDeployUiActive() && !ending;
         if (deployOpen) {
-            CampSwitchButtonState switchState = resolveCampSwitchButtonState(minecraft);
-            if (deployTeamSwitchButton == null) {
-                deployTeamSwitchButton = new GDButton(0, 0, UI_BUTTON_WIDTH, UI_BUTTON_HEIGHT, Component.empty(), btn -> NetworkManager.getChannel().sendToServer(LoadoutUiActionPacket.switchCamp()));
-                deployTeamSwitchButton.setAutoScaleTextToFit(true);
-                deployTeamSwitchButton.setMinAutoScale(0.52F);
+            CampSwitchButtonState switchState = this.resolveCampSwitchButtonState(minecraft);
+            if (this.deployTeamSwitchButton == null) {
+                this.deployTeamSwitchButton = new GDButton(0, 0, 132, 18, Component.empty(), btn -> NetworkManager.getChannel().sendToServer(LoadoutUiActionPacket.switchCamp()));
+                this.deployTeamSwitchButton.setAutoScaleTextToFit(true);
+                this.deployTeamSwitchButton.setMinAutoScale(0.52f);
             }
-            if (deployLoadoutButton == null) {
-                deployLoadoutButton = new GDButton(0, 0, UI_BUTTON_WIDTH, UI_BUTTON_HEIGHT, Component.translatable("gd656conquest.client.gui.deploy.open_loadout"), btn -> loadoutUiController.requestOpenConfigScreen());
+            if (this.deployLoadoutButton == null) {
+                this.deployLoadoutButton = new GDButton(0, 0, 132, 18, Component.translatable("gd656conquest.client.gui.deploy.open_loadout"), btn -> this.loadoutUiController.requestOpenConfigScreen());
             }
-            if (deployVehicleButton == null) {
-                // GD656Mods: 复用载具部署界面已有的标题键, 与配装界面内那个入口文案保持一致
-                deployVehicleButton = new GDButton(0, 0, UI_BUTTON_WIDTH, UI_BUTTON_HEIGHT, Component.translatable("gd656conquest.client.gui.loadout.vehicle.button"), btn -> loadoutUiController.requestOpenVehicleDeployScreen());
+            if (this.deployVehicleButton == null) {
+                this.deployVehicleButton = new GDButton(0, 0, 132, 18, Component.translatable("gd656conquest.client.gui.loadout.vehicle.button"), btn -> this.loadoutUiController.requestOpenVehicleDeployScreen());
             }
-            deployTeamSwitchButton.setMessage(Component.translatable("gd656conquest.client.gui.deploy.switch_team", switchState.targetDisplayName()));
-            deployTeamSwitchButton.setTextColor(switchState.textColor());
-            deployTeamSwitchButton.active = switchState.clickable();
-            // GD656Mods: 右下角三个按钮自下而上堆叠, 尺寸与间距保持一致:
-            //   最下 = 打开配装界面(位置不变) / 中间 = 载具部署(新增) / 最上 = 切换阵营(上移一格)
-            int buttonRight = width - UI_BUTTON_WIDTH - UI_BUTTON_MARGIN;
-            int bottomY = height - UI_BUTTON_HEIGHT - UI_BUTTON_MARGIN;
-            deployLoadoutButton.setX(buttonRight);
-            deployLoadoutButton.setY(bottomY);
-            deployVehicleButton.setX(buttonRight);
-            deployVehicleButton.setY(bottomY - (UI_BUTTON_HEIGHT + UI_BUTTON_GAP));
-            deployTeamSwitchButton.setX(buttonRight);
-            deployTeamSwitchButton.setY(bottomY - 2 * (UI_BUTTON_HEIGHT + UI_BUTTON_GAP));
-            if (switchState.visible()) {
-                deployTeamSwitchButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            this.deployTeamSwitchButton.setMessage(Component.translatable("gd656conquest.client.gui.deploy.switch_team", switchState.targetDisplayName()));
+            this.deployTeamSwitchButton.setTextColor(switchState.textColor());
+            this.deployTeamSwitchButton.active = switchState.clickable();
+            float scale=Math.min(width/1920f,height/1080f),ox=(width-1920*scale)/2,oy=(height-1080*scale)/2;
+            if(this.battlefieldDeployButton==null)this.battlefieldDeployButton=new GDButton(0,0,100,30,Component.literal("部署"),b->BattlefieldDeploymentView.confirm());
+            this.battlefieldDeployButton.active=BattlefieldDeploymentView.ready();
+            GDButton[] buttons={this.deployLoadoutButton,this.deployVehicleButton,this.deployTeamSwitchButton,this.battlefieldDeployButton};
+            var actions=org.mods.gd656killicon.client.gui.theme.BattlefieldDeploymentLayout.Action.values();
+            for(int i=0;i<buttons.length;i++){
+                var r=org.mods.gd656killicon.client.gui.theme.BattlefieldDeploymentLayout.action(org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme.current(),actions[i]);
+                buttons[i].setX(Math.round(ox+r.x()*scale));buttons[i].setY(Math.round(oy+r.y()*scale));buttons[i].setWidth(Math.round(r.w()*scale));buttons[i].setHeight(Math.round(r.h()*scale));
             }
-            deployVehicleButton.render(guiGraphics, mouseX, mouseY, partialTick);
-            deployLoadoutButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            BattlefieldDeploymentView.render(guiGraphics,switchState.visible(),"切换阵营  "+switchState.targetDisplayName(),switchState.clickable(),mouseX,mouseY);
+
         }
         if (ending) {
-            if (matchEndExitButton == null) {
-                matchEndExitButton = new GDButton(0, 0, UI_BUTTON_WIDTH, UI_BUTTON_HEIGHT, Component.translatable("gd656conquest.client.gui.deploy.leave_room"), btn -> NetworkManager.getChannel().sendToServer(LoadoutUiActionPacket.leaveSession()));
-                matchEndExitButton.setTextColor(0xFFFF6B6B);
+            if (this.matchEndExitButton == null) {
+                this.matchEndExitButton = new GDButton(0, 0, 132, 18, Component.translatable("gd656conquest.client.gui.deploy.leave_room"), btn -> NetworkManager.getChannel().sendToServer(LoadoutUiActionPacket.leaveSession()));
+                this.matchEndExitButton.setTextColor(-38037);
             }
-            matchEndExitButton.setX(width - UI_BUTTON_WIDTH - UI_BUTTON_MARGIN);
-            int y = height - UI_BUTTON_HEIGHT - UI_BUTTON_MARGIN;
+            this.matchEndExitButton.setX(width - 132 - 10);
+            int y = height - 18 - 10;
             if (deployOpen) {
-                // GD656Mods: 部署态下右下角共有 3 个按钮(配装/载具部署/切换阵营), 需要整体让开
-                y -= 3 * (UI_BUTTON_HEIGHT + UI_BUTTON_GAP);
+                y -= 66;
             }
-            matchEndExitButton.setY(y);
-            matchEndExitButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            this.matchEndExitButton.setY(y);
+            this.matchEndExitButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
     }
 
@@ -954,23 +936,25 @@ final class ClientRoomSessionController {
         if (minecraft != null && minecraft.screen instanceof LoadoutConfigScreen) {
             return false;
         }
-        boolean ending = isEndingState();
+        boolean ending = this.isEndingState();
         boolean deployOpen = ClientRoomLockState.isDeployUiActive() && !ending;
-        CampSwitchButtonState switchState = resolveCampSwitchButtonState(minecraft);
-        if (deployOpen && switchState.visible() && deployTeamSwitchButton != null && deployTeamSwitchButton.mouseClicked(mouseX, mouseY, button)) {
+        CampSwitchButtonState switchState = this.resolveCampSwitchButtonState(minecraft);
+        if(deployOpen&&BattlefieldDeploymentView.openLoadout(mouseX,mouseY,button))return true;
+        if(deployOpen&&this.battlefieldDeployButton!=null&&this.battlefieldDeployButton.mouseClicked(mouseX,mouseY,button))return true;
+        if (deployOpen && switchState.visible() && this.deployTeamSwitchButton != null && this.deployTeamSwitchButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
-        if (deployOpen && deployVehicleButton != null && deployVehicleButton.mouseClicked(mouseX, mouseY, button)) {
+        if (deployOpen && this.deployVehicleButton != null && this.deployVehicleButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
-        if (deployOpen && deployLoadoutButton != null && deployLoadoutButton.mouseClicked(mouseX, mouseY, button)) {
+        if (deployOpen && this.deployLoadoutButton != null && this.deployLoadoutButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
-        return ending && matchEndExitButton != null && matchEndExitButton.mouseClicked(mouseX, mouseY, button);
+        return ending && this.matchEndExitButton != null && this.matchEndExitButton.mouseClicked(mouseX, mouseY, button);
     }
 
     private CampSwitchButtonState resolveCampSwitchButtonState(Minecraft minecraft) {
-        boolean admin = isAdmin(minecraft);
+        boolean admin = this.isAdmin(minecraft);
         boolean configAllowed = ClientHudDebugState.isPlayerCampSwitchAllowed();
         boolean isGunmasterSolo = false;
         String payload = ClientHudDebugState.getExtraPayload();
@@ -979,21 +963,13 @@ final class ClientRoomSessionController {
         }
         int selfCount = ClientRoomTeamMirror.getSelfTeamPlayerCount();
         int oppositeCount = ClientRoomTeamMirror.getOppositeTeamPlayerCount();
-        boolean allowed = !isGunmasterSolo && (admin || (configAllowed && oppositeCount < selfCount && selfCount - oppositeCount > 1));
+        boolean allowed = !isGunmasterSolo && (admin || configAllowed && oppositeCount < selfCount && selfCount - oppositeCount > 1);
         String targetDisplayName = ClientRoomTeamMirror.getOppositeTeamDisplayNameForSelf();
         if (targetDisplayName == null || targetDisplayName.isBlank()) {
             String selfTeam = ClientHudDebugState.getSelfTeam();
-            if (selfTeam != null && (selfTeam.contains("CampA") || selfTeam.contains("阵营A"))) {
-                targetDisplayName = "CampB";
-            } else if (selfTeam != null && (selfTeam.contains("CampB") || selfTeam.contains("阵营B"))) {
-                targetDisplayName = "CampA";
-            } else {
-                targetDisplayName = "敌方";
-            }
+            targetDisplayName = selfTeam != null && (selfTeam.contains("CampA") || selfTeam.contains("\u9635\u8425A")) ? "CampB" : (selfTeam != null && (selfTeam.contains("CampB") || selfTeam.contains("\u9635\u8425B")) ? "CampA" : "\u654c\u65b9");
         }
-        int textColor = admin
-            ? 0xFFFFD34D
-            : allowed ? 0xFFFFFFFF : 0xFF8A8A8A;
+        int textColor = admin ? -11443 : (allowed ? -1 : -7697782);
         return new CampSwitchButtonState(targetDisplayName, allowed, textColor, !isGunmasterSolo);
     }
 
@@ -1002,12 +978,19 @@ final class ClientRoomSessionController {
     }
 
     private double getCurrentFov(Minecraft minecraft) {
-        Object value = minecraft.options.fov().get();
-        return value instanceof Number number ? number.doubleValue() : 70.0D;
+        double d;
+        Integer value = minecraft.options.fov().get();
+        if (value instanceof Number) {
+            Number number = value;
+            d = number.doubleValue();
+        } else {
+            d = 70.0;
+        }
+        return d;
     }
 
     private void setCurrentFov(Minecraft minecraft, double value) {
-        minecraft.options.fov().set((int) Math.round(Mth.clamp(value, DEPLOY_FOV_MIN, DEPLOY_FOV_MAX)));
+        minecraft.options.fov().set((int)Math.round(Mth.clamp(value, 30.0, 110.0)));
     }
 
     private void trySetBooleanField(Object target, String fieldName, boolean value) {
@@ -1018,7 +1001,9 @@ final class ClientRoomSessionController {
             Field field = target.getClass().getDeclaredField(fieldName);
             field.setAccessible(true);
             field.setBoolean(target, value);
-        } catch (Exception ignored) {
+        }
+        catch (Exception exception) {
+            // empty catch block
         }
     }
 
@@ -1028,3 +1013,4 @@ final class ClientRoomSessionController {
     private record CampSwitchButtonState(String targetDisplayName, boolean clickable, int textColor, boolean visible) {
     }
 }
+

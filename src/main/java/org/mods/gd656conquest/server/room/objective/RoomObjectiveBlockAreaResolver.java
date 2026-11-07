@@ -42,10 +42,11 @@ public final class RoomObjectiveBlockAreaResolver implements RoomObjectiveAreaRe
         }
         BlockScanBounds scanBounds = scanBounds(box);
         Map<String, Double> overlapByCode = new HashMap<>();
+        var level=player.serverLevel();var position=new net.minecraft.core.BlockPos.MutableBlockPos();
         for (int x = scanBounds.minX(); x <= scanBounds.maxX(); x++) {
             for (int y = scanBounds.minY(); y <= scanBounds.maxY(); y++) {
                 for (int z = scanBounds.minZ(); z <= scanBounds.maxZ(); z++) {
-                    var state = player.serverLevel().getBlockState(new net.minecraft.core.BlockPos(x, y, z));
+                    var state = level.getBlockState(position.set(x,y,z));
                     if (!ConquestBlocks.isCapturePoint(state)) {
                         continue;
                     }
@@ -57,22 +58,20 @@ public final class RoomObjectiveBlockAreaResolver implements RoomObjectiveAreaRe
                     if (!allowedCodes.contains(code)) {
                         continue;
                     }
-                    AABB pointBox = new AABB(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D);
-                    if (!pointBox.intersects(box)) {
-                        continue;
-                    }
-                    AABB intersection = pointBox.intersect(box);
-                    double volume = intersection.getXsize() * intersection.getYsize() * intersection.getZsize();
+                    double volume=overlapVolume(box,x,y,z);
                     if (volume > 0.0D) {
                         overlapByCode.merge(code, volume, Double::sum);
                     }
                 }
             }
         }
+        return bestCode(overlapByCode);
+    }
+    static String bestCode(Map<String,Double> overlapByCode) {
         String bestCode = null;
         double bestVolume = 0.0D;
         for (Map.Entry<String, Double> entry : overlapByCode.entrySet()) {
-            if (entry.getValue() > bestVolume) {
+            if (entry.getValue() > bestVolume || entry.getValue() == bestVolume && bestCode != null && entry.getKey().compareTo(bestCode) < 0) {
                 bestVolume = entry.getValue();
                 bestCode = entry.getKey();
             }
@@ -85,21 +84,28 @@ public final class RoomObjectiveBlockAreaResolver implements RoomObjectiveAreaRe
             return false;
         }
         BlockScanBounds scanBounds = scanBounds(box);
+        var level=player.serverLevel();var position=new net.minecraft.core.BlockPos.MutableBlockPos();
         for (int x = scanBounds.minX(); x <= scanBounds.maxX(); x++) {
             for (int y = scanBounds.minY(); y <= scanBounds.maxY(); y++) {
                 for (int z = scanBounds.minZ(); z <= scanBounds.maxZ(); z++) {
-                    var state = player.serverLevel().getBlockState(new net.minecraft.core.BlockPos(x, y, z));
+                    var state = level.getBlockState(position.set(x,y,z));
                     if (!matcher.test(state)) {
                         continue;
                     }
-                    AABB blockBox = new AABB(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D);
-                    if (blockBox.intersects(box)) {
+                    if (overlapVolume(box,x,y,z)>0) {
                         return true;
                     }
                 }
             }
         }
         return false;
+    }
+
+    static double overlapVolume(AABB box,int x,int y,int z) {
+        double dx=Math.min(box.maxX,x+1d)-Math.max(box.minX,x);
+        double dy=Math.min(box.maxY,y+1d)-Math.max(box.minY,y);
+        double dz=Math.min(box.maxZ,z+1d)-Math.max(box.minZ,z);
+        return dx>0&&dy>0&&dz>0?dx*dy*dz:0;
     }
 
     private BlockScanBounds scanBounds(AABB box) {
