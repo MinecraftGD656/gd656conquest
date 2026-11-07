@@ -314,7 +314,7 @@ final class ClientCaptureWorldIconRenderer {
             double distance=playerPosition.distanceTo(new Vec3(entry.x(),entry.y()-entry.kind().renderYOffset(),entry.z()));
             if(projection.screenX()<65*scale||projection.screenX()>gui.guiWidth()-65*scale||projection.screenY()<50*scale)distance=Double.NaN;
             boolean nameFits=projection.screenX()>=150*scale&&projection.screenX()<=gui.guiWidth()-150*scale&&projection.screenY()<=gui.guiHeight()-60*scale;
-            var marker=new org.mods.gd656killicon.client.gui.theme.BattlefieldWorldMarkerLayout.Marker(entry.code(),nameFits?buildHoverText(entry):"",distance,entry.owner()==selfTeam,entry.owner()==TeamToken.NEUTRAL,focus,Math.max(0.0F,Math.min(1.0F,resolveDisplayProgress(state,entry,selfTeam)/100.0F)));
+            var marker=new org.mods.gd656killicon.client.gui.theme.BattlefieldWorldMarkerLayout.Marker(entry.code(),nameFits?buildHoverText(entry):"",distance,entry.owner()==selfTeam,entry.owner()==TeamToken.NEUTRAL,focus,Math.abs(resolveDisplayProgress(state,entry,selfTeam)-50.0F)/50.0F);
             gui.pose().pushPose();gui.pose().translate(projection.screenX(),projection.screenY(),0);gui.pose().scale(scale,scale,1);
             org.mods.gd656killicon.client.gui.theme.BattlefieldWorldMarkerLayout.render(new org.mods.gd656killicon.client.gui.theme.BattlefieldPovOverlay.GameCanvas(gui,theme),theme,marker,weightedAlpha);gui.pose().popPose();return;
         }
@@ -326,7 +326,7 @@ final class ClientCaptureWorldIconRenderer {
             gui.pose().pushPose();gui.pose().translate(projection.screenX(),projection.screenY(),0);
             float scale=CaptureDiamondRenderer.hudRadius(entry.kind().iconRadius())/18f;gui.pose().scale(scale,scale,1);
             org.mods.gd656killicon.client.gui.theme.BattlefieldDeployMarkerLayout.render(new org.mods.gd656killicon.client.gui.theme.BattlefieldPovOverlay.GameCanvas(gui,theme,true),theme,entry.code(),teamName,
-                entry.isSpawnPoint(),friendly,entry.owner()==TeamToken.NEUTRAL,selected,hovered,Math.max(0.0F,Math.min(1.0F,resolveDisplayProgress(state,entry,selfTeam)/100.0F)),weightedAlpha);
+                entry.isSpawnPoint(),friendly,entry.owner()==TeamToken.NEUTRAL,selected,hovered,Math.abs(resolveDisplayProgress(state,entry,selfTeam)-50.0F)/50.0F,weightedAlpha);
             gui.pose().popPose();return;
         }
         if (entry.isDebugMarker()) {
