@@ -331,7 +331,7 @@ public final class ClientHudRenderer {
             int fillColor = this.resolveGunmasterStageColor(index, payload.stageCount, payload.teamStageIndex, payload.finalEnemyAlert);
             gui.fill(startX, barY, startX + width, barY + barHeight, fillColor);
             if (index == payload.selfStageIndex) {
-                org.mods.gd656killicon.client.gui.theme.BattlefieldRectStroke.hairline(gui, startX, barY, width, barHeight, -1);
+                org.mods.gd656conquest.client.gui.BattlefieldRectStroke.hairline(gui, startX, barY, width, barHeight, -1);
             }
             this.drawGunmasterStageMarkers(gui, startX, barY, barHeight, width, payload.soloGrouping, index == payload.selfStageIndex, index < payload.stagePlayerCounts.length ? payload.stagePlayerCounts[index] : 0, index < payload.stageEnemyCounts.length ? payload.stageEnemyCounts[index] : 0);
             startX += width + 3;

@@ -202,7 +202,7 @@ extends Screen {
         guiGraphics.fill(rowLeft, rowY, rowLeft + 4, rowY + 46, accentColor);
         if (selectedWaiting || selected) {
             int outlineColor = BattlefieldUiTheme.palette().accent();
-            org.mods.gd656killicon.client.gui.theme.BattlefieldRectStroke.hairline(guiGraphics, rowLeft, rowY, rowRight - rowLeft, 46, outlineColor);
+            org.mods.gd656conquest.client.gui.BattlefieldRectStroke.hairline(guiGraphics, rowLeft, rowY, rowRight - rowLeft, 46, outlineColor);
         }
         String displayName = entry.displayName().isBlank() ? entry.entryId() : entry.displayName();
         BattlefieldUiTheme.drawText(guiGraphics, displayName, rowLeft + 10, rowY + 5, -1);
