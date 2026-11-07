@@ -66,6 +66,8 @@ import org.mods.gd656conquest.network.packet.SupportUiSnapshotPacket;
 import org.mods.gd656conquest.network.packet.ServerboundBoundaryHeightStatePacket;
 import org.mods.gd656conquest.network.packet.ServerboundParkourFinishPacket;
 import org.mods.gd656conquest.network.packet.SmokeCloudSyncPacket;
+import org.mods.gd656conquest.network.packet.QuickAccessUsePacket;
+import org.mods.gd656conquest.network.packet.QuickAccessResultPacket;
 
 public final class NetworkManager {
     // Bump this whenever packet layout/order changes to avoid decode mismatch crashes.
@@ -501,6 +503,20 @@ public final class NetworkManager {
                 SmokeCloudSyncPacket::encode,
                 SmokeCloudSyncPacket::decode,
                 SmokeCloudSyncPacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                QuickAccessUsePacket.class,
+                QuickAccessUsePacket::encode,
+                QuickAccessUsePacket::decode,
+                QuickAccessUsePacket::handle
+        );
+        CHANNEL.registerMessage(
+                packetId++,
+                QuickAccessResultPacket.class,
+                QuickAccessResultPacket::encode,
+                QuickAccessResultPacket::decode,
+                QuickAccessResultPacket::handle
         );
     }
 

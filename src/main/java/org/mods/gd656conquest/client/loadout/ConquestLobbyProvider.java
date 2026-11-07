@@ -32,6 +32,17 @@ public final class ConquestLobbyProvider implements BattlefieldLobbySource.Provi
   return new BattlefieldLobbySource.Identity(context,cls==null?"—":cls.className(),snapshot==null?"—":Integer.toString(snapshot.playerLevel()),snapshot!=null&&snapshot.admin()&&mc.player!=null&&mc.player.hasPermissions(2));
  }
  @Override public boolean deploymentActive(){return org.mods.gd656conquest.client.room.ClientDeathFlowState.shouldRenderDeployBoundaries();}
+ @Override public boolean quickJoin(){
+  if(Minecraft.getInstance().player==null)return false;
+  NetworkManager.getChannel().sendToServer(new org.mods.gd656conquest.network.packet.QuickAccessUsePacket());
+  return true;
+ }
+ /** Closes the lobby once the server confirms the quick-join item actually did something. */
+ public static void onQuickJoinResult(boolean success){
+  if(!success)return;
+  Minecraft mc=Minecraft.getInstance();
+  if(mc.screen!=null)mc.setScreen(null);
+ }
  @Override public Screen page(String id,Screen parent){
   if(Minecraft.getInstance().player==null)return null;
   if(id.equals("social"))return new org.mods.gd656conquest.client.social.BattlefieldSocialScreen(parent);
