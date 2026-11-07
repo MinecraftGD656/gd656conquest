@@ -39,9 +39,7 @@ public final class ConquestLobbyProvider implements BattlefieldLobbySource.Provi
  }
  /** Closes the lobby once the server confirms the quick-join item actually did something. */
  public static void onQuickJoinResult(boolean success){
-  if(!success)return;
-  Minecraft mc=Minecraft.getInstance();
-  if(mc.screen!=null)mc.setScreen(null);
+  org.mods.gd656killicon.client.gui.theme.lobby.BattlefieldLobbyScreen.notifyQuickJoinResult(success);
  }
  @Override public Screen page(String id,Screen parent){
   if(Minecraft.getInstance().player==null)return null;

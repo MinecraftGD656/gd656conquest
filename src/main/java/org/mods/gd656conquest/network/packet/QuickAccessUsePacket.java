@@ -36,10 +36,13 @@ public final class QuickAccessUsePacket {
     }
 
     private static boolean useQuickJoin(ServerPlayer player) {
+        // Prefer the real hotbar item so the lobby button is a genuine item use, but fall back to
+        // the service entry point when the policy service has not placed it in slot 0 yet.
         ItemStack stack = player.getInventory().getItem(QUICK_JOIN_HOTBAR_SLOT);
-        if (stack.isEmpty() || stack.getItem() != ConquestItems.QUICK_JOIN_ITEM.get()) {
-            return false;
+        if (!stack.isEmpty() && stack.getItem() == ConquestItems.QUICK_JOIN_ITEM.get()) {
+            return stack.use(player.level(), player, InteractionHand.MAIN_HAND).getResult().consumesAction();
         }
-        return stack.use(player.level(), player, InteractionHand.MAIN_HAND).getResult().consumesAction();
+        return org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService
+            .handleUse(player, org.mods.gd656conquest.server.facility.quickaccess.QuickAccessItemService.Action.QUICK_JOIN);
     }
 }
