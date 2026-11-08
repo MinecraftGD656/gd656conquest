@@ -135,6 +135,7 @@ extends Screen {
     @Override
     protected void init() {
         super.init();
+        org.mods.gd656killicon.client.gui.theme.BattlefieldMenuBackgrounds.refresh();
         this.choiceDialog = new ChoiceListDialog(this.minecraft);
         this.weaponPropertyButton = new GDButton(0, 0, 100, 18, Component.literal("\u6b66\u5668\u6570\u636e\uff1a\u5173"), btn -> this.toggleWeaponPropertyPanel());
         this.weaponPropertyButton.setAutoScaleTextToFit(true);
@@ -277,7 +278,10 @@ extends Screen {
         ConfigScreenHeader.TabContent content;
         int activeTab;
         this.embeddedEditorDrawn = false;
-        if(org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic())this.renderBackground(guiGraphics);
+        if(org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic()){
+            if(!org.mods.gd656killicon.client.gui.theme.BattlefieldMenuBackgrounds.drawCustom(guiGraphics,this.width,this.height))this.renderBackground(guiGraphics);
+            else guiGraphics.fillGradient(0,0,this.width,this.height,0x10000709,0x60000709);
+        }
         else BattlefieldUiTheme.background(guiGraphics, this.width, this.height);
         if (this.isOutOfGame()) {
             int remain = Math.max(0, (int)Math.ceil((double)(this.outOfGameCloseAtMs - System.currentTimeMillis()) / 1000.0));
