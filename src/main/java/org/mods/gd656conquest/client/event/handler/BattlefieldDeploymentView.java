@@ -73,7 +73,7 @@ public final class BattlefieldDeploymentView {
     @SubscribeEvent public static void tick(TickEvent.ClientTickEvent event){
         if(event.phase!=TickEvent.Phase.END)return;
         Minecraft mc=Minecraft.getInstance();if(mc.player==null||mc.level==null){if(state!=null||scene!=null)clear();return;}
-        if(!ClientDeathFlowState.shouldRenderDeployBoundaries()||MenuWorldOverlay.menuActive()){previewTime=0;if(scene!=null){scene.destroyBuffers();scene=null;}return;}
+        if(BattlefieldAccessibility.classic()||!ClientDeathFlowState.shouldRenderDeployBoundaries()||MenuWorldOverlay.menuActive()){previewTime=0;if(scene!=null){scene.destroyBuffers();scene=null;}return;}
         long now=System.currentTimeMillis();if(now-lastRequest>=1200){lastRequest=now;NetworkManager.getChannel().sendToServer(new LoadoutUiRequestPacket(false));}
         var snapshot=ClientLoadoutUiState.snapshot();if(snapshot==cached)return;cached=snapshot;
         stacks.clear();var list=new ArrayList<Equipment>();className="—";classKey="";
@@ -89,7 +89,7 @@ public final class BattlefieldDeploymentView {
         equipment=List.copyOf(list);
     }
     @SubscribeEvent public static void backdrop(RenderGuiEvent.Pre event){
-        Minecraft mc=Minecraft.getInstance();if(mc.player==null||!ClientDeathFlowState.shouldRenderDeployBoundaries()||MenuWorldOverlay.menuActive())return;
+        Minecraft mc=Minecraft.getInstance();if(BattlefieldAccessibility.classic()||mc.player==null||!ClientDeathFlowState.shouldRenderDeployBoundaries()||MenuWorldOverlay.menuActive())return;
         var theme=BattlefieldUiTheme.current();GuiGraphics g=event.getGuiGraphics();
         var target=selected();
         if(theme==Theme.BF6&&target!=null){

@@ -45,8 +45,12 @@ public final class ConquestLobbyProvider implements BattlefieldLobbySource.Provi
   if(Minecraft.getInstance().player==null)return null;
   if(id.equals("social"))return new org.mods.gd656conquest.client.social.BattlefieldSocialScreen(parent);
   if(id.equals("vehicles"))return new LoadoutVehicleDeployScreen(parent);
+  if(id.equals("loadout"))return new LoadoutConfigScreen(parent,0,LoadoutConfigScreen.Scope.PLAYER);
+  if(id.equals("administration"))return identity().admin()?new LoadoutConfigScreen(parent,1,LoadoutConfigScreen.Scope.ADMIN):null;
   int index=switch(id){case "rooms"->1;case "room-stats"->2;case "parkour"->identity().admin()?7:3;case "administration"->identity().admin()?4:1;default->0;};
   if(id.startsWith("native:"))index=Integer.parseInt(id.substring(7));
+  if(index==0)return new LoadoutConfigScreen(parent,0,LoadoutConfigScreen.Scope.PLAYER);
+  if(identity().admin()&&index>=3&&index<=6)return new LoadoutConfigScreen(parent,index-3,LoadoutConfigScreen.Scope.ADMIN);
   return new LoadoutConfigScreen(parent,index);
  }
 }

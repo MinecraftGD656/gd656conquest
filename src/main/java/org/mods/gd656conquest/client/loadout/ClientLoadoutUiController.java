@@ -52,6 +52,10 @@ public final class ClientLoadoutUiController {
         if (minecraft == null) {
             return;
         }
+        if(org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic()){
+            if(!(minecraft.screen instanceof LoadoutConfigScreen))minecraft.setScreen(new LoadoutConfigScreen(minecraft.screen,ClientLoadoutUiState.consumeOpenTabIndex()));
+            return;
+        }
         if(minecraft.screen instanceof BattlefieldLobbyScreen lobby){
             int target=ClientLoadoutUiState.consumeOpenTabIndex();
             lobby.requestPage("native:"+target,target==0?BattlefieldLobbyLayout.Section.LOADOUT:target==2?BattlefieldLobbyLayout.Section.CAREER:target>=3?BattlefieldLobbyLayout.Section.SETTINGS:BattlefieldLobbyLayout.Section.PLAY);return;
@@ -82,6 +86,10 @@ public final class ClientLoadoutUiController {
 
     public void toggleConfigScreen() {
         Minecraft minecraft=Minecraft.getInstance();
+        if(org.mods.gd656killicon.client.gui.theme.BattlefieldAccessibility.classic()){
+            if(minecraft.screen instanceof LoadoutConfigScreen screen){screen.onClose();return;}
+            requestSnapshot(false);minecraft.setScreen(new LoadoutConfigScreen(minecraft.screen));return;
+        }
         if(minecraft.screen instanceof BattlefieldLobbyScreen lobby){lobby.onClose();return;}
         requestSnapshot(false);
         minecraft.setScreen(new BattlefieldLobbyScreen(minecraft.screen,BattlefieldLobbyLayout.Section.PLAY));

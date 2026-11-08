@@ -110,7 +110,7 @@ public class GDButton {
     private void updateTextRendererBounds() {
         if (this.textRenderer != null) {
             float fontScale = this.resolveFontScale();
-            int textHeight = Math.max(1, Math.round(9.0f * fontScale));
+            int textHeight = Math.max(1, (int)Math.ceil(BattlefieldUiTheme.textHeight() * fontScale));
             int textY = this.y + (this.height - textHeight) / 2;
             this.textRenderer.setX1(this.x);
             this.textRenderer.setY1(textY);
@@ -121,15 +121,8 @@ public class GDButton {
     }
 
     private float resolveFontScale() {
-        if (!this.autoScaleTextToFit || this.minecraft == null || this.minecraft.font == null || this.message == null) {
-            return 1.0f;
-        }
-        int textWidth = BattlefieldUiTheme.textWidth(this.message.getString());
-        int availableWidth = Math.max(1, this.width - 8);
-        if (textWidth <= 0 || textWidth <= availableWidth) {
-            return 1.0f;
-        }
-        return Math.max(this.minAutoScale, Math.min(1.0f, (float)availableWidth / (float)textWidth));
+        // Every button with the same height shares one readable size; long labels scroll.
+        return Math.min(1f,Math.max(1,this.height-4)/(float)BattlefieldUiTheme.textHeight());
     }
 
     public int getX() {

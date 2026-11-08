@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import org.mods.gd656conquest.client.loadout.ClientLoadoutUiState.WeaponAttachmentPanelState;
+import org.mods.gd656conquest.client.compat.tacz.TaczClientAttachmentCompat;
 import org.mods.gd656killicon.client.gui.theme.BattlefieldUiTheme;
 import java.util.*;
 import static org.mods.gd656conquest.client.loadout.preview.WeaponEditorLayout.*;
@@ -30,6 +31,8 @@ public final class WeaponCustomizationView {
     private WeaponAttachmentPanelState panel;
     private ItemStack base=ItemStack.EMPTY,displayed=ItemStack.EMPTY;
     private TaczWeaponStats.Snapshot stats=TaczWeaponStats.Snapshot.unavailable();
+    private TaczWeaponStats.Snapshot equippedStats=TaczWeaponStats.Snapshot.unavailable();
+    private List<Metric> metrics=List.of();
     private String selectedType,hoveredChoice;
     private int offset;
     private Frame frame;
@@ -56,9 +59,11 @@ public final class WeaponCustomizationView {
         if(!enabled)preview.clearInteraction();
         this.scale=embedded?uiScale:Math.min(width/960f,height/540f);
         this.left=embedded?x:(width-960*scale)/2;this.top=embedded?y:(height-540*scale)/2;
+        boolean equippedChanged=!ItemStack.matches(this.base,nextBase);
         if(this.panel!=nextPanel || !ItemStack.matches(this.base,nextBase)) {
             boolean changedWeapon=this.panel==null||nextPanel==null||this.panel.slotIndex()!=nextPanel.slotIndex()
                 ||!Objects.equals(this.panel.loadoutEntryId(),nextPanel.loadoutEntryId());
+            if(!ItemStack.matches(this.base,nextBase))equippedStats=TaczWeaponStats.read(nextBase);
             this.panel=nextPanel;this.base=nextBase.copy();items.clear();variants.clear();hoveredChoice=null;
             if(changedWeapon){selectedType=null;offset=0;}
             if(selectedType!=null&&(panel==null||!panel.attachmentTypes().containsKey(selectedType)||!panel.attachmentTypes().get(selectedType).available())){selectedType=null;offset=0;}
@@ -79,14 +84,14 @@ public final class WeaponCustomizationView {
             if(state!=null) {
                 total=state.choices().size();unlocked=(int)state.choices().values().stream().filter(v->v.unlocked()).count();
                 var selectedChoice=state.choices().get(state.selectedAttachmentId());
-                if(selectedChoice!=null) {key="category:"+type;items.computeIfAbsent(key,ignored->parse(selectedChoice.itemSnbt()));selected=label(selectedChoice.displayName(),selectedChoice.id());}
+                if(selectedChoice!=null) {key="category:"+type;ItemStack item=items.computeIfAbsent(key,ignored->parse(selectedChoice.itemSnbt()));selected=attachmentLabel(item,selectedChoice.displayName(),selectedChoice.id());}
                 else if(state.available())selected=state.hasStoredSelection()?"无配件":"默认";
                 if(type.equals(selectedType)) {
                     chosen=hoveredChoice!=null?hoveredChoice:state.hasStoredSelection()?state.selectedAttachmentId():null;
                     choices.add(new Choice("","无配件","",true,state.hasStoredSelection()&&state.selectedAttachmentId().isBlank()));
                     for(var choice:state.sortedChoices()) {
-                        String itemKey="choice:"+choice.id();items.computeIfAbsent(itemKey,ignored->parse(choice.itemSnbt()));
-                        choices.add(new Choice(choice.id(),label(choice.displayName(),choice.id()),itemKey,choice.unlocked(),state.hasStoredSelection()&&choice.id().equals(state.selectedAttachmentId())));
+                        String itemKey="choice:"+choice.id();ItemStack item=items.computeIfAbsent(itemKey,ignored->parse(choice.itemSnbt()));
+                        choices.add(new Choice(choice.id(),attachmentLabel(item,choice.displayName(),choice.id()),itemKey,choice.unlocked(),state.hasStoredSelection()&&choice.id().equals(state.selectedAttachmentId())));
                     }
                 }
             }
@@ -105,19 +110,24 @@ public final class WeaponCustomizationView {
                 }
             }
         }
-        if(!ItemStack.matches(displayed,shown)) { displayed=shown.copy();stats=TaczWeaponStats.read(displayed); }
-        preview.setItem(displayed);items.put("weapon",displayed);
-        List<Metric> metrics=new ArrayList<>();
-        // Exact TACZ diagram semantics supply the bars; field names retain their original meaning.
-        for(var m:stats.modifiers()) {
-            if(metrics.size()==4)break;
-            String title=Component.translatable(m.titleKey()).getString();
-            metrics.add(new Metric(title,m.valueText(),m.basePercent()==null?null:m.basePercent()+(m.modifierPercent()==null?0:m.modifierPercent())));
+        if(equippedChanged||!ItemStack.matches(displayed,shown)) {
+            displayed=shown.copy();stats=TaczWeaponStats.read(displayed);
+            List<Metric> values=new ArrayList<>();
+            // Preserve native diagram units; preview changes take the first visible positions.
+            var modifiers=new ArrayList<>(stats.modifiers());
+            modifiers.sort(Comparator.comparing(m->equippedStats.modifiers().stream().anyMatch(old->old.id().equals(m.id())&&Objects.equals(old.modifiedText(),m.modifiedText()))));
+            for(var m:modifiers) {
+                if(values.size()==4)break;
+                String title=Component.translatable(m.titleKey()).getString();
+                values.add(new Metric(title,m.modifiedText(),m.basePercent()==null?null:m.basePercent()+(m.modifierPercent()==null?0:m.modifierPercent())));
+            }
+            while(values.size()<4)values.add(new Metric(new String[]{"DAMAGE","ACCURACY","HIP FIRE","CONTROL"}[values.size()],"—",null));
+            metrics=List.copyOf(values);
         }
-        while(metrics.size()<4)metrics.add(new Metric(new String[]{"DAMAGE","ACCURACY","HIP FIRE","CONTROL"}[metrics.size()],"—",null));
+        preview.setItem(displayed);items.put("weapon",displayed);
         List<Point> points=stats.damageByDistance().stream().map(v->new Point(v.distance(),v.damage())).toList();
         Data data=new Data(weaponName,className,slotLabel,List.copyOf(categories),List.copyOf(choices),selectedType,chosen,
-            List.copyOf(metrics),points,stats.fireMode()==null?"—":stats.fireMode(),number(stats.damage()),number(stats.rpm()),Boolean.TRUE.equals(stats.inventoryAmmo())?"INV":number(stats.magazine()),
+            List.copyOf(metrics),points,stats.fireMode()==null?"—":stats.fireMode(),comparison(stats.damage(),equippedStats.damage()),comparison(stats.rpm(),equippedStats.rpm()),Boolean.TRUE.equals(stats.inventoryAmmo())?"INV":comparison(stats.magazine(),equippedStats.magazine()),
             unit(stats.muzzleVelocity(),"m/s"),stats.adsSeconds()==null?"—":number(stats.adsSeconds()*1000)+"ms",unit(stats.reloadTacticalSeconds(),"s"),number(stats.headshotMultiplier()));
         if(embedded) {
             org.mods.gd656killicon.client.gui.theme.BattlefieldGuiClip.enable(graphics,x,y,x+width,y+height);
@@ -185,6 +195,19 @@ public final class WeaponCustomizationView {
     private void back(){preview.clearInteraction();focusedAction=null;keyboardFocus=false;if(selectedType!=null){selectedType=null;hoveredChoice=null;offset=0;}else actions.back();}
     private static String typeLabel(String type){return switch(type){case "scope"->"瞄准镜";case "muzzle"->"枪口";case "stock"->"枪托";case "grip"->"前握把";case "laser"->"激光";case "extended_mag"->"弹匣";default->type;};}
     private static String label(String name,String fallback){return name==null||name.isBlank()?fallback:Component.translatable(name).getString();}
+    private static String attachmentLabel(ItemStack item,String name,String fallback){
+        String localized=TaczClientAttachmentCompat.getInstance().resolveLocalizedAttachmentDisplayName(item);
+        if(!localized.isBlank())return localized;
+        String translated=label(name,"");
+        if(!translated.isBlank()&&!translated.equals(item.getDescriptionId()))return translated;
+        int separator=fallback.indexOf(':');return (separator<0?fallback:fallback.substring(separator+1)).replace('_',' ');
+    }
+    private static String comparison(Number value,Number equipped){
+        String current=number(value);
+        if(value==null||equipped==null)return current;
+        double delta=value.doubleValue()-equipped.doubleValue();
+        return Math.abs(delta)<.005?current:current+" ("+(delta>0?"+":"")+number(delta)+")";
+    }
     private static String number(Number value){if(value==null||!Double.isFinite(value.doubleValue()))return "—";double d=value.doubleValue();return Math.abs(d-Math.rint(d))<0.01?String.format(Locale.ROOT,"%.0f",d):String.format(Locale.ROOT,"%.2f",d);}
     private static String unit(Double value,String unit){return value==null?"—":number(value)+unit;}
     private static ItemStack parse(String snbt){if(snbt==null||snbt.isBlank())return ItemStack.EMPTY;try{return ItemStack.of(TagParser.parseTag(snbt));}catch(com.mojang.brigadier.exceptions.CommandSyntaxException e){com.mojang.logging.LogUtils.getLogger().warn("Invalid weapon editor item SNBT",e);return ItemStack.EMPTY;}}

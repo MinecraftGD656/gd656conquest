@@ -150,8 +150,8 @@ public class GDTextRenderer {
             if (this.centered) {
                 lineX = (maxWidth - (float)BattlefieldUiTheme.textWidth(line)) / 2.0f;
             }
-            this.drawLineBackground(guiGraphics, lineX, i * 9, BattlefieldUiTheme.textWidth(line));
-            BattlefieldUiTheme.drawText(guiGraphics, line, (int)lineX, i * 9, this.overrideColor != null ? this.overrideColor : this.color);
+            this.drawLineBackground(guiGraphics, lineX, i * BattlefieldUiTheme.textHeight(), BattlefieldUiTheme.textWidth(line));
+            BattlefieldUiTheme.drawText(guiGraphics, line, (int)lineX, i * BattlefieldUiTheme.textHeight(), this.overrideColor != null ? this.overrideColor : this.color);
         }
     }
 
@@ -165,7 +165,7 @@ public class GDTextRenderer {
                 int n = count = (float)BattlefieldUiTheme.textWidth(remaining) > maxWidth - currentX ? BattlefieldUiTheme.truncate(remaining, (int)(maxWidth - currentX)).length() : remaining.length();
                 if (count == 0 && currentX > 0.0f) {
                     currentX = 0.0f;
-                    yOffset += 9;
+                    yOffset += BattlefieldUiTheme.textHeight();
                     continue;
                 }
                 String part = remaining.substring(0, Math.max(1, count));
@@ -175,7 +175,7 @@ public class GDTextRenderer {
                 remaining = remaining.substring(part.length());
                 if (!(currentX >= maxWidth - 1.0f)) continue;
                 currentX = 0.0f;
-                yOffset += 9;
+                yOffset += BattlefieldUiTheme.textHeight();
             }
         }
     }
@@ -323,7 +323,7 @@ public class GDTextRenderer {
         }
         int left = (int)Math.floor(drawX);
         int right = (int)Math.ceil(drawX + (float)lineWidth);
-        guiGraphics.fill(left, drawY, right, drawY + 9, this.backgroundColor);
+        guiGraphics.fill(left, drawY, right, drawY + BattlefieldUiTheme.textHeight(), this.backgroundColor);
     }
 
     private boolean hasContent() {
@@ -349,7 +349,7 @@ public class GDTextRenderer {
 
     public int getFinalHeight() {
         if (!this.autoWrap) {
-            return (int)(9.0f * this.fontSize);
+            return (int)Math.ceil(BattlefieldUiTheme.textHeight() * this.fontSize);
         }
         float scale = this.fontSize;
         float scaledWidth = (float)this.width / scale;
@@ -357,7 +357,7 @@ public class GDTextRenderer {
             return (int)((float)this.getMixedColorWrappedHeight(scaledWidth) * scale);
         }
         List<String> lines = this.wrapText(this.text, scaledWidth);
-        return (int)((float)(lines.size() * 9) * scale);
+        return (int)Math.ceil(lines.size() * BattlefieldUiTheme.textHeight() * scale);
     }
 
     private int getMixedColorWrappedHeight(float maxWidth) {
@@ -381,7 +381,7 @@ public class GDTextRenderer {
                 ++lines;
             }
         }
-        return lines * 9;
+        return lines * BattlefieldUiTheme.textHeight();
     }
 
     public void setText(String text) {
